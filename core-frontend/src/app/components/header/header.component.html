@@ -1,0 +1,62 @@
+<ion-header [translucent]="true">
+  <ion-toolbar 
+    color="light"
+    (touchstart)="onTouchStart($event)"
+    (touchmove)="onTouchMove($event)"
+    (touchend)="onTouchEnd($event)"
+    >
+    <ng-container
+      *ngTemplateOutlet="isSearchMode ? search : normal"
+    ></ng-container>
+  </ion-toolbar>
+  <app-event-banner></app-event-banner>
+</ion-header>
+
+<ng-template #normal>
+  <ion-buttons slot="start" (click)="movePage()">
+    <div class="buttons-wrapper">
+      <ion-button>
+        <ion-icon class="small-icon" name="ellipsis-horizontal-circle" slot="icon-only"></ion-icon>
+      </ion-button>
+      <!-- <img src="../../../assets/icon/icon.png" alt="icon" class="rounded-image"> -->
+      <span>Star Platform</span>
+    </div>
+  </ion-buttons>
+  <ion-buttons slot="end">
+<!--    <ion-button class="header-btn-small" (click)="movePeterPan()">-->
+<!--      <ion-icon name="people-outline" slot="icon-only"></ion-icon>-->
+<!--    </ion-button>-->
+
+<!--    <ion-button class="header-btn-small" (click)="moveTinkerBell()">-->
+<!--      <ion-icon name="flash-outline" slot="icon-only"></ion-icon>-->
+<!--    </ion-button>-->
+
+    <ion-button class="header-btn-small" (click)="moveMonster()">
+      <ion-icon class="small-icon" name="flash-outline" slot="icon-only"></ion-icon>
+    </ion-button>
+
+    <ion-button class="header-btn-small" (click)="moveFollowers()">
+      <div class="icon-wrapper">
+        <ion-icon class="small-icon" name="paper-plane-outline" slot="icon-only"></ion-icon>
+        <div *ngIf="newMessage" class="notification-dot"></div>
+      </div>
+    </ion-button>
+
+    <ion-button (click)="changeIsSearchMode()">
+      <ion-icon class="small-icon" name="search" slot="icon-only"></ion-icon>
+    </ion-button>
+  </ion-buttons>
+  <!-- <ion-title>
+    {{ pageTitle }}
+  </ion-title> -->
+</ng-template>
+
+<ng-template #search>
+  <ion-searchbar
+    #searchBar
+    (ionBlur)="changeIsSearchMode()"
+    (keyup)="searchByKeyword($event)"
+    type="search"
+    showClearButton="always"
+  ></ion-searchbar>
+</ng-template>

@@ -1,0 +1,154 @@
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import '~@ionic/angular/css/core.css';
+
+/* Basic CSS for apps built with Ionic */
+@import '~@ionic/angular/css/normalize.css';
+@import '~@ionic/angular/css/structure.css';
+@import '~@ionic/angular/css/typography.css';
+@import '~@ionic/angular/css/display.css';
+
+/* Optional CSS utils that can be commented out */
+@import '~@ionic/angular/css/padding.css';
+@import '~@ionic/angular/css/float-elements.css';
+@import '~@ionic/angular/css/text-alignment.css';
+@import '~@ionic/angular/css/text-transformation.css';
+@import '~@ionic/angular/css/flex-utils.css';
+
+// Swiper
+// @import '~swiper/scss';
+@import '~swiper/swiper.min.css';
+@import '~@ionic/angular/css/ionic-swiper.css';
+
+:root {
+  --ion-safe-area-top-origin: env(safe-area-inset-top);
+  --ion-safe-area-bottom-origin: env(safe-area-inset-bottom);
+  --ion-safe-area-top: var(--ion-safe-area-top-origin);
+  --ion-safe-area-bottom: var(--ion-safe-area-bottom-origin);
+}
+
+// custom start
+body {
+  background: #ffffff;
+}
+
+// refresh & infinite scroll
+.refresher-pulling-text,
+.refresher-refreshing-text,
+.infinite-loading-text {
+  font-size: 10px;
+}
+.refresher-pulling-icon,
+.refresher-refreshing-icon,
+.infinite-loading-spinner {
+  font-size: 25px;
+}
+.infinite-loading {
+  margin: 16px 0;
+}
+ion-app {
+  margin-bottom: calc(var(--ion-safe-area-bottom));
+}
+
+/* ion-header */
+ion-header {
+  ion-toolbar {
+    --border-width: 0 !important;
+    --opacity: 1 !important;
+
+    ion-button {
+      ion-label {
+        margin-bottom: 4px;
+      }
+    }
+  }
+  ion-title {
+    text-align: center;
+  }
+  ion-searchbar {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  &::after {
+    background-image: none !important;
+  }
+}
+
+/* ionModal_css */
+ion-modal {
+  --ion-background-color: rgba(0, 0, 0, 0);
+  &.loginView {
+    --width: 90%;
+    --height: 75%;
+  }
+  &.chatView {
+    --width: 80%;
+    --height: 80%;
+  }
+}
+
+/* for app-inst page css*/
+.subText {
+  span {
+    color: #f9a631;
+  }
+}
+
+/* for detail page heart-fab */
+ion-fab {
+  &.detailHeart {
+    bottom: 45px !important;
+  }
+}
+
+.clean-loading {
+  --background: var(--ion-color-primary-contrast);
+  --color: #333;
+  color: var(--color);
+  .loading-wrapper {
+    border-radius: 24px;
+    box-shadow: none;
+    -webkit-box-shadow: none;
+  }
+  &.with-text {
+    .loading-wrapper {
+      border-radius: 5px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
+}
+
+.earthToast {
+  text-align: center;
+  font-weight: 500;
+  --color: #333;
+  --background: rgba(255, 255, 255, 0.9);
+  --border-color: var(--ion-color-light-shade);
+  --border-style: solid;
+  --border-width: 1px;
+}
+
+.cdk-virtual-scroll-content-wrapper {
+  width: 100%;
+}
+
+.image-viewer-modal {
+  .modal-wrapper {
+    height: 100%;
+    width: 100%;
+    --border-radius: 0;
+  }
+}

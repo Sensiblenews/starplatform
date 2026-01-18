@@ -1,0 +1,1182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="content">
+
+	<select id="getContents" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    CON_ID,
+			   	PRS_ID,
+          		(SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = WC.PRS_ID) PRS_NAME,
+			    CON_TYPE,
+			    CON_CATEGORY,
+			    CON_TITLE,
+			    CON_SUBTITLE,
+			    CON_THUMNAIL,
+			    CON_VIDEO,
+			    CON_VIDEO_THUMNAIL,
+			    CON_ORIGIN_URL,
+			    CON_YOUTUBE_URL,
+			    CON_BODY,
+			    CON_PREFIX,
+			    CON_IMPORTANCE,
+			    CON_PRICE,
+			    CON_USE_YN,
+			    CON_WRITE_YN,
+			    CON_META_YN,
+			    date_format(CON_CREATE_DATE,'%Y-%m-%d %T') CON_CDATE,    		
+         		date_format(CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UDATE
+			FROM
+			    WH_CONTENT WC  
+			WHERE 1=1				
+				AND WC.CON_ID = #{CON_ID}
+		]]>
+	</select>
+	
+	<select id="appInstDetail" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			      CON_ID
+				  ,APP_ID
+				  ,PRS_ID	
+				  ,CON_TYPE
+				  ,CON_CATEGORY	
+				  ,CON_TITLE	
+				  ,CON_SUBTITLE
+				  ,CON_THUMNAIL	
+				  ,CON_ORIGIN_URL
+				  ,CON_YOUTUBE_URL
+				  ,CON_BODY	
+				  ,CON_PREFIX	
+				  ,CON_IMPORTANCE	
+				  ,CON_PRICE
+				  ,CON_USE_YN	
+				  ,CON_META_YN	
+				  ,CON_WRITE_YN	
+				  ,CON_PRIOT	
+				  ,date_format(CON_CREATE_DATE,'%Y-%m-%d %T') CON_CDATE  		
+				  ,date_format(CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UDATE
+			FROM
+			    WH_CONTENT
+			WHERE CON_TYPE = 5
+			LIMIT ${index}, 1
+		]]>
+	</select>
+	
+	<select id="policyDetail" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			     CON_ID
+				  ,APP_ID
+				  ,PRS_ID	
+				  ,CON_TYPE
+				  ,CON_CATEGORY	
+				  ,CON_TITLE	
+				  ,CON_SUBTITLE
+				  ,CON_THUMNAIL	
+				  ,CON_ORIGIN_URL
+				  ,CON_YOUTUBE_URL
+				  ,CON_BODY	
+				  ,CON_PREFIX	
+				  ,CON_IMPORTANCE	
+				  ,CON_PRICE
+				  ,CON_USE_YN	
+				  ,CON_META_YN	
+				  ,CON_WRITE_YN	
+				  ,CON_PRIOT	
+				  ,date_format(CON_CREATE_DATE,'%Y-%m-%d %T') CON_CDATE  		
+				  ,date_format(CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UDATE
+			FROM
+			    WH_CONTENT
+			WHERE CON_TYPE = 7
+			LIMIT ${index}, 1
+		]]>
+	</select>
+	
+	<select id="contentHistoryChk" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_CONT_CNT
+			WHERE
+				CON_ID = #{CON_ID}
+			    AND MEM_ID = #{MEM_ID}
+		]]>
+	</select>
+	
+	<insert id="insertContentHistory" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_CONT_CNT
+			(CON_ID,
+			MEM_ID)
+			VALUES
+			(#{CON_ID},
+			 #{MEM_ID})
+		]]>
+	</insert>
+
+	<select id="contentPriceChk" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    PRI_ID,
+			    CON_ID,
+			    MEM_ID,
+			    CON_PRICE,
+			    PRI_EXPD,
+			    PRI_CREATE_DATE,
+			    PRI_UPDATE_DATE
+			FROM
+			    WH_PRICE
+			WHERE
+			    CON_ID = #{CON_ID}
+				AND MEM_ID = #{MEM_ID}
+				AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= PRI_EXPD
+		]]>
+	</select>
+
+	<insert id="contentPay" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_PRICE
+			(
+			PRS_ID,
+			CON_ID,
+			MEM_ID,
+			CON_PRICE,
+			CON_PRICE_CHG,
+			PRI_EXPD)
+			VALUES
+			(
+			 #{PRS_ID},
+			 #{CON_ID},
+			 #{MEM_ID},
+			 #{CON_PRICE},
+			 #{CON_PRICE_CHG},
+			DATE_ADD(DATE_FORMAT(NOW(), '%Y-%m-%d'), interval + 29 day))
+		]]>
+	</insert>
+	
+	<insert id="contentHeart" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_HEART
+			(
+			PRS_ID,
+			CON_ID,
+			MEM_ID,
+			CON_HEART,
+			CON_HEART_CHG)
+			VALUES
+			(
+			(SELECT PRS_ID FROM WH_CONTENT WHERE CON_ID= #{CON_ID}),
+			#{CON_ID},
+			 #{MEM_ID},
+			 #{CON_HEART},
+			 #{CON_HEART_CHG})
+		]]>
+	</insert>
+	
+	<select id="contentHeartSender" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT
+			    wm.MEM_NAME,
+			    (wh.CON_HEART_CHG + wh.CON_HEART) CON_HEART_CHG
+			FROM
+			    WH_HEART wh
+			LEFT JOIN WH_MEMBER wm ON wm.MEM_ID = wh.MEM_ID
+			WHERE wh.PRS_ID = #{MEM_ID}
+			  AND (wh.CON_HEART_CHG > 0 OR wh.CON_HEART > 0)
+			ORDER BY
+			    wh.HRT_ID DESC
+			LIMIT 10
+		]]>
+	</select>
+
+	<select id="getComments" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_COMMENT
+			WHERE
+			    CON_ID = #{CON_ID} AND COM_USE_YN = 1
+			ORDER BY COM_CREATE_DATE ASC
+		]]>
+	</select>
+
+	<select id="getImages" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_IMAGE
+			WHERE
+				CON_ID = #{CON_ID} AND IMG_USE_YN = 1
+			ORDER BY IMG_ID ASC
+		]]>
+	</select>
+
+	<select id="mainContents" resultType="hashmap" parameterType="hashmap">
+		SELECT 
+			*
+		FROM
+		(
+		
+			SELECT 
+			    C.CON_ID,
+			    C.PRS_ID,
+			    (CASE WHEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		             ELSE (SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = C.PRS_ID) END
+		          ) MEM_NAME,
+		        (CASE WHEN (SELECT MEM_PICTURE FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_PICTURE FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		        	ELSE '' END) MEM_PICTURE,
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    C.CON_THUMNAIL,
+			    C.CON_VIDEO,
+			    C.CON_VIDEO_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_META_YN,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+			    P.PRI_ID,
+			    IF(P.PRI_EXPD IS NULL, 0, 
+			    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) &lt; 0, 0,
+			        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+				(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				(SELECT COUNT(*) FROM WH_COMMENT WC WHERE WC.CON_ID = C.CON_ID AND WC.COM_USE_YN = 1) AS CON_COMMENT_CNT,
+		        date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE,
+    			CON_PRIOT,
+		        CON_TOP_YN,
+		        CON_TOP_DATE  
+			FROM
+			    WH_CONTENT C
+			        LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID 
+			    AND P.MEM_ID = #{MEM_ID} 
+			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
+			WHERE C.CON_USE_YN = 1 
+			AND CON_TYPE = #{CON_TYPE} 
+			<if test='CON_CATEGORY != "" and CON_CATEGORY != null'>
+			AND CON_CATEGORY = #{CON_CATEGORY}
+			</if>
+			AND  APP_ID = #{APP_ID}
+	       <!-- 차단사용자 게시물은 조회안함 -->
+	       <if test='MEM_ID != null' >
+	       AND C.PRS_ID NOT IN(
+	       SELECT BLOCK_MEM_ID 
+	       FROM WH_BLOCK
+	       WHERE MEM_ID= #{MEM_ID}
+	       )
+	       </if>
+				
+	    	
+	    	<if test='APP_ID == "1" '>	
+	    	UNION ALL
+	    		SELECT 
+			    C.CON_ID,
+			    C.PRS_ID,
+			    (CASE WHEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		             ELSE (SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = C.PRS_ID) END
+		          ) MEM_NAME,
+   		        (CASE WHEN (SELECT MEM_PICTURE FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_PICTURE FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+	        	ELSE '' END) MEM_PICTURE, 
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    C.CON_THUMNAIL,
+			    C.CON_VIDEO,
+			    C.CON_VIDEO_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_META_YN,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+			    P.PRI_ID,
+			    IF(P.PRI_EXPD IS NULL, 0, 
+			    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) &lt; 0, 0,
+			        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+				(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				(SELECT COUNT(*) FROM WH_COMMENT WC WHERE WC.CON_ID = C.CON_ID AND WC.COM_USE_YN = 1) AS CON_COMMENT_CNT,
+		        date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE,
+    			CON_PRIOT,
+		        CON_TOP_YN,
+		        CON_TOP_DATE  
+			FROM
+			    WH_CONTENT C
+			        LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID 
+			    AND P.MEM_ID = #{MEM_ID} 
+			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
+			WHERE 1=1 
+			AND C.CON_USE_YN = 1 			
+			<if test='CON_CATEGORY != "" and CON_CATEGORY != null'>
+			AND CON_CATEGORY = #{CON_CATEGORY}
+			</if>
+			AND C.APP_ID IN (
+			          SELECT APP_ID
+			          FROM WH_PRESS
+			          WHERE 1=1		         
+			         <if test='CON_TYPE !="9" '>	
+			          AND PRS_TYPE= #{PRS_TYPE} 	
+			          </if>	         
+			          AND APP_ID != '1'
+			        )	
+			   <if test='CON_TYPE !="9" '>		        
+		       AND CON_TYPE IN ('0','1','8')    
+			   </if>	
+			   <if test='CON_TYPE =="9" '>		        
+		       AND CON_TYPE ='9'		       
+			   </if>		
+						
+	       </if>
+	    
+	    ) M  	      
+		ORDER BY CON_TOP_DATE DESC, ${SORT_ITEM} ${SORT_ORDER}
+		LIMIT ${offset}, ${limit}
+		
+	</select>
+	
+	<select id="selectExclusiveAuthors" resultType="hashmap" parameterType="hashmap">
+	    SELECT 
+	        PRS_ID,
+	        MAX(CON_CREATE_DATE) as LATEST_DATE
+	    FROM WH_CONTENT
+	    WHERE CON_TYPE = #{CON_TYPE}
+	      AND CON_USE_YN = 1
+	      <if test='MEM_ID != null'>
+	       AND PRS_ID NOT IN (SELECT BLOCK_MEM_ID FROM WH_BLOCK WHERE MEM_ID = #{MEM_ID})
+	      </if>
+	    GROUP BY PRS_ID
+	    ORDER BY LATEST_DATE DESC
+	    LIMIT ${offset}, ${limit}
+	</select>
+	
+	<select id="selectAuthorThreeContents" resultType="hashmap" parameterType="hashmap">
+	    SELECT 
+	        CON_ID,
+	        CON_TITLE,
+	        IFNULL(CON_THUMNAIL, CON_VIDEO_THUMNAIL) as IMG_URL, 
+	        CON_CREATE_DATE
+	    FROM WH_CONTENT
+	    WHERE PRS_ID = #{PRS_ID}
+	      AND CON_TYPE = #{CON_TYPE}
+	      AND CON_USE_YN = 1
+	    ORDER BY CON_CREATE_DATE DESC
+	    LIMIT 3
+	</select>
+	
+	<select id="selectExclusiveContents" parameterType="hashmap" resultType="hashmap">
+	    SELECT 
+	        C.CON_ID,
+	        C.CON_TITLE,
+	        C.CON_THUMNAIL,
+	        C.PRS_ID,
+	        DATE_FORMAT(C.CON_WRITE_DATE, '%Y-%m-%d') AS WRITE_DATE,
+	        
+	        COALESCE(P.PRS_NAME, M.MEM_NAME) AS MEM_NAME,
+	        COALESCE(P.STORED_FILE_NM, M.MEM_PICTURE) AS MEM_PICTURE,
+	        
+	        IFNULL(H.HEART, 0) AS HEART_COUNT
+	        
+	    FROM WH_CONTENT C
+	    LEFT JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
+	    LEFT JOIN WH_MEMBER M ON C.PRS_ID = M.MEM_ID
+	    LEFT JOIN WH_CONTENT_HEART H ON C.CON_ID = H.CON_ID
+	    WHERE 1=1
+	      AND C.CON_USE_YN = 1
+	      AND C.CON_TYPE = #{CON_TYPE}
+	    ORDER BY C.CON_ID DESC
+	    LIMIT #{START}, #{SIZE} -- 페이징 처리
+	</select>
+	
+	<select id="myContents" resultType="hashmap" parameterType="hashmap">
+		SELECT 
+			*
+		FROM
+		(
+		
+			SELECT 
+			    C.CON_ID,
+			    C.PRS_ID,
+			    (CASE WHEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		             ELSE (SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = C.PRS_ID) END
+		          ) MEM_NAME,
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    C.CON_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_META_YN,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+			    P.PRI_ID,
+   			    (SELECT COUNT(*) FROM WH_WATCH ww WHERE ww.CON_ID = C.CON_ID) CON_WATCH_COUNT,		    
+			    IF(P.PRI_EXPD IS NULL, 0, 
+			    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) &lt; 0, 0,
+			        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+				(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+		        date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE,
+    			CON_PRIOT,
+		        CON_TOP_YN,
+		        CON_TOP_DATE  
+			FROM
+			    WH_CONTENT C
+			LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID 
+			    AND P.MEM_ID = #{MEM_ID} 
+			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
+			WHERE C.CON_USE_YN = 1 
+			AND CON_TYPE = #{CON_TYPE} 
+			<if test='CON_CATEGORY != "" and CON_CATEGORY != null'>
+			AND CON_CATEGORY = #{CON_CATEGORY}
+			</if>
+			AND  APP_ID = #{APP_ID}
+	    ) M
+		<if test='MEM_ID != null'>
+			WHERE PRS_ID = #{MEM_ID}
+		</if>
+		ORDER BY CON_TOP_DATE DESC, ${SORT_ITEM} ${SORT_ORDER}
+	</select>
+	
+	<select id="profileContentsCount" resultType="hashmap" parameterType="hashmap">
+		SELECT 
+			COUNT(*) CNT
+		FROM
+		(
+		
+			SELECT 
+			    C.CON_ID,
+			    C.PRS_ID,
+			    (CASE WHEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		             ELSE (SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = C.PRS_ID) END
+		          ) MEM_NAME,
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL) AS CON_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_META_YN,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+			    P.PRI_ID,
+			    IF(P.PRI_EXPD IS NULL, 0, 
+			    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) &lt; 0, 0,
+			        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+				(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+		        date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE,
+    			CON_PRIOT,
+		        CON_TOP_YN,
+		        CON_TOP_DATE,
+    			(SELECT COUNT(*) FROM WH_WATCH ww WHERE ww.CON_ID = C.CON_ID) CON_WATCH_COUNT
+			FROM
+			    WH_CONTENT C
+			
+			LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID 
+			    AND P.MEM_ID = #{PROFILE_ID} 
+			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
+			WHERE C.CON_USE_YN = 1 
+			  AND (CON_TYPE = 1 OR CON_TYPE = 0 OR CON_TYPE = 9)
+	    ) M
+		<if test='PROFILE_ID != null'>
+			WHERE PRS_ID = #{PROFILE_ID}
+		</if>
+	</select>
+	
+	<!-- 위에 WHERE C.CON_USE_YN = 1 같은 레벨 바로 밑에 AND CON_TYPE = #{CON_TYPE}
+			AND  APP_ID = #{APP_ID} 있었음 -->
+	
+	<select id="profileContents" resultType="hashmap" parameterType="hashmap">
+		SELECT 
+			*
+		FROM
+		(
+		
+			SELECT 
+			    C.CON_ID,
+			    C.PRS_ID,
+			    (CASE WHEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID) != '' THEN (SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = C.PRS_ID)
+		             ELSE (SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = C.PRS_ID) END
+		          ) MEM_NAME,
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL) AS CON_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_META_YN,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+			    P.PRI_ID,
+			    IF(P.PRI_EXPD IS NULL, 0, 
+			    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) &lt; 0, 0,
+			        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+				(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+		        date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE,
+    			CON_PRIOT,
+		        CON_TOP_YN,
+		        CON_TOP_DATE,
+    			(SELECT COUNT(*) FROM WH_WATCH ww WHERE ww.CON_ID = C.CON_ID) CON_WATCH_COUNT
+			FROM
+			    WH_CONTENT C
+			
+			LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID 
+			    AND P.MEM_ID = #{PROFILE_ID} 
+			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
+			WHERE C.CON_USE_YN = 1 
+			  AND (CON_TYPE = 1 OR CON_TYPE = 0 OR CON_TYPE = 9)
+	    ) M
+		<if test='PROFILE_ID != null'>
+			WHERE PRS_ID = #{PROFILE_ID}
+		</if>
+		ORDER BY CON_TOP_DATE DESC, ${SORT_ITEM} ${SORT_ORDER}
+		LIMIT #{SKIP}, 30
+	</select>
+	
+	<!-- 위에 WHERE C.CON_USE_YN = 1 같은 레벨 바로 밑에 AND CON_TYPE = #{CON_TYPE}
+			AND  APP_ID = #{APP_ID} 있었음 -->
+	
+	
+	<select id="searchContents" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT * FROM (
+				SELECT 
+				    C.CON_ID,
+				    C.CON_TITLE,
+				    C.CON_SUBTITLE,
+				    C.CON_THUMNAIL,
+				    C.CON_YOUTUBE_URL,
+				    C.CON_BODY,
+				    C.CON_PREFIX,
+				    C.CON_IMPORTANCE,
+				    C.CON_PRICE,
+				    C.CON_USE_YN,
+				    C.CON_WRITE_YN,
+				    C.PRS_ID,
+					C.CON_META_YN,
+					C.CON_PRIOT,
+				    P.PRI_ID,
+				    M.MEM_NAME,
+				    (SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				    IF(P.PRI_EXPD IS NULL, 0, 
+				    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) < 0, 0,
+				        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+					date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         			date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE
+				FROM
+				    WH_CONTENT C
+				        LEFT JOIN
+				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
+  				    	LEFT JOIN
+				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID			    
+				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_TITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				union
+				SELECT 
+				    C.CON_ID,
+				    C.CON_TITLE,
+				    C.CON_SUBTITLE,
+				    C.CON_THUMNAIL,
+				    C.CON_YOUTUBE_URL,
+				    C.CON_BODY,
+				    C.CON_PREFIX,
+				    C.CON_IMPORTANCE,
+				    C.CON_PRICE,
+				    C.CON_USE_YN,
+				    C.CON_WRITE_YN,
+				    C.PRS_ID,
+					C.CON_META_YN,
+					C.CON_PRIOT,
+				    P.PRI_ID,
+				    M.MEM_NAME,
+				    (SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				    IF(P.PRI_EXPD IS NULL, 0, 
+				    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) < 0, 0,
+				        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+					date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         			date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE 
+				FROM
+				    WH_CONTENT C
+				        LEFT JOIN
+				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
+  				    	LEFT JOIN
+				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID				    
+				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_SUBTITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				union
+				SELECT 
+				    C.CON_ID,
+				    C.CON_TITLE,
+				    C.CON_SUBTITLE,
+				    C.CON_THUMNAIL,
+				    C.CON_YOUTUBE_URL,
+				    C.CON_BODY,
+				    C.CON_PREFIX,
+				    C.CON_IMPORTANCE,
+				    C.CON_PRICE,
+				    C.CON_USE_YN,
+				    C.CON_WRITE_YN,
+				    C.PRS_ID,
+					C.CON_META_YN,
+					C.CON_PRIOT,
+				    P.PRI_ID,
+				    M.MEM_NAME,
+				    (SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				    IF(P.PRI_EXPD IS NULL, 0, 
+				    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) < 0, 0,
+				        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+					date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         			date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE
+				FROM
+				    WH_CONTENT C
+				        LEFT JOIN
+				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
+  				    	LEFT JOIN
+				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID
+				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_BODY LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				union
+				SELECT 
+				    C.CON_ID,
+				    C.CON_TITLE,
+				    C.CON_SUBTITLE,
+				    C.CON_THUMNAIL,
+				    C.CON_YOUTUBE_URL,
+				    C.CON_BODY,
+				    C.CON_PREFIX,
+				    C.CON_IMPORTANCE,
+				    C.CON_PRICE,
+				    C.CON_USE_YN,
+				    C.CON_WRITE_YN,
+				    C.PRS_ID,
+					C.CON_META_YN,
+					C.CON_PRIOT,
+				    P.PRI_ID,
+				    M.MEM_NAME,
+				    (SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = C.CON_ID) AS CON_CNT,
+				    IF(P.PRI_EXPD IS NULL, 0, 
+				    IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) < 0, 0,
+				        DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD,
+					date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         			date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE
+				FROM
+				    WH_CONTENT C
+				        LEFT JOIN
+				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
+  				    	LEFT JOIN
+				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID				   
+				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_PREFIX LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')) A 
+			ORDER BY CON_UPDATE_DATE DESC
+			LIMIT ${offset}, ${limit}
+		]]>
+	</select>
+	
+	<select id="popupContents" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    C.CON_ID,
+			    C.CON_TITLE,
+			    C.CON_SUBTITLE,
+			    C.CON_THUMNAIL,
+			    C.CON_YOUTUBE_URL,
+			    C.CON_BODY,
+			    C.CON_PREFIX,
+			    C.CON_IMPORTANCE,
+			    C.CON_PRICE,
+			    C.CON_USE_YN,
+			    C.CON_WRITE_YN,
+				date_format(C.CON_CREATE_DATE,'%Y-%m-%d %T') CON_CREATE_DATE,    		
+         		date_format(C.CON_UPDATE_DATE,'%Y-%m-%d %T') CON_UPDATE_DATE
+			FROM
+			    WH_CONTENT C
+			WHERE C.CON_USE_YN = 1 
+			AND CON_TYPE = #{CON_TYPE}
+			AND  APP_ID = #{APP_ID}
+			ORDER BY CON_UPDATE_DATE DESC LIMIT 1
+		]]>
+	</select>
+	
+	<select id="contentExpdChk" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    IF(P.PRI_EXPD IS NULL, 0, 
+					IF((DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d'))) < 0, 0, 
+						DATEDIFF(P.PRI_EXPD, DATE_FORMAT(NOW(), '%Y-%m-%d')) + 1)) AS CON_EXPD
+			FROM
+			    WH_CONTENT C
+			        LEFT JOIN
+			    WH_PRICE P ON C.CON_ID = P.CON_ID
+			        AND P.MEM_ID = #{MEM_ID}
+			        AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
+			WHERE
+			    C.CON_ID = #{CON_ID}
+		]]>
+	</select>
+	
+	<select id="commentCntChk" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    IF(MAX(COM_ID) IS NULL, 1, MAX(COM_ID) + 1) AS COM_ID,
+			    'TMP' AS TMP
+			FROM
+			    WH_COMMENT
+			WHERE
+			    CON_ID = #{CON_ID}
+		]]>
+	</select>
+	
+	<insert id="insertComment" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_COMMENT
+			(CON_ID,
+			COM_ID,
+			MEM_ID,
+			COM_BODY)
+			VALUES
+			(#{CON_ID},
+			 #{COM_ID},
+			 #{MEM_ID},
+			 #{COM_BODY})
+		]]>
+	</insert>
+	
+	<update id="updateComment" parameterType="hashmap">
+		UPDATE WH_COMMENT 
+		SET 
+		    COM_BODY = #{COM_BODY}
+		WHERE
+		    CON_ID = #{CON_ID}
+		    AND COM_ID = #{COM_ID}
+	</update>
+	
+	<update id="deleteComment" parameterType="hashmap">
+		UPDATE WH_COMMENT 
+		SET 
+		    COM_USE_YN = '0'
+		WHERE
+		    CON_ID = #{CON_ID}
+		    AND COM_ID = #{COM_ID}
+	</update>
+	
+	<update id="contentUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET	
+			PRS_ID = IFNULL(#{PRS_ID}, PRS_ID),
+			CON_TITLE = #{CON_TITLE},
+			CON_SUBTITLE = #{CON_SUBTITLE},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL},
+			CON_YOUTUBE_URL = #{CON_YOUTUBE_URL},
+			CON_BODY = #{CON_BODY},
+			CON_PREFIX = #{CON_PREFIX},
+			CON_PRICE = #{CON_PRICE},
+			CON_META_YN = #{CON_META_YN},
+			CON_USE_YN = #{CON_USE_YN},
+			CON_WRITE_YN = IFNULL(#{CON_WRITE_YN}, CON_WRITE_YN),
+			CON_CATEGORY = #{CON_CATEGORY},
+			CON_TOP_YN = #{CON_TOP_YN},
+			CON_TOP_DATE = #{CON_TOP_DATE}
+		WHERE CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="updateContentsPrice" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET	
+			CON_PRICE = 0
+		WHERE CON_ID = #{CON_ID}
+	</update>
+	
+	<insert id="contentRegit" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_CONTENT
+			(CON_ID,
+			PRS_ID,
+			APP_ID,
+			CON_TYPE,
+			CON_CATEGORY,
+			CON_TITLE,
+			CON_SUBTITLE,
+			CON_ORIGIN_URL,
+			CON_YOUTUBE_URL,
+			CON_BODY,
+			CON_PREFIX,
+			CON_PRICE,
+			CON_META_YN,
+			CON_USE_YN,
+			CON_WRITE_YN,
+			CON_PRIOT,
+			CON_TOP_YN,
+			CON_TOP_DATE
+			)
+			VALUES
+			(#{CON_ID},
+			#{PRS_ID},
+			#{APP_ID},
+			#{CON_TYPE},
+			#{CON_CATEGORY},
+			#{CON_TITLE},
+			#{CON_SUBTITLE},
+			#{CON_ORIGIN_URL},
+			#{CON_YOUTUBE_URL},
+			#{CON_BODY},
+			#{CON_PREFIX},
+			#{CON_PRICE},
+			#{CON_META_YN},
+			#{CON_USE_YN},
+			#{CON_WRITE_YN},
+			#{CON_ID},
+			#{CON_TOP_YN},
+			#{CON_TOP_DATE}
+			)
+		]]>
+	</insert>
+	
+	<update id="updateCategory" parameterType="hashmap">
+		UPDATE WH_PRESS SET CATEGORY_TAG = #{CATEGORY_TAG} WHERE APP_ID = #{APP_ID}
+	</update>
+	
+	<select id="contentNextConId" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    MAX(CON_ID) + 1 AS CON_ID
+			FROM
+			    WH_CONTENT
+		]]>
+	</select>
+	
+	<insert id="insertChage" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_CHAGE
+			(MEM_ID,
+			CHG_TYPE,
+			CHG_RECEIPT,
+			CHG_TRAN_ID,
+			CHG_PROD_ID,
+			CHG_STAR)
+			VALUES
+			(#{MEM_ID},
+			${CHG_TYPE},
+			#{receipt},
+			#{transactionId},
+			#{productId},
+			${STAR})
+		]]>
+	</insert>
+	
+		
+	<insert id="insertAppSetting" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_CONTENT
+			(CON_ID,
+			PRS_ID,
+			APP_ID,
+			CON_TYPE,
+			CON_CATEGORY,
+			CON_TITLE,
+			CON_BODY,
+			CON_USE_YN,
+			CON_PRIOT)
+			VALUES
+			(#{CON_ID},
+			#{PRS_ID},
+			#{APP_ID},
+			#{CON_TYPE},
+			#{CON_CATEGORY},
+			#{CON_TITLE},
+			#{CON_BODY},
+			#{CON_USE_YN},
+			#{CON_ID})
+		]]>
+	</insert>
+		
+	
+	<update id="updateAppSetting" parameterType="hashmap">
+
+		UPDATE WH_CONTENT
+		SET	
+			PRS_ID = IFNULL(#{PRS_ID}, PRS_ID),
+			CON_TITLE = IFNULL(#{CON_TITLE}, CON_TITLE),
+			CON_SUBTITLE = IFNULL(#{CON_SUBTITLE}, CON_SUBTITLE),
+			CON_ORIGIN_URL = IFNULL(#{CON_ORIGIN_URL}, CON_ORIGIN_URL),
+			CON_YOUTUBE_URL = IFNULL(#{CON_YOUTUBE_URL}, CON_YOUTUBE_URL),
+			CON_BODY = IFNULL(#{CON_BODY}, CON_BODY),			
+			CON_USE_YN = IFNULL(#{CON_USE_YN}, CON_USE_YN)
+		WHERE CON_ID = #{CON_ID}
+		
+	</update>
+	
+	
+	
+	<select id="contentTotalPrice" resultType="hashmap" parameterType="string">
+		<![CDATA[
+			SELECT 
+			    IF(SUM(CON_PRICE) IS NULL, 0, SUM(CON_PRICE)) AS PRICE,
+			    IF(SUM(CON_PRICE_CHG) IS NULL, 0, SUM(CON_PRICE_CHG)) AS PRICE_CHG
+			FROM
+			    WH_PRICE
+			WHERE
+				CON_ID = #{conId}
+		]]>
+	</select>
+	
+	<select id="contentTotalHeart" resultType="hashmap" parameterType="string">
+		<![CDATA[
+			SELECT 
+			    IF(SUM(CON_HEART) IS NULL, 0, SUM(CON_HEART)) AS HEART,
+			    IF(SUM(CON_HEART_CHG) IS NULL, 0, SUM(CON_HEART_CHG)) AS HEART_CHG
+			FROM
+			    WH_HEART
+			WHERE
+				CON_ID = #{conId}
+		]]>
+	</select>
+	
+	<select id="prevContent" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+				CON_ID,
+			    CON_PRIOT
+			FROM
+			    WH_CONTENT
+			WHERE
+				CON_PRIOT > #{now}
+			    AND CON_TYPE = #{CON_TYPE}
+			ORDER BY
+				CON_PRIOT ASC
+			LIMIT 1
+		]]>
+	</select>
+	
+	<select id="nextContent" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+				CON_ID,
+			    CON_PRIOT
+			FROM
+			    WH_CONTENT
+			WHERE
+				CON_PRIOT < #{now}
+			    AND CON_TYPE = #{CON_TYPE}
+			ORDER BY
+				CON_PRIOT DESC
+			LIMIT 1
+		]]>
+	</select>
+	
+	<update id="updateContentPriot" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_PRIOT = ${change}
+		WHERE CON_PRIOT = ${object}
+	</update>
+	
+	<update id="updateContentPriotConId" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_PRIOT = ${change}
+		WHERE CON_ID = ${conId}
+	</update>
+	
+	<select id="selectContentPriot" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+				CON_ID,
+			    CON_PRIOT
+			FROM
+			    WH_CONTENT
+			WHERE
+				CON_PRIOT = #{now}
+		]]>
+	</select>
+	
+	<select id="selectEventLast" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    EVT_ID,
+			    EVT_TEXT,
+			    EVT_BTN_TEXT,
+			    EVT_STAR,
+			    EVT_URL,
+			    EVT_CHG_YN
+			FROM
+			    WH_EVENT
+			WHERE
+				EVT_USE_YN = 1 
+			ORDER BY
+				EVT_ID DESC
+			LIMIT 1
+		]]>
+	</select>
+	
+	<select id="selectEventHst" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_EVENT_HST
+			WHERE
+				MEM_ID = #{MEM_ID}
+			    AND EVT_ID = #{EVT_ID}
+			LIMIT 1
+		]]>
+	</select>
+	
+	<select id="selectEvent" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_EVENT
+			WHERE
+				EVT_ID = #{EVT_ID}
+		]]>
+	</select>
+	
+	<insert id="insertChageEvt" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_CHAGE_EVT
+			(MEM_ID,
+			EVT_ID,
+			CHG_STAR)
+			VALUES
+			(#{MEM_ID},
+			#{EVT_ID},
+			#{STAR})
+		]]>
+	</insert>
+	
+	<insert id="insertChageEvtHst" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_EVENT_HST
+			(EVT_ID,
+			MEM_ID)
+			VALUES
+			(#{EVT_ID},
+			#{MEM_ID})
+		]]>
+	</insert>
+	
+	
+	<select id="selectAppMember" parameterType="hashmap" resultType="String">
+		 SELECT APP_ID
+		  FROM WH_MEMBER 
+		  WHERE MEM_ID = #{MEM_ID}
+	</select>
+	
+	<insert id="insertBlockUser" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_BLOCK
+			(MEM_ID,
+			BLOCK_MEM_ID)
+			VALUES
+			(#{MEM_ID},
+			#{BLOCK_MEM_ID})
+		]]>
+	</insert>
+	
+	<insert id="view" parameterType="hashmap">
+		<![CDATA[
+			INSERT INTO WH_WATCH (CON_ID, MEM_ID, WATCH_CNT)
+			VALUES (#{CON_ID},#{MEM_ID},1)
+			ON DUPLICATE KEY UPDATE WATCH_CNT=WATCH_CNT+1
+		]]>
+	</insert>
+	
+	<select id="viewers" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT #{MEM_ID} AS MEM_ID, WW.CON_ID, WW.MEM_ID AS VIEWER_ID, M.MEM_NAME AS VIEWER_NAME, M.MEM_PICTURE AS VIEWER_PICTURE,
+			(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.FOLLOW_ID = WW.MEM_ID AND WF.MEM_ID = #{MEM_ID}) THEN 1 ELSE 0 END) IS_FOLLOWING 
+			FROM WH_WATCH WW 
+			INNER JOIN WH_MEMBER M
+			ON WW.MEM_ID = M.MEM_ID
+			WHERE CON_ID=#{CON_ID}
+		]]>
+	</select>
+	
+	<select id="goblinPrsList" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT DISTINCT M.MEM_ID AS FOLLOW_ID, #{MEM_ID} AS MEM_ID, M.MEM_NAME AS FOLLOW_NAME, M.MEM_PICTURE AS FOLLOW_PICTURE,
+			(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.MEM_ID = #{MEM_ID} AND WF.FOLLOW_ID = M.MEM_ID) THEN 1 ELSE 0 END) AS IS_FOLLOWING
+			FROM WH_CONTENT WH 
+			INNER JOIN WH_MEMBER M
+			ON WH.PRS_ID = M.MEM_ID
+			WHERE WH.CON_TYPE=9
+			AND M.MEM_ID != #{MEM_ID}
+			AND M.MEM_NAME LIKE '%${KEYWORD}%'
+			ORDER BY WH.CON_CREATE_DATE DESC LIMIT 100
+		]]>
+	</select>
+	
+	<insert id="insertSubscription" parameterType="hashmap">
+	    INSERT INTO WH_SUBSCRIBE
+	    (
+	        MEM_ID, PRS_ID, SUB_TYPE, TRAN_ID, 
+	        START_DATE, EXPD_DATE, SUB_USE_YN
+	    )
+	    VALUES
+	    (
+	        #{MEM_ID}, #{PRS_ID}, 'MONTHLY', #{TRAN_ID}, 
+	        NOW(), DATE_ADD(NOW(), INTERVAL 1 MONTH), 1
+	    )
+	    ON DUPLICATE KEY UPDATE
+	        EXPD_DATE = DATE_ADD(NOW(), INTERVAL 1 MONTH), -- 재구독 시 만료일 연장
+	        TRAN_ID = #{TRAN_ID},
+	        SUB_USE_YN = 1,
+	        SUB_UPDATE_DATE = NOW()
+	</insert>
+	
+	<select id="checkSubscription" parameterType="hashmap" resultType="int">
+	    SELECT COUNT(*)
+	    FROM WH_SUBSCRIBE
+	    WHERE MEM_ID = #{MEM_ID}
+	      AND PRS_ID = #{TARGET_ID}
+	      AND EXPD_DATE > NOW() -- 만료일이 안 지났는지 확인
+	      AND SUB_USE_YN = 1
+	</select>
+	
+	<select id="selectMySubscriptions" parameterType="hashmap" resultType="hashmap">
+	    SELECT 
+	        S.SUB_ID,
+	        S.PRS_ID,
+	        DATE_FORMAT(S.EXPD_DATE, '%Y-%m-%d') AS EXPD_DATE,
+	        -- 작가 이름 (언론사 테이블 우선 확인 후 없으면 멤버 테이블)
+	        COALESCE(P.PRS_NAME, M.MEM_NAME) AS NAME,
+	        -- 프로필 사진
+	        COALESCE(P.STORED_FILE_NM, M.MEM_PICTURE) AS PICTURE,
+	        -- 구분 (0: 언론사, 1: 일반유저)
+	        CASE WHEN P.PRS_ID IS NOT NULL THEN 0 ELSE 1 END AS IS_NORMAL_USER
+	    FROM WH_SUBSCRIBE S
+	    LEFT JOIN WH_PRESS P ON S.PRS_ID = P.PRS_ID
+	    LEFT JOIN WH_MEMBER M ON S.PRS_ID = M.MEM_ID
+	    WHERE S.MEM_ID = #{MEM_ID}
+	      AND S.EXPD_DATE > NOW() -- 아직 만료되지 않은 것만
+	      AND S.SUB_USE_YN = 1
+	    ORDER BY S.START_DATE DESC
+	</select>
+	
+	<update id="extendSubscription" parameterType="hashmap">
+	    UPDATE WH_SUBSCRIBE
+	    SET 
+	        EXPD_DATE = #{NEW_EXPD_DATE}, -- 스토어에서 받은 새 만료일
+	        SUB_UPDATE_DATE = NOW(),
+	        SUB_USE_YN = 1
+	    WHERE MEM_ID = #{MEM_ID} 
+	      AND PRS_ID = #{PRS_ID}
+	</update>
+</mapper>

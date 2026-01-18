@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
+  <filter>
+    <filter-name>encodingFilter</filter-name>
+    <filter-class>
+			org.springframework.web.filter.CharacterEncodingFilter
+		</filter-class>
+    <init-param>
+      <param-name>encoding</param-name>
+      <param-value>UTF-8</param-value>
+    </init-param>
+  </filter>
+  <filter>
+    <filter-name>HTMLTagFilter</filter-name>
+    <filter-class>
+            egovframework.rte.ptl.mvc.filter.HTMLTagFilter
+        </filter-class>
+      <init-param>
+        <param-name>exclusion-path</param-name>
+        <param-value>/api/uploadChatFile</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>encodingFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+    <filter-name>HTMLTagFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+    
+  </filter-mapping>
+  
+    <!-- <filter>    
+		<filter-name>HTTPS</filter-name>     
+		<filter-class>com.sensible.common.filter.HTTPSFilter</filter-class>  
+	</filter> 
+	<filter-mapping>      
+		<filter-name>HTTPS</filter-name>      
+		<url-pattern>/*</url-pattern>  
+	</filter-mapping> 	 -->
+  
+  <filter>
+    <filter-name>MDCUserServletFilter</filter-name>
+    <filter-class>com.sensible.common.filter.MDCUserServletFilter</filter-class>
+    <init-param>
+        <param-name>exclusion-path</param-name>
+        <param-value>/api/uploadChatFile</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>MDCUserServletFilter</filter-name>
+    <url-pattern>/adm/*</url-pattern>
+  </filter-mapping>
+ 
+  <!-- cors filter 적용 -->
+	<filter>
+		<filter-name>cors</filter-name>
+		<filter-class>com.sensible.common.filter.SimpleCORSFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>cors</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+  <context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>
+                classpath*:META-INF/spring/context-*.xml
+        </param-value>
+  </context-param>
+  <listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+  </listener>
+  <listener>
+    <listener-class>org.springframework.web.util.WebAppRootListener</listener-class>
+  </listener>
+  <listener>
+    <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
+  </listener>
+  <servlet>
+    <servlet-name>action</servlet-name>
+    <servlet-class>
+            org.springframework.web.servlet.DispatcherServlet
+        </servlet-class>
+    <init-param>
+      <param-name>contextConfigLocation</param-name>
+      <param-value>
+                /WEB-INF/config/spring/*-servlet.xml
+            </param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>action</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+  
+  <welcome-file-list>
+    <welcome-file>index.jsp</welcome-file>
+  </welcome-file-list>
+  <login-config>
+    <auth-method>BASIC</auth-method>
+  </login-config>
+  <session-config>
+    <session-timeout>60</session-timeout>
+  </session-config>
+  <error-page>
+    <exception-type>java.lang.Throwable</exception-type>
+    <location>/error/exception.do</location>
+  </error-page>
+  <error-page>
+    <error-code>404</error-code>
+    <location>/error/404Error.do</location>
+  </error-page>
+  <error-page>
+    <error-code>500</error-code>
+    <location>/error/500Error.do</location>
+  </error-page>
+  
+
+</web-app>

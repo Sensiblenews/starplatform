@@ -1,0 +1,85 @@
+.title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  background-color: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  letter-spacing: 0.1em;
+  padding: 0.4rem;
+}
+
+.imgDiv {
+  margin-bottom: 3vh;
+}
+
+.subTitle {
+  font-size: 1.1rem;
+  padding: 0.4rem;
+  color: gray;
+}
+
+.content {
+  letter-spacing: 0.1em;
+  font-size: 1rem;
+  padding: 0.4rem;
+}
+
+.popupContentDiv {
+  width: 80%;
+  height: 80%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-left: 10%;
+  margin-top: 10%;
+  background-color: #fff;
+}
+
+.isNotShownText {
+  font-size: 0.8em;
+}
+
+.closeIcon {
+  color: black;
+  font-size: 1.5rem;
+}
+
+.closeDiv {
+  display: inline;
+  float: right;
+  text-align: right;
+  vertical-align: center;
+}
+
+.imgDiv {
+  margin-bottom: 0.2rem;
+  img {
+    width: 100%;
+  }
+}
+
+.agreecheck {
+  --background: #fff;
+}
+.agreement {
+  flex: 1;
+  position: relative;
+  --padding-start: 0.4rem;
+  --padding-top: 0.4rem;
+  --padding-bottom: 0.4rem;
+  --padding-end: 0.4rem;
+  --background: var(--ion-color-light);
+}
+
+.agreementBtnDiv {
+  display: flex;
+  padding: 0;
+  align-items: center;
+  ion-button {
+    margin: 0;
+    --border-radius: 0;
+  }
+}
+
+.agreeBtn {
+  flex: 1;
+}

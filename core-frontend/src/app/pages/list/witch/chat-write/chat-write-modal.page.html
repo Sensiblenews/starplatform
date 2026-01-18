@@ -1,0 +1,106 @@
+<ion-header>
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="closeModal()">
+        <ion-icon slot="icon-only" name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="registChat(content)">발송</ion-button>
+    </ion-buttons>
+
+    <ion-title>{{followInfo.FOLLOW_NAME}}님과의 채팅</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="chat-content">
+  <div class="chat-wrapper">
+    <ng-container *ngIf="chatList$ | async as chatList">
+      <div
+          *ngFor="let chat of chatList; let i = index"
+        >
+          <div [ngClass]="chat.isMe ? 'chat-bubble-container-me' : 'chat-bubble-container-other'">
+            <div *ngIf="!chat.isMe" class="profile-wrapper">
+              <img
+                *ngIf="!chat.isMe && (i === chatList.length - 1 || chatList[i + 1].isMe)"
+                [src]="chat.memPicture || defaultPicture"
+                class="profile-image"
+                alt="Profile Image"
+              />
+            </div>
+            <div
+              [ngClass]="chat.isMe ? 'chat-bubble bubble-me' : 'chat-bubble bubble-other'"
+            >
+              <div class="thumbnail-container">
+                <ng-container [ngSwitch]="getMessageType(chat.message)">
+                  <img 
+                    *ngSwitchCase="'image'" 
+                    [src]="getFileUrl(chat.message)" 
+                    class="thumbnail" 
+                    alt="사진"
+                    #imagePlayer 
+                    (click)="enterFullscreen(getFileUrl(chat.message))"
+                  />
+                  <video *ngSwitchCase="'video'"
+                    [src]="getFileUrl(chat.message)"
+                    class="thumbnail"
+                    [muted]="true"
+                    [poster]="getVideoPoster(chat.message)"
+                    #videoPlayer 
+                    (click)="enterFullscreen(getFileUrl(chat.message))"></video>
+                  <div *ngSwitchCase="'file'">📎 파일</div>
+                  <div *ngSwitchDefault>{{ chat.message }}</div>
+                </ng-container>
+
+                <ion-icon 
+                  *ngIf="getMessageType(chat.message) === 'video'" 
+                  name="play-circle" 
+                  class="play-icon">
+                </ion-icon>
+              </div>
+            </div>
+            <div [ngClass]="chat.isMe ? 'message-time message-time-me' : 'message-time message-time-other'">
+              <span *ngIf="chat.isMe && !chat.receiveDate">안읽음</span>
+              <span>{{ chat.sendDate | date:'yy.MM.dd' }}</span>
+              <span>{{ chat.sendDate | date:'HH:mm' }}</span>
+            </div>
+          </div>
+        </div>
+    </ng-container>
+
+    <div #scrollBottom></div>
+  </div>
+</ion-content>
+
+<div *ngIf="pendingFile" class="pending-file-overlay">
+  <img *ngIf="pendingFile.file.mimeType.startsWith('image/')"
+        [src]="pendingFile.previewUrl" class="thumbnail-preview-image" alt="미리보기"/>
+  <video *ngIf="pendingFile.file.mimeType.startsWith('video/')"
+          [src]="pendingFile.previewUrl" class="thumbnail-preview-image" autoplay [muted]="true" loop playsinline></video>
+  <ion-button (click)="removePendingFile()" class="remove-thumbnail-button" fill="clear" size="small">
+    <ion-icon name="close-circle" color="dark"></ion-icon>
+  </ion-button>
+</div>
+
+<ion-footer>
+  
+  <div class="commentZone">
+    <div class="fileSelect">
+      <ion-button fill="clear" size="small" (click)="openFilePicker()">
+        <ion-icon name="attach">첨부</ion-icon>
+      </ion-button>
+    </div>
+    <div class="textInput">
+      <ion-input
+        placeholder="메시지 입력"
+        [(ngModel)]="commentInput"
+      ></ion-input>
+    </div>
+    <div class="icon">
+      <ion-button fill="clear" size="small" (click)="registChat(commentInput)">
+        전송
+        <ion-icon name="paper-plane-sharp"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</ion-footer>

@@ -1,0 +1,840 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="admin">
+	<select id="adminChk" parameterType="hashmap" resultType="String">
+		<![CDATA[
+			SELECT 
+			    ADM_ID
+			FROM
+			    WH_ADMIN
+			WHERE
+				ADM_ID = #{ADM_ID}
+			    AND ADM_PWD = CONCAT('*',UPPER(SHA1(UNHEX(SHA1(#{ADM_PWD}))))) 
+			    AND ADM_USE_YN = '1'
+		]]>
+	</select>
+	
+	<select id="memberList" parameterType="hashmap" resultType="hashmap">
+		
+			SELECT 
+			    M.MEM_ID,
+			    <if test='PRS_AUTH == "SM"'>
+				(SELECT PRS_NAME FROM WH_PRESS WHERE APP_ID = M.APP_ID) PRS_NAME,
+				</if>
+			    MEM_TYPE,
+			    MEM_NAME,
+			    MEM_STAR,
+			    MEM_STAR_CHG,
+			    IF(MEM_AGREEMENT = 1, 'Y', 'N') AS MEM_AGREEMENT,
+			    IF(MEM_USE_YN = 1, 'Y', 'N') AS MEM_USE_YN        
+    			,IFNULL(PRICE,0) PRICE
+		        ,IFNULL(PRICE_CHG,0) PRICE_CHG
+		        ,IFNULL(HEART,0) HEART
+		        ,IFNULL(HEART_CHG,0) HEART_CHG
+		        ,MEM_CREATE_DATE
+		        ,IFNULL(CONTENT_CNT,0) CONTENT_CNT
+			FROM WH_MEMBER M LEFT OUTER JOIN
+		     (
+		        SELECT C.MEM_ID, SUM(A.CON_PRICE) PRICE , SUM(A.CON_PRICE_CHG) PRICE_CHG
+		        FROM WH_CONTENT M, WH_PRICE A ,WH_MEMBER C
+		        WHERE 1=1
+		        AND M.CON_ID = A.CON_ID
+		        AND M.PRS_ID = C.MEM_ID		       
+		        GROUP BY C.MEM_ID
+		     ) A ON (M.MEM_ID = A.MEM_ID)
+		     LEFT OUTER JOIN 
+			(
+				SELECT WM.MEM_ID, COUNT(*) CONTENT_CNT
+				FROM WH_CONTENT WC, WH_MEMBER WM
+				WHERE 1=1
+				AND WC.PRS_ID = WM.MEM_ID
+				GROUP BY WM.MEM_ID
+			) B ON (M.MEM_ID = B.MEM_ID)
+			LEFT OUTER JOIN (
+			    SELECT C.MEM_ID, SUM(A.CON_HEART) HEART, SUM(A.CON_HEART_CHG) HEART_CHG
+			    FROM WH_CONTENT M, WH_HEART A, WH_MEMBER C
+			    WHERE 1=1
+			    AND M.CON_ID = A.CON_ID
+			    AND M.PRS_ID = C.MEM_ID		       
+			    GROUP BY C.MEM_ID
+			) C ON (M.MEM_ID = C.MEM_ID)
+		    WHERE 1=1
+			<if test='searchKeyword != "" and searchKeyword != null'>		    
+		    AND MEM_NAME LIKE CONCAT('%',#{searchKeyword},'%')
+		    </if>
+		    <if test='PRS_AUTH != "SM"'>
+      		AND M.APP_ID = #{APP_ID} 
+      		</if>
+			ORDER BY MEM_CREATE_DATE DESC
+		
+	</select>
+	
+	<select id="pressList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+				PRS_ID
+				,PRS_PWD
+				,PRS_NAME
+				,PRS_EMAIL
+				,PRS_HOMEPAGE
+				,PRS_USE_YN
+				,PRS_TYPE
+				,PRS_AUTH
+				,PRS_AUTH_YN
+		        ,(SELECT IF(SUM(CON_PRICE) IS NULL, 0, SUM(CON_PRICE))  FROM WH_PRICE WHERE PRS_ID = M.PRS_ID ) AS PRICE
+		        ,(SELECT IF(SUM(CON_PRICE_CHG) IS NULL, 0, SUM(CON_PRICE_CHG))  FROM WH_PRICE WHERE PRS_ID = M.PRS_ID ) AS PRICE_CHG
+		        ,(SELECT IF(SUM(CON_HEART) IS NULL, 0, SUM(CON_HEART))  FROM WH_HEART WHERE PRS_ID = M.PRS_ID ) AS HEART
+		        ,(SELECT IF(SUM(CON_HEART_CHG) IS NULL, 0, SUM(CON_HEART_CHG))  FROM WH_HEART WHERE PRS_ID = M.PRS_ID ) AS HEART_CHG
+			FROM WH_PRESS M
+			WHERE 1=1
+			AND PRS_TYPE = #{PRS_TYPE}
+			ORDER BY PRS_CREATE_DATE DESC
+		]]>
+	</select>
+
+	<select id="selectPress" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+				PRS_ID				
+				,PRS_NAME
+				,PRS_EMAIL
+				,PRS_HOMEPAGE
+				,PRS_USE_YN
+				,PRS_TYPE
+				,PRS_AUTH
+				,PRS_AUTH_YN
+				, (CASE WHEN PRS_TYPE = '1' THEN'언론사'
+		               WHEN PRS_TYPE ='2' THEN '학원/출판'
+		               ELSE '기업/단체'
+		         END) PRS_TYPE_NM
+		         ,APP_APPLY_YN
+		         ,APP_ISSUED_YN
+		         ,APP_AUTH_KEY
+		         ,ORIG_FILE_NM
+				 ,STORED_FILE_NM
+			FROM  WH_PRESS
+			WHERE 1=1
+			AND PRS_ID = #{PRS_ID}
+		]]>
+	</select>
+	
+	
+
+	<update id="pressUpdate" parameterType="hashmap">
+		UPDATE WH_PRESS
+		SET
+			PRS_NAME 		= IFNULL(#{PRS_NAME}, PRS_NAME),
+			<if test='PRS_PWD != "" and PRS_PWD != null'>
+			PRS_PWD 		= CONCAT('*',UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))),
+			</if>
+			PRS_EMAIL 		= IFNULL(#{PRS_EMAIL}, PRS_EMAIL),
+			PRS_HOMEPAGE 	= IFNULL(#{PRS_HOMEPAGE}, PRS_HOMEPAGE),
+			PRS_USE_YN      = IFNULL(#{PRS_USE_YN}, PRS_USE_YN),
+			PRS_TYPE 		= IFNULL(#{PRS_TYPE}, PRS_TYPE),
+			PRS_AUTH_YN      = IFNULL(#{PRS_AUTH_YN}, PRS_AUTH_YN),
+			ORIG_FILE_NM      = IFNULL(#{ORIG_FILE_NM}, ORIG_FILE_NM),
+			STORED_FILE_NM      = IFNULL(#{STORED_FILE_NM}, STORED_FILE_NM)
+		WHERE
+			PRS_ID = #{PRS_ID}
+	</update>
+	
+	<update id="updateAppApply" parameterType="hashmap">
+		UPDATE WH_PRESS
+		SET
+			PRS_EMAIL 	= IFNULL(#{PRS_EMAIL}, PRS_EMAIL),
+			APP_APPLY_YN = 'Y'			
+		WHERE
+			PRS_ID = #{PRS_ID}
+	</update>
+	
+	<update id="updateAppkey" parameterType="hashmap">
+		UPDATE WH_PRESS
+		SET
+			APP_ISSUED_YN 		= 'Y',
+			PRS_AUTH = 'CM',
+			APP_AUTH_KEY      = #{APP_AUTH_KEY}
+		WHERE
+			PRS_ID = #{PRS_ID}
+	</update>
+	
+	<select id="pressNextPrsId" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    MAX(PRS_ID) + 1 AS PRS_ID
+			FROM
+			    WH_PRESS
+		]]>
+	</select>
+	
+	<insert id="pressRegit" parameterType="hashmap">
+		INSERT INTO WH_PRESS
+		(PRS_ID,APP_ID,PRS_PWD ,PRS_NAME ,PRS_EMAIL ,PRS_HOMEPAGE ,PRS_USE_YN ,PRS_TYPE ,PRS_AUTH ,PRS_AUTH_YN)
+		VALUES
+		(#{PRS_ID},
+		#{APP_ID},
+		CONCAT('*',UPPER(SHA1(UNHEX(SHA1('111111'))))),
+		#{PRS_NAME},
+		#{PRS_EMAIL},
+		#{PRS_HOMEPAGE},
+		#{PRS_USE_YN},
+		#{PRS_TYPE},
+		'GE',
+		'N'
+		)
+	</insert>
+	
+	<select id="memberStarHist" parameterType="string" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_PRICE
+			WHERE 
+				MEM_ID = #{MEM_ID}
+			ORDER BY PRI_CREATE_DATE DESC
+		]]>
+	</select>
+	
+	<select id="memberStarHeartHist" parameterType="string" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_HEART
+			WHERE 
+				MEM_ID = #{MEM_ID}
+			ORDER BY HRT_CREATE_DATE DESC
+		]]>
+	</select>
+	
+	<select id="cotentList_count" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(1)		
+		FROM
+		(
+			SELECT 
+				WC.CON_ID
+				,WC.CON_TITLE
+				,WC.CON_PRICE
+				,IF(WC.CON_USE_YN = 1, 'Y', 'N') AS CON_USE_YN
+				,IF(WC.CON_META_YN = 1, 'Y', 'N') AS CON_META_YN
+				,(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = WC.CON_ID) AS CNT
+				,(SELECT COUNT(*) FROM WH_COMMENT WCM WHERE WCM.CON_ID = WC.CON_ID AND COM_USE_YN = 1) AS CMT_CNT
+				,WC.CON_BODY
+				,PRS_ID		
+				<if test='PRS_AUTH == "SM"'>
+				,(SELECT PRS_NAME FROM WH_PRESS WHERE APP_ID = WC.APP_ID) PRS_NAME
+				</if>							
+				<if test='CON_TYPE != "9"'>		    	
+	          	,(SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = WC.PRS_ID) REG_NAME
+	          	</if>
+	          	<if test='CON_TYPE == "9"'>
+	          	,(SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = WC.PRS_ID) REG_NAME     
+	          	</if>				
+			FROM WH_CONTENT WC
+			WHERE 1=1
+				AND CON_TYPE = #{CON_TYPE}				
+				<if test='PRS_AUTH != "SM"'>
+	      		AND WC.APP_ID = #{APP_ID} 
+	      		</if>
+      	) M
+      	WHERE 1=1	
+      	<if test='searchKeyword != "" and searchKeyword != null'>		    
+	      	<if test='searchCondition == "1"'>
+	      		AND CON_TITLE LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	      	<if test='searchCondition == "2"'>
+	      		AND (CON_TITLE LIKE CONCAT('%',#{searchKeyword},'%')
+	      		OR CON_BODY LIKE CONCAT('%',#{searchKeyword},'%') )
+	      	</if>
+	      	<if test='searchCondition == "3"'>
+	      		AND PRS_NAME LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	      	<if test='searchCondition == "4"'>
+	      		AND REG_NAME LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	     </if>  	
+	</select>
+	
+	
+	<select id="cotentList" parameterType="hashmap" resultType="hashmap">
+		SELECT *
+		FROM
+		(
+			SELECT 
+				WC.CON_ID
+				,WC.CON_TITLE
+				,WC.CON_PRICE
+				,IF(WC.CON_USE_YN = 1, 'Y', 'N') AS CON_USE_YN
+				,IF(WC.CON_META_YN = 1, 'Y', 'N') AS CON_META_YN
+				,(SELECT COUNT(*) FROM WH_CONT_CNT WCC WHERE WCC.CON_ID = WC.CON_ID) AS CNT
+				,(SELECT COUNT(*) FROM WH_COMMENT WCM WHERE WCM.CON_ID = WC.CON_ID AND COM_USE_YN = 1) AS CMT_CNT
+				,WC.CON_BODY
+				,PRS_ID		
+				<if test='PRS_AUTH == "SM"'>
+				,(SELECT PRS_NAME FROM WH_PRESS WHERE APP_ID = WC.APP_ID) PRS_NAME
+				</if>
+							
+				<if test='CON_TYPE != "9"'>		    	
+	          	,(SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = WC.PRS_ID) REG_NAME
+	          	</if>
+	          	<if test='CON_TYPE == "9"'>
+	          	,(SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = WC.PRS_ID) REG_NAME     
+	          	</if>
+				,WC.CON_PRIOT
+				,IF(WC.CON_TOP_YN = 1, 'Y', 'N') AS CON_TOP_YN
+				,WC.CON_TOP_DATE
+				,(SELECT IFNULL(SUM(CON_HEART),0) FROM WH_HEART WHERE CON_ID = WC.CON_ID) HEART
+				,(SELECT IFNULL(SUM(CON_HEART_CHG),0) FROM WH_HEART WHERE CON_ID = WC.CON_ID) HEART_CHG
+				,(SELECT IFNULL(SUM(CON_PRICE),0) FROM WH_PRICE WHERE CON_ID = WC.CON_ID) PRICE
+				,(SELECT IFNULL(SUM(CON_PRICE_CHG),0) FROM WH_PRICE WHERE CON_ID = WC.CON_ID) PRICE_CHG
+				,DATE_FORMAT(WC.CON_CREATE_DATE, '%Y-%m-%d %H:%i:%s') CON_CREATE_DATE
+				,CON_UPDATE_DATE
+			FROM WH_CONTENT WC
+			WHERE 1=1
+				AND CON_TYPE = #{CON_TYPE}				
+				<if test='PRS_AUTH != "SM"'>
+	      		AND WC.APP_ID = #{APP_ID} 
+	      		</if>
+      	) M
+      	WHERE 1=1	
+      	<if test='searchKeyword != "" and searchKeyword != null'>		    
+	      	<if test='searchCondition == "1"'>
+	      		AND CON_TITLE LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	      	<if test='searchCondition == "2"'>
+	      		AND (CON_TITLE LIKE CONCAT('%',#{searchKeyword},'%')
+	      		OR CON_BODY LIKE CONCAT('%',#{searchKeyword},'%') )
+	      	</if>
+	      	<if test='searchCondition == "3"'>
+	      		AND PRS_NAME LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	      	<if test='searchCondition == "4"'>
+	      		AND REG_NAME LIKE CONCAT('%',#{searchKeyword},'%')
+	      	</if>
+	    
+	    </if>  	
+		ORDER BY CON_PRIOT DESC
+	</select>
+	
+	<select id="categoryList" resultType="hashmap" parameterType="hashmap">
+		SELECT CATEGORY_TAG FROM WH_PRESS WHERE APP_ID=#{APP_ID}
+	</select>
+
+	
+	<!-- 컨텐츠 상세 -->
+	<select id="getContents" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			   	WC.CON_ID,
+			   	WC.APP_ID,
+			   	WC.PRS_ID,
+			   	(SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = WC.PRS_ID) PRS_NAME, 
+			   	CON_TITLE,
+			   	CON_SUBTITLE,
+			   	CON_THUMNAIL,
+			   	CON_VIDEO,
+			   	CON_VIDEO_THUMNAIL,
+			   	CON_ORIGIN_URL,
+			   	CON_YOUTUBE_URL,
+			   	CON_BODY,
+			   	CON_PREFIX,
+			   	CON_PRICE,
+			   	CON_META_YN,
+			   	CON_USE_YN,
+			   	CON_TYPE,
+			   	CON_CATEGORY,
+			   	CON_TOP_YN,
+			   	CON_TOP_DATE
+			FROM WH_CONTENT WC
+			WHERE 1=1
+			AND CON_ID = #{CON_ID}
+		]]>
+	</select>
+	
+	<select id="getComments" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    WC.CON_ID,
+			    WC.COM_ID,
+			    WC.MEM_ID,
+			    WC.COM_BODY,
+			    WC.COM_USE_YN,
+			    WC.COM_CREATE_DATE,
+			    WM.MEM_NAME
+			FROM
+			    WH_COMMENT WC,
+			    WH_MEMBER WM
+			WHERE
+			    WC.MEM_ID = WM.MEM_ID
+				AND CON_ID = #{CON_ID}
+			ORDER BY COM_CREATE_DATE ASC
+		]]>
+	</select>
+
+	<select id="getImages" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    *
+			FROM
+			    WH_IMAGE
+			WHERE
+				CON_ID = #{CON_ID}
+			ORDER BY IMG_ID ASC
+		]]>
+	</select>
+	
+	<update id="commentUpdate" parameterType="hashmap">
+		UPDATE WH_COMMENT
+		SET
+			COM_USE_YN = #{COM_USE_YN}
+		WHERE
+			CON_ID = #{CON_ID}
+			AND COM_ID = #{COM_ID}
+	</update>
+	
+	<update id="contentImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="contentVideoUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_VIDEO = #{CON_VIDEO},
+			CON_VIDEO_THUMNAIL = #{CON_VIDEO_THUMNAIL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<insert id="contentImgSubInsert" parameterType="hashmap">
+		INSERT INTO WH_IMAGE
+		(CON_ID,
+		IMG_ID,
+		IMG_URL,
+		IMG_ORIGIN_URL,
+		IMG_USE_YN)
+		VALUES
+		(#{CON_ID},
+		${IMG_ID},
+		#{IMG_URL},
+		#{IMG_ORIGIN_URL},
+		${IMG_USE_YN})
+	</insert>
+	
+	<update id="contentImgSubUpdate" parameterType="hashmap">
+		UPDATE WH_IMAGE
+		SET
+			IMG_URL = #{IMG_URL},
+			IMG_ORIGIN_URL = #{IMG_ORIGIN_URL},
+			IMG_USE_YN = ${IMG_USE_YN}
+		WHERE
+			CON_ID = #{CON_ID}
+			AND IMG_ID = ${IMG_ID}
+	</update>
+	
+	<update id="contentImgSubUrlUpdate" parameterType="hashmap">
+		UPDATE WH_IMAGE
+		SET
+			IMG_ORIGIN_URL = #{IMG_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+			AND IMG_ID = ${IMG_ID}
+	</update>
+	
+	<update id="starImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="starImgUrlUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="promoImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="promoImgUrlUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="faqImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="faqImgUrlUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="popupImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="guideImgUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<update id="guideImgUrlUpdate" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			CON_THUMNAIL = #{CON_THUMNAIL},
+			CON_ORIGIN_URL = #{CON_ORIGIN_URL}
+		WHERE
+			CON_ID = #{CON_ID}
+	</update>
+	
+	<select id="appUrl" parameterType="String" resultType="String">
+		<![CDATA[
+			SELECT 
+			    STR_URL
+			FROM
+			    WH_STORE
+			WHERE
+				STR_TYPE = #{type}
+		]]>
+	</select>
+	
+	<select id="selectPressList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			*
+		FROM WH_PRESS
+		WHERE 1=1
+		<!-- AND PRS_TYPE = #{PRS_TYPE} -->
+		AND PRS_AUTH_YN = 'Y'
+		AND PRS_USE_YN = 'Y'
+		ORDER BY PRS_CREATE_DATE ASC
+	</select>
+	
+	<select id="totalPrice" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    IF(SUM(CON_PRICE) IS NULL, 0, SUM(CON_PRICE)) AS PRICE,
+			    IF(SUM(CON_PRICE_CHG) IS NULL, 0, SUM(CON_PRICE_CHG)) AS PRICE_CHG
+			FROM
+			    WH_PRICE
+			WHERE
+			    CON_ID IN (SELECT 
+					            CON_ID
+					        FROM
+					            WH_CONTENT
+					        WHERE
+					            PRS_ID = #{prsId})
+		]]>
+	</select>
+	
+	<select id="totalHeart" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    IF(SUM(CON_HEART) IS NULL, 0, SUM(CON_HEART)) AS HEART,
+			    IF(SUM(CON_HEART_CHG) IS NULL, 0, SUM(CON_HEART_CHG)) AS HEART_CHG
+			FROM
+			    WH_HEART
+			WHERE
+			    CON_ID IN (SELECT 
+					            CON_ID
+					        FROM
+					            WH_CONTENT
+					        WHERE
+					            PRS_ID = #{prsId})
+		]]>
+	</select>
+	
+	<select id="eventList_count" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(1)		
+		FROM WH_EVENT EVT
+		WHERE 1=1
+		<if test='PRS_AUTH != "SM"'>
+     	AND APP_ID = #{APP_ID} 
+     	</if>
+	</select>
+	
+	<select id="eventList" parameterType="hashmap" resultType="hashmap">
+		
+			SELECT 
+			    EVT.EVT_ID,
+			    (SELECT PRS_NAME FROM WH_PRESS WHERE APP_ID = EVT.APP_ID) PRS_NAME,
+			    EVT.APP_ID,
+			    EVT.EVT_TEXT,
+			    EVT.EVT_BTN_TEXT,
+			    EVT.EVT_STAR,
+			    EVT.EVT_URL,
+			    EVT.EVT_CHG_YN,
+			    IF(EVT.EVT_USE_YN = 1, 'Y', 'N') AS EVT_USE_YN,
+			    (SELECT COUNT(*) FROM WH_EVENT_HST HST WHERE HST.EVT_ID = EVT.EVT_ID) AS CNT
+			FROM WH_EVENT EVT
+			WHERE 1=1
+			<if test='PRS_AUTH != "SM"'>
+      		AND APP_ID = #{APP_ID} 
+      		</if>
+			ORDER BY EVT.EVT_ID DESC
+		
+	</select>
+	
+	<select id="selectEvent" resultType="hashmap" parameterType="hashmap">
+		<![CDATA[
+			SELECT 
+			    EVT_ID,
+			    APP_ID,
+			    (SELECT PRS_ID FROM WH_PRESS WHERE APP_ID = M.APP_ID) PRS_ID,			   
+			    EVT_TEXT,
+			    EVT_BTN_TEXT,
+			    EVT_STAR,
+			    EVT_URL,
+			    EVT_CHG_YN,
+			    EVT_USE_YN
+			FROM WH_EVENT M
+			WHERE EVT_ID = #{EVT_ID}
+		]]>
+	</select>
+	
+	<update id="eventUpdate" parameterType="hashmap">
+		UPDATE WH_EVENT
+		SET
+			EVT_TEXT 		= #{EVT_TEXT},
+			EVT_BTN_TEXT 	= #{EVT_BTN_TEXT},
+			EVT_STAR		= #{EVT_STAR},
+			EVT_URL			= #{EVT_URL},
+			EVT_CHG_YN		= #{EVT_CHG_YN},
+			EVT_USE_YN		= #{EVT_USE_YN}
+		WHERE
+			EVT_ID = #{EVT_ID}
+	</update>
+	
+	<select id="eventNextPrsId" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			    MAX(EVT_ID) + 1 AS EVT_ID
+			FROM
+			    WH_EVENT
+		]]>
+	</select>
+	
+	<insert id="eventRegit" parameterType="hashmap">
+		INSERT INTO WH_EVENT
+		(EVT_ID,
+		APP_ID,
+		EVT_TEXT,
+		EVT_BTN_TEXT,
+		EVT_STAR,
+		EVT_URL,
+		EVT_CHG_YN,
+		EVT_USE_YN)
+		VALUES
+		(#{EVT_ID},
+		#{APP_ID},
+		#{EVT_TEXT},
+		#{EVT_BTN_TEXT},
+		#{EVT_STAR},
+		#{EVT_URL},
+		#{EVT_CHG_YN},
+		#{EVT_USE_YN})
+	</insert>
+	
+	<insert id="test" parameterType="hashmap">
+		INSERT INTO WH_IMAGE
+		(CON_ID,
+		IMG_ID,
+		IMG_URL,
+		IMG_ORIGIN_URL,
+		IMG_USE_YN)
+		VALUES
+		(#{CON_ID},
+		#{IMG_ID},
+		'',
+		'',
+		0)
+	</insert>
+	
+	<select id="selectAppPress" parameterType="hashmap" resultType="String">
+		 SELECT APP_ID
+		  FROM WH_PRESS 
+		  WHERE PRS_ID = #{PRS_ID}
+	</select>
+	
+	<select id="selectAppList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			*
+		FROM WH_PRESS
+		WHERE 1=1
+		AND APP_ISSUED_YN = 'Y'
+		AND PRS_AUTH_YN = 'Y'
+		AND PRS_USE_YN = 'Y'
+		ORDER BY PRS_CREATE_DATE ASC
+	</select>
+	
+	<!-- 앱 관리 -->
+	<select id="selectApplyList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			*
+		FROM WH_PRESS
+		WHERE 1=1
+		AND APP_APPLY_YN = 'Y'
+		AND PRS_AUTH_YN = 'Y'
+		AND PRS_USE_YN = 'Y'		
+	</select>
+	
+	<!-- 업체별 회원수 현황 -->
+	<select id="selectCompMemberStatus" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+		  A.APP_ID 
+		  ,PRS_NAME
+		  ,COUNT(MEM_ID) CNT
+		FROM WH_PRESS A LEFT JOIN WH_MEMBER M ON (A.APP_ID = M.APP_ID)
+		WHERE 1=1		    
+   		AND A.APP_ID = #{APP_ID}    		
+		GROUP BY A.APP_ID ,PRS_NAME
+	</select>
+	
+	
+	<!-- 업체별 별 현황 -->
+	<select id="selectCompStarStatus" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+		  M.PRS_ID
+		  ,PRS_NAME
+		  ,IFNULL(SUM(CON_PRICE),0) CON_PRICE 
+		  ,IFNULL(SUM(CON_PRICE_CHG),0) CON_PRICE_CHG     
+		FROM WH_PRICE M, WH_PRESS A
+		WHERE 1=1
+		AND M.PRS_ID = A.PRS_ID
+		AND A.APP_ID = #{APP_ID}
+		GROUP BY M.PRS_ID ,PRS_NAME
+
+	</select>
+	
+	<!-- 업체별 하트 현황 -->
+	<select id="selectCompHeartStatus" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+		  M.PRS_ID
+		  ,PRS_NAME
+		  ,IFNULL(SUM(CON_HEART),0) CON_HEART 
+		  ,IFNULL(SUM(CON_HEART_CHG),0) CON_HEART_CHG     
+		FROM WH_HEART M, WH_PRESS A
+		WHERE 1=1
+		AND M.PRS_ID = A.PRS_ID
+		AND A.APP_ID = #{APP_ID}
+		GROUP BY M.PRS_ID ,PRS_NAME
+	</select>
+	
+	<select id="getGraphDataDaily" parameterType="hashmap" resultType="hashmap">
+		WITH RECURSIVE date_range AS (
+		    SELECT CURDATE() - INTERVAL 29 DAY AS usage_date
+		    UNION ALL
+		    SELECT usage_date + INTERVAL 1 DAY
+		    FROM date_range
+		    WHERE usage_date + INTERVAL 1 DAY &lt;= CURDATE()
+		),
+		price_agg AS (
+		    SELECT DATE(PRI_CREATE_DATE) AS usage_date,
+		           SUM(CON_PRICE) AS empty_star,
+		           SUM(CON_PRICE_CHG) AS filled_star
+		    FROM WH_PRICE
+		    <if test="PRS_ID != null and PRS_ID != 'admin'">
+                WHERE PRS_ID = #{PRS_ID}
+            </if>
+		    GROUP BY DATE(PRI_CREATE_DATE)
+		),
+		heart_agg AS (
+		    SELECT DATE(HRT_CREATE_DATE) AS usage_date,
+		           SUM(CON_HEART) AS empty_heart,
+		           SUM(CON_HEART_CHG) AS filled_heart
+		    FROM WH_HEART
+		    <if test="PRS_ID != null and PRS_ID != 'admin'">
+                WHERE PRS_ID = #{PRS_ID}
+            </if>
+		    GROUP BY DATE(HRT_CREATE_DATE)
+		)
+		SELECT DATE_FORMAT(d.usage_date, '%m/%d') AS usage_date,
+		       COALESCE(p.empty_star, 0) AS empty_star,
+		       COALESCE(p.filled_star, 0) AS filled_star,
+		       COALESCE(h.empty_heart, 0) AS empty_heart,
+		       COALESCE(h.filled_heart, 0) AS filled_heart
+		FROM date_range d
+		LEFT JOIN price_agg p ON p.usage_date = d.usage_date
+		LEFT JOIN heart_agg h ON h.usage_date = d.usage_date
+		ORDER BY d.usage_date;
+	</select>
+	
+	<select id="getGraphDataMonthly" parameterType="hashmap" resultType="hashmap">
+		WITH RECURSIVE month_range AS (
+		    SELECT DATE_FORMAT(CURDATE() - INTERVAL 11 MONTH, '%Y-%m-01') AS usage_month
+		    UNION ALL
+		    SELECT DATE_ADD(usage_month, INTERVAL 1 MONTH)
+		    FROM month_range
+		    WHERE usage_month &lt; DATE_FORMAT(CURDATE(), '%Y-%m-01')
+		),
+		price_agg AS (
+		    SELECT DATE_FORMAT(w.PRI_CREATE_DATE, '%Y-%m') AS ym,
+		           SUM(w.CON_PRICE) AS empty_star,
+		           SUM(w.CON_PRICE_CHG) AS filled_star
+		    FROM WH_PRICE w
+		    <if test="PRS_ID != null and PRS_ID != 'admin'">
+                WHERE w.PRS_ID = #{PRS_ID}
+            </if>
+		    
+		    GROUP BY DATE_FORMAT(w.PRI_CREATE_DATE, '%Y-%m')
+		),
+		heart_agg AS (
+		    SELECT DATE_FORMAT(h.HRT_CREATE_DATE, '%Y-%m') AS ym,
+		           SUM(h.CON_HEART) AS empty_heart,
+		           SUM(h.CON_HEART_CHG) AS filled_heart
+		    FROM WH_HEART h
+		    <if test="PRS_ID != null and PRS_ID != 'admin'">
+                WHERE h.PRS_ID = #{PRS_ID}
+            </if>
+		    GROUP BY DATE_FORMAT(h.HRT_CREATE_DATE, '%Y-%m')
+		)
+		SELECT DATE_FORMAT(m.usage_month, '%y/%m') AS usage_date,
+		       COALESCE(p.empty_star, 0) AS empty_star,
+		       COALESCE(p.filled_star, 0) AS filled_star,
+		       COALESCE(h.empty_heart, 0) AS empty_heart,
+		       COALESCE(h.filled_heart, 0) AS filled_heart
+		FROM month_range m
+		LEFT JOIN price_agg p ON p.ym = DATE_FORMAT(m.usage_month, '%Y-%m')
+		LEFT JOIN heart_agg h ON h.ym = DATE_FORMAT(m.usage_month, '%Y-%m')
+		ORDER BY m.usage_month;
+	</select>
+</mapper>

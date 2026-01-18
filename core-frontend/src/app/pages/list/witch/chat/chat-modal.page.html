@@ -1,0 +1,39 @@
+<div class="modal" style="border-radius: 5px;">
+  <div class="chatArea">
+    <ng-container *ngIf="loaded">
+      <ng-container *ngIf="(messageList | async).length">
+        <cdk-virtual-scroll-viewport
+          style="width:100%;height:100%;"
+          [itemSize]="itemSize">
+          <ion-list>
+            <div class="title">
+              <div style="width:50px;height:50px;display:flex;gap:20px">
+                <app-user-avatar [profileImg]="followPicture" slot="start"></app-user-avatar>
+                <p style="min-width:120px;font-size: 1.2rem;color:#f9a631;font-weight: bold;">{{followName}}</p>
+              </div>
+            </div>
+            <ion-item
+              style="margin-top:10px;background: #1a65eb;border-radius: 10px;padding:5px"
+              detail="false"
+              *cdkVirtualFor="
+              let item of messageList | async;
+              let i = index;
+            ">
+              <ng-container>
+                <div class="message-data">
+                  <div class="message-content" style="color:#fff">
+                    {{ item?.CONTENT }}
+                  </div>
+                  <div class="message-date" style="color:#fff;font-size:0.8rem">
+                    <span>{{ item?.SEND_DATE | date:'yy년MM월dd일 HH시mm분' }}</span>
+                  </div>
+                </div>
+              </ng-container>
+            </ion-item>
+          </ion-list>
+
+        </cdk-virtual-scroll-viewport>
+      </ng-container>
+    </ng-container>
+  </div>
+</div>

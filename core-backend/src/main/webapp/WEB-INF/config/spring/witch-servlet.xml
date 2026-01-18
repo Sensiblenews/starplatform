@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+	xmlns:mvc="http://www.springframework.org/schema/mvc"   
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"	
+	xmlns:p="http://www.springframework.org/schema/p" 
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd 
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd 		
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+		
+    <!--
+        - The controllers are autodetected POJOs labeled with the @Controller annotation.
+    -->
+    <!-- 패키지 내 Controller, Service, Repository 클래스의 auto detect를 위한 mvc 설정 -->
+    <context:component-scan base-package="com.sensible">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+    </context:component-scan>
+    
+    <!--
+        - The form-based controllers within this application provide @RequestMapping 
+        - annotations at the type level for path mapping URLs and @RequestMapping 
+        - at the method level for request type mappings (e.g., GET and POST). 
+        - In contrast, ClinicController - which is not form-based - provides 
+        - @RequestMapping only at the method level for path mapping URLs.
+        -
+        - DefaultAnnotationHandlerMapping is driven by these annotations and is 
+        - enabled by default with Java 5+.
+    -->
+
+    <!--
+        - This bean processes annotated handler methods, applying Application-specific PropertyEditors
+        - for request parameter binding. It overrides the default AnnotationMethodHandlerAdapter.
+     -->
+    <!-- ReqeustMapping 과 Controller 클래스 매핑을 위한 mvc 설정 -->
+    <bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">
+        <property name="webBindingInitializer">
+            <bean class="jbit.core.handler.EgovBindingInitializer"/>
+        </property>		
+    </bean>
+   
+   
+    <bean id="localeResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver" />
+
+	<bean id="localeChangeInterceptor" class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor">
+		<property name="paramName" value="language" />
+	</bean> 
+  
+	
+	
+	<mvc:interceptors>		
+		<mvc:interceptor>
+			<mvc:mapping path="/app/**"/>	
+			<mvc:mapping path="/api/**"/>	
+			<bean id="interceptorAppAPI" class="com.sensible.common.filter.InterceptorAppAPI"></bean>	
+		</mvc:interceptor>		 	
+		<mvc:interceptor>			
+			<mvc:mapping path="/api/**"/>
+			<!-- <mvc:exclude-mapping path="/api/content" />		 -->
+			<bean id="interceptorAPI" class="com.sensible.common.filter.InterceptorAPI"></bean>		
+		</mvc:interceptor>
+		<mvc:interceptor>
+			<mvc:mapping path="/adm/**"/>
+			<bean id="authInterceptor" class="com.sensible.common.filter.AuthInterceptor"></bean>		
+		</mvc:interceptor>
+	</mvc:interceptors>
+	
+	<!-- request parameter 커스텀
+		주의할 것은 CommandMap 에서 map 을 상속받으면 안됨
+		상속받게되면 argument-resolvers 거치지 않음
+	 -->
+	<mvc:annotation-driven>
+		<mvc:argument-resolvers>
+			<bean class="com.sensible.common.resolver.CustomMapArgumentResolver"></bean>
+		</mvc:argument-resolvers>
+	</mvc:annotation-driven> 	 
+	
+    
+    
+    <!--
+        - This bean resolves specific types of exceptions to corresponding logical 
+        - view names for error views. The default behaviour of DispatcherServlet 
+        - is to propagate all exceptions to the servlet container: this will happen 
+        - here with all other types of exceptions.
+    -->
+    <!-- 서블릿컨네이너상의 exception에 대한 오류 페이지를 연결하는 mvc 설정 
+    <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+        <property name="defaultErrorView" value="exception/egovError"/>
+        <property name="exceptionMappings">
+            <props>
+                <prop key="org.springframework.dao.DataAccessException">exception/dataAccessFailure</prop>
+				<prop key="org.springframework.transaction.TransactionException">exception/transactionFailure</prop>
+				<prop key="egovframework.rte.fdl.cmmn.exception.EgovBizException">exception/egovError</prop>
+				<prop key="org.springframework.security.AccessDeniedException">exception/accessDenied</prop>
+            </props>
+        </property>
+    </bean>
+    -->
+    <!-- Tiles Config-->
+	<bean id="tilesConfigurer" class="org.springframework.web.servlet.view.tiles3.TilesConfigurer"> 
+		<property name="definitions"> 
+			<list> 
+				<value>classpath:META-INF/tiles/tiles-common.xml</value>				
+			</list> 
+		</property>
+	</bean>
+	
+	<!-- resource 정의 -->
+	<mvc:resources location="/resources/" mapping="/resources/**"></mvc:resources>
+	 
+	    
+    <!--
+        - This bean configures the 'prefix' and 'suffix' properties of 
+        - InternalResourceViewResolver, which resolves logical view names 
+        - returned by Controllers. For example, a logical view name of "vets" 
+        - will be mapped to "/WEB-INF/jsp/vets.jsp".
+    -->
+    <!-- 화면처리용 JSP 파일명의  prefix, suffix 처리에 대한 mvc 설정  -->
+    <!-- jsonView	-->	
+	<bean id="xmlViewResolver" class="org.springframework.web.servlet.view.BeanNameViewResolver"
+		p:order="0" />
+
+	
+	<bean id="jsonView" class="org.springframework.web.servlet.view.json.MappingJackson2JsonView">
+		<property name="contentType" value="application/json;charset=UTF-8" />
+	</bean>
+	
+	<bean id="tilesViewResolver" class="org.springframework.web.servlet.view.UrlBasedViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.tiles3.TilesView"/>
+		<property name="order" value="1"/>
+	</bean>
+
+	
+	<!-- 2. Jsp Views -->
+	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+		<property name="prefix" value="/WEB-INF/jsp/" />
+		<property name="suffix" value=".jsp" />
+		<property name="order" value="2"/>
+	</bean>
+</beans>

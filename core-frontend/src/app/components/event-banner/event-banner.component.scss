@@ -1,0 +1,15 @@
+.event-wrapper {
+  position: relative;
+  z-index: 0;
+  display: block;
+  background-color: #e4e4e4;
+  color: var(--ion-color-light-contrast);
+  padding: 0.8rem;
+  text-align: center;
+  &:active {
+    background-color: var(--ion-color-light-tint);
+  }
+  b {
+    font-weight: 500;
+  }
+}

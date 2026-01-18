@@ -1,0 +1,51 @@
+ion-header{
+    // font-size: 0.8em !important;
+    ion-buttons{
+        &[slot="end"]{
+            ion-button{
+                color: #fceded;
+                font-weight: bold;
+            }
+        }
+    }
+}
+
+::ng-deep ion-input .label-text{
+    color: #92949c;
+    font-size: 0.8em;
+}
+
+ion-content{
+    --background: #ffffff;
+    font-size: 0.8em !important;
+    ion-item{
+        --background: #ffffff;
+        button{
+            color: #5260ff;
+            background: #d8d8d8;
+        }
+        ion-label{
+            color: #92949c;
+            font-size: 0.8em;
+        }
+        ion-textarea{
+            height:30vh;
+            font-size: 0.8em;
+        }
+    }
+}
+
+.video-div {
+  position: relative;
+  width: 100%; /* 부모 요소의 전체 너비에 맞춤 */
+  padding-top: 56.25%; /* 16:9 비율 유지 (100 / 16 * 9) */
+  overflow: hidden;
+}
+.content-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 비율 유지하면서 화면 꽉 채움 */
+}

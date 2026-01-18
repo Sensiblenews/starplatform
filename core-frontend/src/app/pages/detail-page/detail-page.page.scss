@@ -1,0 +1,185 @@
+ion-content {
+  .wrap {
+    width: 100%;
+    height: 100%;
+    .details {
+      padding: 8px;
+      padding-bottom: 70px;
+      .title {
+        font-size: 1.5em;
+        margin-bottom: 3vh;
+        letter-spacing: 0.1em;
+      }
+      .subtitle {
+        font-size: 1.2em;
+        margin-bottom: 3vh;
+        color: gray;
+      }
+      .video-div {
+        position: relative;
+        width: 100%; /* 부모 요소의 전체 너비에 맞춤 */
+        padding-top: 56.25%; /* 16:9 비율 유지 (100 / 16 * 9) */
+        overflow: hidden;
+      }
+      .content-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* 비율 유지하면서 화면 꽉 채움 */
+      }
+      .img-div {
+        text-align: center;
+        margin: 0.5rem 0.5rem 0.5rem 0.5rem;
+      }
+      .video-wrapper {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background-color: black;
+        overflow: hidden;
+
+        video {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          background-color: black;
+          display: block;
+        }
+      }
+      .youtube-div {
+        margin: 0.5rem 0.5rem 0.5rem 0.5rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .img-origin {
+        margin-top: 0.2rem;
+        color: gray;
+        font-size: 0.8em;
+      }
+      .content-body {
+        line-height: 1.2;
+      }
+      p {
+        line-height: 10px;
+      }
+      .mid_wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #aaaaaa;
+        font-size: 1.1rem;
+        .writer-info {
+          font-size: 0.7rem;
+        }
+        .detail-writer-goblin{
+          display: flex;
+          flex-direction: row;
+        }
+        .detail-writer-goblin > app-user-avatar{
+          max-width: 3rem;
+          max-height: 3rem;
+        }
+        .detail-writer-goblin > .writer-info{
+          display: flex;
+          flex-direction: column;
+          font-size: 1rem;
+          margin-left: 0.5rem;
+          justify-content: center;
+        }
+      }
+      .cost_wrap {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: flex-end;
+        font-size: 1em;
+        color: black;
+        font-weight: 600;
+        text-align: right;
+        > div {
+          &:first-child {
+            margin-right: 5px;
+          }
+        }
+      }
+      .commentView {
+        margin-top: 5rem;
+        .title {
+          font-size: 0.8em;
+          font-weight: bold;
+          border-bottom: 1px solid #000000;
+          padding-bottom: 10px;
+          margin-bottom: 0px;
+        }
+        .item {
+          padding: 10px;
+          border-bottom: 1px solid #cccccc;
+          app-user-avatar {
+            flex: 0 1 20%;
+            max-width: 3rem;
+          }
+          .text {
+            margin-bottom: 10px;
+          }
+          .writerInfo {
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            .info {
+              margin-left: 10px;
+              font-size: 0.8em;
+              .writer {
+                color: #cccccc;
+                margin-bottom: 5px;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ion-fab {
+      bottom: 45px;
+    }
+  }
+}
+ion-footer {
+  padding-bottom: var(--ion-safe-area-bottom);
+}
+.commentZone {
+  position: fixed;
+  bottom: 0;
+  background-color: #aaaaaa;
+  width: 100%;
+  padding: 4px;
+  display: flex;
+  .textInput {
+    flex: 1;
+    background-color: #ffffff;
+    border-radius: 50px;
+    ion-input {
+      --color: var(--ion-color-dark);
+      font-size: 1rem;
+      line-height: 1rem;
+      height: 100%;
+      --padding-start: 10px;
+      --padding-top: 5px;
+      --padding-end: 10px;
+      --padding-bottom: 5px;
+    }
+  }
+  .icon {
+    ion-button {
+      --color: #ffffff;
+    }
+    ion-icon {
+      margin-left: 4px;
+    }
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}

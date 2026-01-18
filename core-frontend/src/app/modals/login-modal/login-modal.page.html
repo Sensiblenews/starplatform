@@ -1,0 +1,28 @@
+<div class="modal-wrapper">
+  <div class="modal">
+    <!-- <img class="logo" src="../../../assets/img/logo.png" /> -->
+    <div class="title">
+      Log In
+    </div>
+    <div class="btn_wrap">
+      <ion-button class="login_btn google" (click)="doLogin('GO')">
+        <img class="logo-google" src="../../../assets/img/google.png" />
+        구글로 로그인
+      </ion-button>
+      <ng-container *ngIf="available">
+        <ion-button class="login_btn apple" (click)="doLogin('AP')">
+          <ion-icon name="logo-apple"></ion-icon>
+          Apple로 로그인
+        </ion-button>
+      </ng-container>
+      <ion-button class="login_btn kakao" (click)="doLogin('KT')">
+        <ion-icon name="chatbubble"></ion-icon>
+        카카오계정으로 로그인
+      </ion-button>
+      <ion-button class="login_btn facebook" (click)="doLogin('FB')">
+        <!-- <ion-icon name="logo-facebook"></ion-icon> -->
+        이메일로 로그인
+      </ion-button>
+    </div>
+  </div>
+</div>

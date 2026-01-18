@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="login">
+
+
+  <select id="selectLogin" parameterType="userVO" resultType="userVO">
+  	SELECT
+		PRS_ID
+		,APP_ID
+		,PRS_PWD
+		,PRS_NAME
+		,PRS_EMAIL
+		,PRS_HOMEPAGE
+		,PRS_USE_YN
+		,PRS_TYPE
+		,PRS_AUTH
+		,PRS_AUTH_YN
+		,APP_APPLY_YN
+		,APP_ISSUED_YN
+		,APP_AUTH_KEY
+		,ORIG_FILE_NM
+		,STORED_FILE_NM
+	FROM WH_PRESS
+	WHERE 1=1  	
+	AND PRS_ID = #{PRS_ID}
+	AND PRS_PWD = CONCAT('*',UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD})))))
+	AND PRS_USE_YN = 'Y'
+  </select>
+  <!-- 	AND PRS_PWD = PASSWORD(#{PRS_PWD}) -->
+</mapper>

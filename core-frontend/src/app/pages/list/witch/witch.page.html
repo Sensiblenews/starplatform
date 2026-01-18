@@ -1,0 +1,55 @@
+<app-header pageTitle="마녀"></app-header>
+<ion-content scrollY="false" fullscreen>
+  <div class="witch-tab">
+    <ion-button *ngFor="let menu of menus; let i = index;"
+    [ngClass]="{'activated': menu.selected, 'inactive': !menu.selected}"
+    (click)="selectMenu(i)" expand="full">{{menu.title}}</ion-button>
+  </div>
+
+  <ion-searchbar
+    #searchBar
+    (keyup)="searchByKeyword($event)"
+    type="search"
+    showClearButton="always"
+  ></ion-searchbar>
+
+  <section class="followers">
+    <ng-container *ngIf="loaded">
+      <ng-container *ngIf="(followerList | async).length">
+        <cdk-virtual-scroll-viewport
+          class="ion-content-scroll-host"
+          [itemSize]="itemSize">
+          <ion-list>
+            <ion-item
+              detail="false"
+              class="contentItem"
+              *cdkVirtualFor="
+                let item of followerList | async;
+                let i = index;
+                trackBy: checkUniqueContentId
+              ">
+              <ng-container>
+                <app-user-avatar [profileImg]="item?.FOLLOW_PICTURE" slot="start" (click)="profilePage(item)"></app-user-avatar>
+                <div class="follow-data">
+                  <ion-label class="follow-name" (click)="profilePage(item)" text-wrap>{{item?.FOLLOW_NAME}}</ion-label>
+                  <ion-button class="follow btn-follow" *ngIf="item?.IS_FOLLOWING === 0 && item.FOLLOW_ID !== memInfo.MEM_ID" (click)="follow($event,item)">팔로우</ion-button>
+                  <ion-button class="follow btn-unfollow" *ngIf="item?.IS_FOLLOWING === 1 && item.FOLLOW_ID !== memInfo.MEM_ID" (click)="unFollow($event,item)">팔로잉</ion-button>
+                  <ion-button *ngIf="menuIndex !== 2" class="follow btn-text" (click)="chatOpen(item)">
+                    <div *ngIf="item?.NEW_CHAT_COUNT > 0" class="newChatIcon"></div>
+                    채팅
+                  </ion-button>
+                </div>
+            </ng-container>
+            </ion-item>
+          </ion-list>
+       </cdk-virtual-scroll-viewport>
+      </ng-container>
+    </ng-container>
+</section>
+
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed" *ngIf="isAuthed">
+    <ion-fab-button size="small" color="danger" (click)="doWrite()">
+      <ion-icon name="pencil-sharp"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>

@@ -1,0 +1,69 @@
+<ion-header>
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="closeModal()">
+        <ion-icon slot="icon-only" name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="updatePost()" style="color: #5260ff;">올리기</ion-button>
+    </ion-buttons>
+
+    <ion-title>글쓰기</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list>
+    <ion-item>
+      <!-- <ion-label text-wrap>제목 : </ion-label> -->
+      <ion-input label="제목 : " type="text" [(ngModel)]="content.CON_TITLE"></ion-input>
+    </ion-item>
+    <ion-item>
+      <ion-label>
+        이미지 :
+        <ion-button (click)="uploadImage()">첨부</ion-button>
+      </ion-label>
+    </ion-item>
+    <ion-item>
+      <ion-label>
+        동영상 :
+        <ion-button (click)="uploadVideo()">첨부</ion-button>
+        <div *ngIf="imgWebPath" class="video-div">
+          <video
+            class="content-video"
+            *ngIf="imgWebPath && imgWebPath.startsWith('data:video/')"
+            [src]="imgWebPath"
+            controls
+            style="width: 100%;"
+          ></video>
+        </div>
+      </ion-label>
+    </ion-item>
+    <ion-item *ngIf="imgWebPath && imgWebPath.startsWith('data:image/')">
+      <ion-img [src]="imgWebPath"></ion-img>
+    </ion-item>
+    <ion-item>
+      <ion-label>별 체크 : </ion-label>
+      <ion-toggle [(ngModel)]="content.CON_PRICE"></ion-toggle>
+    </ion-item>
+    <ion-item>
+      <ion-label>글쓴이/닉네임 표시</ion-label>
+      <ion-toggle [(ngModel)]="content.CON_WRITE_YN" checked [disabled]="true"></ion-toggle>
+    </ion-item>
+    <ion-item>
+      <ion-label>클릭/하트 수 노출</ion-label>
+      <ion-toggle [(ngModel)]="content.CON_META_YN" checked></ion-toggle>
+    </ion-item>
+    <ion-item *ngIf="type === 'update'">
+      <ion-label>글 게시 여부</ion-label>
+      <ion-toggle [(ngModel)]="content.CON_USE_YN" checked></ion-toggle>
+    </ion-item>
+    <ion-item>
+      <ion-textarea
+        placeholder="내용을 입력해 주세요"
+        [(ngModel)]="content.CON_BODY"
+      ></ion-textarea>
+    </ion-item>
+  </ion-list>
+</ion-content>

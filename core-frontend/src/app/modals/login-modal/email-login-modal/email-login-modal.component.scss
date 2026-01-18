@@ -1,0 +1,34 @@
+.email-login-modal {
+
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+
+  .top {
+    .headerTitle {
+      font-size: 1.3em;
+      display: flex;
+      justify-content: center;
+      text-align: center;
+      // color: var(--ion-color-primary-contrast);
+    }
+  }
+
+  .top-text, .bottom-text {
+    font-size: 0.8em;
+  }
+}
+
+.wrapper {
+  height: 100%;
+  background: #fff;
+}
+
+ion-content.email-login-modal::part(scroll) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* 수직 가운데 정렬 */
+  align-items: center;     /* 수평 가운데 정렬 */
+}

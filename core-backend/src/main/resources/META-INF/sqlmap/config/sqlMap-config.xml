@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "HTTP://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+	<settings>
+		<setting name="cacheEnabled" value="true" />
+		<setting name="useGeneratedKeys" value="true" />
+		<setting name="defaultExecutorType" value="REUSE" />
+		<setting name="defaultStatementTimeout" value="30" />
+		<setting name="mapUnderscoreToCamelCase" value="false" />		
+		<setting name="jdbcTypeForNull" value="VARCHAR" /> 
+	</settings>
+	
+	<typeAliases>
+		<!-- Common VO -->
+		<typeAlias alias="egovMap"					type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+		<typeAlias alias="UserVO"					type="com.sensible.admin.domain.UserVO"/>
+		<typeAlias alias="contentVO"				type="com.sensible.admin.domain.ContentVO"/>
+		
+	</typeAliases>
+
+</configuration>
+

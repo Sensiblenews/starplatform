@@ -1,0 +1,16 @@
+{
+  "name": "스타플랫폼",
+  "short_name": "스타플랫폼",
+  "start_url": "index.html",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "assets/imgs/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "background_color": "#4e8ef7",
+  "theme_color": "#4e8ef7",
+  "play_store_key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu5Sna5f2ox3RMLjVsNjVIGp221LAdxElz2gfLLo0h2I7ys1Mga/yldMdsw5zIyvmQhDrwvrzmy4Jw1Bksu/cqcuSwQxTT7OA95QTeSq/xEd5qYvo1nk0IM/Y8r2uKp3JEIuS70JaGzKgqnfAEDBLdkpiqjeHJocL2TcT475d9bEUUJgW/AP3R4XZTzTLJwh0O8kc20uqd3THEh9j5JZ8OHdcRhySJ5tRTjJIsz2hM6b0LPlA5B3UXOJbvHwr2X3jEGWNet+B40xoRKp9AHRRM3Qw9Zmu7jEYzxHBfC+UO8JwCYenQPMi0AspRUnocS2b7qnQl2JGABnpN1rYRzTWZwIDAQAB"
+}

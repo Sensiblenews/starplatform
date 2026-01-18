@@ -1,0 +1,21 @@
+<div class="modal-wrapper" (click)="close()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="text-group">
+      <div class="title">Exclusive</div>
+      <div class="title">Content</div>
+    </div>
+    
+    <ion-button class="subscribe-btn" expand="block" (click)="subscribe()">
+      Subscribe
+    </ion-button>
+    <div class="restore-link">
+      <ion-button fill="clear" size="small" color="medium" (click)="onRestore()">
+        Restore Purchase
+      </ion-button>
+    </div>
+
+    <div class="footer-note">
+      Recurring billing, cancel anytime.
+    </div>
+  </div>
+</div>

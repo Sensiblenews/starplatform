@@ -1,0 +1,24 @@
+.list-banner {
+  font-weight: 600;
+  padding: 1.2rem 1rem;
+  font-size: 1rem;
+  line-height: 1rem;
+  background-color: var(--ion-color-primary-shade);
+  color: var(--ion-color-primary-contrast);
+  &:active {
+    background-color: var(--ion-color-primary);
+  }
+}
+
+.list-title {
+  font-weight: 500;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  line-height: 1rem;
+  background-color: var(--ion-color-light);
+  color: var(--ion-color-light-contrast);
+}
+
+.faq-container {
+  --overflow: hidden;
+}

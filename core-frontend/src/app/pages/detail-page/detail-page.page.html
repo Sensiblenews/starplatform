@@ -1,0 +1,202 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="onClickBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title [innerHTML]="content?.CON_TITLE || '게시글'"></ion-title>
+    <ion-buttons slot="end" *ngIf="content?.CON_TYPE === '9'">
+      <ion-button (click)="openUserMenu()">
+        <ion-icon name="ellipsis-vertical"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ng-container *ngIf="content">
+    <div class="wrap">
+      <div class="details">
+        <div class="title" [innerHTML]="content.CON_TITLE"></div>
+        <div class="subtitle" [innerHTML]="content.CON_SUBTITLE"></div>
+
+        <div class="mid_wrap">
+          <div [ngClass]="{'detail-writer-goblin' : content?.CON_TYPE === '9'}"
+          (click)="writerClick($event,content.PRS_ID,content.MEM_NAME)">
+            <!-- <ng-container *ngIf="content.CON_TYPE !== '9'"> -->
+            <app-user-avatar [profileImg]="content.MEM_PICTURE ? content.MEM_PICTURE : defaultAvatar"
+            *ngIf="content?.CON_TYPE === '9'"></app-user-avatar>
+            <div class="writer-info">
+              <ng-container *ngIf="content.CON_WRITE_YN !== 0">
+                <div class="writer-name">
+                  {{content.press?.PRS_NAME || content.MEM_NAME }}
+                </div>
+              </ng-container>
+              <div class="writer-date">
+                {{content.CON_CDATE}}
+              </div>
+            </div>
+          </div>
+          <ion-icon name="share-outline" (click)="shareContent()"></ion-icon>
+        </div>
+
+        <div class="cost_wrap" *ngIf="content.CON_META_YN !== 0">
+          <div (click)="checkCount('star')">
+            <ion-icon name="star-outline"></ion-icon>
+            {{content.PRICE + content.PRICE_CHG }}
+          </div>
+          <div (click)="checkCount('heart')">
+            <ion-icon name="heart-outline"></ion-icon>
+            {{content.HEART + content.HEART_CHG }}
+          </div>
+        </div>
+
+        <ng-container *ngIf="content?.CON_ORIGIN_URL; else thumbnailContent">
+          <div class="video-div">
+            <ng-container *ngIf="content.CON_ORIGIN_URL">
+              <div class="video-container">
+                <video
+                  #videoElement
+                  class="content-video"
+                  [src]="content.CON_ORIGIN_URL"
+                  controls
+                  muted
+                  autoplay
+                  (play)="onVideoPlay(videoElement)"
+                ></video>
+              </div>
+              <span class="img-origin">Designed by Freepik</span>
+            </ng-container>
+<!--            <ng-container *ngIf="!content.CON_ORIGIN_URL?.includes('freepik')">-->
+<!--              <img-->
+<!--                [src]="content.CON_ORIGIN_URL"-->
+<!--                (click)="openPictureURL(content.CON_ORIGIN_URL)"-->
+<!--              />-->
+<!--            </ng-container>-->
+          </div>
+        </ng-container>
+
+        <ng-template #thumbnailContent>
+          <ng-container *ngIf="content?.CON_THUMNAIL">
+            <div class="img-div">
+              <img
+                [src]="content.CON_THUMNAIL"
+                (click)="openPictureURL(content.CON_THUMNAIL)"
+              />
+            </div>
+          </ng-container>
+        </ng-template>
+
+        <ng-container *ngIf="content?.CON_VIDEO">
+          <div class="video-wrapper" (click)="enterFullscreen(videoEl)">
+            <video 
+              #videoEl
+              [src]="content.CON_VIDEO"
+              playsinline
+              [poster]="content.CON_VIDEO_THUMNAIL"
+              [muted]="true"
+              autoplay
+              loop
+            ></video>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="content?.CON_YOUTUBE_URL">
+          <div class="youtube-div">
+            <iframe
+              height="200"
+              onload="this.width=screen.width - 30"
+              [src]="content.CON_YOUTUBE_URL | safeUrl"
+              frameborder="0"
+            ></iframe>
+          </div>
+        </ng-container>
+
+        <div class="content-body" [innerHTML]="content.CON_BODY"></div>
+
+        <ng-container *ngIf="content?.images?.length">
+          <div
+            class="img-div"
+            *ngFor="let img of content.images; let i = index"
+          >
+            <img
+              [src]="img.IMG_URL"
+              (click)="openPictureURL(img.IMG_ORIGIN_URL)"
+            />
+            <ng-container *ngIf="img.IMG_ORIGIN_URL?.includes('freepik')">
+              <span class="img-origin">Designed by Freepik</span>
+            </ng-container>
+          </div>
+        </ng-container>
+
+        <div class="commentView">
+          <div class="title">전체 댓글 {{this.comments.length}}</div>
+          <div
+            class="item"
+            (click)="commentClick(comment)"
+            *ngFor="let comment of comments; let i = index; trackBy: checkUniqueComment;"
+          >
+            <div class="text" [innerHTML]="comment?.COM_BODY"></div>
+            <div class="writerInfo">
+              <app-user-avatar
+                [profileImg]="comment?.User?.MEM_PICTURE"
+              ></app-user-avatar>
+              <div class="info">
+                <div class="writer" [innerHTML]="comment?.User?.MEM_NAME">
+                  익명
+                </div>
+                <div
+                  class="date"
+                  [innerHTML]="comment?.COM_CREATE_DATE | date: 'yyyy-MM-dd HH:mm:ss'"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ion-fab
+      horizontal="end"
+      vertical="bottom"
+      slot="fixed"
+      class="detailHeart"
+    >
+      <ion-fab-button color="light" size="small">
+        <ion-icon name="heart"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-list side="start">
+        <ion-fab-button color="light" size="small" (click)="giveHeart(10)">
+          10
+        </ion-fab-button>
+        <ion-fab-button color="light" size="small" (click)="giveHeart(100)">
+          100
+        </ion-fab-button>
+        <ion-fab-button color="light" size="small" (click)="giveHeart(1000)">
+          1000
+        </ion-fab-button>
+        <ion-fab-button color="light" size="small" (click)="giveHeart(10000)">
+          10000
+        </ion-fab-button>
+      </ion-fab-list>
+    </ion-fab>
+  </ng-container>
+</ion-content>
+<ion-footer>
+  <div class="commentZone">
+    <div class="textInput">
+      <ion-input
+        placeholder="댓글을 달아 보세요."
+        [(ngModel)]="commentInput"
+      ></ion-input>
+    </div>
+    <div class="icon">
+      <ion-button fill="clear" size="small" (click)="postComment()">
+        전송
+        <ion-icon name="paper-plane-sharp"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</ion-footer>

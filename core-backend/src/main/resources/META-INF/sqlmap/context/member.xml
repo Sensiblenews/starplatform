@@ -1,0 +1,570 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="member">
+	<select id="memberAccessTokenCheck" resultType="hashmap" parameterType="string">
+		SELECT
+			MEM_ID
+		  FROM
+		  	WH_MEMBER
+		 WHERE
+		 	MEM_TOKEN = #{token}
+		 AND MEM_USE_YN = 1	
+	</select>
+	
+	<select id="memberAccessTokenCheckAndUser" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			M.MEM_ID,
+			MEM_NAME,
+			MEM_INTRODUCTION,
+			MEM_STAR,
+			MEM_STAR_CHG,
+			IFNULL(HEART,0) HEART,
+			IFNULL(HEART_CHG,0) HEART_CHG,
+			MEM_TOKEN,
+			MEM_AGREEMENT,
+			MEM_TYPE,
+			MEM_PICTURE,
+			MEM_USE_YN
+		    ,IFNULL(PRICE,0) PRICE
+		 	,IFNULL(PRICE_CHG,0) PRICE_CHG
+	 	 	,IFNULL(CONTENT_CNT,0) CONTENT_CNT
+	 	 	,IFNULL(RECENT_HRT_CHG, 0) RECENT_HRT_CHG
+	 	 	,IFNULL(RECENT_HRT_NAME, '') RECENT_HRT_NAME
+ 	 	 	,(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE M.MEM_ID = W.MEM_ID) FOLLOWING_CNT
+		 	,(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE M.MEM_ID = W.FOLLOW_ID) FOLLOWER_CNT
+		 FROM WH_MEMBER M LEFT OUTER JOIN
+	     (
+	        SELECT C.MEM_ID, SUM(A.CON_PRICE) PRICE , SUM(A.CON_PRICE_CHG) PRICE_CHG
+	        FROM WH_CONTENT M, WH_PRICE A ,WH_MEMBER C
+	        WHERE 1=1
+	        AND M.CON_ID = A.CON_ID
+	        AND M.PRS_ID = C.MEM_ID
+	        AND	MEM_TOKEN = #{MEM_TOKEN}
+	        GROUP BY C.MEM_ID
+	     ) A ON (M.MEM_ID = A.MEM_ID	)
+	     LEFT OUTER JOIN
+		 (
+			SELECT WM.MEM_ID, COUNT(*) CONTENT_CNT
+			FROM WH_CONTENT WC, WH_MEMBER WM
+			WHERE 1=1
+			AND WC.PRS_ID = WM.MEM_ID
+			GROUP BY WM.MEM_ID
+		 ) B ON (M.MEM_ID = B.MEM_ID)   
+		 LEFT OUTER JOIN
+	     (
+	        SELECT C.MEM_ID, SUM(A.CON_HEART) HEART , SUM(A.CON_HEART_CHG) HEART_CHG
+	        FROM WH_CONTENT M, WH_HEART A ,WH_MEMBER C
+	        WHERE 1=1
+	        AND M.CON_ID = A.CON_ID
+	        AND M.PRS_ID = C.MEM_ID
+	        AND	MEM_TOKEN = #{MEM_TOKEN}
+	        GROUP BY C.MEM_ID
+	     ) C ON (M.MEM_ID = C.MEM_ID)
+	     LEFT OUTER JOIN (
+	     	SELECT
+	     		a.PRS_ID AS MEM_ID,
+			    a.CON_HEART_CHG AS RECENT_HRT_CHG,
+			    b.MEM_NAME AS RECENT_HRT_NAME
+			FROM
+			    WH_HEART a
+			LEFT OUTER JOIN WH_MEMBER b ON a.MEM_ID = b.MEM_ID
+			WHERE a.PRS_ID = #{MEM_ID}
+			  AND a.CON_HEART_CHG > 0
+			ORDER BY HRT_ID DESC
+			LIMIT 1
+	     ) D ON (M.MEM_ID = D.MEM_ID)
+	    WHERE 1=1
+		AND	MEM_TOKEN = #{MEM_TOKEN}
+	</select>
+	
+	<select id="profile" resultType="hashmap" parameterType="hashmap">
+		SELECT
+		M.MEM_ID,
+		M.MEM_NAME,
+		M.MEM_PICTURE,
+		M.MEM_INTRODUCTION,
+		(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE M.MEM_ID = W.MEM_ID) FOLLOWING_CNT,
+		(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE M.MEM_ID = W.FOLLOW_ID) FOLLOWER_CNT,
+		(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.FOLLOW_ID = #{PROFILE_ID} AND WF.MEM_ID = #{MEM_ID}) THEN 1 ELSE 0 END) IS_FOLLOWING
+		 FROM WH_MEMBER M
+		 WHERE M.MEM_ID = #{PROFILE_ID}
+	</select>
+	
+	<select id="profilePress" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			P.PRS_ID AS MEM_ID,
+			P.PRS_NAME AS MEM_NAME,
+			P.STORED_FILE_NM AS MEM_PICTURE,
+			'' MEM_INTRODUCTION,
+			(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE P.PRS_ID = W.MEM_ID) FOLLOWING_CNT,
+			(SELECT COUNT(MEM_ID) FROM WH_FOLLOW W WHERE P.PRS_ID = W.FOLLOW_ID) FOLLOWER_CNT,
+			(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.FOLLOW_ID = #{PROFILE_ID} AND WF.MEM_ID = #{MEM_ID}) THEN 1 ELSE 0 END) IS_FOLLOWING
+		FROM WH_PRESS P
+		WHERE P.PRS_ID = #{PROFILE_ID}
+	</select>
+	
+	<select id="fbKeyCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			MEM_ID
+		  FROM
+		  	WH_FACEBOOK
+		 WHERE
+		 	FB_KEY = #{FB_KEY}
+	</select>
+	
+	<select id="ktKeyCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			MEM_ID
+		  FROM
+		  	WH_KAKAOTALK
+		 WHERE
+		 	KT_KEY = #{KT_KEY}
+	</select>
+
+	<select id="apKeyCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			MEM_ID
+		FROM
+			WH_APPLE
+		WHERE
+			AP_KEY = #{AP_KEY}
+	</select>
+	
+	<select id="goKeyCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			MEM_ID
+		FROM
+			WH_GOOGLE
+		WHERE
+			GO_KEY = #{GO_KEY}
+	</select>
+	
+	
+	
+	<select id="nextMemId" resultType="String">
+		SELECT 
+		    MAX(MEM_ID) AS MEM_ID
+		FROM
+		    (SELECT 
+		        CONCAT(SUBSTR(MEM_ID, 1, 8), LPAD(SUBSTR(MEM_ID, 9, 6) + 1, 5, '0')) AS MEM_ID
+		    FROM
+		        (SELECT 
+		        MAX(MEM_ID) AS MEM_ID
+		    FROM
+		        WH_MEMBER
+		    WHERE
+		        SUBSTR(MEM_ID, 1, 8) = DATE_FORMAT(NOW(), '%Y%m%d')) MAX_MEM_ID 
+		UNION ALL SELECT CONCAT(DATE_FORMAT(NOW(), '%Y%m%d'), '00001') AS MEM_ID) A
+	</select>
+	
+	<select id="selectMember" resultType="hashmap" parameterType="string">
+		SELECT
+			WM.MEM_ID,
+			WM.MEM_TYPE,
+			WM.MEM_NAME,
+			WM.MEM_STAR,
+			WM.MEM_STAR_CHG,
+			WM.MEM_AGREEMENT,
+			WM.MEM_TOKEN,
+			WM.MEM_USE_YN,
+			WM.MEM_PICTURE		
+     		,IFNULL(PRICE,0) PRICE
+		 	,IFNULL(PRICE_CHG,0) PRICE_CHG
+		 	,IFNULL(HEART,0) HEART
+		 	,IFNULL(HEART_CHG,0) HEART_CHG
+	 	 	,IFNULL(CONTENT_CNT,0) CONTENT_CNT	
+	 	 	,IFNULL(RECENT_HRT_CHG,0) RECENT_HRT_CHG
+	 	 	,IFNULL(RECENT_HRT_NAME,'') RECENT_HRT_NAME	 	
+		 	,WM.MEM_CREATE_DATE
+		 FROM WH_MEMBER WM LEFT OUTER JOIN
+	     (
+	        SELECT C.MEM_ID, SUM(A.CON_PRICE) PRICE , SUM(A.CON_PRICE_CHG) PRICE_CHG
+	        FROM WH_CONTENT M, WH_PRICE A ,WH_MEMBER C
+	        WHERE 1=1
+	        AND M.CON_ID = A.CON_ID
+	        AND M.PRS_ID = C.MEM_ID
+	        AND	M.PRS_ID = #{MEM_ID}
+	        GROUP BY C.MEM_ID
+	     ) A ON (WM.MEM_ID = A.MEM_ID)
+   	     LEFT OUTER JOIN
+		 (
+			SELECT WM.MEM_ID, COUNT(*) CONTENT_CNT
+			FROM WH_CONTENT WC, WH_MEMBER WM
+			WHERE 1=1
+			AND WC.PRS_ID = WM.MEM_ID
+			GROUP BY WM.MEM_ID
+		 ) B ON (WM.MEM_ID = B.MEM_ID)
+		LEFT OUTER JOIN
+		 (
+	        SELECT C.MEM_ID, SUM(A.CON_HEART) HEART , SUM(A.CON_HEART_CHG) HEART_CHG
+	        FROM WH_CONTENT M, WH_HEART A ,WH_MEMBER C
+	        WHERE 1=1
+	        AND M.CON_ID = A.CON_ID
+	        AND M.PRS_ID = C.MEM_ID
+	        AND	M.PRS_ID = #{MEM_ID}
+	        GROUP BY C.MEM_ID
+	     ) C ON (WM.MEM_ID = C.MEM_ID)
+	     LEFT OUTER JOIN (
+	     	SELECT
+	     		a.PRS_ID AS MEM_ID,
+			    a.CON_HEART_CHG AS RECENT_HRT_CHG,
+			    b.MEM_NAME AS RECENT_HRT_NAME
+			FROM
+			    WH_HEART a
+			LEFT OUTER JOIN WH_MEMBER b ON a.MEM_ID = b.MEM_ID
+			WHERE a.PRS_ID = #{MEM_ID}
+			  AND a.CON_HEART_CHG > 0
+			ORDER BY HRT_ID DESC
+			LIMIT 1
+	     ) D ON (WM.MEM_ID = D.MEM_ID)
+	    WHERE 1=1
+		AND WM.MEM_ID = #{MEM_ID}		
+	</select>
+	
+	<insert id="insertMember" parameterType="hashmap">
+		INSERT INTO WH_MEMBER
+		(MEM_ID,
+		APP_ID,
+		MEM_TYPE,
+		MEM_NAME,
+		MEM_PICTURE,
+		MEM_TOKEN)
+		VALUES
+		(#{MEM_ID},
+		 #{APP_ID},
+		 #{MEM_TYPE},
+		 #{MEM_NAME},
+		 #{MEM_PICTURE},
+		 #{MEM_TOKEN})
+	</insert>
+
+	<insert id="insertMemberByApple" parameterType="hashmap">
+		INSERT INTO WH_MEMBER
+		(MEM_ID,
+		 APP_ID,
+		 MEM_TYPE,
+		 MEM_NAME,
+		 MEM_PICTURE,
+		 MEM_TOKEN)
+		VALUES
+			(#{MEM_ID},
+			 #{APP_ID},
+			 #{MEM_TYPE},
+			 #{MEM_NAME},
+			 #{MEM_PICTURE},
+			 #{MEM_TOKEN})
+	</insert>
+
+	<insert id="insertFacebook" parameterType="hashmap">
+		INSERT INTO WH_FACEBOOK
+		(MEM_ID,
+		FB_KEY,
+		FB_PICTURE,
+		FB_TOKEN,
+		FB_TOKEN_EXPD)
+		VALUES
+		(#{MEM_ID},
+		 #{FB_KEY},
+		 #{FB_PICTURE},
+		 #{FB_TOKEN},
+		 #{FB_TOKEN_EXPD})
+	</insert>
+	
+	<insert id="insertKakaotalk" parameterType="hashmap">
+		INSERT INTO WH_KAKAOTALK
+		(MEM_ID,
+		KT_KEY,
+		KT_PICTURE,
+		KT_TOKEN,
+		KT_TOKEN_EXPD)
+		VALUES
+		(#{MEM_ID},
+		 #{KT_KEY},
+		 #{KT_PICTURE},
+		 #{KT_TOKEN},
+		 #{KT_TOKEN_EXPD})
+	</insert>
+
+	<insert id="insertApple" parameterType="hashmap">
+		INSERT INTO WH_APPLE
+		(MEM_ID,
+		 AP_KEY,
+		 AP_TOKEN,
+		 AP_CONTENT)
+		VALUES
+		(#{MEM_ID},
+		 #{AP_KEY},
+		 #{AP_KEY},
+		 #{AP_CONTENT})
+	</insert>
+
+	<insert id="insertGoogle" parameterType="hashmap">
+		INSERT INTO WH_GOOGLE
+		(MEM_ID,
+		GO_KEY,
+		GO_PICTURE,
+		GO_TOKEN,
+		GO_TOKEN_EXPD)
+		VALUES
+		(#{MEM_ID},
+		 #{GO_KEY},
+		 #{GO_PICTURE},
+		 #{GO_TOKEN},
+		 #{GO_TOKEN_EXPD})
+	</insert>
+	
+	<update id="updateMember" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_TOKEN = #{MEM_TOKEN},
+		    FCM_TOKEN = #{FCM_TOKEN}
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+	
+	<select id="fbKeyAndMemIdCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT
+			*
+		  FROM
+		  	WH_FACEBOOK
+		 WHERE
+		 	FB_KEY = #{FB_KEY}
+		 	AND MEM_ID = #{MEM_ID}
+	</select>
+	
+	<update id="updateMemberAgree" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_AGREEMENT = 1
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+
+	<delete id="deleteApiUser" parameterType="hashmap">
+		<![CDATA[
+		DELETE FROM WH_MEMBER WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_COMMENT WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_APPLE WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_FACEBOOK WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_KAKAOTALK WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_EVENT_HST WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_CONTENT WHERE PRS_ID = #{MEM_ID};
+		DELETE FROM WH_CHAGE_EVT WHERE MEM_ID = #{MEM_ID};
+		DELETE FROM WH_PRICE WHERE MEM_ID = #{MEM_ID};
+		]]>
+	</delete>
+	<!-- 코멘트 삭제 -->
+	<delete id="deleteCommentByUser" parameterType="hashmap">
+		DELETE WH_COMMENT
+		WHERE MEM_ID = #{MEM_ID}
+	</delete>
+
+
+
+	<update id="minusMemberStar" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_STAR = #{MEM_STAR},
+		    MEM_STAR_CHG = #{MEM_STAR_CHG}
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+	
+	<update id="memberUpdate" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_AGREEMENT = #{MEM_AGREEMENT},
+		    MEM_STAR = #{MEM_STAR},
+		    MEM_STAR_CHG = #{MEM_STAR_CHG},
+		    MEM_USE_YN = #{MEM_USE_YN}
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+	
+	<update id="plusMemberStar" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_STAR = MEM_STAR + ${STAR}
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+	
+	<update id="plusMemberStarChg" parameterType="hashmap">
+		UPDATE WH_MEMBER 
+		SET 
+		    MEM_STAR_CHG = MEM_STAR_CHG + ${STAR}
+		WHERE
+		    MEM_ID = #{MEM_ID}
+	</update>
+	
+	<select id="selectAppInfo" parameterType="hashmap" resultType="String">
+		
+			SELECT 
+				APP_ID					
+			FROM  WH_PRESS
+			WHERE 1=1
+			AND APP_AUTH_KEY = #{APP_AUTH_KEY}
+		
+	</select>
+	
+	<update id="modifyNickname" parameterType="hashmap">
+		UPDATE WH_MEMBER
+		SET
+			MEM_NAME = #{MEM_NAME}
+		WHERE
+			MEM_ID = #{MEM_ID}
+	</update>
+	
+	<update id="modifyIntroduction" parameterType="hashmap">
+		UPDATE WH_MEMBER
+		SET
+			MEM_INTRODUCTION = #{MEM_INTRODUCTION}
+		WHERE
+			MEM_ID = #{MEM_ID}
+	</update>
+	
+	<select id="followCheck" resultType="hashmap" parameterType="hashmap">
+		SELECT * FROM WH_FOLLOW 
+		WHERE 
+			MEM_ID = #{MEM_ID} AND 
+			FOLLOW_ID = #{FOLLOW_ID}
+	</select>
+	
+	<select id="followCount" resultType="hashmap" parameterType="hashmap">
+		SELECT 
+		(SELECT COUNT(*)
+		FROM WH_FOLLOW F
+		WHERE F.MEM_ID = #{MEM_ID}
+		) AS FOLLOWING_COUNT,
+		(SELECT COUNT(*)
+		FROM WH_FOLLOW F
+		WHERE F.FOLLOW_ID = #{MEM_ID}
+		) AS FOLLOWER_COUNT
+	</select>
+	
+	<insert id="followUser" parameterType="hashmap">
+		INSERT INTO WH_FOLLOW(MEM_ID, FOLLOW_ID) 
+		VALUES(#{MEM_ID},#{FOLLOW_ID})
+	</insert>
+
+	<delete id="unFollowUser" parameterType="hashmap">
+		DELETE FROM WH_FOLLOW 
+		WHERE (MEM_ID=#{MEM_ID} AND FOLLOW_ID=#{FOLLOW_ID}) OR
+		(MEM_ID=#{FOLLOW_ID} AND FOLLOW_ID=#{MEM_ID})
+	</delete>
+	
+	<select id="follows" resultType="hashmap" parameterType="hashmap">
+		SELECT F.*, M.MEM_NAME FOLLOW_NAME, M.MEM_PICTURE FOLLOW_PICTURE,
+		(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.FOLLOW_ID = F.FOLLOW_ID  AND WF.MEM_ID = #{MEM_ID}) OR F.FOLLOW_ID  = #{MEM_ID} THEN 1 ELSE 0 END) IS_FOLLOWING,
+		(SELECT COUNT(1) FROM WH_USER_MESSAGE A WHERE A.SEND_MEM_ID = F.FOLLOW_ID AND A.RECEIVE_MEM_ID = #{PROFILE_ID} AND A.RECEIVE_DATE IS NULL AND A.DELETE_DATE IS NULL) AS NEW_CHAT_COUNT,
+		(SELECT COUNT(1) FROM WH_USER_MESSAGE A WHERE A.SEND_MEM_ID = F.FOLLOW_ID AND A.RECEIVE_MEM_ID = #{PROFILE_ID} AND A.DELETE_DATE IS NULL) AS CHAT_COUNT
+		FROM WH_FOLLOW F
+		INNER JOIN WH_MEMBER M
+		ON F.FOLLOW_ID = M.MEM_ID
+		WHERE F.MEM_ID = #{PROFILE_ID}
+		<if test='isSearch'>
+			AND M.MEM_NAME LIKE '%${KEYWORD}%'
+		</if>
+	</select>
+	
+	<select id="followers" resultType="hashmap" parameterType="hashmap">
+		SELECT F.FOLLOW_ID MEM_ID, M.MEM_ID FOLLOW_ID, F.FOLLOW_DATE, M.MEM_NAME FOLLOW_NAME, M.MEM_PICTURE FOLLOW_PICTURE,
+		(CASE WHEN EXISTS(SELECT NULL FROM WH_FOLLOW WF WHERE WF.FOLLOW_ID = M.MEM_ID AND WF.MEM_ID = #{MEM_ID}) OR F.MEM_ID = #{MEM_ID} THEN 1 ELSE 0 END) IS_FOLLOWING,
+		(SELECT COUNT(1) FROM WH_USER_MESSAGE A WHERE A.SEND_MEM_ID = M.MEM_ID AND A.RECEIVE_MEM_ID = #{PROFILE_ID} AND A.DELETE_DATE IS NULL) AS CHAT_COUNT,
+		(SELECT COUNT(1) FROM WH_USER_MESSAGE A WHERE A.SEND_MEM_ID = M.MEM_ID AND A.RECEIVE_MEM_ID = #{PROFILE_ID} AND A.RECEIVE_DATE IS NULL AND A.DELETE_DATE IS NULL) AS NEW_CHAT_COUNT
+		FROM WH_FOLLOW F
+		INNER JOIN WH_MEMBER M
+		ON F.MEM_ID = M.MEM_ID
+		WHERE F.FOLLOW_ID = #{PROFILE_ID}
+		<if test='isSearch'>
+			AND M.MEM_NAME LIKE '%${KEYWORD}%'
+		</if>
+	</select>
+	
+	<update id="updateProfileImage" parameterType="hashmap">
+		UPDATE WH_MEMBER
+		SET
+			MEM_PICTURE = #{PROFILE_THUMNAIL}
+		WHERE
+			MEM_ID = #{MEM_ID}
+	</update>
+	
+	<!-- 콘텐츠 삭제 -->
+	<!-- <update id="deleteConetentByUser" parameterType="hashmap">
+		UPDATE WH_COMMENT 
+		SET
+			CON_CON_USE_YN = 0 
+		WHERE MEM = #{MEM_ID}
+	</update> -->
+	
+	<select id="checkReceivedMessage" resultType="hashmap" parameterType="hashMap">
+		SELECT 
+			COUNT(*) UNREAD_COUNT
+		FROM
+			WH_USER_MESSAGE
+		WHERE
+			RECEIVE_MEM_ID = #{MEM_ID}
+			AND RECEIVE_DATE IS NULL AND DELETE_DATE IS NULL
+	</select>
+
+	<!-- 사용자에게 발송된 쪽지 리스트 정보 -->
+	<select id="messageList" resultType="hashmap" parameterType="hashmap">
+		SELECT * FROM (
+			SELECT A.MESSAGE_ID, A.SEND_MEM_ID, B.MEM_NAME, A.SEND_DATE, A.RECEIVE_DATE
+					, A.CONTENT, B.MEM_PICTURE
+			FROM WH_USER_MESSAGE A INNER JOIN WH_MEMBER B ON A.SEND_MEM_ID = B.MEM_ID
+			WHERE A.RECEIVE_MEM_ID = #{RECEIVE_MEM_ID}
+			AND A.SEND_MEM_ID = #{SEND_MEM_ID}
+			AND A.DELETE_DATE IS NULL
+			
+			UNION ALL
+			
+			SELECT A.MESSAGE_ID, A.SEND_MEM_ID, B.MEM_NAME, A.SEND_DATE, A.RECEIVE_DATE
+					, A.CONTENT, B.MEM_PICTURE
+			FROM WH_USER_MESSAGE A INNER JOIN WH_MEMBER B ON A.SEND_MEM_ID = B.MEM_ID
+			WHERE A.RECEIVE_MEM_ID = #{SEND_MEM_ID}
+			AND A.SEND_MEM_ID = #{RECEIVE_MEM_ID}
+			AND A.DELETE_DATE IS NULL
+		) P
+		ORDER BY P.SEND_DATE
+	</select>
+
+	<!-- 메시지 받는 이 FCM 토큰 가져오기 -->
+	<select id="getReceiverToken" parameterType="hashmap" resultType="hashmap">
+		SELECT FCM_TOKEN FROM WH_MEMBER WHERE MEM_ID = #{RECEIVE_MEM_ID}
+	</select>
+	
+	<!-- 메시지 보낸 이 닉네임 가져오기 -->
+	<select id="getSenderName" parameterType="hashmap" resultType="hashmap">
+		SELECT MEM_NAME FROM WH_MEMBER WHERE MEM_ID = #{SEND_MEM_ID}
+	</select>
+
+	<!-- 사용자 메시지 등록 -->
+	<insert id="addMessage" parameterType="hashmap" useGeneratedKeys="true" keyColumn="MESSAGE_ID" keyProperty="messageId">
+		INSERT INTO WH_USER_MESSAGE (MESSAGE_ID,SEND_MEM_ID,RECEIVE_MEM_ID,CONTENT,SEND_DATE,RECEIVE_DATE,REG_DATE,UPDATE_DATE,DELETE_DATE)
+		VALUES (null,#{SEND_MEM_ID},#{RECEIVE_MEM_ID},#{CONTENT},CURRENT_TIMESTAMP,null,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null)
+	</insert>
+
+	<!-- 읽지 않은 메시지 찾기 -->
+	<select id="getUnreadMessage" parameterType="hashmap" resultType="hashmap">
+		SELECT MESSAGE_ID FROM WH_USER_MESSAGE
+		WHERE RECEIVE_MEM_ID = #{SEND_MEM_ID}
+		AND SEND_MEM_ID = #{RECEIVE_MEM_ID}
+		AND RECEIVE_DATE IS NULL AND DELETE_DATE IS NULL
+	</select>
+
+	<!-- 사용자 쪽지 읽음 처리 -->
+	<update id="readMessage" parameterType="hashmap">
+		UPDATE WH_USER_MESSAGE
+		SET RECEIVE_DATE = CURRENT_TIMESTAMP, UPDATE_DATE = CURRENT_TIMESTAMP
+		WHERE RECEIVE_MEM_ID = #{SEND_MEM_ID}
+		AND SEND_MEM_ID = #{RECEIVE_MEM_ID}
+		AND RECEIVE_DATE IS NULL AND DELETE_DATE IS NULL
+	</update>
+	
+	<update id="deleteMessage" parameterType="hashmap">
+		UPDATE WH_USER_MESSAGE
+		SET DELETE_DATE = CURRENT_TIMESTAMP
+		WHERE MESSAGE_ID=#{messageId}
+	</update>
+</mapper>

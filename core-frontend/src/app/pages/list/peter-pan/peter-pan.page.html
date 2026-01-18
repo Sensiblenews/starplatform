@@ -1,0 +1,12 @@
+<app-header pageTitle="피터팬"></app-header>
+<ion-content fullscreen>
+  <app-content-list
+    [contentSubscriber]="getContentSubscriber()"
+  ></app-content-list>
+
+  <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed" *ngIf="isAuthed">
+    <ion-fab-button size="small" color="danger" (click)="doWrite()">
+      <ion-icon name="pencil-sharp"></ion-icon>
+    </ion-fab-button>
+  </ion-fab> -->
+</ion-content>

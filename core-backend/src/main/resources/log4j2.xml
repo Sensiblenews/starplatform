@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%X{LogPrimaryKey}][%d{yyyy-MM-dd hh:mm:ss.SSS zzz}][%5p][%c]%m%n" />        
+        </Console>
+
+    </Appenders>
+    
+    <Loggers>        
+        <!-- Application Loggers -->
+		<!-- <logger name="jdbc.sqltiming" additivity="false">
+			<level value="error" />
+			<appender-ref ref="console" />
+		</logger>	 -->
+	
+		<logger name="jdbc.resultset" additivity="false">
+			<level value="error" />
+			<appender-ref ref="console" />	
+		</logger>
+		 
+		 <logger name="jdbc.audit" additivity="false">
+			<level value="error" />		
+			<appender-ref ref="console" />
+		</logger> 
+		
+		<logger name="org.mybatis" additivity="false">
+			<level value="debug" />
+			<appender-ref ref="console" />
+		</logger>
+        
+        
+        <Root level="info">
+            <AppenderRef ref="console" />
+        </Root>
+    </Loggers>
+</Configuration>

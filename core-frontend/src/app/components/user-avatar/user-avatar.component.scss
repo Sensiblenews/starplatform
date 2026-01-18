@@ -1,0 +1,13 @@
+:host {
+  width: auto;
+  height: auto;
+  max-height: 100%;
+  ion-avatar,
+  ion-img,
+  img {
+    width: 100%;
+    height: 100%;
+  }
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+}

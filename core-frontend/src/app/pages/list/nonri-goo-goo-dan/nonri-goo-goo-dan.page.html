@@ -1,0 +1,17 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>논리구구단</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <app-content-list
+    [contentSubscriber]="getContentSubscriber()"
+  ></app-content-list>
+</ion-content>

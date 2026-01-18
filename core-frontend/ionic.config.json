@@ -1,0 +1,8 @@
+{
+  "name": "earthLotto",
+  "integrations": {
+    "capacitor": {},
+    "cordova": {}
+  },
+  "type": "angular"
+}

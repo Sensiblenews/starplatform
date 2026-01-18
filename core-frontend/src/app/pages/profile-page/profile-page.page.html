@@ -1,0 +1,107 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title> {{pageTitle}} </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <section class="user-profile">
+    <div class="myInfoZone">
+      <ng-container *ngTemplateOutlet="loadedProfile ? profileTemp : guest">
+      </ng-container>
+    </div>
+    <div class="myWriteZone">
+      <ng-container *ngIf="!loaded">
+        <div class="content-scroller">
+          <ion-skeleton-text
+            class="writeItem"
+            *ngFor="let dummy of [1,2,3,4,5,6,7,8,9,10,11,12]"
+            [animated]="true"
+          ></ion-skeleton-text>
+        </div>
+
+      </ng-container>
+      <ng-container *ngIf="loaded">
+        <ng-container *ngIf="contentList.length">
+          <ion-content (ionScroll)="onScroll($event)" scrollEvents="true">
+            <div class="content-scroller">
+              <div
+                class="writeItem"
+                *ngFor="let photo of contentList"
+                (click)="goDetail(photo.CON_ID)"
+              >
+                <div class="view">
+                  <ion-icon name="happy-outline"></ion-icon>
+                  <ion-label>{{formatNum(photo.CON_WATCH_COUNT)}}</ion-label>
+                </div>
+
+                <ion-img [src]="photo.CON_THUMNAIL"></ion-img>
+              </div>
+              <ng-container *ngIf="loadingMore">
+                <ion-skeleton-text *ngFor="let dummy of [1,2,3,4,5,6]" animated="true"></ion-skeleton-text>
+              </ng-container>
+            </div>
+          </ion-content>
+        </ng-container>
+        
+
+        <ng-container *ngIf="!contentList.length">
+          <div class="no-contents">
+            <!-- <ion-img [src]="'./../../assets/img/error.png'"></ion-img> -->
+            <b>아직 등록된 게시글이 없습니다.</b>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+  </section>
+</ion-content>
+
+<ng-template #profileTemp>
+  <div class="bottom">
+    <div class="avartar">
+      <div class="avartarWrap">
+        <app-user-avatar [profileImg]="profile.MEM_PICTURE"></app-user-avatar>
+      </div>
+      <div class="name">@{{profile?.MEM_NAME}}</div>
+      <div class="introduction">{{profile?.MEM_INTRODUCTION}}</div>
+      <div class="followers">
+        <div class="follow" (click)="showFollowers()">
+          <div class="title">{{ isPress ? '좋아요' : '팔로워' }}</div>
+          <div class="value">{{formatNum(profile?.FOLLOWER_CNT ?? 0) | thousand}}</div>
+        </div>
+        <div class="follow" (click)="showFollowings()" *ngIf="!isPress">
+          <div class="title">팔로잉</div>
+          <div class="value">{{formatNum(profile?.FOLLOWING_CNT ?? 0)}}</div>
+        </div>
+        <div class="follow">
+          <div class="title">게시물</div>
+          <div class="value">{{formatNum(contentCnt)}}</div>
+        </div>
+      </div>
+    </div>
+     
+  </div>  
+  <div class="haveStar">
+    <ion-button class="follow btn-follow" *ngIf="profile?.IS_FOLLOWING === 0" (click)="follow()">{{ isPress ? '좋아요' : '팔로우' }}</ion-button>
+    <ion-button class="follow btn-unfollow" *ngIf="profile?.IS_FOLLOWING === 1" (click)="unfollow()">{{ isPress ? '좋아요 취소' : '팔로잉' }}</ion-button>
+  </div>
+</ng-template>
+
+<ng-template #guest>
+  <div class="top">
+    <div class="name"></div>
+  </div>
+  <div class="bottom">
+    <div class="avartar">
+      <div class="avartarWrap">
+        <!-- <app-user-avatar></app-user-avatar> -->
+      </div>
+    </div>
+  </div>
+</ng-template>

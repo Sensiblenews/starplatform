@@ -1,0 +1,123 @@
+vars:
+  PACKAGE_NAME:
+    default: kr.co.sensiblenews.witchHuntingVU2D7F2P7E
+  KAKAO_NATIVE_KEY:
+    default: 2df520525f6a0b6f05464dbc7f96ee1a
+  FACEBOOK_APP_ID:
+    default: 1283614445756373
+  FACEBOOK_NATIVE_TOKEN:
+    default: 0a692baf0a2433574b1aa4ff158084b3
+  ADMOB_APP_ID:
+    default: ca-app-pub-9109251900558498~1873722550
+  DEEPLINK_HOST:
+    default: witch-hunting.com
+
+platforms:
+  android:
+    packageName: $PACKAGE_NAME
+    versionName: 8.4.8
+    versionCode: 84435
+    incrementVersionCode: true
+
+    manifest:
+      # SNS LOGIN MANIFEST
+
+      - file: AndroidManifest.xml
+        target: manifest/application
+        attrs:
+          android:usesCleartextTraffic: true
+          android:name: .GlobalApplication
+
+      - file: AndroidManifest.xml
+        target: manifest
+        merge: <queries>
+          <package android:name="com.kakao.talk" />
+          <intent>
+          <action android:name="android.intent.action.SENDTO"/>
+          <data android:scheme="mailto"/>
+          </intent>
+          </queries>
+
+      - file: AndroidManifest.xml
+        target: manifest/application/activity
+        inject: |
+          <intent-filter>
+          <action android:name="android.intent.action.VIEW" />
+          <category android:name="android.intent.category.DEFAULT" />
+          <category android:name="android.intent.category.BROWSABLE" />
+          <data
+          android:host="@string/kakaolink_host"
+          android:scheme="@string/kakao_scheme" />
+          </intent-filter>
+          <intent-filter android:autoVerify="true">
+              <action android:name="android.intent.action.VIEW" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" />
+          </intent-filter>
+
+      - file: AndroidManifest.xml
+        target: manifest/application
+        inject: |
+          <activity 
+              android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+              android:exported="true">
+              <intent-filter>
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:host="oauth"
+                          android:scheme="@string/kakao_scheme" />
+              </intent-filter>
+          </activity>
+
+      - file: AndroidManifest.xml
+        target: manifest/application
+        merge: <meta-data android:name="com.kakao.sdk.AppKey" android:value="@string/kakao_app_key" />
+
+      - file: AndroidManifest.xml
+        target: manifest/application
+        merge:
+          <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
+          <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
+
+      # Camera
+      - file: AndroidManifest.xml
+        target: manifest
+        inject: |
+          <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+          <uses-permission android:name="android.permission.CAMERA" />
+
+      # ADMOB
+      - file: AndroidManifest.xml
+        target: manifest/application
+        merge: <meta-data
+          android:name="com.google.android.gms.ads.APPLICATION_ID"
+          android:value="@string/admob_app_id"/>
+
+      # BILLING
+      - file: AndroidManifest.xml
+        target: manifest
+        inject: |
+          <uses-permission android:name="com.android.vending.BILLING" />
+
+      # PUSH
+      - file: AndroidManifest.xml
+        target: manifest
+        inject: |
+          <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    res:
+      - path: values
+        file: sdk_values.xml
+        text: |
+          <?xml version='1.0' encoding='utf-8'?>
+            <resources>
+              <string name="kakao_app_key">$KAKAO_NATIVE_KEY</string>
+              <string name="kakao_scheme">kakao$KAKAO_NATIVE_KEY</string>
+              <string name="kakaolink_host">kakaolink</string>
+              <string name="facebook_app_id">$FACEBOOK_APP_ID</string>
+              <string name="facebook_client_token">$FACEBOOK_NATIVE_TOKEN</string>
+              <string name="admob_app_id">$ADMOB_APP_ID</string>
+            </resources>

@@ -1,0 +1,108 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title> 더보기 </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen>
+  <app-user-info-banner
+    [userInfo]="userInfo"
+    [isAuthed]="isAuthed"
+    (OnCheckCount)="checkUser()"
+  ></app-user-info-banner>
+  <div class="moreMenuSection">
+    <div class="btn_wrap">
+      <div class="btn_wrap_sub">
+        <div class="card" [routerLink]="['app-inst']">
+          <div class="icon-svg">
+            <img src="../../../assets/img/0101.svg" alt="a">
+          </div>
+          <div class="label">사용설명서</div>
+        </div>
+        <div class="card" [routerLink]="['promotion-zone']">
+          <div class="icon-svg">
+            <img src="../../../assets/img/010201.png" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/010202.png" alt="a">
+          </div>
+          <div class="label">홍보 존</div>
+        </div>
+      </div>
+      <div class="btn_wrap_sub">
+        <div class="card" [routerLink]="['nonri-goo-goo-dan']">
+          <div class="icon-svg">
+            <img src="../../../assets/img/020101.png" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/020102.png" alt="a">
+          </div>
+          <div class="label">논리구구단</div>
+        </div>
+        <div class="card" [routerLink]="['story']">
+          <div class="icon-svg">
+            <img src="../../../assets/img/020201.svg" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/020202.svg" alt="a">
+          </div>
+          <div class="label">스토리</div>
+        </div>
+      </div>
+      <div class="btn_wrap_sub">
+        <div class="card" (click)="openLogic500Page()">
+          <div class="icon-svg">
+            <img src="../../../assets/img/030101.png" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/030102.png" alt="a">
+          </div>
+          <div class="label">논리500</div>
+        </div>
+        <div class="card" (click)="requestId()">
+          <div class="icon-svg">
+            <img src="../../../assets/img/030201.png" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/030202.png" alt="a">
+          </div>
+          <div class="label">ID 신청</div>
+        </div>
+      </div>
+      <div class="btn_wrap_sub">
+        <div class="card" [routerLink]="['faq']">
+          <div class="icon-svg">
+            <img src="../../../assets/img/040101.png" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/040102.png" alt="a">
+          </div>
+          <div class="label">FAQ</div>
+        </div>
+        <div class="card" (click)="shareApp()">
+          <div class="icon-svg">
+            <img src="../../../assets/img/040201.svg" alt="a">
+          </div>
+          <div class="icon-svg-2">
+            <img src="../../../assets/img/040202.svg" alt="a">
+          </div>
+          <div class="label">앱 공유하기</div>
+        </div>
+      </div>
+    </div>
+    <ion-button 
+      class="star_btn"
+      shape="round" 
+      [routerLink]="['charge-star']"
+    >
+      ✨ 별똥별로 가기
+      <ion-icon slot="end" name="arrow-forward"></ion-icon>
+    </ion-button>
+  </div>
+</ion-content>

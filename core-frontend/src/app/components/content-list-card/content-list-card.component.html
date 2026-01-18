@@ -1,0 +1,208 @@
+<ion-content [ngClass]="viewType">
+  <ion-refresher
+    slot="fixed"
+    (ionRefresh)="refreshContents($event)"
+    [disabled]="!enableRefresher"
+  >
+    <ion-refresher-content
+      pullingIcon="chevron-down-circle-outline"
+      pullingText="새로운 콘텐츠를 확인해볼까요?"
+      refreshingSpinner="circles"
+      refreshingText="콘텐츠를 최신화하고 있습니다..."
+    >
+    </ion-refresher-content>
+  </ion-refresher>
+  <ng-container *ngIf="initialized">
+    <ng-container *ngIf="(contentLists | async).length">
+      <cdk-virtual-scroll-viewport
+        class="ion-content-scroll-host"
+        [itemSize]="itemSize / 2"
+        (scrolledIndexChange)="checkScrollIdx($event)"
+        >
+        <!-- [minBufferPx]="itemSize * itemCount * 5 + itemSize"
+        [maxBufferPx]="itemSize * itemCount * 10 + itemSize" -->
+        <ion-list>
+          <ion-item
+            detail="false"
+            class="contentItem"
+            *cdkVirtualFor="
+              let item of contentLists | async;
+              let i = index;
+              trackBy: checkUniqueContentId
+            "
+            (click)="onCardClick(item)"
+          >
+            <ng-container [ngSwitch]="viewType">
+              <ng-container
+                *ngSwitchCase="'minimal'"
+                [ngTemplateOutlet]="minimal"
+                [ngTemplateOutletContext]="{ item: item }"
+              ></ng-container>
+              <ng-container
+                *ngSwitchDefault
+                [ngTemplateOutlet]="default"
+                [ngTemplateOutletContext]="{ item: item }"
+              >
+              </ng-container>
+            </ng-container>
+          </ion-item>
+
+          <ion-item class="lastItem" *ngIf="contentAllLoaded" detail="false">
+            <ion-label>더 이상 콘텐츠가 없습니다.</ion-label>
+          </ion-item>
+        </ion-list>
+
+        <ng-container *ngIf="!contentAllLoaded">
+          <ion-infinite-scroll
+            position="bottom"
+            [threshold]="itemSize"
+            (ionInfinite)="loadMoreContents($event)"
+          >
+            <ion-item class="contentItem" detail="false">
+              <ng-container [ngSwitch]="viewType">
+                <ng-container
+                  *ngSwitchCase="'minimal'"
+                  [ngTemplateOutlet]="minimalSkeleton"
+                >
+                </ng-container>
+                <ng-container
+                  *ngSwitchDefault
+                  [ngTemplateOutlet]="defaultSkeleton"
+                >
+                </ng-container>
+              </ng-container>
+            </ion-item>
+          </ion-infinite-scroll>
+        </ng-container>
+      </cdk-virtual-scroll-viewport>
+    </ng-container>
+
+    <ng-container *ngIf="!(contentLists | async).length">
+      <ion-list>
+        <ion-item class="lastItem" detail="false">
+          <ion-label>등록된 콘텐츠가 없습니다.</ion-label>
+        </ion-item>
+      </ion-list>
+    </ng-container>
+  </ng-container>
+
+  <ng-container *ngIf="!initialized">
+    <ion-list>
+      <ion-item *ngFor="let temp of createDummy(itemCount)" detail="false">
+        <ng-container [ngSwitch]="viewType">
+          <ng-container
+            *ngSwitchCase="'minimal'"
+            [ngTemplateOutlet]="minimalSkeleton"
+          >
+          </ng-container>
+          <ng-container *ngSwitchDefault [ngTemplateOutlet]="defaultSkeleton">
+          </ng-container>
+        </ng-container>
+      </ion-item>
+    </ion-list>
+  </ng-container>
+</ion-content>
+
+<ng-template #default let-item="item">
+  <ion-thumbnail class="content-thumbnail" slot="start">
+    <img [src]="getContentsImage(item.CON_THUMNAIL)" />
+    <div class="content-writer">
+      <img class="writer-profile" 
+           [src]="item.MEM_PICTURE || '../../../assets/img/defaultImg/avatar.svg'" 
+           alt="profile" />
+           <span class="writer-name">{{ item.MEM_NAME }}</span>
+    </div>
+  </ion-thumbnail>
+  <!-- <ion-label>
+    <div class="top">
+      <span class="title" [innerHTML]="item.CON_TITLE"></span>
+    </div>
+    <div
+      class="subtitle"
+      *ngIf="item.CON_SUBTITLE?.length && viewType !== 'nonri'"
+    >
+      {{ item.CON_SUBTITLE }}
+    </div>
+    <div class="mid" *ngIf="item.CON_PRICE !== 0">
+      <ng-container *ngIf="viewType === 'goblin'">
+        <ion-icon name="star" class="smallStar starText"></ion-icon>
+      </ng-container>
+      <ng-container *ngIf="viewType !== 'goblin' && item.CON_EXPD !== 0">
+        {{ item.CON_EXPD }}
+      </ng-container>
+    </div>
+
+    <div class="bot">
+      <div
+        class="writer"
+        *ngIf="item.CON_WRITE_YN !== 0 || viewType === 'nonri'"
+        [ngClass]="{'writer-goblin' : viewType === 'goblin'}"
+        (click)="writerClick($event, item.PRS_ID, item.MEM_NAME)"
+      >
+        <app-user-avatar [profileImg]="item.MEM_PICTURE" *ngIf="viewType === 'goblin'"></app-user-avatar>
+        <ion-icon name="newspaper-outline" *ngIf="viewType !== 'goblin'"></ion-icon>
+        {{ item.press?.PRS_NAME || item.MEM_NAME }}
+      </div>
+      <div class="point" *ngIf="item.CON_META_YN !== 0">
+        <div class="star">
+          <ion-icon name="star"></ion-icon>
+          {{ item.PRICE + item.PRICE_CHG }}
+        </div>
+        <div class="heart">
+          <ion-icon name="heart"></ion-icon>
+          {{ item.HEART + item.HEART_CHG }}
+        </div>
+      </div>
+    </div>
+  </ion-label> -->
+</ng-template>
+
+<ng-template #minimal let-item="item">
+  <ion-thumbnail slot="start">
+    <img [src]="getContentsImage(item.CON_THUMNAIL)" />
+  </ion-thumbnail>
+  <span class="title" [innerHTML]="item.CON_TITLE"></span>
+</ng-template>
+
+<ng-template #defaultSkeleton>
+  <ion-thumbnail class="skel-thumbnail" slot="start">
+    <ion-skeleton-text animated></ion-skeleton-text>
+  </ion-thumbnail>
+  <!-- <ion-label>
+    <div class="top">
+      <span class="title">
+        <ion-skeleton-text animated style="width: 80%"></ion-skeleton-text>
+        <ion-skeleton-text animated style="width: 40%"></ion-skeleton-text>
+      </span>
+
+      <span class="star">
+        <ion-skeleton-text animated style="width: 10%"></ion-skeleton-text>
+      </span>
+    </div>
+    <div class="mid">
+      <ion-skeleton-text animated style="width: 80%"></ion-skeleton-text>
+    </div>
+    <div class="bot">
+      <div class="writer">
+        <ion-skeleton-text animated style="width: 120px"></ion-skeleton-text>
+      </div>
+      <div class="point">
+        <div class="star">
+          <ion-skeleton-text animated></ion-skeleton-text>
+        </div>
+        <div class="heart">
+          <ion-skeleton-text animated></ion-skeleton-text>
+        </div>
+      </div>
+    </div>
+  </ion-label> -->
+</ng-template>
+
+<ng-template #minimalSkeleton>
+  <ion-thumbnail slot="start">
+    <ion-skeleton-text animated></ion-skeleton-text>
+  </ion-thumbnail>
+  <!-- <span class="title" style="width: 80%">
+    <ion-skeleton-text animated></ion-skeleton-text>
+  </span> -->
+</ng-template>

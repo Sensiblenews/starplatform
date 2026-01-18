@@ -1,0 +1,22 @@
+<ng-container *ngTemplateOutlet="isAuthed ? isUser : isGuest"> </ng-container>
+
+<ng-template #isUser>
+  <section class="user-container">
+    <app-user-avatar
+      slots="start"
+      [routerLink]="['/tabs/mypage/']"
+      [profileImg]="userInfo.MEM_PICTURE"
+    ></app-user-avatar>
+    <em class="user-name">{{ userInfo.MEM_NAME | truncate:20 }}&nbsp;님</em>
+    <!-- <button class="star-button" (click)="checkUserCount()">
+      <ion-icon name="star"></ion-icon>
+      <i>{{ userInfo.MEM_STAR + userInfo.MEM_STAR_CHG }}</i>
+    </button> -->
+  </section>
+</ng-template>
+
+<ng-template #isGuest>
+  <section class="user-container guest">
+    <em class="user-name">게스트 모드(guest mode) 입니다.</em>
+  </section>
+</ng-template>

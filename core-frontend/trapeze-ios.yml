@@ -1,0 +1,86 @@
+vars:
+  BUNDLE_ID:
+    default: kr.co.sensiblenews.witchHunting
+  KAKAO_NATIVE_KEY:
+    default: 2df520525f6a0b6f05464dbc7f96ee1a
+  FACEBOOK_APP_ID:
+    default: 1283614445756373
+  FACEBOOK_NATIVE_TOKEN:
+    default: 0a692baf0a2433574b1aa4ff158084b3
+  ADMOB_APP_ID:
+    default: ca-app-pub-9109251900558498~5969091176
+
+platforms:
+  ios:
+    targets:
+      App:
+        bundleId: $BUNDLE_ID
+        version: 8.0.5
+        buildNumber: 6
+        incrementBuildNumber: true
+        productName: earthLotto
+        displayName: 스타플랫폼
+
+        entitlements:
+          - com.apple.developer.associated-domains:
+              ['applinks:witch-hunting.com']
+          - com.apple.developer.applesignin: ['Default']
+
+        plist:
+          # - replace: true
+          #   entries:
+
+          - replace: false
+            entries:
+              - CFBundleDevelopmentRegion: ko_KR
+              - CFBundleURLTypes:
+                  - CFBundleURLSchemes:
+                      - kakao$KAKAO_NATIVE_KEY
+                      - fb$FACEBOOK_APP_ID
+
+              - KAKAO_APP_KEY: $KAKAO_NATIVE_KEY
+              - FacebookAppID: $FACEBOOK_APP_ID
+              - FacebookClientToken: $FACEBOOK_NATIVE_TOKEN
+              - FacebookDisplayName: 스타플랫폼
+
+              - NSCameraUsageDescription: 게시글 등록을 위해 카메라권한을 허용합니다.
+              - NSPhotoLibraryAddUsageDescription: 게시글 등록을 위해 앨범 접근권한을 허용합니다.
+              - NSPhotoLibraryUsageDescription: 게시글 등록을 위해 앨범 접근권한을 허용합니다.
+              - NSUserTrackingUsageDescription: 사용자 맞춤 광고를 위해 추적을 허용합니다.
+
+              - GADIsAdManagerApp: true
+              - GADApplicationIdentifier: $ADMOB_APP_ID
+
+              - SKAdNetworkItems:
+                  - SKAdNetworkIdentifier: cstr6suwn9.skadnetwork
+
+              - NSAppTransportSecurity:
+                - NSAllowsArbitraryLoads: true
+
+              - LSApplicationQueriesSchemes:
+                  - mailto
+                  - googlegmail
+                  - ms-outlook
+                  - kakao$KAKAO_NATIVE_KEY
+                  - kakaokompassauth
+                  - storykompassauth
+                  - kakaolink
+                  - storylink
+                  - kakaotalk
+                  - kakaotalk-5.9.7
+                  - kakaostory-2.9.0
+                  - fbapi
+                  - fbapi20130214
+                  - fbapi20130410
+                  - fbapi20130702
+                  - fbapi20131010
+                  - fbapi20131219
+                  - fbapi20140410
+                  - fbapi20140116
+                  - fbapi20150313
+                  - fbapi20150629
+                  - fbapi20160328
+                  - fbauth
+                  - fb-messenger-share-api
+                  - fbauth2
+                  - fbshareextension

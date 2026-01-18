@@ -1,0 +1,26 @@
+.popover-info-icon {
+  font-size: 2em;
+  margin-left: 2px;
+  margin-right: 1px;
+  color: lightcoral;
+  flex: 1;
+  &.star {
+    color: black;
+  }
+}
+
+.popover-info {
+  flex: 1;
+  font-size: 2em;
+  margin-left: 0.5rem;
+}
+
+.popover-container {
+  padding: 5vw;
+}
+
+.count-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

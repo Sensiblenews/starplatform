@@ -1,0 +1,94 @@
+
+
+.wrapper {
+  height: 100%;
+  width: 100%;
+  background-image: url("/assets/img/star-background.png");
+  background-size: cover;
+  background-position: center;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.terms-card {
+  background: rgba(30, 30, 80, 0.5);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  padding: 1rem;
+  --color: #ffffff;
+
+  ion-card-header {
+    text-align: center;
+    padding-bottom: 10px;
+    
+    ion-card-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+
+        ion-icon {
+          font-size: 1.3rem;
+          color: #9bf8ff;
+        }
+    }
+  }
+
+  ion-list {
+    background: transparent;
+    padding-top: 10px;
+  }
+
+  ion-item {
+    --background: transparent;
+    --color: #ffffff;
+    --padding-start: 0;
+    --inner-padding-end: 0;
+    margin-bottom: 10px;
+
+    ion-checkbox {
+      --size: 24px;
+      --border-radius: 4px;
+      margin-right: 15px;
+      --checkmark-color: #ffffff;
+
+      --border-color: #ffffff;
+    }
+
+    ion-icon {
+        color: #a3a3a3;
+    }
+  }
+
+  .button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 0 10px;
+
+    .confirm-btn {
+      flex: 1;
+      --background: #4a69ff;
+      --border-radius: 10px;
+      height: 48px;
+      font-weight: bold;
+    }
+
+    .cancel-btn {
+      flex: 1;
+      --border-color: rgba(150, 150, 150, 0.5);
+      --color: #e0e0e0;
+      --border-radius: 10px;
+      height: 48px;
+    }
+  }
+}

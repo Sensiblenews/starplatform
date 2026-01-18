@@ -1,0 +1,108 @@
+@CHARSET "UTF-8";
+
+/* body{
+	font-size:15px;
+} */
+/*
+ * Label의 margin-top을 주어 글자가 가운데 위치하도록 함.
+ **/
+/* .control-label {
+	margin: 6px 0 0 0;
+} */
+
+ .label{
+	font-size:14px;
+}
+/*
+.btn{
+	font-size:15px;
+}
+ */
+
+/*
+ * input box와 버튼을 같이 쓸 경우
+ * input box와 버튼 사이의 간격을 5px 띄움
+ **/
+.input-group-btn {
+	padding-left: 5px;
+}
+
+/*
+ * ibox-title 안에 있는 버튼의 위치를 조정
+ **/
+.ibox-title .btn.btn-sm {
+	margin-top: -5px;
+}
+
+.btn.btn-sm {
+	font-weight: bold;	
+}
+ 
+/*
+ * Modal 팝업 안의 마지막 ibox의 Margin-bottom 값을 0으로 조절
+ * Close 버튼과 컨텐츠 사이의 간격이 벌어진걸 줄임
+ **/
+.modal-body .ibox:last-child {
+	margin-bottom: 0px !important;
+}
+
+
+.search-modal .ui-dialog-title, .inmodal .modal-title {
+	font-size: 20px;
+}
+
+
+/*
+ * Modal Header Padding 변경
+ **/
+.inmodal .modal-header {
+	padding: 15px 15px;
+}
+
+/*
+ * 패널 타이틀
+ **/
+.panel-title {
+	font-size: 16px !important;
+}
+
+
+
+/*
+ * 중요 표시
+ **/
+.imp-span > i {
+	font-size: 10px;
+	color: #ff0000;
+}
+
+.pop-button-group {
+	display: table-cell;
+	vertical-align: middle;
+	padding-left: 5px;
+}
+
+.pop-button-group > button {
+	height: 30px;
+	border-radius: 0px 3px 3px 0px;
+}
+
+
+.check-box-size {
+	margin: 7px 0 0 0 !important;
+	width: 16px;
+	height: 16px;
+}
+
+.blockUI.blockOverlay {
+	z-index: 9999 !important;
+}
+
+.ui-dialog{
+	z-index: 3000 !important;
+}
+
+.ui-widget-overlay.ui-front {
+	z-index: 2050;
+}
+

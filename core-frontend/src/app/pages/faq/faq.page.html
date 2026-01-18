@@ -1,0 +1,22 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>FAQ</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullScreen class="faq-container">
+  <header class="list-header">
+    <div class="list-banner" (click)="askFAQ()">문의하기</div>
+    <div class="list-title">FAQ</div>
+  </header>
+  <app-content-list
+    [viewType]="viewType"
+    [contentSubscriber]="getContentSubscriber()"
+  ></app-content-list>
+</ion-content>

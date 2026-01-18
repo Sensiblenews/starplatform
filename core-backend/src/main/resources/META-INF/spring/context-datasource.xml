@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+	
+	 <!-- 환경설정 기본정보를 globals.properties 에서 참조하도록 propertyConfigurer 설정  -->
+    <bean id="environmentVariablesConfiguration" class="org.jasypt.encryption.pbe.config.EnvironmentStringPBEConfig">  
+        <property name="algorithm" value="PBEWithMD5AndDES" />  
+        <property name="password" value="JBIT_PASS" />
+	</bean>  
+	       
+	<bean id="configurationEncryptor" class="org.jasypt.encryption.pbe.StandardPBEStringEncryptor">  
+	        <property name="config" ref="environmentVariablesConfiguration" />  
+	</bean>  
+		      
+	<bean id="propertyConfigurer" class="org.jasypt.spring3.properties.EncryptablePropertyPlaceholderConfigurer">  
+        <constructor-arg ref="configurationEncryptor" />  
+        <property name="locations">  
+            <list>  
+               <value>classpath:/META-INF/props/globals.properties</value>
+            </list>  
+        </property>  
+	</bean>  
+
+	<!-- 환경설정 기본정보를 globals.properties 에서 참조하도록 propertyConfigurer 설정
+    <bean id="propertyConfigurer"
+        class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath:/META-INF/props/globals.properties</value>
+            </list>
+        </property>
+    </bean>
+ 	-->
+	<!-- DB connect -->
+	<bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="${Globals.DriverClassName}"/>
+        <property name="url" value="${Globals.Url}" />
+        <property name="username" value="${Globals.UserName}"/>
+        <property name="password" value="${Globals.Password}"/>
+<!-- 		<property name="initialSize" value="5" />
+		<property name="maxActive" value="30" />
+		<property name="maxIdle" value="30" />
+		<property name="maxWait" value="10000" /> -->
+		<property name="validationQuery" value="SELECT 1 " />
+		<property name="testOnBorrow" value="false" />
+		<property name="testOnReturn" value="false" />
+		<property name="testWhileIdle" value="true" />
+		<property name="timeBetweenEvictionRunsMillis" value="300000" />
+		<property name="minEvictableIdleTimeMillis" value="60000" />
+	</bean>
+
+	<!-- DB logging -->
+	<bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
+		<constructor-arg ref="dataSourceSpied" />
+		<property name="logFormatter">
+			<bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
+				<property name="loggingType" value="MULTI_LINE" />
+				<property name="sqlPrefix" value="SQL     :::" />
+			</bean>
+		</property>
+	</bean>
+</beans>

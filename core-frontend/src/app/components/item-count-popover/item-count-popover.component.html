@@ -1,0 +1,31 @@
+<div class="popover-container">
+  <ng-container
+    *ngTemplateOutlet="countInfo.type === 'star' ? star : heart"
+  ></ng-container>
+</div>
+
+<ng-template #heart>
+  <div class="count-row">
+    <ion-icon name="heart-outline" class="popover-info-icon"></ion-icon>
+    <span class="popover-info">{{ countInfo.free }}</span>
+  </div>
+  <div class="count-row">
+    <ion-icon name="heart" class="popover-info-icon"></ion-icon>
+    <span class="popover-info">{{ countInfo.charged }}</span>
+  </div>
+</ng-template>
+
+<ng-template #star>
+  <div class="count-row">
+    <ion-icon name="star-outline" class="popover-info-icon star"></ion-icon>
+    <span class="popover-info">{{ countInfo.free }}</span>
+  </div>
+  <div class="count-row">
+    <ion-icon name="star" class="popover-info-icon star"></ion-icon>
+    <span class="popover-info">{{ countInfo.charged }}</span>
+  </div>
+  <div class="count-row">
+    <ion-icon name="checkmark" class="popover-info-icon star"></ion-icon>
+    <span class="popover-info">{{ countInfo.earning }}</span>
+  </div>
+</ng-template>

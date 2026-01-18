@@ -1,0 +1,39 @@
+<div class="wrapper">
+  <ion-content class="email-login-modal">
+    <div class="top">
+      <span class="headerTitle">이메일로 로그인</span>
+    </div>
+    <ion-text color="secondary" class="ion-margin-horizontal top-text">첫 방문이신가요?<br>원하시는 이메일과 비밀번호를 입력하고 <br>로그인을 눌러주세요.</ion-text>
+    <div class="ion-padding-horizontal ion-padding-bottom">
+      <ion-input
+        label="이메일"
+        labelPlacement="floating"
+        type="email"
+        [value]="email"
+        (ionInput)="email = $event.target.value">
+      </ion-input>
+
+      <ion-input
+        label="비밀번호"
+        labelPlacement="floating"
+        type="password"
+        [value]="password"
+        (ionInput)="password = $event.target.value">
+      </ion-input>
+      <ion-text color="secondary" class="bottom-text">비밀번호는 숫자, 영문, 특수문자 8자 이상 조합이 필요합니다.</ion-text>
+
+      <ion-button 
+        expand="block" 
+        (click)="onLogin()" 
+        class="ion-margin-top" 
+        [disabled]="isLoggingIn">
+        {{ isLoggingIn ? '로그인 중...' : '로그인 또는 회원가입' }}
+      </ion-button>
+
+      <ion-button expand="block" (click)="dismiss()" class="ion-margin-top">
+        닫기
+      </ion-button>
+    </div>
+  </ion-content>
+
+</div>

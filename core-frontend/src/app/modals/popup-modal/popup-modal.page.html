@@ -1,0 +1,31 @@
+<div class="popupContentDiv">
+  <ng-container *ngIf="popupContent?.CON_TITLE">
+    <div class="title">{{ popupContent.CON_TITLE }}</div>
+  </ng-container>
+  <ng-container *ngIf="popupContent?.CON_SUBTITLE">
+    <div class="subTitle">{{ popupContent.CON_SUBTITLE }}</div>
+  </ng-container>
+  <ion-content scrollY="true" class="agreement">
+    <ng-container *ngIf="popupContent?.CON_THUMNAIL">
+      <div class="imgDiv">
+        <img src="{{popupContent.CON_THUMNAIL}}" />
+      </div>
+    </ng-container>
+    <ng-container *ngIf="popupContent?.CON_BODY">
+      <div [innerHTML]="popupContent.CON_BODY"></div>
+    </ng-container>
+  </ion-content>
+  <ion-footer position="bottom">
+    <div>
+      <ion-item class="agreecheck">
+        <ion-label class="isNotShownText">7일간 안 보기</ion-label>
+        <ion-checkbox [(ngModel)]="blockForWeek"></ion-checkbox>
+      </ion-item>
+    </div>
+    <div class="agreementBtnDiv">
+      <ion-button color="dark" class="agreeBtn" (click)="dismiss()">
+        닫기
+      </ion-button>
+    </div>
+  </ion-footer>
+</div>

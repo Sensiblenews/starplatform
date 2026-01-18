@@ -1,0 +1,24 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title> 스토리 </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="contWrap">
+    <div *ngFor="let menu of menuArr; let i = index">
+      <div (click)="goStoryDetail(i)">
+        <div class="img">
+          <img [src]="menu.img" />
+        </div>
+        <div class="text">{{menu.text}}</div>
+      </div>
+    </div>
+  </div>
+</ion-content>

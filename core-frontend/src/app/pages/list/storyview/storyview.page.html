@@ -1,0 +1,18 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>스토리 상세보기</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen>
+  <app-content-list
+    viewType="goblin"
+    [contentSubscriber]="getContentSubscriber()"
+  ></app-content-list>
+</ion-content>

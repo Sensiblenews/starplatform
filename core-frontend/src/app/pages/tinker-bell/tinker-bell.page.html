@@ -1,0 +1,35 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Exclusive</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen class="tinker-bell-content">
+  <div class="gallery-grid">
+    <div class="grid-item image-box" *ngFor="let item of dummyImages">
+      <img [src]="mockImageSrc" alt="secret content" />
+    </div>
+
+    <div class="grid-item message-box">
+      <div class="bubble-icon">
+        <ion-icon name="chatbubble" color="medium"></ion-icon>
+      </div>
+      <p>
+        Subscribe to<br />
+        see this message
+      </p>
+    </div>
+  </div>
+
+  <div class="action-section">
+    <ion-button expand="block" class="subscribe-btn" (click)="onSubscribe()">
+      View all &rarr; Subscribe
+    </ion-button>
+  </div>
+</ion-content>

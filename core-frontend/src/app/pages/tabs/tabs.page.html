@@ -1,0 +1,34 @@
+<ion-tabs (ionTabsDidChange)="tabChanged()">
+  <ion-tab-bar slot="bottom" color="light">
+    <ion-tab-button tab="fairy" [ngClass]="{'selected': true}">
+      <ion-icon src="../../../assets/custom-icon/idol.svg"></ion-icon>
+      <ion-label>아이돌</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="peter-pan">
+      <ion-icon src="../../../assets/custom-icon/user.svg"></ion-icon>
+      <ion-label>스타</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="tinker-bell">
+      <ion-icon src="../../../assets/custom-icon/contents.svg"></ion-icon>
+      <ion-label>Exclusive</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="witch">
+      <ion-icon src="../../../assets/custom-icon/follow.svg"></ion-icon>
+      <ion-label>팔로우</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="goblin">
+      <ion-icon src="../../../assets/custom-icon/user.svg"></ion-icon>
+      <ion-label>User</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="mypage" class="my-page">
+      <app-user-avatar
+        [profileImg]="(userInfo | async)?.MEM_PICTURE"
+      ></app-user-avatar>
+    </ion-tab-button>
+  </ion-tab-bar>
+</ion-tabs>

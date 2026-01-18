@@ -1,0 +1,35 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>구독 관리</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">
+        <ion-icon name="close-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list>
+    <ion-item *ngFor="let item of subList">
+      <ion-avatar slot="start">
+        <img 
+          [src]="item.PICTURE ? item.PICTURE : 'assets/img/defaultImg/avatar.svg'" 
+          (error)="$event.target.src='assets/img/defaultImg/avatar.svg'"
+          alt="profile"
+        >
+      </ion-avatar>
+      <ion-label>
+        <h2>{{ item.NAME || '알 수 없음' }}</h2>
+        <p>갱신일: {{ item.EXPD_DATE }}</p>
+      </ion-label>
+      <ion-button slot="end" fill="outline" color="medium" (click)="cancelSubscription(item)">
+        취소
+      </ion-button>
+    </ion-item>
+
+    <div *ngIf="subList.length === 0" class="empty-msg">
+      구독 중인 내역이 없습니다.
+    </div>
+  </ion-list>
+</ion-content>

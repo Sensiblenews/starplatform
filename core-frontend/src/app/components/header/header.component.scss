@@ -1,0 +1,46 @@
+.header-btn-small{
+    max-width: 1rem;
+    max-height: 1rem;
+    margin-right: 0.4rem;
+}
+
+.buttons-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    span {
+        font-size: 0.9rem;
+    }
+}
+
+.rounded-image {
+    border-radius: 5px;
+    width: 30px;
+    height: 30px;
+}
+
+.small-icon {
+    height: 0.8em;
+    width: 0.8em;
+}
+
+ion-buttons {
+  .icon-wrapper {
+    position: relative; // 붉은 점의 위치 기준점이 됩니다.
+    display: flex;      // 아이콘을 중앙에 배치하기 위함
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notification-dot {
+    position: absolute;   // 기준점(icon-wrapper)에 따라 위치가 결정됩니다.
+    top: -1px;            // 아이콘 위로 살짝
+    right: -3px;          // 아이콘 오른쪽으로 살짝
+    width: 8px;           // 점 크기
+    height: 8px;          // 점 크기
+    background-color: #ff3b30; // iOS 스타일의 붉은색
+    border-radius: 50%;   // 원형으로 만들기
+    border: 1.5px solid white; // 흰색 테두리를 주면 더 잘 보입니다.
+  }
+}

@@ -1,0 +1,40 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title> 별똥별 </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen>
+  <app-user-info-banner
+    [userInfo]="userInfo"
+    [isAuthed]="isAuthed"
+    (OnCheckCount)="checkUser()"
+  ></app-user-info-banner>
+  <div class="wrap">
+    <ng-container *ngIf="(storeProducts | async).length">
+      <div
+        class="buyCard"
+        *ngFor="let product of (storeProducts | async)"
+        (click)="buyInAppPurchase(product)"
+      >
+        {{product.display?.name}}&nbsp; {{product.price}}&nbsp;
+        <ion-icon name="star"></ion-icon>&nbsp; {{product.display?.starCount}}
+      </div>
+    </ng-container>
+    <ng-container *ngIf="!(storeProducts | async).length">
+      <div class="buyCard">지금은 구매가능한 상품이 없어요!</div>
+    </ng-container>
+    <div class="page_img"></div>
+  </div>
+</ion-content>
+<ion-footer>
+  <ion-button expand="full" (click)="dailyCharge()">
+    클릭해 보세요..24시간마다 무료 별 '뚝딱'!
+  </ion-button>
+</ion-footer>

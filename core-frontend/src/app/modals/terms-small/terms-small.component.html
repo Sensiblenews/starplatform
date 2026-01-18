@@ -1,0 +1,33 @@
+<div class="wrapper">
+
+  <ion-card class="terms-card">
+    <ion-card-header>
+      <ion-card-title><ion-icon name="sparkles"></ion-icon>&emsp;약관 동의</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-list lines="none">
+        <ion-item>
+          <ion-checkbox slot="start" [(ngModel)]="agreeAll" (ionChange)="toggleAll()"></ion-checkbox>
+          <ion-label>모두 동의합니다</ion-label>
+        </ion-item>
+        <ion-item button="true" detail="false" (click)="handleClickOnSpecific(0)">
+          <!-- <ion-checkbox slot="start" [(ngModel)]="agreeTerms" (ionChange)="updateAllAgree()"></ion-checkbox> -->
+          <ion-label>이용약관</ion-label>
+          <ion-icon slot="end" name="chevron-forward-outline"></ion-icon>
+        </ion-item>
+        <ion-item button="true" detail="false" (click)="handleClickOnSpecific(1)">
+          <!-- <ion-checkbox slot="start" [(ngModel)]="agreePrivacy" (ionChange)="updateAllAgree()"></ion-checkbox> -->
+          <ion-label>개인정보처리방침</ion-label>
+          <ion-icon slot="end" name="chevron-forward-outline"></ion-icon>
+        </ion-item>
+      </ion-list>
+
+      <div class="button-group">
+        <ion-button class="cancel-btn" fill="outline" (click)="dismiss()">취소</ion-button>
+        <ion-button class="confirm-btn" (click)="confirm()" [disabled]="!agreeAll">확인</ion-button>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+</div>

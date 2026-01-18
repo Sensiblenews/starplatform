@@ -1,0 +1,16 @@
+<ion-content scrollY="false">
+  <swiper pager="true" [config]="slideOpts">
+    <ng-template swiperSlide *ngFor="let slide of slideInfo; let i = index">
+      <div class="swiper-inner">
+        <div class="number">0{{i+1}}</div>
+        <div class="mainText">{{slide.mainText}}</div>
+        <div class="image"></div>
+        <div class="subText" [innerHTML]="slide.subText"></div>
+        <div class="btnwrap">
+          <ion-button (click)="goDetail(i)">상세보기</ion-button>
+          <ion-button (click)="modalClose()">닫기</ion-button>
+        </div>
+      </div>
+    </ng-template>
+  </swiper>
+</ion-content>

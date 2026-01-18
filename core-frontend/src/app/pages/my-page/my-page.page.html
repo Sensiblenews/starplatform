@@ -1,0 +1,188 @@
+<app-header pageTitle="마이페이지"></app-header>
+
+<ion-content scrollY="false" *ngIf="isAuthed">
+  <section class="user-profile">
+    <div class="myInfoZone">
+      <ng-container *ngTemplateOutlet="isAuthed ? authed : guest">
+      </ng-container>
+    </div>
+    <div class="myWriteZone">
+      <ng-container *ngIf="!loaded">
+        <div class="content-scroller">
+          <ion-skeleton-text
+            class="writeItem"
+            *ngFor="let dummy of [1,2,3,4,5,6,7,8,9,10,11,12]"
+            [animated]="true"
+          ></ion-skeleton-text>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="loaded">
+        <ng-container *ngIf="contentList.length">
+          <div class="content-scroller">
+            <div
+              class="writeItem"
+              *ngFor="let photo of contentList"
+              (click)="goDetail(photo.CON_ID)"
+            >
+              <div class="view" (click)="showViewers($event, photo)">
+                <ion-icon name="happy-outline"></ion-icon>
+                <ion-label>{{formatNum(photo.CON_WATCH_COUNT)}}</ion-label>
+              </div>
+
+              <ion-img [src]="photo.CON_THUMNAIL"></ion-img>
+            </div>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="!contentList.length">
+          <div class="no-contents">
+            <!-- <ion-img [src]="'./../../assets/img/error.png'"></ion-img> -->
+            <ng-container *ngIf="isAuthed">
+              <b>아직 등록된 게시글이 없습니다.</b>
+              <p>게시글을 작성해 보세요.</p>
+            </ng-container>
+            <ng-container *ngIf="!isAuthed">
+              <b>게스트 모드 입니다.</b>
+              <p>로그인 하여 게시글을 작성해 보세요.</p>
+            </ng-container>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+  </section>
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed" *ngIf="isAuthed">
+    <ion-fab-button size="small" color="danger" (click)="doWrite()">
+      <ion-icon name="pencil-sharp"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+<ng-template #authed>
+  <div class="top">
+    <div class="avartarWrap">
+      <ion-icon class="avatarAddImage" name="add-circle-outline" (click)="modifyProfileImage()"></ion-icon>
+      <app-user-avatar [profileImg]="uInfo.MEM_PICTURE">
+      </app-user-avatar>
+    </div>
+    <!-- <ion-button fill="clear" id="logout-button" size="medium">
+      
+    </ion-button> -->
+
+    <div class="tools">
+      <ion-icon name="star" (click)="onCheckHearts($event)"></ion-icon>
+      <ion-icon name="settings-sharp" id="logout-button" ></ion-icon>
+    </div>
+  </div>
+  <div class="username-section">
+    <div class="name">@{{ uInfo.MEM_NAME | truncate:15 }}</div> 
+  </div>
+  <div class="introduction">
+    {{ uInfo.MEM_INTRODUCTION }}
+  </div>
+  <div class="followers">
+    <div class="value-box" (click)="showFollowers()">
+      <div class="title">팔로워</div>
+      <div class="value">{{formatNum(uInfo.FOLLOWER_CNT ?? 0)}}</div>
+    </div>
+    <div class="value-box" (click)="showFollowings()">
+      <div class="title">팔로잉</div>
+      <div class="value">{{formatNum(uInfo.FOLLOWING_CNT ?? 0)}}</div>
+    </div>
+    <div class="value-box">
+      <div class="title">게시물</div>
+      <div class="value">{{formatNum(contentList.length)}}</div>
+    </div>
+  </div>
+  <div class="star-section">
+    <div class="type">
+      <div class="title">
+        <ion-icon name="star-outline" class="star"></ion-icon>
+        <span>스타에게</span>
+      </div>
+      <div class="value">{{ formatNum(uInfo.MEM_STAR * 1.0) }}</div>
+    </div>
+    <div class="type">
+      <div class="title">
+        <ion-icon name="star" class="star"></ion-icon>
+        <span>스타에게(찐)</span>
+      </div>
+      <div class="value">{{ formatNum(uInfo.MEM_STAR_CHG) }}</div>
+    </div>
+    <div class="type">
+      <div class="title">
+        <ion-icon name="checkmark" class="star"></ion-icon>
+        <span>조회</span>
+      </div>
+      <div class="value">{{ formatNum(((uInfo.PRICE + uInfo.PRICE_CHG) * 1.0) / 10) }}₩</div>
+    </div>
+    <div class="type">
+      <div class="title">
+        <ion-icon name="at-outline" class="star"></ion-icon>
+        <span>저축</span>
+      </div>
+      <div class="value">{{ formatNum(uInfo.CONTENT_CNT * 10) }}₩</div>
+    </div>
+  </div>
+  <!-- popover -->
+  <ion-popover trigger="logout-button" [dismissOnSelect]="true">
+    <ng-template>
+      <ion-content class="logout-menus">
+        <ion-item>
+          <ion-label>알림 활성화</ion-label>
+          <ion-toggle [(ngModel)]="setAlarm" (ngModelChange)="alarmCheck($event)"></ion-toggle>
+        </ion-item>
+        <ion-button expand="full" size="default" (click)="modifyNicknameConfirm()">
+          <ion-icon name="create-outline" size="small" slot="start"></ion-icon>
+          닉네임 설정
+        </ion-button>
+        <ion-button expand="full" size="default" (click)="modifyIntroductionConfirm()">
+          <ion-icon name="reader-outline" size="small" slot="start"></ion-icon>
+          자기소개 설정
+        </ion-button>
+        <ion-button expand="full" size="default" (click)="openSubscriptionManagement()">
+          <ion-icon name="card-outline" size="small" slot="start"></ion-icon>
+          구독 관리
+        </ion-button>
+        <ion-button
+          expand="full"
+          size="default"
+          color="light"
+          (click)="logOut()"
+        >
+          <ion-icon name="log-out-outline" size="small" slot="start"></ion-icon>
+          로그아웃
+        </ion-button>
+        <ion-button expand="full" size="default" color="dark">
+          <ion-icon name="close-outline" size="small" slot="start"></ion-icon>
+          닫기
+        </ion-button>
+        <ion-button
+          expand="full"
+          size="small"
+          color="danger"
+          class="last-item"
+          (click)="signOut()"
+        >
+          <ion-icon name="trash-outline" size="small" slot="start"></ion-icon>
+          회원탈퇴
+        </ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+</ng-template>
+
+<ion-content *ngIf="!isAuthed">
+  <div class="guestWrapper">
+    <div class="guest">
+      <div class="content">
+        <div class="title">guest</div>
+        <div class="hello-image">
+          <img src="../../../assets/img/hello_image.jpg" alt="hello image">
+        </div>
+        <div class="welcome">환영합니다</div>
+        <div class="login-button" (click)="login()">
+          <ion-button>스타플랫폼에 로그인</ion-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

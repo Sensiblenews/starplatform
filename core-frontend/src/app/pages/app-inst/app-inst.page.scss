@@ -1,0 +1,52 @@
+.swiper {
+  height: 100%;
+  background: rgba(0, 0, 0, 1);
+  .swiper-inner {
+    width: 100%;
+    display: flex;
+    color: #ffffff;
+    align-items: center;
+    flex-direction: column;
+    .number {
+      background-color: #f9a631;
+      width: 40vw;
+      height: 20vw;
+      border-radius: 0 0 20vw 20vw;
+      position: absolute;
+      top: var(--ion-safe-area-top, 0);
+      font-size: 30px;
+    }
+    .mainText {
+      font-size: 1.1em;
+      font-weight: bold;
+      &::after,
+      &::before {
+        content: '"';
+        color: #f9a631;
+        margin: 0 5px;
+      }
+    }
+    .image {
+      background-image: url(../../../assets/img/instPicture.png);
+      width: 50vw;
+      height: 50vw;
+      background-size: contain;
+      margin-top: 50px;
+      margin-bottom: 50px;
+    }
+    .subText {
+      font-size: 0.8em;
+      line-height: 1.5;
+    }
+    .btnwrap {
+      margin-top: 20px;
+      ion-button {
+        font-size: 0.8em;
+        --border-radius: 6px;
+        &:first-child {
+          margin-right: 6px;
+        }
+      }
+    }
+  }
+}

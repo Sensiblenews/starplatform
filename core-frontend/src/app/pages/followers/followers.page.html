@@ -1,0 +1,44 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="moveBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+        <ion-label>Back</ion-label>
+      </ion-button>
+    </ion-buttons>
+    <ion-title> {{pageTitle}} </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+
+<ion-content>
+  <section class="followers">
+      <ng-container *ngIf="loaded">
+        <ng-container *ngIf="(followerList | async).length">
+          <cdk-virtual-scroll-viewport
+            class="ion-content-scroll-host"
+            [itemSize]="itemSize">
+            <ion-list>
+              <ion-item
+                detail="false"
+                class="contentItem"
+                *cdkVirtualFor="
+                  let item of followerList | async;
+                  let i = index;
+                  trackBy: checkUniqueContentId
+                ">
+                <ng-container>
+                  <app-user-avatar [profileImg]="item?.FOLLOW_PICTURE" slot="start" (click)="profilePage(item)"></app-user-avatar>
+                  <div class="follow-data">
+                    <ion-label class="follow-name" (click)="profilePage(item)" text-wrap>{{item?.FOLLOW_NAME}}</ion-label>
+                    <ion-button class="follow btn-follow" *ngIf="item?.IS_FOLLOWING === 0 && item.FOLLOW_ID !== memInfo.MEM_ID" (click)="follow($event,item)">팔로우</ion-button>
+                    <ion-button class="follow btn-unfollow" *ngIf="item?.IS_FOLLOWING === 1 && item.FOLLOW_ID !== memInfo.MEM_ID" (click)="unFollow($event,item)">팔로잉</ion-button>
+                  </div>
+              </ng-container>
+              </ion-item>
+            </ion-list>
+         </cdk-virtual-scroll-viewport>
+        </ng-container>
+      </ng-container>
+  </section>
+</ion-content>

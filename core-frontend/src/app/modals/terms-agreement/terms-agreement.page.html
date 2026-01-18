@@ -1,0 +1,53 @@
+<div class="wrapper">
+  
+  <ion-content class="terms-agreement">
+    <div class="top">
+      <div class="headerDiv">
+        <span class="headerTitle">✨ 약관 동의</span>
+      </div>
+      <ion-item lines="none">
+        <ion-checkbox
+          slot="start"
+          [(ngModel)]="allAgreed"
+          (ionChange)="toggleAll()"
+        >
+        </ion-checkbox>
+        <ion-label><strong>모두 동의합니다</strong></ion-label>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-checkbox
+          slot="start"
+          [(ngModel)]="agreements.termsOfService"
+          (ionChange)="updateAllAgree()"
+        >
+        </ion-checkbox>
+        <ion-label>이용약관 동의</ion-label>
+        <ion-icon name="chevron-forward-outline" slot="end" class="smaller-icon" (click)="handleClickOnSpecific(0)"></ion-icon>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-checkbox
+          slot="start"
+          [(ngModel)]="agreements.privacyPolicy"
+          (ionChange)="updateAllAgree()"
+        >
+        </ion-checkbox>
+        <ion-label>개인정보취급방침 동의</ion-label>
+        <ion-icon name="chevron-forward-outline" slot="end" class="smaller-icon" (click)="handleClickOnSpecific(1)"></ion-icon>
+      </ion-item>
+    </div>
+    <div class="bottom">
+      <ion-button [disabled]="!allAgreed" color="primary" (click)="agreeAll()">확인</ion-button>
+      <ion-button color="secondary" fill="outline" (click)="dismiss()">취소</ion-button>
+    </div>
+  </ion-content>
+  <!-- <ion-footer>
+    <div class="agreementBtnDiv">
+      <ion-button color="dark" (click)="dismiss()">동의 안함</ion-button>
+      <ion-button [disabled]="!isAllAgreed" (click)="agreeAll()" class="agreeBtn">
+        {{ isAllAgreed ? '약관에 동의합니다.' : '약관에 동의해 주세요.' }}
+      </ion-button>
+    </div>
+  </ion-footer> -->
+
+</div>
+
