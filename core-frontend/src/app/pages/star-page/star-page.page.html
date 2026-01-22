@@ -1,0 +1,47 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="star-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/lobby" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title mode="md">Star Platform</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="presentPopover($event)">
+        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <div class="profile-header">
+    <ion-avatar>
+      <img [src]="starInfo?.image" (error)="handleImageError($event)" />
+    </ion-avatar>
+    <div class="star-name-box">
+      <div class="name">{{ starInfo?.name }}</div>
+      <div class="status">
+        <ng-container *ngIf="starInfo?.use_yn === 'Y' || starInfo?.prs_use_yn === 'Y' || !starInfo?.use_yn">
+          활동중 <span class="dot" style="background-color: #2dd36f;"></span>
+        </ng-container>
+
+        <ng-container *ngIf="starInfo?.use_yn === 'N' || starInfo?.prs_use_yn === 'N'">
+          <span style="color: #ff4b5c;">활동정지</span> 
+          <span class="dot" style="background-color: #ff4b5c;"></span>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <div class="ad-placeholder" style="height: 315px; width: 100%; background: transparent;">
+  </div>
+
+  <div class="gallery-grid">
+    <div class="photo-item" *ngFor="let photo of starInfo?.photos">
+      <img [src]="photo" (error)="handleImageError($event)" />
+    </div>
+  </div>
+
+  <div class="footer-notice">
+    <p>ⓒ 정산 데이터는 시스템에 의해 자동 기록됩니다.</p>
+  </div>
+</ion-content>

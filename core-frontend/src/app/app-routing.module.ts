@@ -3,7 +3,18 @@ import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 import { IsAuthedGuard } from './guards/is-authed.guard';
 
 const routes: Routes = [
-  { path: '', redirectTo: '/tabs/fairy', pathMatch: 'full' },
+  { path: '', redirectTo: '/lobby', pathMatch: 'full' },
+
+  {
+    path: 'lobby',
+    loadChildren: () =>
+      import('./pages/lobby/lobby.module').then((m) => m.LobbyPageModule),
+  },
+  {
+    // :starId는 'star_1', 'star_2' 같은 변수가 들어오는 자리입니다.
+    path: 'star/:starId', 
+    loadChildren: () => import('./pages/star-page/star-page.module').then(m => m.StarPagePageModule)
+  },
   {
     path: 'tabs',
     loadChildren: () =>
@@ -79,8 +90,7 @@ const routes: Routes = [
   },
   {
     path: '**',
-    pathMatch: 'full',
-    redirectTo: '/tabs/fairy',
+    redirectTo: '/lobby',
   },
   {
     path: 'tinker-bell',

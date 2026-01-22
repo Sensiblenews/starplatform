@@ -71,9 +71,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     await this.auth.initialize();
     await this.auth.tryAutoLogin();
     this.setSensibleEventPopup();
-    if (this.entry === 'root') {
-      await this.navigateToLastTab();
-    }
+    // if (this.entry === 'root') {
+    //   await this.navigateToLastTab();
+    // }
     this.system.setInitialized(true);
     await SplashScreen.hide({
       fadeOutDuration: 1000,

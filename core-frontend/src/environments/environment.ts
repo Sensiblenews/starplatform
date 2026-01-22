@@ -5,6 +5,6 @@
 export const environment = {
   production: true,
   // production: false,
-  apiBaseURL: 'https://witch-hunting.com',
-  // apiBaseURL: 'http://192.168.0.6:8080/witch',
+  // apiBaseURL: 'https://witch-hunting.com',
+  apiBaseURL: 'http://192.168.0.6:8080/witch',
 };

@@ -1,0 +1,77 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="main-toolbar">
+    <ion-title mode="md">
+      <div class="header-logo">
+        <ion-icon name="star"></ion-icon>
+        <span>Star Platform</span>
+      </div>
+    </ion-title>
+  </ion-toolbar>
+
+  <ion-toolbar>
+    <ion-searchbar 
+      placeholder="스타 이름 검색"
+      inputmode="search"
+      (ionChange)="filterStars($event)" 
+      [debounce]="250"
+      animated="true">
+    </ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content
+      pullingIcon="chevron-down-circle-outline"
+      pullingText="당겨서 새로고침"
+      refreshingSpinner="circles"
+      refreshingText="스타 정보를 불러오는 중...">
+    </ion-refresher-content>
+  </ion-refresher>
+
+  <div class="section-container">
+    <div class="section-header">
+      <ion-icon name="star" class="title-icon orange"></ion-icon>
+      <ion-label>인기 스타</ion-label>
+    </div>
+    
+    <div class="horizontal-scroll-wrapper">
+      <div class="star-card-mini" *ngFor="let star of popularStars" (click)="goToStarPage(star.id)">
+        <div class="avatar-box">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </div>
+        <div class="star-info">
+          <div class="name">{{ star.name }}</div>
+          <div class="status">활동중 <span class="dot"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-container">
+    <div class="section-header">
+      <ion-icon name="heart" class="title-icon pink"></ion-icon>
+      <ion-label>스타 리스트</ion-label>
+    </div>
+
+    <ion-list lines="none">
+      <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item">
+        <ion-avatar slot="start">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </ion-avatar>
+        <ion-label>
+          <h2>{{ star.name }}</h2>
+          <div class="status">
+            <ng-container *ngIf="star.use_yn === 'Y' || !star.use_yn">
+              활동중 <span class="dot" style="color: #2dd36f; background-color: #2dd36f;"></span>
+            </ng-container>
+            
+            <ng-container *ngIf="star.use_yn === 'N'">
+              활동중지 <span class="dot" style="color: #ff4b5c; background-color: #ff4b5c;"></span>
+            </ng-container>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </div>
+</ion-content>

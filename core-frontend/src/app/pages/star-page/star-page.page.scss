@@ -1,0 +1,99 @@
+// 1. 헤더 (핑크색 그라데이션)
+.star-toolbar {
+  --background: linear-gradient(90deg, #ff4b5c 0%, #ff6b6b 100%);
+  --color: white; // 뒤로가기 버튼 및 타이틀 색상
+
+  ion-title {
+    font-weight: 700;
+  }
+}
+
+// 2. 스타 프로필 영역
+.profile-header {
+  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border-bottom: 8px solid #f5f5f5; // 하단 컨텐츠와 분리감을 주는 굵은 선
+
+  ion-avatar {
+    width: 72px;
+    height: 72px;
+    border: 3px solid #ff4b5c; // 브랜드 컬러 테두리
+    padding: 2px; // 테두리와 이미지 사이 간격
+    background-color: white;
+
+    img {
+      border-radius: 50%; // 이미지 원형 유지
+    }
+  }
+
+  .star-name-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    .name {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #222;
+      margin-bottom: 6px;
+    }
+
+    .status {
+      font-size: 0.9rem;
+      color: #666;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        background-color: #2dd36f; // 활동중(초록색) 점
+        border-radius: 50%;
+        display: inline-block;
+      }
+    }
+  }
+}
+
+// 3. 콘텐츠 갤러리 (2열 그리드)
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); // 가로 2개씩 배치
+  gap: 12px; // 사진 사이 간격
+  padding: 16px;
+  background-color: white;
+
+  .photo-item {
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 1/1; // 정사각형 비율 고정
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); // 살짝 뜨는 느낌의 그림자
+    background-color: #f0f0f0; // 이미지 로딩 전 회색 배경
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; // 비율 깨지지 않고 꽉 채우기
+      transition: transform 0.2s; // 터치 시 부드러운 효과 준비
+    }
+  }
+}
+
+// 4. 하단 정산/저작권 문구
+.footer-notice {
+  padding: 40px 16px 60px; // 하단 여백을 넉넉히 줌
+  text-align: center;
+
+  p {
+    font-size: 0.75rem;
+    color: #ccc;
+    margin: 0;
+    padding-top: 20px;
+    border-top: 1px solid #eee; // 얇은 구분선
+  }
+}
