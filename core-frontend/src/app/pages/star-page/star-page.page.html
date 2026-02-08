@@ -20,27 +20,80 @@
     <div class="star-name-box">
       <div class="name">{{ starInfo?.name }}</div>
       <div class="status">
-        <ng-container *ngIf="starInfo?.use_yn === 'Y' || starInfo?.prs_use_yn === 'Y' || !starInfo?.use_yn">
-          활동중 <span class="dot" style="background-color: #2dd36f;"></span>
-        </ng-container>
-
-        <ng-container *ngIf="starInfo?.use_yn === 'N' || starInfo?.prs_use_yn === 'N'">
-          <span style="color: #ff4b5c;">활동정지</span> 
-          <span class="dot" style="background-color: #ff4b5c;"></span>
-        </ng-container>
+        활동중 <span class="dot" style="background-color: #2dd36f;"></span>
       </div>
     </div>
   </div>
 
-  <div class="ad-placeholder" style="height: 315px; width: 100%; background: transparent;">
-  </div>
-
-  <div class="gallery-grid">
-    <div class="photo-item" *ngFor="let photo of starInfo?.photos">
-      <img [src]="photo" (error)="handleImageError($event)" />
+  <!-- <div class="ad-placeholder" style="height: 315px; width: 100%; display: flex; align-items: center; justify-content: center;">
+    <div class="lock-message-card" *ngIf="isAdLocked">
+      <div class="content">
+        <ion-icon name="heart-circle"></ion-icon>
+        <h3>오늘의 응원 완료!</h3>
+        <p>내일 다시 응원해주세요! 🙌</p>
+      </div>
     </div>
-  </div>
+  </div> -->
 
+  <div class="feed-list">
+    <ng-container *ngFor="let item of feedList">
+
+      <div class="ad-slot-item" *ngIf="item.isAd">
+        <div class="ad-placeholder-box">
+          <!-- <p>AD SPACE {{ item.adId }}</p> -->
+        </div>
+      </div>
+
+      <div class="feed-card" *ngIf="!item.isAd" (click)="goDetail(item.CON_ID)">
+        
+        <div class="media-wrapper">
+          
+          <img *ngIf="item.MEDIA_TYPE === 'PHOTO'" [src]="item.image" loading="lazy" />
+
+          <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO'">
+            <video 
+              [src]="item.MEDIA_URL" 
+              [poster]="item.image"
+              [muted]="item.isMuted !== false"
+              autoplay 
+              playsinline 
+              loop
+              class="feed-video-player">
+            </video>
+
+            <div class="sound-btn" (click)="toggleSound(item, $event)">
+               <ion-icon [name]="item.isMuted !== false ? 'volume-mute' : 'volume-high'"></ion-icon>
+            </div>
+          </ng-container>
+
+          <div class="pin-badge" *ngIf="item.IS_PINNED === 'Y'">📌</div>
+        </div>
+
+        <div class="content-body">
+          {{ item.CON_BODY }}
+        </div>
+
+        <div class="card-footer">
+          <div class="writer-info">
+            <ion-avatar class="writer-avatar">
+               <img [src]="item.MEM_PICTURE || defaultAvatar" />
+            </ion-avatar>
+            <span class="writer-name">{{ item.MEM_NAME || '익명' }}</span>
+          </div>
+
+          <div class="stats-info">
+            <div class="stat-item">
+              <ion-icon name="heart" color="danger"></ion-icon>
+              <span>{{ item.HEART_COUNT || 0 }}</span>
+            </div>
+            </div>
+        </div>
+
+      </div>
+
+    </ng-container>
+  </div>
+  
   <div class="footer-notice">
     <p>ⓒ 정산 데이터는 시스템에 의해 자동 기록됩니다.</p>
   </div>

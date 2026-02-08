@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="star">
+
+    <select id="selectMyInfo" parameterType="string" resultType="map">
+        SELECT * FROM WH_PRESS WHERE PRS_ID = #{PRS_ID}
+    </select>
+
+    <update id="updateProfile" parameterType="map">
+        UPDATE WH_PRESS
+        SET 
+            PRS_NAME = #{PRS_NAME}
+            <if test="STORED_FILE_NM != null and STORED_FILE_NM != ''">
+                , STORED_FILE_NM = #{STORED_FILE_NM}
+            </if>
+            <if test="PRS_PWD != null and PRS_PWD != ''">
+                , PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD})))))
+            </if>
+        WHERE PRS_ID = #{PRS_ID}
+    </update>
+
+    <insert id="insertContentMaster" parameterType="map" useGeneratedKeys="true" keyProperty="CON_ID">
+        INSERT INTO WH_STAR_CONTENT (PRS_ID, CON_BODY, CREATED_DATE)
+        VALUES (#{PRS_ID}, #{CON_BODY}, NOW())
+    </insert>
+
+    <insert id="insertContentMedia" parameterType="map">
+        INSERT INTO STAR_CONTENT_MEDIA (CON_ID, MEDIA_TYPE, MEDIA_URL, THUMB_URL, SORT_ORDER)
+        VALUES (#{CON_ID}, #{MEDIA_TYPE}, #{MEDIA_URL}, #{THUMB_URL}, #{SORT_ORDER})
+    </insert>
+
+    <select id="selectMyGallery" parameterType="string" resultType="map">
+        SELECT 
+            M.CON_ID,
+            M.CON_BODY,
+            M.CREATED_DATE,
+            D.THUMB_URL as IMG_URL,  D.MEDIA_TYPE,
+            (SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) as MEDIA_COUNT
+        FROM WH_STAR_CONTENT M
+        JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID
+        WHERE M.PRS_ID = #{PRS_ID}
+          AND D.SORT_ORDER = 0  ORDER BY M.CREATED_DATE DESC
+    </select>
+    
+    <delete id="deleteGalleryPhoto" parameterType="map">
+        DELETE FROM WH_STAR_CONTENT 
+        WHERE CON_ID = #{CON_ID} AND PRS_ID = #{PRS_ID}
+    </delete>
+    
+    <select id="selectFeedMaster" parameterType="map" resultType="map">
+        SELECT CON_ID, CON_BODY, CREATED_DATE
+        FROM WH_STAR_CONTENT
+        WHERE CON_ID = #{CON_ID} AND PRS_ID = #{PRS_ID}
+    </select>
+
+    <select id="selectFeedMedias" parameterType="map" resultType="map">
+        SELECT MEDIA_TYPE, MEDIA_URL, THUMB_URL
+        FROM STAR_CONTENT_MEDIA
+        WHERE CON_ID = #{CON_ID}
+        ORDER BY SORT_ORDER ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="superapp">
+
+    <select id="selectPopularStars" resultType="hashmap">
+        SELECT 
+            PRS_ID as id,
+            PRS_NAME as name,
+            STORED_FILE_NM as image,
+            STATUS_MSG as status
+        FROM WH_PRESS
+        WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y' AND IS_POPULAR = 'Y'
+        ORDER BY PRS_UPDATE_DATE DESC
+        LIMIT 10
+    </select>
+
+    <select id="selectAllStars" resultType="hashmap">
+        SELECT 
+            PRS_ID as id,
+            PRS_NAME as name,
+            STORED_FILE_NM as image,
+            STATUS_MSG as status
+        FROM WH_PRESS
+        WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y'
+        ORDER BY PRS_NAME ASC
+    </select>
+
+    <select id="selectStarDetail" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            PRS_ID as id,
+            PRS_NAME as name,
+            STORED_FILE_NM as image,
+            STATUS_MSG as status,
+            PRS_HOMEPAGE as homepage
+        FROM WH_PRESS
+        WHERE PRS_ID = #{starId}
+    </select>
+
+	<select id="selectStarGallery" parameterType="map" resultType="map">
+	    SELECT 
+	        M.CON_ID,
+	        M.CON_BODY,
+	        M.IS_PINNED,
+	        M.CREATED_DATE,
+	        
+	        -- [1] 미디어 정보 (비디오 링크 포함)
+	        D.THUMB_URL as image,
+	        D.MEDIA_URL,     D.MEDIA_TYPE,
+	        (SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) as media_count,
+	
+	        -- [2] 작성자 정보 (WH_PRESS 조인 필요 없음, WH_STAR_CONTENT에 있다면 바로 사용)
+	        -- 만약 작성자 정보가 WH_PRESS 테이블에 있다면 아래처럼 조인해서 가져와야 합니다.
+	        -- (현재 쿼리상 M에 작성자 정보가 없어서 WH_PRESS(P)를 조인한다고 가정했습니다)
+	        P.PRS_NAME as MEM_NAME, 
+	        P.STORED_FILE_NM as MEM_PICTURE,
+	
+	        -- [3] 좋아요 정보 (아까 추가하기로 한 부분)
+	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = M.CON_ID) AS HEART_COUNT,
+	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = M.CON_ID AND MEM_ID = #{memId}) AS IS_LIKED
+	
+	    FROM WH_STAR_CONTENT M
+	    JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID
+	    LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID  WHERE M.PRS_ID = #{starId}
+	      AND D.SORT_ORDER = 0  
+	    ORDER BY M.IS_PINNED DESC, M.CREATED_DATE DESC
+	</select>
+
+    <select id="selectContentDetail" parameterType="map" resultType="map">
+        SELECT 
+            A.CON_ID,
+            A.CON_BODY,
+            A.CREATED_DATE,
+            A.IS_PINNED,
+            A.PRS_ID,
+            B.PRS_NAME,          B.STORED_FILE_NM     FROM WH_STAR_CONTENT A
+        JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        WHERE A.CON_ID = #{conId}
+    </select>
+    <select id="selectContentMedias" parameterType="map" resultType="map">
+        SELECT * FROM STAR_CONTENT_MEDIA 
+        WHERE CON_ID = #{conId} 
+        ORDER BY SORT_ORDER ASC
+    </select>
+
+    <insert id="insertAdLog" parameterType="hashmap">
+	    INSERT INTO WH_AD_LOG (
+	        MEM_ID, 
+	        PRS_ID, 
+	        AD_TYPE, 
+	        OS,        ACTION,    CREATED_DATE
+	    ) VALUES (
+	        #{MEM_ID}, 
+	        #{PRS_ID}, 
+	        #{AD_TYPE}, 
+	        #{OS},     #{ACTION}, NOW()
+	    )
+	</insert>
+
+</mapper>

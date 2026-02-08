@@ -16,6 +16,9 @@ export class LobbyPage implements OnInit {
 
   allStarsOriginal: any[] = [];
 
+  searchResults: any[] = [];
+  isSearching: boolean = false;
+
   constructor(
     private router: Router,
     private http: HttpService // 서비스 주입
@@ -63,17 +66,23 @@ export class LobbyPage implements OnInit {
   }
 
   filterStars(event: any) {
-    const query = event.target.value.toLowerCase(); // 입력된 검색어 (소문자 변환)
+    const query = event.target.value.toLowerCase();
 
     if (query && query.trim() !== '') {
-      // 검색어가 있으면: 원본(allStarsOriginal)에서 이름이 일치하는 것만 골라냄
-      this.allStars = this.allStarsOriginal.filter((star) => {
+      this.isSearching = true; // 검색 모드 ON
+      
+      // 원본 데이터에서 검색하여 'searchResults'에 저장 (하단 리스트는 건드리지 않음)
+      this.searchResults = this.allStarsOriginal.filter((star) => {
         return (star.name.toLowerCase().indexOf(query) > -1);
       });
     } else {
-      // 검색어가 없으면(지웠으면): 원본 데이터를 다시 보여줌
-      this.allStars = this.allStarsOriginal;
+      this.isSearching = false; // 검색 모드 OFF
+      this.searchResults = [];
     }
+    
+    // [옵션] 하단 리스트는 항상 전체 목록을 유지하도록 초기화
+    // (이렇게 해야 상단엔 검색결과, 하단엔 전체목록이 유지됨)
+    this.allStars = this.allStarsOriginal;
   }
 
   getStarImage(imageUrl: string | null): string {

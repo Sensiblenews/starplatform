@@ -18,6 +18,11 @@ public class UserVO
 	private String APP_AUTH_KEY;
 	private String ORIG_FILE_NM;
 	private String STORED_FILE_NM;
+	private String CATEGORY_TAG;
+	private String IS_STAR;
+	private String IS_POPULAR;
+	private String STATUS_MSG;
+	private String PRS_COUNTRY;
 	
 	public String getPRS_ID() {
 		return PRS_ID;
@@ -108,5 +113,35 @@ public class UserVO
 	}
 	public void setSTORED_FILE_NM(String sTORED_FILE_NM) {
 		STORED_FILE_NM = sTORED_FILE_NM;
+	}
+	public String getCATEGORY_TAG() {
+		return CATEGORY_TAG;
+	}
+	public void setCATEGORY_TAG(String cATEGORY_TAG) {
+		CATEGORY_TAG = cATEGORY_TAG;
+	}
+	public String getIS_STAR() {
+		return IS_STAR;
+	}
+	public void setIS_STAR(String iS_STAR) {
+		IS_STAR = iS_STAR;
+	}
+	public String getIS_POPULAR() {
+		return IS_POPULAR;
+	}
+	public void setIS_POPULAR(String iS_POPULAR) {
+		IS_POPULAR = iS_POPULAR;
+	}
+	public String getSTATUS_MSG() {
+		return STATUS_MSG;
+	}
+	public void setSTATUS_MSG(String sTATUS_MSG) {
+		STATUS_MSG = sTATUS_MSG;
+	}
+	public String getPRS_COUNTRY() {
+		return PRS_COUNTRY;
+	}
+	public void setPRS_COUNTRY(String pRS_COUNTRY) {
+		PRS_COUNTRY = pRS_COUNTRY;
 	}
 }

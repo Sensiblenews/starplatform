@@ -1,0 +1,48 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>게시물</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="media-stack" *ngIf="mediaList.length > 0">
+    <div class="media-item" *ngFor="let media of mediaList">
+      
+      <img *ngIf="media.MEDIA_TYPE === 'PHOTO'" [src]="media.MEDIA_URL" />
+
+      <div class="video-wrapper" *ngIf="media.MEDIA_TYPE === 'VIDEO'">
+        <video 
+            [muted]="media.isMuted" 
+            autoplay loop playsinline 
+            [poster]="media.THUMB_URL"
+            class="feed-video">
+            <source [src]="media.MEDIA_URL" type="video/mp4">
+        </video>
+
+        <div class="sound-btn" (click)="toggleSound(media, $event)">
+            <ion-icon [name]="media.isMuted ? 'volume-mute' : 'volume-high'"></ion-icon>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="feed-body-section">
+    <div class="author-row">
+      <ion-avatar>
+        <img [src]="starProfileImg" (error)="handleImgError($event)" />
+      </ion-avatar>
+      <div class="author-info">
+        <span class="name">{{ starName }}</span>
+        <span class="date">{{ contentInfo?.CREATED_DATE | date:'yyyy.MM.dd HH:mm' }}</span>
+      </div>
+    </div>
+
+    <div class="content-text">
+      {{ contentInfo?.CON_BODY }}
+    </div>
+  </div>
+</ion-content>

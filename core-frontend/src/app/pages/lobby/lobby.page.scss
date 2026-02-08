@@ -72,3 +72,10 @@
   h2 { font-weight: 700; color: #333; }
   p { font-size: 0.8rem; .dot { color: #2dd36f; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin-left: 2px; } }
 }
+
+.no-result-msg {
+  text-align: center;
+  padding: 30px 0;
+  color: #999;
+  font-size: 0.9rem;
+}

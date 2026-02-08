@@ -1,0 +1,114 @@
+// 미디어 세로 나열 스타일
+.media-stack {
+  width: 100%;
+  background-color: #f5f5f5;
+
+  .media-item {
+    width: 100%;
+    margin-bottom: 2px; // 사진 사이 얇은 간격
+    background: #000;
+    display: flex;
+    justify-content: center;
+
+    img, video {
+      width: 100%;
+      height: auto;
+      max-height: 600px; // 너무 길어지는 것 방지
+      object-fit: contain;
+    }
+  }
+}
+
+// 본문 영역 (기존 유지)
+.feed-body-section {
+  padding: 16px;
+  background: #fff;
+
+  .author-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+
+    ion-avatar {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #eee;
+    }
+
+    .author-info {
+      display: flex;
+      flex-direction: column;
+
+      .name { font-weight: 700; font-size: 14px; color: #222; }
+      .date { font-size: 12px; color: #888; margin-top: 2px; }
+    }
+  }
+
+  .content-text {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #333;
+    white-space: pre-wrap;
+  }
+}
+
+// .media-stack 내부의 .media-item 스타일을 아래와 같이 보완하세요.
+
+.media-item {
+    width: 100%;
+    margin-bottom: 2px;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    position: relative; // [중요] 자식 요소 절대 위치 기준점
+
+    img {
+      width: 100%;
+      height: auto;
+      max-height: 600px;
+      object-fit: contain;
+    }
+
+    // [신규] 비디오 래퍼
+    .video-wrapper {
+        position: relative;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+
+        video {
+            width: 100%;
+            height: auto;
+            max-height: 600px;
+            object-fit: contain;
+            display: block; // 하단 여백 제거
+        }
+
+        // [신규] 소리 버튼 스타일 (인스타 느낌)
+        .sound-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(0, 0, 0, 0.6); // 반투명 검정 배경
+            border-radius: 50%; // 원형
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+
+            ion-icon {
+                color: #fff;
+                font-size: 16px;
+            }
+
+            &:active {
+                transform: scale(0.9); // 클릭 시 살짝 작아짐
+            }
+        }
+    }
+}

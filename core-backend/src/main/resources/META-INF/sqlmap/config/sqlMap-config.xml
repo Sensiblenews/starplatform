@@ -18,6 +18,5 @@
 		<typeAlias alias="contentVO"				type="com.sensible.admin.domain.ContentVO"/>
 		
 	</typeAliases>
-
+	
 </configuration>
-

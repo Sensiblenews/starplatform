@@ -29,6 +29,36 @@
     </ion-refresher-content>
   </ion-refresher>
 
+  <div class="section-container" *ngIf="isSearching">
+    <div class="section-header">
+      <ion-icon name="search" class="title-icon" style="color: #3880ff;"></ion-icon>
+      <ion-label>검색 결과 ({{ searchResults.length }})</ion-label>
+    </div>
+
+    <ion-list lines="none" *ngIf="searchResults.length > 0">
+      <ion-item *ngFor="let star of searchResults" (click)="goToStarPage(star.id)" class="star-list-item">
+        <ion-avatar slot="start">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </ion-avatar>
+        <ion-label>
+          <h2>{{ star.name }}</h2>
+          <div class="status">
+            <ng-container *ngIf="star.use_yn === 'Y' || !star.use_yn">
+              활동중 <span class="dot" style="color: #2dd36f; background-color: #2dd36f;"></span>
+            </ng-container>
+            <ng-container *ngIf="star.use_yn === 'N'">
+              활동중지 <span class="dot" style="color: #ff4b5c; background-color: #ff4b5c;"></span>
+            </ng-container>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+
+    <div *ngIf="searchResults.length === 0" class="no-result-msg">
+      검색 결과가 없습니다.
+    </div>
+  </div>
+
   <div class="section-container">
     <div class="section-header">
       <ion-icon name="star" class="title-icon orange"></ion-icon>

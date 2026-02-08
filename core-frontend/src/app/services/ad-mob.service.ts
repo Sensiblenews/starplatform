@@ -45,34 +45,7 @@ export class AdMobService {
       await AdMob.showConsentForm();
     }
 
-    AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info: AdMobBannerSize) => {
-      // const appMargin = info.height;
-      // const app: HTMLElement = document.querySelector('ion-router-outlet');
-
-      // if(appMargin === 0){
-      //   app.style.marginBottom = '0px';
-      //   return;
-      // }
-
-      // if(appMargin > 0){
-      //   const body = document.querySelector('body');
-      //   const bodyStyles = window.getComputedStyle(body);
-      //   const safeAreaBottom = bodyStyles.getPropertyValue("--ion-safe-area-bottom");
-      //   app.style.marginBottom = `calc(${safeAreaBottom} + ${appMargin}px)`;
-      // }
-
-      // if (height > 0) {
-      //   requestAnimationFrame(() => {
-      //     const ionApp: HTMLElement = document.querySelector('ion-app');
-      //     ionApp.style.marginBottom = `${height}px`;
-      //   });
-      // } else {
-      //   requestAnimationFrame(() => {
-      //     const ionApp: HTMLElement = document.querySelector('ion-app');
-      //     ionApp.style.removeProperty('margin-bottom');
-      //   });
-      // }
-    });
+    await this.loadInterstitial();
   }
 
   async showBanner(): Promise<void> {
@@ -87,22 +60,34 @@ export class AdMobService {
     AdMob.showBanner(options);
   }
 
-  async showInterstitial(): Promise<void> {
-    if (!Capacitor.isNativePlatform()) {
-      return;
+  // [신규] 전면 광고 미리 로드하기 (보여주지는 않음)
+  async loadInterstitial(): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const adId = Capacitor.getPlatform() === 'ios' ? INTERSTITIAL_AD_ID_IOS : INTERSTITIAL_AD_ID;
+
+    try {
+      // prepareInterstitial은 광고를 로드만 하고 메모리에 올려둡니다.
+      await AdMob.prepareInterstitial({ adId });
+      console.log('전면 광고 로드 완료');
+    } catch (e) {
+      console.error('전면 광고 로드 실패', e);
     }
+  }
 
-    const adId =
-      Capacitor.getPlatform() === 'ios'
-        ? INTERSTITIAL_AD_ID_IOS
-        : INTERSTITIAL_AD_ID;
+  async showInterstitial(): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
 
-    const resp = await AdMob.prepareInterstitial({
-      adId,
-    });
-
-    if (resp.adUnitId) {
+    try {
+      // 1. 준비된 광고 보여주기
       await AdMob.showInterstitial();
+      
+      // 2. [중요] 광고를 보여줬으니, 다음 번을 위해 바로 다시 장전!
+      this.loadInterstitial(); 
+    } catch (e) {
+      console.log('광고가 아직 준비되지 않았거나 에러 발생. 다시 장전 시도.');
+      // 혹시라도 없어서 못 보여줬다면, 다음을 위해 지금이라도 장전
+      this.loadInterstitial();
     }
   }
 }

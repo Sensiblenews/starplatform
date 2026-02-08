@@ -16,6 +16,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/star-page/star-page.module').then(m => m.StarPagePageModule)
   },
   {
+    path: 'feed-detail/:conId',
+    loadChildren: () => import('./pages/feed-detail/feed-detail.module').then(m => m.FeedDetailPageModule)
+  },
+  {
     path: 'tabs',
     loadChildren: () =>
       import('./pages/tabs/tabs.module').then((m) => m.TabsPageModule),

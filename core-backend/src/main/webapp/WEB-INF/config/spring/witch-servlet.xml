@@ -54,20 +54,37 @@
 	<mvc:interceptors>		
 		<mvc:interceptor>
 			<mvc:mapping path="/app/**"/>	
-			<mvc:mapping path="/api/**"/>	
+			<mvc:mapping path="/api/**"/>
+			
+			<mvc:exclude-mapping path="/api/super/**"/>
+			<mvc:exclude-mapping path="/api/ad/**"/>
+			
 			<bean id="interceptorAppAPI" class="com.sensible.common.filter.InterceptorAppAPI"></bean>	
-		</mvc:interceptor>		 	
+		</mvc:interceptor>			 	
+		
 		<mvc:interceptor>			
 			<mvc:mapping path="/api/**"/>
-			<!-- <mvc:exclude-mapping path="/api/content" />		 -->
+			<mvc:exclude-mapping path="/api/super/**"/>
+			<mvc:exclude-mapping path="/api/ad/**"/>
+			
 			<bean id="interceptorAPI" class="com.sensible.common.filter.InterceptorAPI"></bean>		
 		</mvc:interceptor>
+
 		<mvc:interceptor>
 			<mvc:mapping path="/adm/**"/>
 			<bean id="authInterceptor" class="com.sensible.common.filter.AuthInterceptor"></bean>		
 		</mvc:interceptor>
+		
+		<mvc:interceptor>
+	        <mvc:mapping path="/super/**"/>
+	        
+	        <mvc:exclude-mapping path="/super/login"/>
+	        <mvc:exclude-mapping path="/super/loginPrc"/>
+	        <mvc:exclude-mapping path="/resources/**"/>
+	        
+	        <bean id="SuperJwtInterceptor" class="com.sensible.common.filter.SuperJwtInterceptor"/>
+	    </mvc:interceptor>
 	</mvc:interceptors>
-	
 	<!-- request parameter 커스텀
 		주의할 것은 CommandMap 에서 map 을 상속받으면 안됨
 		상속받게되면 argument-resolvers 거치지 않음

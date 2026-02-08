@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="super">
+
+    <select id="selectStarCount" parameterType="string" resultType="int">
+        SELECT COUNT(*) 
+        FROM WH_PRESS 
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="_parameter != null and _parameter != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+    </select>
+
+    <select id="selectTotalAdViews" parameterType="string" resultType="long">
+        SELECT COUNT(*) 
+        FROM WH_AD_LOG A
+        <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+            WHERE B.PRS_COUNTRY = #{country}
+        </if>
+    </select>
+
+    <select id="selectStarCountByCountry" resultType="map">
+        SELECT PRS_COUNTRY AS LABEL, COUNT(*) AS VALUE
+        FROM WH_PRESS WHERE PRS_TYPE = '4' GROUP BY PRS_COUNTRY
+    </select>
+
+    <select id="selectMonthlyAdStats" parameterType="string" resultType="map">
+        SELECT 
+            DATE_FORMAT(A.CREATED_DATE, '%m월') AS LABEL, 
+            COUNT(*) AS VALUE
+        FROM WH_AD_LOG A
+        <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        </if>
+        WHERE A.CREATED_DATE >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        <if test="_parameter != null and _parameter != ''">
+            AND B.PRS_COUNTRY = #{country}
+        </if>
+        GROUP BY DATE_FORMAT(A.CREATED_DATE, '%Y-%m'), DATE_FORMAT(A.CREATED_DATE, '%m월')
+        ORDER BY DATE_FORMAT(A.CREATED_DATE, '%Y-%m') ASC
+    </select>
+    
+    <select id="selectActiveUserCount" parameterType="string" resultType="int">
+        SELECT COUNT(DISTINCT A.MEM_ID) 
+        FROM WH_AD_LOG A
+        <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        </if>
+        WHERE A.CREATED_DATE >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        <if test="_parameter != null and _parameter != ''">
+            AND B.PRS_COUNTRY = #{country}
+        </if>
+    </select>
+    
+    <select id="checkIdDuplicate" parameterType="string" resultType="int">
+        SELECT COUNT(*) FROM WH_PRESS WHERE PRS_ID = #{PRS_ID}
+    </select>
+    
+    <select id="selectSuperLogin" parameterType="map" resultType="com.sensible.admin.domain.UserVO">
+        SELECT
+            PRS_ID, PRS_NAME, PRS_AUTH, PRS_TYPE, APP_ID, PRS_USE_YN, PRS_COUNTRY FROM WH_PRESS
+        WHERE PRS_ID = #{PRS_ID}
+          AND PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD})))))
+          AND PRS_USE_YN = 'Y'
+    </select>
+
+    <insert id="insertLocalAdmin" parameterType="map">
+        INSERT INTO WH_PRESS (
+            PRS_ID, PRS_PWD, PRS_NAME, PRS_COUNTRY, 
+            PRS_TYPE, PRS_AUTH, PRS_USE_YN, APP_ID, 
+            PRS_CREATE_DATE 
+        ) VALUES (
+            #{PRS_ID}, CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))), 
+            #{PRS_NAME}, #{PRS_COUNTRY}, 
+            '1', 'LC', 'Y', #{PRS_ID}, NOW()
+        )
+    </insert>
+
+    <select id="selectNextStarSeq" resultType="int">
+        SELECT IFNULL(MAX(CAST(SUBSTRING(PRS_ID, 6) AS UNSIGNED)), 0) + 1
+        FROM WH_PRESS WHERE PRS_ID LIKE 'star_%'
+    </select>
+
+    <insert id="insertStar" parameterType="map">
+        INSERT INTO WH_PRESS (
+            PRS_ID, PRS_PWD, PRS_NAME, PRS_COUNTRY, 
+            PRS_TYPE, PRS_AUTH, PRS_USE_YN, APP_ID, 
+            PRS_CREATE_DATE, IS_STAR
+        ) VALUES (
+            #{PRS_ID}, 
+            CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))), 
+            #{PRS_NAME}, 
+            IFNULL(NULLIF(#{PRS_COUNTRY}, ''), 'KR'), 
+            '4', 'ST', 'Y', #{PRS_ID}, 
+            NOW(), 'Y'
+        )
+    </insert>
+
+	<select id="selectStarList" parameterType="string" resultType="map">
+        SELECT 
+            PRS_ID, PRS_NAME, PRS_COUNTRY, PRS_USE_YN, 
+            PRS_CREATE_DATE AS CON_CREATE_DATE,
+            (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = A.PRS_ID) AS AD_VIEW_CNT,
+            IFNULL(IS_POPULAR, 'N') AS IS_POPULAR  FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="_parameter != null and _parameter != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        ORDER BY IS_POPULAR DESC, PRS_CREATE_DATE DESC </select>
+
+    <select id="countPopularStars" parameterType="string" resultType="int">
+        SELECT COUNT(*) 
+        FROM WH_PRESS 
+        WHERE PRS_COUNTRY = #{country} 
+          AND IS_POPULAR = 'Y'
+          AND PRS_USE_YN = 'Y'
+    </select>
+
+    <update id="updatePopularStatus" parameterType="map">
+        UPDATE WH_PRESS
+        SET IS_POPULAR = #{IS_POPULAR}
+        WHERE PRS_ID = #{PRS_ID}
+    </update>
+    
+    <select id="selectStarFeedList" parameterType="map" resultType="map">
+	    SELECT 
+	        A.CON_ID,
+	        A.CON_BODY,
+	        A.CREATED_DATE,
+	        A.IS_PINNED,
+	        B.PRS_NAME,
+	        B.STORED_FILE_NM as MEM_PICTURE,
+	        
+	        -- (기존 하트 서브쿼리들...)
+	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = A.CON_ID) AS HEART_COUNT,
+	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = A.CON_ID AND MEM_ID = #{memId}) AS IS_LIKED,
+	
+	        D.THUMB_URL as image,
+	        D.MEDIA_URL,  D.MEDIA_TYPE
+	    FROM WH_STAR_CONTENT A
+	    JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+	    JOIN STAR_CONTENT_MEDIA D ON A.CON_ID = D.CON_ID
+	    WHERE A.PRS_ID = #{starId}
+	      AND D.SORT_ORDER = 0
+	    ORDER BY A.IS_PINNED DESC, A.CREATED_DATE DESC
+	</select>
+
+    <update id="updateFeedPin" parameterType="map">
+        UPDATE WH_STAR_CONTENT
+        SET IS_PINNED = #{targetStatus}
+        WHERE CON_ID = #{conId}
+    </update>
+
+    <delete id="deleteFeedMaster" parameterType="string">
+        DELETE FROM WH_STAR_CONTENT WHERE CON_ID = #{conId}
+    </delete>
+    
+    
+	<select id="selectRecentFeedList" parameterType="string" resultType="map">
+        SELECT 
+            A.CON_ID,
+            A.CON_BODY,
+            A.CREATED_DATE,
+            A.IS_PINNED,
+            B.PRS_NAME,      B.PRS_ID,        D.THUMB_URL as image,
+            D.MEDIA_URL,
+            D.MEDIA_TYPE
+        FROM WH_STAR_CONTENT A
+        JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        JOIN STAR_CONTENT_MEDIA D ON A.CON_ID = D.CON_ID
+        WHERE D.SORT_ORDER = 0
+        <if test="_parameter != null and _parameter != ''">
+            AND B.PRS_COUNTRY = #{country}
+        </if>
+        ORDER BY A.CREATED_DATE DESC
+        LIMIT 100
+    </select>
+    
+    <select id="selectMonthlyStarStats" parameterType="map" resultType="map">
+        SELECT 
+            B.PRS_ID,
+            B.PRS_NAME,
+            B.PRS_COUNTRY,
+            
+            -- 전체 노출 수
+            COUNT(*) AS TOTAL_CNT,
+            
+            -- OS별 노출 수 (정산용)
+            SUM(CASE WHEN A.OS = 'ANDROID' THEN 1 ELSE 0 END) AS ANDROID_CNT,
+            SUM(CASE WHEN A.OS = 'IOS' THEN 1 ELSE 0 END) AS IOS_CNT
+            
+        FROM WH_AD_LOG A
+        JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        WHERE A.ACTION = 'IMPRESSION'  AND DATE_FORMAT(A.CREATED_DATE, '%Y-%m') = #{targetMonth}
+        <if test="country != null and country != ''">
+            AND B.PRS_COUNTRY = #{country}
+        </if>
+        GROUP BY B.PRS_ID, B.PRS_NAME, B.PRS_COUNTRY
+        ORDER BY TOTAL_CNT DESC
+    </select>
+    
+    <select id="selectAdStats" parameterType="map" resultType="map">
+        SELECT 
+            B.PRS_ID,
+            B.PRS_NAME,
+            B.PRS_COUNTRY,
+            
+            -- 전체 노출 수
+            COUNT(*) AS TOTAL_CNT,
+            
+            -- OS별 노출 수
+            SUM(CASE WHEN A.OS = 'ANDROID' THEN 1 ELSE 0 END) AS ANDROID_CNT,
+            SUM(CASE WHEN A.OS = 'IOS' THEN 1 ELSE 0 END) AS IOS_CNT
+            
+        FROM WH_AD_LOG A
+        JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+        WHERE A.ACTION = 'IMPRESSION'
+        
+        <if test="targetMonth != null and targetMonth != ''">
+            AND DATE_FORMAT(A.CREATED_DATE, '%Y-%m') = #{targetMonth}
+        </if>
+        
+        <if test="country != null and country != ''">
+            AND B.PRS_COUNTRY = #{country}
+        </if>
+        
+        GROUP BY B.PRS_ID, B.PRS_NAME, B.PRS_COUNTRY
+        ORDER BY TOTAL_CNT DESC
+    </select>
+</mapper>

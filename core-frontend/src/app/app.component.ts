@@ -207,9 +207,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
           message: `결제가 취소 되었습니다.`,
         };
       }
-      this.helper
-        .alert(alertOption)
-        .then((confirmAlert) => confirmAlert.present());
+      // this.helper
+      //   .alert(alertOption)
+      //   .then((confirmAlert) => confirmAlert.present());
     });
   }
 
