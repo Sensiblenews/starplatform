@@ -1,0 +1,41 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>General Ranking</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">
+        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-list lines="none" *ngIf="stars && stars.length > 0">
+    <ion-item *ngFor="let star of stars" (click)="goToStarPage(star.id)" class="star-list-item">
+      <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
+        {{ star.globalRank }}
+      </div>
+      
+      <ion-avatar slot="start">
+        <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+      </ion-avatar>
+      
+      <ion-label class="info-container">
+        <h2 class="star-name">{{ star.name }}</h2>
+        
+        <div class="stats-row">
+          <div style="display: flex; align-items: center; gap: 2px;">
+            💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 2px;">
+            👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
+          </div>
+        </div>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+  
+  <div *ngIf="!stars || stars.length === 0" class="no-result-msg">
+    No general ranking data.
+  </div>
+</ion-content>

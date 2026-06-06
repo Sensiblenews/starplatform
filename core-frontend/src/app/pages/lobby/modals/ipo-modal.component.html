@@ -1,0 +1,77 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>{{ step === 5 ? 'Welcome!' : 'Create Your Page' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="closeModal()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding ipo-modal" style="--background: #f4f5f8;">
+  
+  <div *ngIf="step === 1" class="step-container">
+    <h2 style="font-weight: bold; margin-bottom: 20px; text-align: center;">Choose Your Country</h2>
+    <ion-list lines="none">
+      <ion-item *ngFor="let c of countries" (click)="loadAvailablePages(c)" button style="--border-radius: 12px; margin-bottom: 8px; --background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <ion-label style="font-weight: 600;">{{ c.name }}</ion-label>
+        <ion-icon name="chevron-forward" slot="end" color="medium"></ion-icon>
+      </ion-item>
+    </ion-list>
+  </div>
+
+  <div *ngIf="step === 2" class="step-container">
+    <h2 style="font-weight: bold;">Select Your Page</h2>
+    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Currently available in {{ selectedCountryName }}.</p>
+    
+    <ion-list lines="none">
+      <ion-item *ngFor="let page of availablePages" (click)="selectPage(page)" button style="--border-radius: 12px; margin-bottom: 10px; --background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <ion-label>
+          <h3 style="font-weight: 800; font-size: 18px; color: #1e88e5;">{{ page.slug }}</h3>
+          <p style="color: #e53935; font-size: 12px; font-weight: bold; margin-top: 4px;">
+            🔥 {{ page.viewers || 3 }} people viewing
+          </p>
+        </ion-label>
+        <ion-badge color="success" slot="end">Available</ion-badge>
+      </ion-item>
+    </ion-list>
+    <ion-button expand="block" fill="clear" (click)="step = 1">Back to Countries</ion-button>
+  </div>
+
+  <div *ngIf="step === 3" class="step-container">
+    <h2 style="font-weight: bold; text-align: center;">Claim This Page</h2>
+    <div style="background: white; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+      <p style="font-weight: 900; font-size: 22px; color: #1e88e5; margin: 0;">starplatform.com/{{ selectedPage?.slug }}</p>
+    </div>
+    
+    <p style="text-align: center; color: #666; margin-bottom: 20px;">This page is almost yours.</p>
+
+    <ion-button expand="block" color="dark" style="margin-bottom: 12px;" (click)="loginSocial('apple')">
+      <ion-icon name="logo-apple" slot="start"></ion-icon> Continue with Apple
+    </ion-button>
+    <ion-button expand="block" color="danger" style="margin-bottom: 20px;" (click)="loginSocial('google')">
+      <ion-icon name="logo-google" slot="start"></ion-icon> Continue with Google
+    </ion-button>
+
+    <div style="text-align: center; margin: 20px 0; color: #aaa; font-size: 12px;">OR</div>
+
+    <div style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+      <ion-item lines="none" style="--background: transparent;">
+        <ion-input type="email" [(ngModel)]="claimEmail" placeholder="Enter email for Magic Link"></ion-input>
+      </ion-item>
+      <ion-button expand="block" fill="outline" color="primary" style="margin-top: 10px;" (click)="sendMagicLink()">
+        Continue with Email
+      </ion-button>
+    </div>
+    <ion-button expand="block" fill="clear" (click)="step = 2">Back</ion-button>
+  </div>
+
+  <div *ngIf="step === 4" class="step-container" style="text-align: center; padding-top: 40px;">
+    <h1 style="font-size: 60px; margin: 0;">🎉</h1>
+    <h2 style="font-weight: bold; margin-top: 20px;">Welcome!</h2>
+    <p>You now own<br><b style="color: #1e88e5; font-size: 18px;">starplatform.com/{{ selectedPage?.slug }}</b></p>
+    <ion-button expand="block" style="margin-top: 40px;" (click)="closeModal()">
+      Go to My Page
+    </ion-button>
+  </div>
+
+</ion-content>

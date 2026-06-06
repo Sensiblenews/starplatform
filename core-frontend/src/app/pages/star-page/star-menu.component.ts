@@ -8,17 +8,17 @@ import { Router } from '@angular/router';
     <ion-list lines="none" class="menu-list">
       <ion-item button (click)="close('search')">
         <ion-icon name="search-outline" slot="start"></ion-icon>
-        <ion-label>검색 로비로 이동</ion-label>
+        <ion-label>Go to Search</ion-label>
       </ion-item>
       
       <ion-item button (click)="close('refresh')">
         <ion-icon name="refresh-outline" slot="start"></ion-icon>
-        <ion-label>새로고침</ion-label>
+        <ion-label>Refresh</ion-label>
       </ion-item>
 
       <ion-item button (click)="close('report')" lines="none">
         <ion-icon name="alert-circle-outline" color="danger" slot="start"></ion-icon>
-        <ion-label color="danger">신고하기</ion-label>
+        <ion-label color="danger">Report</ion-label>
       </ion-item>
     </ion-list>
   `,

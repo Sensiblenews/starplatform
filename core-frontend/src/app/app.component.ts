@@ -19,7 +19,8 @@ import { ContentResponse } from './types/Content';
 import { HttpService } from './services/http.service';
 import { TermsBigModal } from './modals/terms-big/terms-big.component';
 import { CheckMessageService } from './services/check-message.service';
-import { Subscription } from 'rxjs';
+import { TextZoom } from '@capacitor/text-zoom';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 export const interstitialOptions: AdOptions = {
   adId: 'ca-app-pub-9109251900558498/1182509295',
@@ -36,8 +37,6 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
   private entry = 'root';
   private checked = false;
   private backButtonSubscription: any;
-  private backButtonActive = false;
-  private checkMessageSubscription: Subscription;
 
   constructor(
     private platform: Platform,
@@ -60,28 +59,49 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
   async initApp() {
     await this.platform.ready();
+
     if (Capacitor.isNativePlatform()) {
       console.log('initializing..');
       this.registerDeepLink();
       this.setupBackButtonExit();
-      await this.setStores();
-      await this.setAdMob();
+      await this.limitTextZoom();
+
+      this.setupPushNotifications(); // 🌟 [신규 추가] 앱 시작 시 1회만 등록되는 전역 푸시 리스너
+
+      // 🌟 [최적화] 미사용 기능 주석 처리로 병목 구간 완벽 제거
+      // await this.setStores();
+
+      // 광고 초기화는 필요하므로 단독으로 실행
+      Promise.all([
+        this.setAdMob(),
+        await this.auth.initialize(),
+        // this.setStores(), // 스토어 초기화는 광고보다 나중에 실행해도 무방하므로 병목 제거 위해 주석 처리
+      ]).catch(error => {
+        console.error('초기화 중 오류 발생:', error);
+      });
     }
-    // TODO: CORS 에러 설정 (서버)
-    await this.auth.initialize();
-    await this.auth.tryAutoLogin();
+
+    // 🌟 로그인 기능 미사용으로 주석 처리
+
+    // await this.auth.tryAutoLogin();
+
     this.setSensibleEventPopup();
-    // if (this.entry === 'root') {
-    //   await this.navigateToLastTab();
-    // }
+
+    if (this.entry === 'root') {
+      await this.restoreLastRoute();
+    }
+
     this.system.setInitialized(true);
+
+    // 🚀 무거운 짐을 다 내려놓았으니 여기서 스플래시가 즉시 닫힙니다!
     await SplashScreen.hide({
       fadeOutDuration: 1000,
     });
+
     const agreedPush = await this.storage.get('agreed_push');
     if (agreedPush === null) {
       // 푸시서비스 동의 팝업
-      await this.AgreePush();
+      // await this.AgreePush();
     }
 
     this.router.events.subscribe(event => {
@@ -93,6 +113,24 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       }
     });
 
+    this.router.events.subscribe(async (event) => { // async 추가
+      if (event instanceof NavigationEnd) {
+        const currentUrl = event.urlAfterRedirects || event.url;
+
+        NativeBridge.setShow({
+          show: adRoutes.some(route => currentUrl.includes(route)),
+          page: currentUrl
+        });
+
+        // 로비나 기본 경로일 때는 저장된 기록을 초기화하고, 그 외의 페이지는 저장
+        if (currentUrl === '/lobby' || currentUrl === '/') {
+          await this.storage.set('last_visited_url', '');
+        } else {
+          await this.storage.set('last_visited_url', currentUrl);
+        }
+      }
+    });
+
     this.checkMessageService.triggerCheck();
   }
 
@@ -100,7 +138,7 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     if (!this.checked) {
       this.checked = true;
 
-      this.checkTermsAndShowPopup();
+      // this.checkTermsAndShowPopup();
       setTimeout(() => {
         console.log(this.router.url);
         NativeBridge.setShow({
@@ -114,6 +152,124 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     if (this.backButtonSubscription) {
       this.backButtonSubscription.unsubscribe();
+    }
+  }
+
+  // 🌟 [신규 추가] 앱 시작 시 1회만 등록되는 전역 푸시 리스너
+  async setupPushNotifications() {
+    console.log('[starfcm] 🚀 setupPushNotifications 시작');
+    if (Capacitor.isNativePlatform()) {
+
+      if (this.platform.is('android')) {
+        await PushNotifications.createChannel({
+          id: 'star_visitor_channel',
+          name: 'Visitor Alerts',
+          description: 'Notifications for star visitors',
+          importance: 5, // Max importance for heads-up notifications
+          visibility: 1, // Public visibility on lock screen
+          sound: 'tick',
+          vibration: true
+        })
+        console.log('[starfcm] ✅ Android 알림 채널 생성 완료');
+      }
+
+      // 1. 토큰 발급/갱신 시 localStorage에 캐싱 + 백엔드로 자동 전송
+      PushNotifications.addListener('registration', (token) => {
+        console.log('[starfcm] ✅ 토큰 생성 성공:', token.value);
+        
+        // 🔴 [Critical Fix] 토큰을 localStorage에 캐싱 (로그인 시 직접 전송용)
+        localStorage.setItem('fcmToken', token.value);
+        
+        const isStar = localStorage.getItem('isStar') === 'true';
+        const starId = localStorage.getItem('starId');
+
+        // 로그인된 상태라면 조용히 서버에 최신 토큰 업데이트
+        if (isStar && starId) {
+          console.log('[starfcm] 📡 로그인 상태 — 서버에 토큰 전송 시도 (starId:', starId, ')');
+          this.http.post('/api/super/star/push/token', {
+            starId: starId,
+            fcmToken: token.value
+          }).subscribe({
+            next: () => console.log('[starfcm] ✅ 서버 토큰 전송 성공'),
+            error: (err: any) => console.error('[starfcm] ❌ 서버 토큰 전송 실패:', err)
+          });
+        } else {
+          console.log('[starfcm] ℹ️ 비로그인 상태 — 토큰 캐싱만 완료 (서버 전송 생략)');
+        }
+      });
+
+      // 1-1. 토큰 생성 실패 리스너
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('[starfcm] ❌ 토큰 생성 실패:', JSON.stringify(error));
+      });
+
+      // 2. 포그라운드(앱 켜진 상태)에서 푸시 도착
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('[starfcm] 📩 포그라운드 푸시 수신:', notification);
+      });
+
+      // 3. 알림 클릭 시 동작 (딥링크 등 연동 가능)
+      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        console.log('[starfcm] 👆 푸시 알림 클릭:', notification);
+      });
+
+      // 4. 앱 구동 시 권한 체크 후, 이미 허용(granted)된 유저면 바로 등록(토큰 갱신)
+      const permStatus = await PushNotifications.checkPermissions();
+      console.log('[starfcm] 🔑 현재 권한 상태:', permStatus.receive);
+
+      if (permStatus.receive === 'granted') {
+        console.log('[starfcm] ✅ 권한 이미 허용됨 — register() 호출');
+        try {
+          await PushNotifications.register();
+          console.log('[starfcm] ✅ register() 호출 성공 (토큰 대기 중...)');
+        } catch (error) {
+          console.error('[starfcm] ❌ register() 호출 실패:', error);
+        }
+      } else {
+        console.log('[starfcm] ⚠️ 권한 미허용 — requestPermissions() 호출');
+        try {
+          const permission = await PushNotifications.requestPermissions();
+          console.log('[starfcm] 🔑 권한 요청 결과:', permission.receive);
+          if (permission.receive === 'granted') {
+            await PushNotifications.register();
+            console.log('[starfcm] ✅ 권한 허용 후 register() 호출 성공');
+          } else {
+            console.warn('[starfcm] ⛔ 사용자가 푸시 권한 거부');
+          }
+        } catch (error) {
+          console.error('[starfcm] ❌ 권한 요청 중 에러:', error);
+        }
+      }
+    } else {
+      console.log('[starfcm] ℹ️ 웹 환경 — 푸시 알림 비활성화');
+    }
+  }
+
+  async limitTextZoom() {
+    try {
+      // 기기의 현재 텍스트 줌 비율을 가져옵니다 (1.0이 기본)
+      const { value } = await TextZoom.getPreferred();
+
+      // 만약 1.2배(120%)보다 크다면, 1.2배로 고정해버립니다.
+      if (value > 1.1) {
+        await TextZoom.set({ value: 1.1 });
+      }
+    } catch (e) {
+      console.error('Text Zoom error:', e);
+    }
+  }
+
+  async restoreLastRoute() {
+    const lastUrl = await this.storage.get('last_visited_url');
+
+    // 저장된 경로가 존재하고, 그 경로가 로비가 아닐 경우에만 이동
+    if (lastUrl && lastUrl !== '/' && lastUrl !== '/lobby') {
+      console.log('🔄 마지막 방문 페이지로 복구:', lastUrl);
+
+      // 앱 초기화 및 렌더링 사이클을 고려해 약간의 딜레이 후 이동
+      setTimeout(() => {
+        this.router.navigateByUrl(lastUrl);
+      }, 150);
     }
   }
 
@@ -213,18 +369,98 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
-  registerDeepLink() {
+  async registerDeepLink() {
+    // 1. 앱이 완전히 종료된 상태에서 딥링크로 켜졌을 때 (콜드 스타트 - 추가됨)
+    const launchUrl = await App.getLaunchUrl();
+    if (launchUrl && launchUrl.url) {
+      console.log('🚀 콜드 스타트 딥링크 감지됨:', launchUrl.url);
+      this.handleDeepLinkUrl(launchUrl.url);
+    }
+
+    // 2. 앱이 백그라운드에 있을 때 딥링크로 켜졌을 때 (기존 로직)
     App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
-      this.entry = 'deeplink';
-      this.zone.run(() => {
-        const domain = 'witch-hunting.com';
-        const slug = event.url.split(domain).pop();
-        if (!slug) {
-          return;
-        }
-        this.router.navigateByUrl(slug);
-      });
+      console.log('🔗 백그라운드 딥링크 감지됨:', event.url);
+      this.handleDeepLinkUrl(event.url);
     });
+  }
+
+  // 기존에 appUrlOpen 안에 있던 파싱 및 라우팅 로직을 별도 함수로 분리
+  private handleDeepLinkUrl(urlStr: string) {
+    this.entry = 'deeplink';
+
+    this.zone.run(() => {
+      try {
+        const urlObj = new URL(urlStr);
+
+        // 🌟 1. 커스텀 스킴 (witchhunting://) 감지 시
+        if (urlObj.protocol === 'witchhunting:') {
+          if (urlObj.hostname === 'claim-verify') {
+            const starId = urlObj.searchParams.get('starId');
+            const email = urlObj.searchParams.get('email');
+            const pw = urlObj.searchParams.get('pw');
+
+            console.log('✅ 매직 로그인 감지:', { starId, email });
+
+            if (starId && email) {
+              this.executeMagicLogin(starId, email, pw);
+              return;
+            }
+          }
+        }
+
+        // 🌟 2. 기존 유니버셜 링크 (https://witch-hunting.com/...) 감지 시
+        const domain = 'witch-hunting.com';
+        if (urlStr.includes(domain)) {
+          if (urlStr.includes('/witch/privacy') || urlStr.includes('/witch/terms')) {
+            return;
+          }
+          const pathArray = urlStr.split(domain);
+
+          if (pathArray.length > 1) {
+            let path = pathArray[1];
+
+            if (path.startsWith('/witch')) {
+              path = path.replace('/witch', '');
+            }
+
+            const routeParts = path.split('/').filter(p => p !== '');
+
+            if (routeParts.length >= 2) {
+              const type = routeParts[0];
+              const id = routeParts[1];
+
+              if (type === 'post') {
+                this.router.navigate(['/feed-detail', id]);
+              } else if (type === 'star') {
+                this.router.navigate(['/star', id]);
+              } else {
+                this.router.navigateByUrl(path);
+              }
+            } else {
+              this.router.navigateByUrl(path);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('URL 파싱 중 에러 발생:', error);
+      }
+    });
+  }
+
+  private executeMagicLogin(starId: string, email: string, pw: string) {
+    console.log('✨ Magic Login 실행:', starId);
+
+    // 1. 권한 정보를 로컬 스토리지에 즉시 주입
+    localStorage.setItem('isStar', 'true');
+    localStorage.setItem('starId', starId);
+    localStorage.setItem('ownerEmail', email);
+    localStorage.setItem('starPw', pw);
+
+    // 2. 알림 메시지 출력
+    this.helper.toast('Login successful! You are now the owner.', 'bottom');
+
+    // 3. 내 스타페이지로 즉시 이동
+    this.router.navigate(['/star', starId]);
   }
 
   async checkTermsAndShowPopup() {
@@ -285,7 +521,7 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
   setupBackButtonExit() {
     this.backButtonSubscription = App.addListener('backButton', (event: BackButtonListenerEvent) => {
-      if(document.fullscreenElement) {
+      if (document.fullscreenElement) {
         document.exitFullscreen();
       } else if (event.canGoBack) {
         window.history.back();

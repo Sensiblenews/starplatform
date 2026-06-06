@@ -13,58 +13,136 @@
 </ion-header>
 
 <ion-content [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content pullingText="Pull to check authentication..." refreshingText="Verifying..."></ion-refresher-content>
+  </ion-refresher>
   <div class="profile-header">
-    <ion-avatar>
-      <img [src]="starInfo?.image" (error)="handleImageError($event)" />
-    </ion-avatar>
-    <div class="star-name-box">
-      <div class="name">{{ starInfo?.name }}</div>
-      <div class="status">
-        활동중 <span class="dot" style="background-color: #2dd36f;"></span>
+    <div class="profile-info-pill">
+      <div class="avatar-container" (click)="openProfileViewer()" [style.cursor]="'pointer'">
+        <ion-avatar>
+          <img [src]="starInfo?.image" (error)="handleImageError($event)" />
+        </ion-avatar>
+        <div *ngIf="isStar" class="edit-badge">
+          <ion-icon name="pencil"></ion-icon>
+        </div>
+        <input type="file" #fileInput accept="image/*" style="display: none" (change)="onFileSelected($event)">
+      </div>
+      
+      
+      <div class="info-details-wrap">
+        <div class="star-name-box">
+          <div class="name">{{ starInfo?.name }}</div>
+          <ion-icon *ngIf="isStar" name="pencil" class="edit-name-icon" (click)="editName()"></ion-icon>
+        </div>
+
+        <div class="info-rank-line" *ngIf="globalRank > 0" 
+             [class.info-rank-line--clickable]="isStar"
+             (click)="isStar ? openMyInsight() : null">
+          🌎 Global Rank <span>#{{ globalRank }}</span> <span> / {{ formatNumber(totalStars) }}</span>
+          <ion-icon *ngIf="isStar" name="chevron-forward-outline" class="insight-arrow"></ion-icon>
+        </div>
+
+        <div class="info-stats-line">
+          <div class="stat-item stat-item-views">
+            👁️ <span class="num">{{ formatNumber(displayViewCount) }}</span>
+            <div *ngIf="showPlus" class="floating-plus">+1</div>
+          </div>
+          
+          <div class="stat-item stat-item-fav" (click)="toggleFavorite()">
+            <ion-icon [name]="isFavorite ? 'star' : 'star-outline'" [color]="isFavorite ? 'warning' : 'medium'"></ion-icon>
+            <span class="num">{{ followerCount | number }}</span>
+          </div>
+
+          <div class="stat-item stat-item-points">
+            💎 <span class="num">{{ formatNumber(getPoints(displayViewCount)) }}P</span>
+          </div>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div class="action-bar-container">
+      <div class="action-bar">
+        <ion-button fill="clear" color="dark" (click)="toggleLike(null, 'star')">
+          <ion-icon slot="start" [name]="starAction.hasLiked ? 'heart' : 'heart-outline'" [color]="starAction.hasLiked ? 'danger' : 'medium'"></ion-icon>
+          Like <span class="count">{{ starAction.likeCount }}</span>
+        </ion-button>
+        <div class="divider"></div>
+        <ion-button fill="clear" color="dark" (click)="openCommentModal(null, 'star')">
+          <ion-icon slot="start" name="chatbubble-outline" color="medium"></ion-icon>
+          Comment <span class="count">{{ starAction.commentCount }}</span>
+        </ion-button>
+        <div class="divider"></div>
+        <ion-button fill="clear" color="dark" (click)="shareContent(starId, 'star')">
+          <ion-icon slot="start" name="link-outline" color="medium"></ion-icon>
+          Share <span class="count">{{ starAction.shareCount }}</span>
+        </ion-button>
       </div>
     </div>
   </div>
-
-  <!-- <div class="ad-placeholder" style="height: 315px; width: 100%; display: flex; align-items: center; justify-content: center;">
-    <div class="lock-message-card" *ngIf="isAdLocked">
-      <div class="content">
-        <ion-icon name="heart-circle"></ion-icon>
-        <h3>오늘의 응원 완료!</h3>
-        <p>내일 다시 응원해주세요! 🙌</p>
-      </div>
-    </div>
-  </div> -->
 
   <div class="feed-list">
     <ng-container *ngFor="let item of feedList">
 
       <div class="ad-slot-item" *ngIf="item.isAd">
         <div class="ad-placeholder-box">
-          <!-- <p>AD SPACE {{ item.adId }}</p> -->
+          <div class="lock-message-card" *ngIf="isAdLocked">
+            <ion-icon name="heart-circle"></ion-icon>
+            <h3>Today's support complete!</h3>
+            <p>See you tomorrow 👋</p>
+          </div>
         </div>
       </div>
 
       <div class="feed-card" *ngIf="!item.isAd" (click)="goDetail(item.CON_ID)">
-        
         <div class="media-wrapper">
-          
-          <img *ngIf="item.MEDIA_TYPE === 'PHOTO'" [src]="item.image" loading="lazy" />
+          <div class="loading-spinner-box" *ngIf="!item.isLoaded">
+            <ion-spinner name="crescent"></ion-spinner>
+          </div>
 
+          <!-- 🎥 1순위: 동영상 재생 -->
           <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO'">
-            <video 
-              [src]="item.MEDIA_URL" 
-              [poster]="item.image"
-              [muted]="item.isMuted !== false"
-              autoplay 
-              playsinline 
-              loop
-              class="feed-video-player">
-            </video>
-
-            <div class="sound-btn" (click)="toggleSound(item, $event)">
-               <ion-icon [name]="item.isMuted !== false ? 'volume-mute' : 'volume-high'"></ion-icon>
+            <div class="video-thumbnail-wrapper">
+              <video 
+                #feedVideo
+                [muted]="item.isMuted" 
+                autoplay 
+                loop 
+                playsinline 
+                [poster]="item.image"
+                class="video-thumbnail"
+                (loadeddata)="onMediaLoaded(item)"
+                (error)="onMediaLoaded(item)">
+                <source [src]="item.MEDIA_URL" type="video/mp4">
+              </video>
+              <div class="sound-btn" (click)="toggleSound(item, $event)">
+                <ion-icon [name]="item.isMuted ? 'volume-mute' : 'volume-high'"></ion-icon>
+              </div>
             </div>
           </ng-container>
+
+          <!-- 🖼️ 2순위: 이미지 표시 -->
+          <img 
+            *ngIf="item.MEDIA_TYPE !== 'VIDEO' && item.image" 
+            [src]="item.image" 
+            loading="lazy" 
+            (load)="onMediaLoaded(item)"
+            (error)="handleImageError($event); onMediaLoaded(item)"
+            [class.media-loaded]="item.isLoaded" />
+
+          <!-- 🎬 3순위: YouTube 썸네일 표시 -->
+          <div 
+            *ngIf="item.MEDIA_TYPE !== 'VIDEO' && !item.image && (item.youtubeUrl || item.YOUTUBE_URL)" 
+            class="youtube-thumbnail-wrapper">
+            <img 
+              [src]="getYoutubeThumbnail(item.youtubeUrl || item.YOUTUBE_URL)" 
+              [alt]="'YouTube Video Thumbnail'" 
+              (load)="onMediaLoaded(item)"
+              (error)="handleImageError($event); onMediaLoaded(item)"
+              [class.media-loaded]="item.isLoaded"
+              class="youtube-thumbnail" />
+          </div>
 
           <div class="pin-badge" *ngIf="item.IS_PINNED === 'Y'">📌</div>
         </div>
@@ -74,27 +152,92 @@
         </div>
 
         <div class="card-footer">
-          <div class="writer-info">
+          <div class="writer-info" style="display: flex; align-items: center; width: 100%; position: relative;">
             <ion-avatar class="writer-avatar">
                <img [src]="item.MEM_PICTURE || defaultAvatar" />
             </ion-avatar>
-            <span class="writer-name">{{ item.MEM_NAME || '익명' }}</span>
+            <span class="writer-name">{{ item.MEM_NAME || 'Anonymous' }}</span>
+            
+            <ion-icon 
+              *ngIf="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')" 
+              name="trash-outline" 
+              style="font-size: 20px; color: #999; position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 4px; cursor: pointer;"
+              (click)="deleteFeed(item, $event)"> 
+            </ion-icon>
           </div>
-
-          <div class="stats-info">
-            <div class="stat-item">
-              <ion-icon name="heart" color="danger"></ion-icon>
-              <span>{{ item.HEART_COUNT || 0 }}</span>
-            </div>
-            </div>
         </div>
 
+        <div class="feed-action-bar"  *ngIf="item.FEED_TYPE === 'STAR'">
+          <ion-button fill="clear" color="dark" (click)="toggleLike(item, 'feed', $event)">
+            <ion-icon slot="start" [name]="item.hasLiked ? 'heart' : 'heart-outline'" [color]="item.hasLiked ? 'danger' : 'medium'"></ion-icon>
+            Like <span class="count" *ngIf="item.likeCount > 0">{{ item.likeCount }}</span>
+          </ion-button>
+          <ion-button fill="clear" color="dark" (click)="openCommentModal(item, 'feed', $event)">
+            <ion-icon slot="start" name="chatbubble-outline" color="medium"></ion-icon>
+            Comment <span class="count" *ngIf="item.commentCount > 0">{{ item.commentCount }}</span>
+          </ion-button>
+          <ion-button fill="clear" color="dark" (click)="shareContent(item.CON_ID, 'feed', $event)">
+            <ion-icon slot="start" name="link-outline" color="medium"></ion-icon>
+            Share
+          </ion-button>
+        </div>
+        <div class="feed-blank" *ngIf="item.FEED_TYPE !== 'STAR'">
+
+        </div>
       </div>
 
     </ng-container>
   </div>
+
+  <div class="discover-pages-section" style="padding: 20px 15px; background: #f8f9fa; border-top: 1px solid #eee; margin-top: 20px;">
+    <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333;">
+      🌍 Discover Global Pages
+    </h3>
+    
+    <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px;">
+      <div *ngFor="let p of recommendedPages" (click)="router.navigate(['/star', p.PRS_ID])" 
+           style="min-width: 80px; text-align: center;">
+        <ion-avatar style="width: 60px; height: 60px; margin: 0 auto;">
+          <img [src]="p.STORED_FILE_NM || defaultAvatar" />
+        </ion-avatar>
+        <div style="font-size: 11px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          {{ p.PRS_NAME }}
+        </div>
+      </div>
+    </div>
+
+    <ion-button expand="block" color="light" (click)="goNextPage()" style="margin-top: 15px; --border-radius: 12px; font-size: 13px; font-weight: 600; --box-shadow: none; --border-style: solid; --border-width: 1px; --border-color: rgba(0, 0, 0, 0.15);">
+      Next Page <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+    </ion-button>
+
+    <div class="claim-banner-box" *ngIf="!isClaimed" style="margin-top: 15px;">
+      <ion-button expand="block" color="primary" shape="round" (click)="claimPage()" style="font-size: 14px;">
+        <ion-icon name="key-outline" slot="start"></ion-icon>
+        Manage
+      </ion-button>
+      <div style="text-align: center; font-size: 11px; color: #888; margin-top: 5px;">
+        Become the owner of this page instantly with just your email. <br/> No sign-up required.
+      </div>
+    </div>
+  </div>
   
+
+  
+
   <div class="footer-notice">
-    <p>ⓒ 정산 데이터는 시스템에 의해 자동 기록됩니다.</p>
+    <p>ⓒ All activities are automatically recorded.</p>
+  </div>
+
+  <!-- 🌟 프로필 사진 확대 모달 -->
+  <div class="profile-viewer-backdrop" *ngIf="isProfileViewerOpen" (click)="closeProfileViewer()">
+    <div class="profile-viewer-container" (click)="$event.stopPropagation()">
+      <div class="profile-viewer-image-wrapper">
+        <img [src]="starInfo?.image" (error)="handleImageError($event)" [alt]="starInfo?.name" />
+      </div>
+      <div *ngIf="isStar" class="profile-viewer-action-button" (click)="fileInput.click()">
+        <ion-icon name="pencil"></ion-icon>
+        <span>Change Photo</span>
+      </div>
+    </div>
   </div>
 </ion-content>

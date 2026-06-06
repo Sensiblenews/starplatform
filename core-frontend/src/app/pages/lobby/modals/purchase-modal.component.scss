@@ -1,0 +1,81 @@
+// 전체 배경을 하얗게 고정
+.purchase-content {
+  --background: #ffffff;
+}
+
+// 상단 누구에게 문의하는지 보여주는 헤더
+.header-section {
+  text-align: center;
+  padding: 24px 16px 16px;
+
+  .star-name {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    font-weight: 800;
+    color: #3880ff; // Ionic Primary Color
+  }
+
+  .guide-text {
+    margin: 0;
+    font-size: 14px;
+    color: #666666;
+    line-height: 1.5;
+  }
+}
+
+// 폼 영역
+.form-wrapper {
+  padding: 0 16px;
+
+  ion-item {
+    --padding-start: 0; // 아이템 왼쪽 기본 여백 제거 (라인을 끝까지 맞추기 위해)
+    --inner-padding-end: 0;
+    margin-bottom: 6px;
+    
+    ion-label {
+      font-weight: 700;
+      color: #333333;
+      margin-bottom: 8px;
+    }
+
+    ion-input, ion-textarea {
+      font-size: 15px;
+      --placeholder-color: #aaaaaa;
+    }
+  }
+}
+
+// 하단 면책 조항 (회색 박스)
+.notice-box {
+  margin: 24px 16px;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+
+  p {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    color: #888888;
+    line-height: 1.4;
+    word-break: keep-all; // 단어 단위로 줄바꿈
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// 하단 고정 버튼
+.footer-btn-wrapper {
+  padding: 10px 16px 20px; // 아이폰 하단 홈바(Safe area) 고려한 여백
+  background: #ffffff;
+
+  .submit-btn {
+    margin: 0;
+    height: 52px;
+    font-weight: 700;
+    font-size: 16px;
+    --border-radius: 8px;
+  }
+}

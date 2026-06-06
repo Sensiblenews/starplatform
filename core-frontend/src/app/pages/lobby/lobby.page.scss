@@ -2,12 +2,13 @@
 .main-toolbar {
   --background: linear-gradient(90deg, #ff4b5c 0%, #ff6b6b 100%);
   --color: white;
+  
   .header-logo {
     display: flex;
     align-items: center;
-    gap: 8px;
     font-weight: 800;
-    font-size: 1.2rem;
+    font-size: 0.9rem;
+    // gap: 8px; (별을 지웠으므로 간격은 빼도 무방합니다)
   }
 }
 
@@ -59,18 +60,79 @@
 
 // 세로 리스트 (체크리스트 34번 스타일)
 .star-list-item {
-  margin: 0 16px 10px;
+  margin: 0 16px 14px; // 카드 하단 여백 살짝 증가
+  --padding-top: 14px; // 🌟 위아래 패딩을 늘려서 카드 세로 크기 확장!
+  --padding-bottom: 14px;
   --background: white;
   --border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid #f0f0f0;
 
   ion-avatar {
-    width: 60px; height: 60px;
-    background-color: #f0f0f0; // 레거시 배경색 참고
+    width: 64px; // 카드가 커진 만큼 아바타(프사)도 조금 키움
+    height: 64px;
+    background-color: #f0f0f0;
+    margin-right: 32px; // 프로필 사진과 텍스트 사이 간격 확대
   }
-  h2 { font-weight: 700; color: #333; }
-  p { font-size: 0.8rem; .dot { color: #2dd36f; display: inline-block; width: 6px; height: 6px; background: currentColor; border-radius: 50%; margin-left: 2px; } }
+
+  // 🌟 신규: 이름, 랭킹, 스탯을 모두 좌측으로 정렬하는 컨테이너
+  .info-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; // 모든 요소를 좌측 끝으로 정렬!
+    justify-content: center;
+    gap: 6px; // 텍스트 위아래 간격
+    margin: 0;
+
+    .star-name {
+      font-weight: 500;
+      font-size: 0.81rem; // global-rank(0.75rem)보다 1픽셀 정도 크게
+      color: #222;
+      margin: 0;
+    }
+
+    .global-rank {
+      font-size: 0.75rem;
+      color: #777;
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: 12px; // 눈알, 하트, 보석 사이 간격
+      font-size: 0.8rem;
+      color: #555;
+    }
+  }
+
+  // 떠오르는 +1 애니메이션 (부모 위치가 바뀌어 이쪽으로 편입)
+  .floating-plus {
+    position: absolute;
+    top: -15px;
+    right: -10px;
+    color: #2dd36f;
+    font-weight: bold;
+    font-size: 1rem;
+    animation: floatUp 0.8s ease-out forwards;
+    pointer-events: none;
+  }
+}
+
+.content-list-item {
+  .content-star-name {
+    font-weight: 700;
+  }
+
+  .content-preview {
+    font-size: 0.8rem;
+    color: #666;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
 }
 
 .no-result-msg {
@@ -78,4 +140,357 @@
   padding: 30px 0;
   color: #999;
   font-size: 0.9rem;
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+
+  .ranking-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .revenue-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #fff5f5, #fff0e5);
+    border: 1px solid #ffe0d0;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+
+    &.loading {
+      background: #f5f5f5;
+      border-color: #eee;
+      padding: 4px 12px;
+    }
+
+    .revenue-usd {
+      font-weight: 800;
+      color: #e74c3c;
+    }
+    .revenue-krw {
+      font-weight: 600;
+      color: #888;
+    }
+  }
+}
+
+// 🌟 누적 수익 카드
+.my-revenue-card {
+  margin: 0 16px 14px;
+  padding: 18px 16px 14px;
+  background: linear-gradient(135deg, #ff4b5c 0%, #ff6b6b 50%, #ff8e53 100%);
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(255, 75, 92, 0.25);
+
+  .revenue-card-inner {
+    position: relative;
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .minimum-badge {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    background: #e53935;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px 4px 10px;
+    border-radius: 14px 0 10px 0;
+    letter-spacing: 0.3px;
+    line-height: 1.3;
+  }
+
+  .revenue-sparkle {
+    font-size: 20px;
+    margin-bottom: 2px;
+  }
+
+  .revenue-card-usd {
+    font-size: 32px;
+    font-weight: 900;
+    color: #111;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+
+  .revenue-card-krw {
+    font-size: 16px;
+    font-weight: 700;
+    color: #444;
+    margin-top: 2px;
+  }
+
+  .minimum-earnings-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 12px;
+    padding: 5px 16px;
+    border: 1.5px solid #e53935;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e53935;
+    background: #fff;
+  }
+
+  .revenue-card-footer {
+    text-align: center;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    margin-top: 12px;
+    letter-spacing: 0.3px;
+  }
+}
+
+.ranking-menu-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 20px;
+
+  .ranking-menu-card {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #eaeaea;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+
+    &:active {
+      transform: scale(0.98);
+      background-color: #fafafa;
+    }
+
+    .card-icon {
+      font-size: 32px;
+      margin-right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a1a1a;
+      }
+
+      .card-subtitle {
+        font-size: 12px;
+        color: #888;
+        margin-top: 4px;
+      }
+    }
+  }
+}
+
+.revenue-container {
+  position: relative;
+  cursor: pointer;
+  text-align: right;
+  padding-left: 10px;
+  
+  .money-text {
+    font-size: 1rem;
+    font-weight: 700;
+    // color: #F2A81D; // 기획자가 원한 황금색
+    margin: 0;
+    // text-shadow: 0 0 10px rgba(255, 204, 0, 0.3); // 약간의 빛 효과
+
+    // 🌟 신규: 아이콘과 숫자를 나란히 맞추기 위한 Flex 설정
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; // 우측 정렬 유지
+    gap: 4px; // 눈 아이콘과 숫자 사이의 간격
+
+    ion-icon {
+      font-size: 1.25rem; // 숫자 크기에 맞춰 아이콘 크기 미세 조정
+      color: #F2A81D; // 원하시면 아이콘 색상만 다르게 줄 수도 있습니다
+    }
+  }
+
+  // 떠오르는 +1 애니메이션
+  .floating-plus {
+    position: absolute;
+    top: -15px;
+    right: 0;
+    color: #2dd36f;
+    font-weight: bold;
+    font-size: 1rem;
+    animation: floatUp 0.8s ease-out forwards;
+    pointer-events: none; // 더블 클릭 방지
+  }
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-30px); opacity: 0; }
+}
+
+// 🌟 가로 스와이프 (터치 피드백 모션)
+.horizontal-motion {
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); // 부드럽고 쫀득한 타이밍
+  
+  .avatar-box {
+    overflow: hidden;
+    img {
+      transition: transform 0.2s ease;
+    }
+  }
+
+  // TS에서 클릭 시 이 클래스를 붙여줌
+  &.zoom-active {
+    transform: scale(0.90); // 카드 전체는 살짝 눌리는 느낌
+    .avatar-box img {
+      transform: scale(1.20); // 사진은 앞으로 튀어나오는 느낌
+    }
+  }
+}
+
+// 🌟 세로 스크롤 (자동 숨쉬기 모션 - 틱톡/릴스 뷰포트 효과)
+@keyframes breathingMotion {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); } // 아주 천천히 1.06배 줌인
+  100% { transform: scale(1); }   // 다시 원상복구
+}
+
+.motion-card {
+  ion-avatar {
+    overflow: hidden; // 동그라미 밖으로 튀어나오지 않게 방어
+    img {
+      transform-origin: center center;
+      // 부드러운 전환을 위한 기본 세팅
+      transition: transform 0.3s ease; 
+    }
+  }
+
+  // 🌟 핵심: TS에서 이 '.animate' 클래스를 붙여줄 때만 무한 반복 실행됨!
+  &.animate {
+    ion-avatar img,
+    .avatar-box img {
+      animation: breathingMotion 1.5s infinite ease-in-out; 
+    }
+  }
+}
+
+.lobby-fav-box {
+  display: flex;
+  align-items: center;
+
+  ion-icon {
+    --font-size: 20px;
+  }
+
+  .fav-count {
+    transform: translateY(2px);
+  }
+}
+
+.rank-badge {
+  font-size: 18px;
+  font-weight: 900;
+  color: #999;
+  width: 42px;
+  min-width: 42px;
+  text-align: center;
+  margin-right: 12px;
+  margin-left: 5px;
+
+  &.rank-1 { color: #FFD700; font-size: 22px; } /* 금 */
+  &.rank-2 { color: #C0C0C0; font-size: 20px; } /* 은 */
+  &.rank-3 { color: #CD7F32; font-size: 20px; } /* 동 */
+}
+
+// 🌍 Discover Global Pages 섹션
+.discover-pages-section {
+  padding: 20px 15px;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+  margin-top: 20px;
+
+  .discover-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+  }
+
+  .discover-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    &::-webkit-scrollbar { display: none; }
+
+    .discover-item {
+      min-width: 80px;
+      text-align: center;
+      cursor: pointer;
+
+      .discover-avatar {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto;
+      }
+
+      .discover-name {
+        font-size: 11px;
+        margin-top: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+
+  .discover-next-btn {
+    margin-top: 15px;
+    --border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    --box-shadow: none;
+    --border-style: solid;
+    --border-width: 1px;
+    --border-color: rgba(0, 0, 0, 0.15);
+  }
+}
+
+.glass-fab {
+  --background: rgba(255, 255, 255, 0.85);
+  --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px); 
+  -webkit-backdrop-filter: blur(10px); 
+  
+  /* 🌟 [수정] 블러 영역이 네모낳게 퍼지는 것을 막고 동그랗게 깎아줍니다 */
+  border-radius: 50%; 
+  overflow: hidden;
+
+  &:active {
+    --background: rgba(255, 255, 255, 0.95);
+  }
 }

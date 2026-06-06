@@ -1,107 +1,289 @@
 <ion-header class="ion-no-border">
   <ion-toolbar class="main-toolbar">
-    <ion-title mode="md">
+    <ion-title mode="md" (click)="onTitleTap()">
       <div class="header-logo">
-        <ion-icon name="star"></ion-icon>
         <span>Star Platform</span>
       </div>
     </ion-title>
+    
+    <ion-buttons slot="end">
+      <ion-button (click)="openMarketMenu($event)">
+        <ion-icon name="add-circle-outline" style="color: white; font-size: 26px;"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="toggleFavoriteList()">
+        <ion-icon [name]="isShowingFavorites ? 'star' : 'star-outline'" style="color: #ffca28; font-size: 24px;"></ion-icon>
+      </ion-button>
+
+      <ion-button (click)="toggleRankingList()">
+        <ion-icon [name]="isShowingRanking ? 'trophy' : 'trophy-outline'" style="color: #ffca28; font-size: 24px;"></ion-icon>
+      </ion-button>
+
+      <ion-button *ngIf="isStar || isAdmin" (click)="openProfileMenu($event)" title="My Page">
+        👤
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 
   <ion-toolbar>
     <ion-searchbar 
-      placeholder="스타 이름 검색"
-      inputmode="search"
-      (ionChange)="filterStars($event)" 
+      placeholder="Search creators or content"
+      (ionInput)="filterStars($event)" 
       [debounce]="250"
-      animated="true">
+      animated="true"
+      clearInput="true">
     </ion-searchbar>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
-    <ion-refresher-content
-      pullingIcon="chevron-down-circle-outline"
-      pullingText="당겨서 새로고침"
-      refreshingSpinner="circles"
-      refreshingText="스타 정보를 불러오는 중...">
-    </ion-refresher-content>
+    <ion-refresher-content pullingIcon="chevron-down-circle-outline" pullingText="Pull to refresh" refreshingSpinner="circles" refreshingText="Loading creators..."></ion-refresher-content>
   </ion-refresher>
 
   <div class="section-container" *ngIf="isSearching">
     <div class="section-header">
       <ion-icon name="search" class="title-icon" style="color: #3880ff;"></ion-icon>
-      <ion-label>검색 결과 ({{ searchResults.length }})</ion-label>
+      <ion-label>Star Search Result ({{ searchResults.length }})</ion-label>
     </div>
 
     <ion-list lines="none" *ngIf="searchResults.length > 0">
-      <ion-item *ngFor="let star of searchResults" (click)="goToStarPage(star.id)" class="star-list-item">
-        <ion-avatar slot="start">
-          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
-        </ion-avatar>
-        <ion-label>
-          <h2>{{ star.name }}</h2>
-          <div class="status">
-            <ng-container *ngIf="star.use_yn === 'Y' || !star.use_yn">
-              활동중 <span class="dot" style="color: #2dd36f; background-color: #2dd36f;"></span>
-            </ng-container>
-            <ng-container *ngIf="star.use_yn === 'N'">
-              활동중지 <span class="dot" style="color: #ff4b5c; background-color: #ff4b5c;"></span>
-            </ng-container>
+      <ion-item *ngFor="let star of searchResults" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></ion-avatar>
+        
+        <ion-label class="info-container">
+          <h2 class="star-name">{{ star.name }}</h2>
+          
+          <div *ngIf="star.globalRank > 0" class="global-rank">
+            🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+          </div>
+          
+          <div class="stats-row">
+            <div style="position: relative; display: flex; align-items: center; gap: 2px;">
+              👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
+              <div *ngIf="star.showPlus" class="floating-plus">+1</div>
+            </div>
+            
+            <div (click)="toggleFavorite(star, $event)" style="display: flex; align-items: center; gap: 2px;">
+              <ion-icon [name]="star.isFavorite ? 'star' : 'star-outline'" [color]="star.isFavorite ? 'warning' : 'medium'" style="font-size: 15px; margin-bottom: 2px;"></ion-icon>
+              <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 2px;">
+              💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
+            </div>
           </div>
         </ion-label>
       </ion-item>
     </ion-list>
-
-    <div *ngIf="searchResults.length === 0" class="no-result-msg">
-      검색 결과가 없습니다.
-    </div>
+    <div *ngIf="searchResults.length === 0" class="no-result-msg">No star results found.</div>
   </div>
 
-  <div class="section-container">
+  <div class="section-container" *ngIf="isSearching">
     <div class="section-header">
-      <ion-icon name="star" class="title-icon orange"></ion-icon>
-      <ion-label>인기 스타</ion-label>
+      <ion-icon name="document-text" class="title-icon" style="color: #10b981;"></ion-icon>
+      <ion-label>Content Search Result ({{ contentResults.length }})</ion-label>
     </div>
-    
-    <div class="horizontal-scroll-wrapper">
-      <div class="star-card-mini" *ngFor="let star of popularStars" (click)="goToStarPage(star.id)">
-        <div class="avatar-box">
-          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+
+    <ion-list lines="none" *ngIf="contentResults.length > 0">
+      <ion-item *ngFor="let item of contentResults" (click)="goToContentPage(item.contentId)" class="star-list-item content-list-item motion-card">
+        <ion-avatar slot="start"><img [src]="getStarImage(item.starImage)" (error)="handleImageError($event)" /></ion-avatar>
+        <ion-label class="info-container">
+          <h2 class="star-name content-star-name">{{ item.starName }}</h2>
+          <div class="content-preview">{{ item.content }}</div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+    <div *ngIf="contentResults.length === 0" class="no-result-msg">No content results found.</div>
+  </div>
+
+  <div class="section-container" *ngIf="isShowingFavorites && !isSearching">
+    <div class="section-header">
+      <ion-icon name="star" class="title-icon" style="color: #ffca28;"></ion-icon>
+      <ion-label>My Favorites</ion-label>
+    </div>
+
+    <ion-list lines="none" *ngIf="favoriteStars.length > 0">
+      <ion-item *ngFor="let star of favoriteStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></ion-avatar>
+        
+        <ion-label class="info-container">
+          <h2 class="star-name">{{ star.name }}</h2>
+          
+          <div *ngIf="star.globalRank > 0" class="global-rank">
+            🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+          </div>
+          
+          <div class="stats-row">
+            <div style="position: relative; display: flex; align-items: center; gap: 2px;">
+              👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
+              <div *ngIf="star.showPlus" class="floating-plus">+1</div>
+            </div>
+            
+            <div (click)="toggleFavorite(star, $event)" style="display: flex; align-items: center; gap: 2px;">
+              <ion-icon [name]="star.isFavorite ? 'star' : 'star-outline'" [color]="star.isFavorite ? 'warning' : 'medium'" style="font-size: 15px; margin-bottom: 2px;"></ion-icon>
+              <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 2px;">
+              💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
+            </div>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+    <div *ngIf="favoriteStars.length === 0" class="no-result-msg">No favorite creators yet.</div>
+  </div>
+
+  <div class="section-container" *ngIf="isShowingRanking && !isSearching">
+    <div class="section-header ranking-header">
+      <div class="ranking-header-left">
+        <ion-icon name="trophy" class="title-icon" style="color: #ffca28;"></ion-icon>
+        <ion-label>Ranking System</ion-label>
+      </div>
+
+      <!-- 🌟 누적 수익 배지 (로그인 시 + 데이터 로드 완료 시) -->
+      <div class="revenue-badge" *ngIf="myRevenue">
+        <span class="revenue-usd">{{ formatUsd(myRevenue.revenueUsd) }}</span>
+        <span class="revenue-krw">({{ formatKrw(myRevenue.revenueKrw) }})</span>
+      </div>
+      <div class="revenue-badge loading" *ngIf="isLoadingRevenue && !myRevenue">
+        <ion-spinner name="dots" style="width: 16px; height: 16px;"></ion-spinner>
+      </div>
+    </div>
+
+    <!-- 🌟 누적 수익 카드 (로그인 시 표시) -->
+    <div class="my-revenue-card" *ngIf="myRevenue">
+      <div class="revenue-card-inner">
+        <div class="minimum-badge">Minimum 🛡️</div>
+        <div class="revenue-sparkle">✨</div>
+        <div class="revenue-card-usd">{{ formatUsd(myRevenue.revenueUsd) }}+</div>
+        <div class="revenue-card-krw">(₩{{ myRevenue.revenueKrw | number }}+)</div>
+        <div class="minimum-earnings-pill">⬆ Minimum Earnings</div>
+      </div>
+      <div class="revenue-card-footer">Total Earnings</div>
+    </div>
+
+    <div class="ranking-menu-container">
+      <div class="ranking-menu-card" (click)="openGeneralRankingModal()">
+        <span class="card-icon">🏆</span>
+        <div class="card-text">
+          <div class="card-title">General Ranking</div>
+          <div class="card-subtitle">Overall General Ranking</div>
         </div>
-        <div class="star-info">
-          <div class="name">{{ star.name }}</div>
-          <div class="status">활동중 <span class="dot"></span></div>
+      </div>
+
+      <div class="ranking-menu-card" (click)="openRevenueRankingModal()">
+        <span class="card-icon">💎</span>
+        <div class="card-text">
+          <div class="card-title">Revenue Ranking</div>
+          <div class="card-subtitle">Revenue Ranking</div>
+        </div>
+      </div>
+
+      <div class="ranking-menu-card" (click)="openDailyRankingModal()">
+        <span class="card-icon">👑</span>
+        <div class="card-text">
+          <div class="card-title">Daily Ranking</div>
+          <div class="card-subtitle">Today's Ranking</div>
+        </div>
+      </div>
+
+      <div class="ranking-menu-card" (click)="openHallOfFameModal()">
+        <span class="card-icon">⭐</span>
+        <div class="card-text">
+          <div class="card-title">Hall of Fame</div>
+          <div class="card-subtitle">Hall of Fame</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="section-container">
-    <div class="section-header">
-      <ion-icon name="heart" class="title-icon pink"></ion-icon>
-      <ion-label>스타 리스트</ion-label>
+  <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
+    
+    <div class="section-container">
+      <div class="section-header">
+        <ion-icon name="star" class="title-icon orange"></ion-icon>
+        <ion-label>Today's TOP</ion-label>
+      </div>
+      
+      <div class="horizontal-scroll-wrapper" #topScroll>
+        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars" (click)="goToStarPage(star.id)">
+          <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
+          
+          <div class="star-info" style="margin-top: 4px;">
+            <div class="name" style="font-size: 13px; font-weight: bold;">{{ star.name }}</div>
+            <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
+              🌎 #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <ion-list lines="none">
-      <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item">
-        <ion-avatar slot="start">
-          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
-        </ion-avatar>
-        <ion-label>
-          <h2>{{ star.name }}</h2>
-          <div class="status">
-            <ng-container *ngIf="star.use_yn === 'Y' || !star.use_yn">
-              활동중 <span class="dot" style="color: #2dd36f; background-color: #2dd36f;"></span>
-            </ng-container>
+    <div class="section-container">
+      <div class="section-header">
+        <ion-icon name="trending-up" class="title-icon pink"></ion-icon>
+        <ion-label>Trending Now</ion-label>
+      </div>
+
+      <ion-list lines="none">
+        <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+          <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></ion-avatar>
+          
+          <ion-label class="info-container">
+            <h2 class="star-name">{{ star.name }}</h2>
             
-            <ng-container *ngIf="star.use_yn === 'N'">
-              활동중지 <span class="dot" style="color: #ff4b5c; background-color: #ff4b5c;"></span>
-            </ng-container>
+            <div *ngIf="star.globalRank > 0" class="global-rank">
+              🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+            </div>
+            
+            <div class="stats-row">
+              <div style="position: relative; display: flex; align-items: center; gap: 2px;">
+                👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
+                <div *ngIf="star.showPlus" class="floating-plus">+1</div>
+              </div>
+              
+              <div (click)="toggleFavorite(star, $event)" style="display: flex; align-items: center; gap: 2px;">
+                <ion-icon [name]="star.isFavorite ? 'star' : 'star-outline'" [color]="star.isFavorite ? 'warning' : 'medium'" style="font-size: 15px; margin-bottom: 2px;"></ion-icon>
+                <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 2px;">
+                💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
+              </div>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </div>
+
+    <div class="discover-pages-section">
+      <h3 class="discover-title">
+        🌍 Discover Global Pages
+      </h3>
+      
+      <div class="discover-scroll">
+        <div *ngFor="let p of recommendedPages" (click)="goToStarPage(p.PRS_ID)" 
+             class="discover-item">
+          <ion-avatar class="discover-avatar">
+            <img [src]="p.STORED_FILE_NM || defaultAvatar" (error)="handleImageError($event)" />
+          </ion-avatar>
+          <div class="discover-name">
+            {{ p.PRS_NAME }}
           </div>
-        </ion-label>
-      </ion-item>
-    </ion-list>
-  </div>
+        </div>
+      </div>
+
+      <ion-button expand="block" color="light" (click)="loadRecommendedPages()" class="discover-next-btn">
+        Show More <ion-icon name="refresh-outline" slot="end"></ion-icon>
+      </ion-button>
+    </div>
+  </ng-container>
+
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button class="glass-fab" (click)="handleWriteButtonClick()">
+      <span style="font-size: 24px; transform: translateY(-1px);">✏️</span>
+    </ion-fab-button>
+  </ion-fab>
 </ion-content>

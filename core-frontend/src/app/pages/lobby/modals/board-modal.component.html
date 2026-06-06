@@ -1,0 +1,60 @@
+<ion-header>
+  <ion-toolbar color="dark">
+    <ion-title>Creator Board</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="closeModal()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="board-content">
+  <div class="filter-bar">
+    <span class="title">Registered Creators</span>
+    <div class="select-wrapper">
+      <select [(ngModel)]="sortType" (change)="sortList()">
+        <option value="price_asc">Lowest Price</option>
+        <option value="recent">Newest</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="list-container">
+    <div class="board-card" *ngFor="let item of boardList">
+      
+      <div class="card-header">
+        <span class="category">{{ item.category }}</span>
+        <h3 class="name">{{ item.name }}</h3>
+      </div>
+      
+      <div class="price-row">
+        <span class="label">3-Month Collab Target</span>
+        <span class="value">{{ item.collabPrice }}</span>
+      </div>
+      <div class="price-row">
+        <span class="label">3-Month Partnership Target</span>
+        <span class="value">{{ item.partnerPrice }}</span>
+      </div>
+
+      <div class="action-area">
+        <ng-container *ngIf="item.status === 'pending'">
+          <div class="badge-pending">
+            <ion-icon name="hourglass-outline"></ion-icon> Under Review
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="item.status === 'approved'">
+          <button class="btn-inquiry" (click)="openPurchaseModal(item)">
+            <ion-icon name="mail-outline"></ion-icon> Inquire
+          </button>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <div class="notice-footer">
+    <p class="notice-title">🚨 Notice</p>
+    <p>This platform does not broker financial investment products.</p>
+    <p>All contracts are made individually between the parties.</p>
+    <p>The platform is a simple matching service.</p>
+  </div>
+</ion-content>

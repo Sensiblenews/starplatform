@@ -147,7 +147,7 @@ export class AuthService {
   }
 
   async initialize() {
-    await this.kakaoLogin.ready();
+    // await this.kakaoLogin.ready();
     await this.emailLogin.ready();
     await this.googleLogin.ready();
   }

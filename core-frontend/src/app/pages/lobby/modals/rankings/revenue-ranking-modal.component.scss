@@ -1,0 +1,76 @@
+ion-toolbar {
+  --background: white;
+  border-bottom: 1px solid #eee;
+}
+
+ion-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+ion-content {
+  --background: #fff;
+}
+
+.star-list-item {
+  margin: 0 0 14px;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  --background: white;
+  --border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+
+  ion-avatar {
+    width: 64px;
+    height: 64px;
+    background-color: #f0f0f0;
+    margin-right: 32px;
+  }
+
+  .info-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+
+    .star-name {
+      font-weight: 500;
+      font-size: 0.81rem;
+      color: #222;
+      margin: 0;
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: #555;
+    }
+  }
+}
+
+.no-result-msg {
+  text-align: center;
+  padding: 30px 0;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.rank-badge {
+  font-size: 18px;
+  font-weight: 900;
+  color: #999;
+  width: 42px;
+  min-width: 42px;
+  text-align: center;
+  margin-right: 12px;
+  margin-left: 5px;
+
+  &.rank-1 { color: #FFD700; font-size: 22px; } /* 금 */
+  &.rank-2 { color: #C0C0C0; font-size: 20px; } /* 은 */
+  &.rank-3 { color: #CD7F32; font-size: 20px; } /* 동 */
+}

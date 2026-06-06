@@ -1,0 +1,74 @@
+ion-content {
+    --background: #fff;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 20px;
+
+  .my-msg, .admin-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+    
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 15px;
+      line-height: 1.4;
+      position: relative;
+    }
+
+    .time {
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+    }
+  }
+
+  // 🔵 내가 보낸 메시지 (오른쪽 정렬)
+  .my-msg {
+    align-self: flex-end;
+    align-items: flex-end;
+
+    .bubble {
+      background: #3880ff; // 아이오닉 기본 블루
+      color: #fff;
+      border-bottom-right-radius: 4px; // 말풍선 꼬리 느낌
+    }
+  }
+
+  // ⚪️ 관리자가 보낸 메시지 (왼쪽 정렬)
+  .admin-msg {
+    align-self: flex-start;
+    align-items: flex-start;
+
+    .bubble {
+      background: #f0f0f0;
+      color: #333;
+      border-bottom-left-radius: 4px;
+    }
+  }
+}
+
+// 하단 입력창 커스텀
+ion-footer {
+  background: #fff;
+  border-top: 1px solid #eee;
+  padding: 4px 8px;
+
+  ion-toolbar {
+    --background: transparent;
+    --border-style: none;
+  }
+
+  ion-input {
+    --padding-start: 12px;
+    background: #f9f9f9;
+    border-radius: 20px;
+    margin-right: 8px;
+    font-size: 14px;
+  }
+}

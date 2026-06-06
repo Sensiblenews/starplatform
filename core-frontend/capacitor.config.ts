@@ -1,4 +1,5 @@
 import { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 let appId = 'kr.co.sensiblenews.witchHunting';
 
@@ -48,6 +49,15 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
+    Keyboard: {
+      resize: KeyboardResize.Body,
+      style: KeyboardStyle.Dark,
+      resizeOnFullScreen: true,
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['google.com', 'apple.com'],
+    }
   }
 };
 

@@ -23,6 +23,7 @@ interface UserInfo {
   FOLLOWER_CNT?: number;
   RECENT_HRT_CHG?: number;
   RECENT_HRT_NAME?: string;
+  email?: string;
 }
 
 interface ProfileInfo {

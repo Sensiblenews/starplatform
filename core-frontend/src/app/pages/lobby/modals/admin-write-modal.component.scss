@@ -1,0 +1,256 @@
+ion-toolbar { --background: white; border-bottom: 1px solid #eee; }
+ion-title { font-size: 16px; font-weight: bold; }
+ion-content { --background: #fff; }
+
+.write-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.content-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #333;
+    resize: none;
+    padding: 0;
+    background: transparent;
+    flex-shrink: 0;
+    height: 60px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+.content-input::placeholder { color: #aaa; }
+
+.image-upload-section {
+    margin-bottom: 16px;
+}
+
+// 📸 이미지 업로드 섹션 (스크롤 가능한 영역)
+.scrollable-section {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-right: -4px;
+}
+
+// 🎥 미디어 업로드 섹션 (이미지 + 동영상 + YouTube)
+.media-upload-section {
+    margin-bottom: 16px;
+
+    .button-group {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+
+        ion-button {
+            flex: 1;
+        }
+    }
+
+    .youtube-input-section {
+        margin-top: 12px;
+
+        .youtube-input-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 38px;
+            padding: 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            transition: border-color 0.2s;
+
+            &:focus-within {
+                border-color: #6c5ce7;
+            }
+        }
+
+        .youtube-icon {
+            font-size: 18px;
+            color: #ff0000;
+            flex-shrink: 0;
+        }
+
+        .youtube-url-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            background: transparent;
+
+            &::placeholder {
+                color: #bbb;
+            }
+        }
+
+        .youtube-close {
+            --padding-start: 4px;
+            --padding-end: 4px;
+            --color: #666;
+        }
+    }
+}
+
+.upload-btn {
+    --border-radius: 8px;
+    font-weight: bold;
+}
+
+// 📸🎥🎬 미리보기 컨테이너 (최대 3개씩 가로 배치)
+.preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .preview-item {
+        flex: 1 1 calc(33.333% - 8px);
+        min-width: 80px;
+        aspect-ratio: 1;
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    // 📸 이미지 미리보기
+    .image-preview {
+        img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+    }
+
+    // 🎥 동영상 미리보기
+    .video-preview {
+        background: #000;
+
+        .video-thumbnail-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+
+            .video-thumbnail {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .play-button-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0, 0, 0, 0.3);
+                transition: background 0.2s;
+
+                .play-icon {
+                    font-size: 48px;
+                    color: white;
+                    opacity: 0.9;
+                }
+            }
+        }
+
+        &:hover .play-button-overlay {
+            background: rgba(0, 0, 0, 0.5);
+        }
+    }
+
+    // 🎬 YouTube 미리보기
+    .youtube-preview {
+        .youtube-thumbnail-wrapper {
+            width: 100%;
+            height: 100%;
+
+            iframe {
+                width: 100%;
+                height: 100%;
+                border-radius: 12px;
+            }
+        }
+    }
+
+    .remove-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        z-index: 10;
+        --box-shadow: none;
+        opacity: 0.8;
+    }
+}
+
+.submit-btn {
+    margin: 8px 16px 16px;
+    --border-radius: 12px;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+// 🔄 로딩 오버레이
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    backdrop-filter: blur(2px);
+
+    .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            text-align: center;
+        }
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// 콘텐츠 흐릿하게
+.blur-content {
+    opacity: 0.6;
+    pointer-events: none;
+}

@@ -1,0 +1,139 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>📊 My Daily Insight</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">
+        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent" color="danger"></ion-spinner>
+    <p>Loading your insights...</p>
+  </div>
+
+  <div *ngIf="!isLoading" class="insight-wrapper">
+
+    <!-- ═══ Today ═══ -->
+    <div class="insight-section">
+      <div class="section-header">
+        <span class="section-icon">☀️</span>
+        <span class="section-title">Today</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-emoji">👁️</div>
+          <div class="stat-value">{{ formatNumber(today.visitors) }}</div>
+          <div class="stat-label">Visitors</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">❤️</div>
+          <div class="stat-value">{{ formatNumber(today.likes) }}</div>
+          <div class="stat-label">Likes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⭐</div>
+          <div class="stat-value">{{ formatNumber(today.favorites) }}</div>
+          <div class="stat-label">Favorites</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ This Month ═══ -->
+    <div class="insight-section">
+      <div class="section-header">
+        <span class="section-icon">📅</span>
+        <span class="section-title">This Month</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-emoji">👁️</div>
+          <div class="stat-value">{{ formatNumber(month.visitors) }}</div>
+          <div class="stat-label">Visitors</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">❤️</div>
+          <div class="stat-value">{{ formatNumber(month.likes) }}</div>
+          <div class="stat-label">Likes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⭐</div>
+          <div class="stat-value">{{ formatNumber(month.favorites) }}</div>
+          <div class="stat-label">Favorites</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ All Time ═══ -->
+    <div class="insight-section insight-section--total">
+      <div class="section-header">
+        <span class="section-icon">🏆</span>
+        <span class="section-title">All Time</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-emoji">👁️</div>
+          <div class="stat-value">{{ formatNumber(total.visitors) }}</div>
+          <div class="stat-label">Visitors</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">❤️</div>
+          <div class="stat-value">{{ formatNumber(total.likes) }}</div>
+          <div class="stat-label">Likes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⭐</div>
+          <div class="stat-value">{{ formatNumber(total.favorites) }}</div>
+          <div class="stat-label">Favorites</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Activity Logs (최근 500명) ═══ -->
+    <div class="insight-section">
+      <div class="section-header">
+        <span class="section-icon">👥</span>
+        <span class="section-title">Recent Activity</span>
+      </div>
+
+      <!-- 탭 버튼 -->
+      <div class="log-tabs">
+        <button class="log-tab" [class.active]="activeLogTab === 'VISITOR'" (click)="switchLogTab('VISITOR')">
+          👁️ Visitors
+        </button>
+        <button class="log-tab" [class.active]="activeLogTab === 'LIKE'" (click)="switchLogTab('LIKE')">
+          ❤️ Likes
+        </button>
+        <button class="log-tab" [class.active]="activeLogTab === 'FAVORITE'" (click)="switchLogTab('FAVORITE')">
+          ⭐ Favorites
+        </button>
+      </div>
+
+      <!-- 로딩 -->
+      <div *ngIf="isLoadingLogs" class="log-loading">
+        <ion-spinner name="dots" color="medium" style="width: 20px; height: 20px;"></ion-spinner>
+      </div>
+
+      <!-- 유저 리스트 (스크롤 영역, 최대 10명 높이) -->
+      <div *ngIf="!isLoadingLogs && activityLogs.length > 0" class="log-scroll-container">
+        <div *ngFor="let user of activityLogs" class="log-item">
+          <img [src]="user.image || defaultAvatar" (error)="handleImageError($event)" class="log-avatar" />
+          <div class="log-info">
+            <span class="log-name">{{ user.name }}</span>
+            <span class="log-date">{{ user.actionDate }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 빈 상태 -->
+      <div *ngIf="!isLoadingLogs && activityLogs.length === 0" class="log-empty">
+        No activity logs yet.
+      </div>
+    </div>
+
+  </div>
+</ion-content>

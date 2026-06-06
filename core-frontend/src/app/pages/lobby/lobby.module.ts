@@ -4,6 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { LobbyPageRoutingModule } from './lobby-routing.module';
 import { LobbyPage } from './lobby.page';
+import { BoardModalComponent } from './modals/board-modal.component';
+import { IpoModalComponent } from './modals/ipo-modal.component';
+import { PurchaseModalComponent } from './modals/purchase-modal.component';
+import { AdminWriteModalComponent } from './modals/admin-write-modal.component';
+import { AvailablePageModalComponent } from './modals/available-page-modal.component';
+import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-modal.component';
+import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
+import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
+import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 
 @NgModule({
   imports: [
@@ -12,6 +21,17 @@ import { LobbyPage } from './lobby.page';
     IonicModule,
     LobbyPageRoutingModule
   ],
-  declarations: [LobbyPage]
+  declarations: [
+    LobbyPage,
+    IpoModalComponent,
+    BoardModalComponent,
+    PurchaseModalComponent,
+    AdminWriteModalComponent,
+    AvailablePageModalComponent,
+    GeneralRankingModalComponent,
+    RevenueRankingModalComponent,
+    DailyRankingModalComponent,
+    HallOfFameModalComponent,
+  ],
 })
 export class LobbyPageModule {}

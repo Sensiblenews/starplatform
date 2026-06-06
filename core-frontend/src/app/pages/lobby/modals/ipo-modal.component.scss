@@ -1,0 +1,24 @@
+.form-container {
+  ion-item {
+    /* 1. 위에 쌓이는 라벨("이름", "직종" 등) 크기도 살짝 앙증맞게 조절 */
+    ion-label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* 2. 입력칸 설정 */
+    ion-input {
+      /* 실제 키보드로 타이핑할 때 찍히는 글자 크기는 시원하게 유지 */
+      font-size: 13px; 
+
+      /* 🌟 [핵심] 플레이스홀더(안내 문구) 크기만 작게 조절 */
+      &::part(native)::placeholder {
+        font-size: 11px !important;
+      }
+      
+      &::part(native)::-webkit-input-placeholder {
+        font-size: 11px !important;
+      }
+    }
+  }
+}

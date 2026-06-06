@@ -9,12 +9,92 @@
     background: #000;
     display: flex;
     justify-content: center;
+    align-items: center;
 
-    img, video {
+    img {
       width: 100%;
       height: auto;
       max-height: 600px; // 너무 길어지는 것 방지
       object-fit: contain;
+    }
+  }
+
+  // 🎥 [신규] 동영상 아이템 스타일
+  .media-item-video {
+    width: 100%;
+    margin-bottom: 2px;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      video {
+        width: 100%;
+        height: auto;
+        max-height: 600px;
+        object-fit: contain;
+        display: block;
+      }
+
+      // [신규] 소리 버튼 스타일 (인스타 느낌)
+      .sound-btn {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        width: 30px;
+        height: 30px;
+        background-color: rgba(0, 0, 0, 0.6); // 반투명 검정 배경
+        border-radius: 50%; // 원형
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+
+        ion-icon {
+          color: #fff;
+          font-size: 16px;
+        }
+
+        &:active {
+          transform: scale(0.9); // 클릭 시 살짝 작아짐
+        }
+      }
+    }
+  }
+
+  // 🎬 [신규] YouTube 아이템 스타일
+  .media-item-youtube {
+    width: 100%;
+    margin-bottom: 2px;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .youtube-wrapper {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%; // 16:9 비율
+      height: 0;
+      background-color: #000;
+
+      iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
     }
   }
 }
@@ -53,62 +133,21 @@
   }
 }
 
-// .media-stack 내부의 .media-item 스타일을 아래와 같이 보완하세요.
+.star-toolbar {
+  --background: linear-gradient(90deg, #ff4b5c 0%, #ff6b6b 100%);
+  --color: white; // 뒤로가기 버튼 및 타이틀 색상
 
-.media-item {
-    width: 100%;
-    margin-bottom: 2px;
-    background: #000;
-    display: flex;
-    justify-content: center;
-    position: relative; // [중요] 자식 요소 절대 위치 기준점
+  ion-title {
+    font-weight: 700;
+  }
+}
 
-    img {
-      width: 100%;
-      height: auto;
-      max-height: 600px;
-      object-fit: contain;
-    }
-
-    // [신규] 비디오 래퍼
-    .video-wrapper {
-        position: relative;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-
-        video {
-            width: 100%;
-            height: auto;
-            max-height: 600px;
-            object-fit: contain;
-            display: block; // 하단 여백 제거
-        }
-
-        // [신규] 소리 버튼 스타일 (인스타 느낌)
-        .sound-btn {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            width: 30px;
-            height: 30px;
-            background-color: rgba(0, 0, 0, 0.6); // 반투명 검정 배경
-            border-radius: 50%; // 원형
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            cursor: pointer;
-            transition: transform 0.1s ease;
-
-            ion-icon {
-                color: #fff;
-                font-size: 16px;
-            }
-
-            &:active {
-                transform: scale(0.9); // 클릭 시 살짝 작아짐
-            }
-        }
-    }
+ion-back-button {
+  /* 좌우 터치 영역(패딩)을 넉넉하게 늘려줍니다 */
+  --padding-start: 25px;
+  --padding-end: 25px;
+  
+  /* 패딩을 늘리면 화살표 아이콘이 오른쪽으로 밀려 보일 수 있으므로, 
+     마진을 이용해 시각적인 위치는 원래대로(왼쪽으로) 살짝 당겨줍니다. */
+  margin-left: -10px; 
 }

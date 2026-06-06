@@ -10,12 +10,194 @@
 
 // 2. 스타 프로필 영역
 .profile-header {
-  padding: 24px 16px;
+  padding: 10px 16px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
   background: #fff;
   border-bottom: 8px solid #f5f5f5; // 하단 컨텐츠와 분리감을 주는 굵은 선
+
+  .profile-info-pill {
+    height: 100px;
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+    padding: 12px 20px;
+    background: #ffffff; // 알약 내부 배경색
+
+    // 🌟 핵심: 프로필 사진 테두리와 동일한 색상의 알약 테두리
+    border: 2px solid #ff6b6b; // (기획된 색상 코드로 변경하세요. 예: #f1c40f)
+    border-radius: 50px; // 양쪽이 완전히 둥근 알약 모양을 만들기 위해 넉넉한 값(50px 이상) 부여
+
+    ion-avatar {
+      width: 65px; // 🌟 아바타 크기 살짝 감축
+      height: 65px;
+      border: 2px solid white;
+      box-shadow: 0 0 0 2px #ff6b6b;
+      margin-right: 12px; // 아바타와 정보창 사이 간격
+
+      img {
+        object-fit: cover;
+      }
+    }
+
+    .avatar-container {
+      position: relative;
+      margin-right: 12px;
+
+      ion-avatar {
+        margin-right: 0; // 마진을 컨테이너로 옮겼으므로 0으로 초기화
+        width: 65px;
+        height: 65px;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #ff6b6b;
+        
+        img { object-fit: cover; }
+      }
+
+      // 펜 아이콘 둥근 배지
+      .edit-badge {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 10;
+        
+        ion-icon { font-size: 12px; color: #555; }
+      }
+    }
+    
+    .info-details-wrap {
+        flex: 1; // 남은 가로 공간 전부 차지
+        display: flex;
+        flex-direction: column;
+        gap: 5px; // 🌟 줄 간격 최소화
+        justify-content: center; // 세로 중앙 정렬
+
+        // 첫 번째 줄: 스타 이름
+        .star-name-box {
+            display: flex;
+            flex-direction: row !important; /* 🌟 무조건 가로로 배치하도록 강제! */
+            align-items: center;            /* 세로 기준 중앙 정렬 */
+            justify-content: flex-start;    /* 왼쪽으로 착 붙이기 */
+            gap: 6px;                       /* 이름과 펜 아이콘 사이 간격 */
+            line-height: 1; 
+            margin-bottom: 2px;             /* 아래 랭킹 줄과 살짝 여백 */
+
+            .name {
+                font-size: 16px; 
+                font-weight: 800;
+                color: #1a1a1a;
+                margin: 0;
+            }
+
+            .edit-name-icon {
+                font-size: 16px;
+                color: #888;
+                cursor: pointer;
+            }
+        }
+
+        // 두 번째 줄: 글로벌 랭킹 라인
+        .info-rank-line {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px; // 이름과 살짝 간격
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            transition: all 0.2s ease;
+
+            .rank-num {
+                color: #3880ff; // 포인트 컬러 (파랑)
+                font-weight: 700;
+            }
+            .total-stars {
+                color: #aaa;
+                font-size: 10px;
+            }
+
+            // 🌟 본인 프로필일 때 클릭 유도 스타일
+            &--clickable {
+                cursor: pointer;
+                background: linear-gradient(135deg, #fff0f0, #ffe8ec);
+                padding: 3px 8px 3px 4px;
+                border-radius: 10px;
+                border: 1px solid #ffcdd2;
+                color: #e53935;
+                font-weight: 600;
+
+                &:active {
+                    transform: scale(0.96);
+                    background: linear-gradient(135deg, #ffe8ec, #fce4ec);
+                }
+            }
+
+            .insight-arrow {
+                font-size: 12px;
+                color: #e53935;
+                margin-left: 2px;
+                animation: nudgeRight 1.5s ease-in-out infinite;
+            }
+        }
+
+        @keyframes nudgeRight {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(3px); }
+        }
+
+        // 세 번째 줄: 👁/⭐/💎 통계 라인 (가로 한 줄 배치)
+        .info-stats-line {
+            display: flex;
+            align-items: center;
+            gap: 12px; // 🌟 아이템 간 가로 간격
+            margin-top: 3px; // 랭킹 라인과 간격
+            font-size: 14px;
+            color: #1a1a1a;
+            line-height: 1;
+
+            // 통계 개별 아이템 공통
+            .stat-item {
+                display: flex;
+                align-items: center;
+                gap: 2px; // 이모지와 숫자 사이 간격
+
+                .num {
+                    font-weight: 700; // 숫자는 굵게
+                }
+            }
+
+            // 조회수 (포지션 렐러티브 필수: +1 애니메이션용)
+            .stat-item-views {
+                position: relative;
+                color: #1a1a1a;
+            }
+
+            // 즐겨찾기 수 (클릭 가능 피드백)
+            .stat-item-fav {
+                cursor: pointer;
+
+                ion-icon {
+                    font-size: 18px; // 🌟 별 아이콘 살짝 크게
+                }
+            }
+
+            // 포인트 (초록색 강조)
+            .stat-item-points {
+                color: #1a1a1a;
+            }
+        }
+    }
+  }
 
   ion-avatar {
     width: 72px;
@@ -29,33 +211,63 @@
     }
   }
 
-  .star-name-box {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-
-    .name {
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: #222;
-      margin-bottom: 6px;
-    }
-
-    .status {
+  .revenue-container {
+    margin-left: auto; 
+    position: relative;
+    cursor: pointer;
+    text-align: right;
+    
+    .money-text {
       font-size: 0.9rem;
-      color: #666;
-      font-weight: 500;
+      font-weight: 900;
+      // color: #F2A81D; 
+      margin: 0;
+      // text-shadow: 0 0 10px rgba(255, 204, 0, 0.4); 
+
+      // 🌟 신규: 아이콘과 숫자를 나란히 맞추기 위한 Flex 설정
       display: flex;
       align-items: center;
-      gap: 5px;
+      justify-content: flex-end; // 우측 정렬 유지
+      gap: 4px; // 눈 아이콘과 숫자 사이의 간격
 
-      .dot {
-        width: 8px;
-        height: 8px;
-        background-color: #2dd36f; // 활동중(초록색) 점
-        border-radius: 50%;
-        display: inline-block;
+      ion-icon {
+        // font-size: 1.25rem; // 숫자 크기에 맞춰 아이콘 크기 미세 조정
+        color: #F2A81D; // 원하시면 아이콘 색상만 다르게 줄 수도 있습니다
       }
+    }
+
+    .floating-plus {
+      position: absolute;
+      top: -15px;
+      right: 0;
+      color: #2dd36f;
+      font-weight: bold;
+      font-size: 1rem;
+      animation: floatUp 0.8s ease-out forwards;
+      pointer-events: none; 
+    }
+  }
+
+  .favorite-box {
+    // margin-left: auto; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    
+    // 터치 효과 부드럽게
+    transition: transform 0.1s;
+    &:active { transform: scale(0.9); }
+
+    ion-icon {
+      font-size: 26px; // 아이콘 크기
+      margin-bottom: 4px;
+    }
+    .count {
+      font-size: 13px;
+      color: #666;
+      font-weight: bold;
     }
   }
 }
@@ -99,53 +311,54 @@
 }
 
 .lock-message-card {
-  width: 90%;          // 너비를 조금 더 줄여서 여백 확보
-  max-width: 360px;    // 너무 넓어지지 않게 제한 (태블릿 대응)
+  // [핵심 추가] 부모(ad-placeholder-box)를 기준으로 꽉 채운 후 정중앙 배치
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  
+  width: 90%;          // 여백을 위해 90%만 차지
+  max-width: 360px;
   height: 90%;
-  margin: 0 auto;      // [핵심] 좌우 중앙 정렬
   
   background: #fff0f3; 
   border-radius: 16px;
   
   // Flexbox로 내용물 정렬
   display: flex;
-  flex-direction: column; // 세로 정렬 명시
-  align-items: center;    // 가로축 중앙 정렬
-  justify-content: center;// 세로축 중앙 정렬
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   
   text-align: center;
   border: 2px dashed #ffb3b3; 
   box-shadow: 0 4px 12px rgba(255, 75, 92, 0.1);
 
-  .content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    animation: popIn 0.3s ease-out; // 나타날 때 톡 튀어나오는 효과
+  // [애니메이션] 나타날 때 부드럽게 팝업
+  animation: popIn 0.3s ease-out; 
 
-    ion-icon { 
-      font-size: 56px; 
-      margin-bottom: 12px; 
-      color: #ff4b5c; // 메인 브랜드 컬러
-    }
-    h3 { 
-      font-size: 20px; 
-      font-weight: 800; 
-      margin: 0 0 8px 0; 
-      color: #333; 
-    }
-    p { 
-      font-size: 15px; 
-      color: #666; 
-      margin: 0; 
-      line-height: 1.5;
-    }
+  ion-icon { 
+    font-size: 56px; 
+    margin-bottom: 12px; 
+    color: #ff4b5c; 
+  }
+  h3 { 
+    font-size: 20px; 
+    font-weight: 800; 
+    margin: 0 0 8px 0; 
+    color: #333; 
+  }
+  p { 
+    font-size: 15px; 
+    color: #666; 
+    margin: 0; 
+    line-height: 1.5;
   }
 }
 
 @keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
 // ... (헤더, 프로필 스타일 기존 유지) ...
@@ -190,14 +403,100 @@
     padding-bottom: 100%; // 1:1 비율 유지 (인스타 스타일)
     // 원본 비율 유지하고 싶으면 padding-bottom 조절 혹은 height: auto 사용
     position: relative;
-    background-color: #000;
+    background-color: #ddd;
     overflow: hidden;
+
+    .loading-spinner-box {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+
+      ion-spinner {
+        color: #ff4b5c; // 브랜드 컬러
+        transform: scale(1.5); // 크기 살짝 키움
+      }
+    }
 
     img, video.feed-video-player {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      object-fit: cover; // 꽉 차게 (검은 여백 없이)
+      object-fit: cover;
+      z-index: 2;
+      opacity: 0; // 초기 상태: 투명
+      transition: opacity 0.3s ease-in; // 부드럽게 나타나는 효과
+      
+      // 로딩 완료 클래스가 붙으면 불투명도 100%
+      &.media-loaded {
+        opacity: 1;
+      }
+    }
+
+    // 🎥 동영상 썸네일 래퍼
+    .video-thumbnail-wrapper {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      z-index: 2;
+
+      .video-thumbnail {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+      }
+    }
+
+    // 🎬 YouTube 썸네일 래퍼
+    .youtube-thumbnail-wrapper {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      z-index: 2;
+
+      .youtube-thumbnail {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+      }
+    }
+
+    // 🎬 재생 버튼 오버레이 (동영상 & YouTube 공용)
+    .play-button-overlay {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70px;
+      height: 70px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      transition: all 0.2s ease;
+
+      .play-icon {
+        font-size: 40px;
+        color: #ff4b5c;
+
+        &.youtube-icon {
+          color: #ff0000; // YouTube 빨강
+        }
+      }
+
+      // 호버 효과
+      &:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: translate(-50%, -50%) scale(1.1);
+      }
     }
 
     // 소리 버튼 (우측 하단)
@@ -291,3 +590,170 @@
     }
   }
 }
+
+@keyframes floatUp {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-30px); opacity: 0; }
+}
+
+// 🌟 [신규] 프로필 하단 둥근 액션 바 (이미지 1번 참고)
+.action-bar-container {
+  width: 100%;
+  grid-column: 1 / -1; // grid나 flex가 꼬이지 않게 전체 차지
+  transform: translateY(-5px);
+  
+  .action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    border: 1px solid #e0e0e0;
+    border-radius: 30px; // 완전 둥근 알약 모양
+    padding: 4px 8px;
+    background: white;
+    height: 30px;
+
+    ion-button {
+      margin: 0; --padding-start: 10px; --padding-end: 10px;
+      font-size: 11px; font-weight: 600;
+      
+      ion-icon { margin-right: 6px; font-size: 18px; }
+      .count { margin-left: 4px; font-weight: bold; color: #333; }
+    }
+
+    .divider {
+      width: 1px; height: 16px; background-color: #e0e0e0;
+    }
+  }
+}
+
+// 🌟 [신규] 피드 하단 심플 액션 바 (이미지 2번 참고)
+.feed-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around; // 버튼 3개 균등 분배
+  border-top: 1px solid #f0f0f0; // 위쪽 테두리만
+  padding: 4px 0;
+  height: 35px;
+
+  ion-button {
+    flex: 1; margin: 0;
+    font-size: 11px; font-weight: 500; color: #555;
+    --border-radius: 20px; // 버튼 클릭 시 둥근 피드백
+    
+    ion-icon { font-size: 18px; margin-right: 6px; }
+    .count { margin-left: 4px; font-weight: 600; }
+  }
+}
+
+.feed-blank {
+  height: 35px; // feed-action-bar와 동일한 높이로 빈 공간 확보
+}
+
+ion-back-button {
+  /* 좌우 터치 영역(패딩)을 넉넉하게 늘려줍니다 */
+  --padding-start: 25px;
+  --padding-end: 25px;
+  
+  /* 패딩을 늘리면 화살표 아이콘이 오른쪽으로 밀려 보일 수 있으므로, 
+     마진을 이용해 시각적인 위치는 원래대로(왼쪽으로) 살짝 당겨줍니다. */
+  margin-left: -10px; 
+}
+
+// 🌟 [신규] 프로필 사진 확대 뷰어 스타일
+.profile-viewer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6); // 반투명 검정 (블러 효과는 backdrop-filter로)
+  backdrop-filter: blur(6px); // 뒷배경 블러 처리
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: backdropFadein 0.3s ease-out;
+
+  .profile-viewer-container {
+    position: relative;
+    width: 80vw; // 화면 너비의 80%
+    height: 80vw; // 정사각형 비율 유지 (원형 이미지)
+    max-width: 360px; // 최대 크기 제한
+    max-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: popInScale 0.3s ease-out;
+
+    .profile-viewer-image-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%; // 완전 원형
+      overflow: hidden;
+      background: white;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); // 깊은 그림자
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+      }
+    }
+
+    // 🌟 프로필 수정 버튼 (isStar일 때만 보임)
+    .profile-viewer-action-button {
+      position: absolute;
+      bottom: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 75, 92, 0.95);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(255, 75, 92, 0.3);
+
+      ion-icon {
+        font-size: 18px;
+      }
+
+      &:active {
+        transform: translateX(-50%) scale(0.95);
+      }
+    }
+  }
+}
+
+@keyframes backdropFadein {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+  }
+}
+
+@keyframes popInScale {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+

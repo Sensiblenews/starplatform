@@ -23,6 +23,8 @@ export class AdProtectionService {
 
     // 24시간이 지났으면 다시 보여줌 (true), 안 지났으면 숨김 (false)
     return (now - lastClicked) > this.LOCK_DURATION_MS;
+
+    // return true; // [임시] 광고 보호 기능 비활성화 (테스트용)
   }
 
   // [기록] 광고 클릭 시 호출 (24시간 잠금 시작)

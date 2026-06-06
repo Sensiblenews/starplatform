@@ -1,0 +1,43 @@
+<ion-header class="ion-no-border">
+    <ion-toolbar>
+    <ion-title>Comments ({{ comments.length }})</ion-title>
+    <ion-buttons slot="end">
+        <ion-button (click)="close()">
+        <ion-icon name="close-outline" style="font-size: 24px; color: #333;"></ion-icon>
+        </ion-button>
+    </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+    <ion-list lines="none" class="comment-list">
+    <ion-item *ngFor="let c of comments; let i = index" class="comment-item">
+        <ion-label>
+        <div class="header">
+            <span class="nick">{{ c.nickname || c.NICKNAME }}</span>
+            <span class="date">{{ c.date }}</span>
+            <div class="btns">
+            <ion-icon name="alert-circle-outline" class="report-btn" (click)="reportComment(c)"></ion-icon>
+            <ion-icon name="ban-outline" class="block-btn" (click)="blockCommentUser(c)"></ion-icon>
+            <ion-icon name="close" class="delete-btn" (click)="deleteComment(i)"></ion-icon>
+            </div>
+        </div>
+        <p class="body">{{ c.CONTENT }}</p>
+        </ion-label>
+    </ion-item>
+    <div *ngIf="comments.length === 0" class="empty-msg">Be the first to leave a comment!</div>
+    </ion-list>
+</ion-content>
+
+<ion-footer class="ion-no-border">
+    <div class="comment-input-area">
+    <div class="guest-info">
+        <input type="text" [(ngModel)]="nickname" placeholder="Nickname" class="custom-input" />
+        <input type="password" [(ngModel)]="password" placeholder="Password" class="custom-input" />
+    </div>
+    <div class="text-wrap">
+        <textarea [(ngModel)]="content" placeholder="Comments that disparage others may be removed." rows="2"></textarea>
+        <ion-button fill="clear" class="submit-btn" (click)="addComment()">Post</ion-button>
+    </div>
+    </div>
+</ion-footer>

@@ -1,0 +1,234 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>⭐ Hall of Fame</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">
+        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab-item" [class.active]="activeTab === 'daily'" (click)="setTab('daily')">
+      <span class="tab-icon">👑</span>
+      <span class="tab-label">Daily Kings</span>
+    </div>
+    <div class="tab-item" [class.active]="activeTab === 'top100'" (click)="setTab('top100')">
+      <span class="tab-icon">🏆</span>
+      <span class="tab-label">Top 100</span>
+    </div>
+    <div class="tab-item" [class.active]="activeTab === 'monthly'" (click)="setTab('monthly')">
+      <span class="tab-icon">📅</span>
+      <span class="tab-label">Monthly</span>
+    </div>
+    <div class="tab-item" [class.active]="activeTab === 'yearly'" (click)="setTab('yearly')">
+      <span class="tab-icon">🎖️</span>
+      <span class="tab-label">Yearly</span>
+    </div>
+  </div>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <!-- ═══ TAB 1: Daily Kings ═══ -->
+  <div *ngIf="activeTab === 'daily'" class="tab-content">
+    <!-- Loading -->
+    <div *ngIf="dailyKingsLoading" class="loading-container">
+      <ion-spinner name="crescent" color="danger"></ion-spinner>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Content -->
+    <div *ngIf="!dailyKingsLoading && dailyKings.length > 0" class="daily-kings-list">
+      <div *ngFor="let king of dailyKings; let i = index" 
+           class="daily-king-card" 
+           (click)="goToStarPage(king.id)">
+        <div class="king-date">{{ king.rankDate }}</div>
+        <div class="king-info">
+          <div class="king-crown">👑</div>
+          <ion-avatar class="king-avatar">
+            <img [src]="getStarImage(king.image)" (error)="handleImageError($event)" />
+          </ion-avatar>
+          <div class="king-details">
+            <div class="king-name">{{ king.name }}</div>
+            <div class="king-views">{{ formatNumber(king.viewCount) }} views</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty -->
+    <div *ngIf="!dailyKingsLoading && dailyKings.length === 0" class="no-result-msg">
+      No daily kings data yet.
+    </div>
+  </div>
+
+  <!-- ═══ TAB 2: All-time Top 100 ═══ -->
+  <div *ngIf="activeTab === 'top100'" class="tab-content">
+    <!-- Loading -->
+    <div *ngIf="top100Loading" class="loading-container">
+      <ion-spinner name="crescent" color="danger"></ion-spinner>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Content -->
+    <ion-list lines="none" *ngIf="!top100Loading && top100Stars.length > 0">
+      <ion-item *ngFor="let star of top100Stars" (click)="goToStarPage(star.id)" class="star-list-item">
+        <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.GLOBAL_RANK]">
+          {{ star.GLOBAL_RANK }}
+        </div>
+        
+        <ion-avatar slot="start">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </ion-avatar>
+        
+        <ion-label class="info-container">
+          <h2 class="star-name">{{ star.name }}</h2>
+          <div class="stats-row">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 2px;">
+              ❤️ <span style="font-weight: 600;">{{ formatNumber(star.LIKE_CNT) }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 2px;">
+              ⭐ <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+            </div>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+
+    <!-- Empty -->
+    <div *ngIf="!top100Loading && top100Stars.length === 0" class="no-result-msg">
+      No ranking data yet.
+    </div>
+  </div>
+
+  <!-- ═══ TAB 3: Monthly Champions ═══ -->
+  <div *ngIf="activeTab === 'monthly'" class="tab-content">
+    <!-- Year/Month Picker -->
+    <div class="period-picker">
+      <div class="year-selector">
+        <button class="year-arrow" (click)="selectedYear = selectedYear - 1; onMonthChanged()" [disabled]="selectedYear <= 2024">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <span class="year-label">{{ selectedYear }}</span>
+        <button class="year-arrow" (click)="selectedYear = selectedYear + 1; onMonthChanged()" [disabled]="selectedYear >= 2026">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="month-grid">
+        <div *ngFor="let m of availableMonths"
+             class="month-chip"
+             [class.selected]="m.value === selectedMonth"
+             (click)="selectedMonth = m.value; onMonthChanged()">
+          {{ m.label }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="monthlyLoading" class="loading-container">
+      <ion-spinner name="crescent" color="danger"></ion-spinner>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Champion Highlight -->
+    <div *ngIf="!monthlyLoading && monthlyChampion" class="champion-card" (click)="goToStarPage(monthlyChampion.id)">
+      <div class="champion-trophy">🏆</div>
+      <div class="champion-label">{{ getMonthLabel() }} {{ selectedYear }} Champion</div>
+      <ion-avatar class="champion-avatar">
+        <img [src]="getStarImage(monthlyChampion.image)" (error)="handleImageError($event)" />
+      </ion-avatar>
+      <div class="champion-name">{{ monthlyChampion.name }}</div>
+      <div class="champion-score">{{ formatNumber(monthlyChampion.score || monthlyChampion.viewCount) }} pts</div>
+    </div>
+
+    <!-- List -->
+    <ion-list lines="none" *ngIf="!monthlyLoading && monthlyStars.length > 0">
+      <ion-item *ngFor="let star of monthlyStars" (click)="goToStarPage(star.id)" class="star-list-item">
+        <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.GLOBAL_RANK]">
+          {{ star.GLOBAL_RANK }}
+        </div>
+        <ion-avatar slot="start">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </ion-avatar>
+        <ion-label class="info-container">
+          <h2 class="star-name">{{ star.name }}</h2>
+          <div class="stats-row">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
+            </div>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+
+    <!-- Empty -->
+    <div *ngIf="!monthlyLoading && monthlyStars.length === 0" class="no-result-msg">
+      No data for {{ getMonthLabel() }} {{ selectedYear }}.
+    </div>
+  </div>
+
+  <!-- ═══ TAB 4: Yearly Champions ═══ -->
+  <div *ngIf="activeTab === 'yearly'" class="tab-content">
+    <!-- Year Picker -->
+    <div class="period-picker">
+      <div class="year-selector year-selector--large">
+        <button class="year-arrow" (click)="selectedYearForYearly = selectedYearForYearly - 1; onYearChanged()" [disabled]="selectedYearForYearly <= 2024">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <span class="year-label">{{ selectedYearForYearly }}</span>
+        <button class="year-arrow" (click)="selectedYearForYearly = selectedYearForYearly + 1; onYearChanged()" [disabled]="selectedYearForYearly >= 2026">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="yearlyLoading" class="loading-container">
+      <ion-spinner name="crescent" color="danger"></ion-spinner>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Champion Highlight -->
+    <div *ngIf="!yearlyLoading && yearlyChampion" class="champion-card" (click)="goToStarPage(yearlyChampion.id)">
+      <div class="champion-trophy">🏆</div>
+      <div class="champion-label">{{ selectedYearForYearly }} Champion</div>
+      <ion-avatar class="champion-avatar">
+        <img [src]="getStarImage(yearlyChampion.image)" (error)="handleImageError($event)" />
+      </ion-avatar>
+      <div class="champion-name">{{ yearlyChampion.name }}</div>
+      <div class="champion-score">{{ formatNumber(yearlyChampion.score || yearlyChampion.viewCount) }} pts</div>
+    </div>
+
+    <!-- List -->
+    <ion-list lines="none" *ngIf="!yearlyLoading && yearlyStars.length > 0">
+      <ion-item *ngFor="let star of yearlyStars" (click)="goToStarPage(star.id)" class="star-list-item">
+        <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.GLOBAL_RANK]">
+          {{ star.GLOBAL_RANK }}
+        </div>
+        <ion-avatar slot="start">
+          <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
+        </ion-avatar>
+        <ion-label class="info-container">
+          <h2 class="star-name">{{ star.name }}</h2>
+          <div class="stats-row">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
+            </div>
+          </div>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+
+    <!-- Empty -->
+    <div *ngIf="!yearlyLoading && yearlyStars.length === 0" class="no-result-msg">
+      No data for {{ selectedYearForYearly }}.
+    </div>
+  </div>
+
+</ion-content>

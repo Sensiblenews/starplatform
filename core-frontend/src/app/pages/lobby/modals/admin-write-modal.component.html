@@ -1,0 +1,125 @@
+<ion-header class="ion-no-border">
+    <ion-toolbar>
+    <ion-title>
+        {{ isStar ? 'Creator Post' : (adminLevel === 'GLOBAL' ? 'Global Notice (SM)' : 'Local Feed (LC)') }}
+    </ion-title>
+    <ion-buttons slot="end">
+        <ion-button (click)="close()" [disabled]="isSubmitting">
+        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+        </ion-button>
+    </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+    <div class="write-container" [class.blur-content]="isSubmitting">
+    
+    <textarea 
+        class="content-input" 
+        [(ngModel)]="content" 
+        placeholder="Write your post here...&#13;&#10;(Line breaks applied)" 
+        rows="8"
+        [disabled]="isSubmitting">
+    </textarea>
+
+    <!-- 📸 이미지 업로드 섹션 -->
+    <div class="scrollable-section">
+        <div class="media-upload-section" *ngIf="!isSubmitting">
+            <input type="file" id="fileInput" accept="image/*" (change)="onFileSelected($event)" hidden />
+            <input type="file" id="videoInput" accept="video/*" (change)="onVideoFileSelected($event)" hidden />
+            
+            <div class="button-group">
+                <ion-button fill="outline" color="medium" class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    <ion-icon name="camera-outline" slot="start"></ion-icon>
+                    Attach Photo
+                </ion-button>
+                
+                <!-- 🎥 동영상 버튼 -->
+                <ion-button fill="outline" color="medium" class="upload-btn" onclick="document.getElementById('videoInput').click()">
+                    <ion-icon name="film-outline" slot="start"></ion-icon>
+                    Attach Video
+                </ion-button>
+
+                <ion-button fill="outline" color="medium" class="upload-btn" (click)="toggleYoutubeInput()">
+                    <ion-icon name="logo-youtube" slot="start"></ion-icon>
+                    YouTube URL
+                </ion-button>
+            </div>
+
+            <!-- 🎬 YouTube URL 입력 (클릭 시 슬림 바 노출) -->
+            <div class="youtube-input-section" *ngIf="showYoutubeInput">
+                <div class="youtube-input-bar">
+                    <ion-icon name="logo-youtube" class="youtube-icon"></ion-icon>
+                    <input 
+                        type="text"
+                        class="youtube-url-input"
+                        placeholder="https://youtu.be/"
+                        [(ngModel)]="youtubeUrl"
+                        (change)="onYoutubeUrlChange(youtubeUrl)"
+                    />
+                    <ion-button fill="clear" size="small" class="youtube-close" (click)="toggleYoutubeInput()">
+                        <ion-icon name="close"></ion-icon>
+                    </ion-button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📸🎥🎬 미리보기 컨테이너 -->
+        <div class="preview-container">
+            <!-- 📸 이미지 미리보기 -->
+            <div class="preview-item image-preview" *ngIf="imagePreview">
+                <img [src]="imagePreview" />
+                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeImage()" [disabled]="isSubmitting">
+                    <ion-icon name="close"></ion-icon>
+                </ion-fab-button>
+            </div>
+
+            <!-- 🎥 동영상 파일 미리보기 -->
+            <div class="preview-item video-preview" *ngIf="videoPreview">
+                <div class="video-thumbnail-wrapper">
+                    <!-- 썸네일 이미지 표시 -->
+                    <img *ngIf="videoThumbnail" [src]="videoThumbnail" class="video-thumbnail" />
+                    <!-- 재생 버튼 오버레이 -->
+                    <div class="play-button-overlay">
+                        <ion-icon name="play-circle" class="play-icon"></ion-icon>
+                    </div>
+                </div>
+                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeVideo()" [disabled]="isSubmitting">
+                    <ion-icon name="close"></ion-icon>
+                </ion-fab-button>
+            </div>
+
+            <!-- 🎬 YouTube 임베드 미리보기 -->
+            <div class="preview-item youtube-preview" *ngIf="youtubeEmbedUrl">
+                <div class="youtube-thumbnail-wrapper">
+                    <iframe 
+                        [src]="youtubeEmbedUrl" 
+                        frameborder="0" 
+                        allowfullscreen
+                    ></iframe>
+                </div>
+                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeYoutube()" [disabled]="isSubmitting">
+                    <ion-icon name="close"></ion-icon>
+                </ion-fab-button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+</ion-content>
+
+<!-- 🔄 로딩 오버레이 -->
+<div class="loading-overlay" *ngIf="isSubmitting">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Saving your post...</p>
+    </div>
+</div>
+
+<ion-footer class="ion-no-border">
+    <ion-toolbar>
+    <ion-button expand="block" color="danger" class="submit-btn" (click)="submitPost()" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Posting...' : 'Post' }}
+    </ion-button>
+    </ion-toolbar>
+</ion-footer>

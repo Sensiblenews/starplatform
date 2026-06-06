@@ -1,0 +1,55 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Collaboration Inquiry</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="closeModal()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="purchase-content">
+  <div class="header-section">
+    <h2 class="star-name">{{ targetStar?.name || 'Creator' }}</h2>
+    <p class="guide-text">Please leave your contact information,<br>and our team will connect you.</p>
+  </div>
+
+  <div class="form-wrapper">
+    <ion-item lines="full">
+      <ion-label position="stacked">Company Name</ion-label>
+      <ion-input [(ngModel)]="formData.companyName" placeholder="Company Name"></ion-input>
+    </ion-item>
+
+    <ion-item lines="full">
+      <ion-label position="stacked">Contact Person</ion-label>
+      <ion-input [(ngModel)]="formData.managerName" placeholder="e.g., John Smith"></ion-input>
+    </ion-item>
+
+    <ion-item lines="full">
+      <ion-label position="stacked">Phone Number</ion-label>
+      <ion-input [(ngModel)]="formData.contact" type="tel" placeholder="123-456-7890"></ion-input>
+    </ion-item>
+
+    <ion-item lines="full">
+      <ion-label position="stacked">Email</ion-label>
+      <ion-input [(ngModel)]="formData.email" type="email" placeholder="example@company.com"></ion-input>
+    </ion-item>
+
+    <ion-item lines="full">
+      <ion-label position="stacked">Inquiry Details & Target Price</ion-label>
+      <ion-textarea [(ngModel)]="formData.message" rows="4" placeholder="Please describe the type of collaboration you are looking for."></ion-textarea>
+    </ion-item>
+  </div>
+
+  <div class="notice-box">
+    <p>This is not an investment transaction; no equity or securities are provided.</p>
+    <p>We are a matching service and do not guarantee collaboration outcomes.</p>
+  </div>
+</ion-content>
+
+<ion-footer class="ion-no-border">
+  <div class="footer-btn-wrapper">
+    <ion-button expand="block" color="primary" class="submit-btn" (click)="submitForm()">
+      Submit Inquiry
+    </ion-button>
+  </div>
+</ion-footer>
