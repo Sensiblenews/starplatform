@@ -154,6 +154,7 @@ public class StarController {
     public Map<String, Object> writeFeed(
             HttpServletRequest request,
             @RequestParam("feedText") String feedText,
+            @RequestParam(value="youtubeUrl", required=false) String youtubeUrl,
             @RequestParam("mediaFiles") List<MultipartFile> mediaFiles) {
         
         Map<String, Object> result = new HashMap<>();
@@ -169,6 +170,7 @@ public class StarController {
             Map<String, Object> contentMap = new HashMap<>();
             contentMap.put("PRS_ID", user.getPRS_ID());
             contentMap.put("CON_BODY", feedText); // 글은 없어도 됨 (Null 허용)
+            contentMap.put("YOUTUBE_URL", youtubeUrl);
             
             // 이 쿼리가 실행되면 contentMap에 'CON_ID'가 담겨와야 함 (useGeneratedKeys="true")
             dao.insert("star.insertContentMaster", contentMap);
@@ -288,6 +290,39 @@ public class StarController {
         } catch (Exception e) {
             result.put("status", "fail");
             result.put("msg", "오류 발생: " + e.getMessage());
+        }
+        return result;
+    }
+    
+    /**
+     * [기능] 댓글 관리 (블라인드/차단)
+     */
+    @RequestMapping(value = "/star/manageComment.do")
+    @ResponseBody
+    public Map<String, Object> manageComment(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginStar(request); // 세션 체크
+        if (user == null) return errorMap("권한이 없습니다.");
+
+        try {
+            String action = (String) params.get("action"); // 'BLIND' or 'BLOCK'
+            
+            if ("BLIND".equals(action)) {
+                params.put("STATUS", "BLIND");
+                dao.update("star.updateCommentStatus", params);
+                result.put("msg", "댓글이 블라인드 처리되었습니다.");
+            } 
+            else if ("BLOCK".equals(action)) {
+                // 해당 댓글을 쓴 유저의 deviceId를 차단 목록에 추가
+                params.put("prsId", user.getPRS_ID());
+                dao.insert("star.insertBlacklist", params);
+                result.put("msg", "해당 유저가 차단되었습니다.");
+            }
+            
+            result.put("status", "success");
+        } catch (Exception e) {
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
         }
         return result;
     }

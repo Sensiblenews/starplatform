@@ -3,98 +3,1235 @@
 
 <mapper namespace="superapp">
 
-    <select id="selectPopularStars" resultType="hashmap">
-        SELECT 
-            PRS_ID as id,
-            PRS_NAME as name,
-            STORED_FILE_NM as image,
-            STATUS_MSG as status
-        FROM WH_PRESS
-        WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y' AND IS_POPULAR = 'Y'
-        ORDER BY PRS_UPDATE_DATE DESC
-        LIMIT 10
-    </select>
-
-    <select id="selectAllStars" resultType="hashmap">
-        SELECT 
-            PRS_ID as id,
-            PRS_NAME as name,
-            STORED_FILE_NM as image,
-            STATUS_MSG as status
-        FROM WH_PRESS
-        WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y'
-        ORDER BY PRS_NAME ASC
-    </select>
-
-    <select id="selectStarDetail" parameterType="hashmap" resultType="hashmap">
-        SELECT 
-            PRS_ID as id,
-            PRS_NAME as name,
-            STORED_FILE_NM as image,
-            STATUS_MSG as status,
-            PRS_HOMEPAGE as homepage
-        FROM WH_PRESS
-        WHERE PRS_ID = #{starId}
-    </select>
-
-	<select id="selectStarGallery" parameterType="map" resultType="map">
-	    SELECT 
-	        M.CON_ID,
-	        M.CON_BODY,
-	        M.IS_PINNED,
-	        M.CREATED_DATE,
-	        
-	        -- [1] 미디어 정보 (비디오 링크 포함)
-	        D.THUMB_URL as image,
-	        D.MEDIA_URL,     D.MEDIA_TYPE,
-	        (SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) as media_count,
+	<select id="selectPopularStars" resultType="hashmap">
+	    SELECT * FROM (
+	        SELECT
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STATUS_MSG as status,
+	            P.POPULAR_ORDER,
+	            
+	            -- 🌟 RANK() 대신 ROW_NUMBER() 및 타이 브레이커 적용
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (
+	                        IFNULL(A.viewCount, 0) * 1 + 
+	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK,
+	            
+	            COUNT(*) OVER () AS TOTAL_STARS
 	
-	        -- [2] 작성자 정보 (WH_PRESS 조인 필요 없음, WH_STAR_CONTENT에 있다면 바로 사용)
-	        -- 만약 작성자 정보가 WH_PRESS 테이블에 있다면 아래처럼 조인해서 가져와야 합니다.
-	        -- (현재 쿼리상 M에 작성자 정보가 없어서 WH_PRESS(P)를 조인한다고 가정했습니다)
-	        P.PRS_NAME as MEM_NAME, 
-	        P.STORED_FILE_NM as MEM_PICTURE,
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    WHERE T.POPULAR_ORDER > 0
+	    ORDER BY T.POPULAR_ORDER ASC
+	    LIMIT 16
+	</select>
+	<select id="selectAllStars" parameterType="map" resultType="hashmap">
+	   SELECT * FROM (
+	        SELECT
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STATUS_MSG as status,
+	            P.LIST_ORDER,
+	            P.PRS_COUNTRY,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	            
+	            -- 글로벌 랭킹 보존
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (
+	                        IFNULL(A.viewCount, 0) * 1 + 
+	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK,
+	            
+	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
 	
-	        -- [3] 좋아요 정보 (아까 추가하기로 한 부분)
-	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = M.CON_ID) AS HEART_COUNT,
-	        (SELECT COUNT(*) FROM STAR_CONTENT_LIKE WHERE CON_ID = M.CON_ID AND MEM_ID = #{memId}) AS IS_LIKED
-	
-	    FROM WH_STAR_CONTENT M
-	    JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID
-	    LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID  WHERE M.PRS_ID = #{starId}
-	      AND D.SORT_ORDER = 0  
-	    ORDER BY M.IS_PINNED DESC, M.CREATED_DATE DESC
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    -- 🌟 [핵심 로직] 글로벌 어드민(1~16번) + 로컬 어드민(17~32번 중 접속 유저의 국가만) 추출
+	    WHERE T.LIST_ORDER BETWEEN 1 AND 16
+	       OR (
+	           T.LIST_ORDER BETWEEN 17 AND 32
+		<if test="country != null and country != ''">
+	               AND T.PRS_COUNTRY = #{country}
+		</if>
+	       )
+	    ORDER BY T.LIST_ORDER ASC
 	</select>
 
-    <select id="selectContentDetail" parameterType="map" resultType="map">
-        SELECT 
-            A.CON_ID,
-            A.CON_BODY,
-            A.CREATED_DATE,
-            A.IS_PINNED,
-            A.PRS_ID,
-            B.PRS_NAME,          B.STORED_FILE_NM     FROM WH_STAR_CONTENT A
-        JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
-        WHERE A.CON_ID = #{conId}
-    </select>
-    <select id="selectContentMedias" parameterType="map" resultType="map">
-        SELECT * FROM STAR_CONTENT_MEDIA 
-        WHERE CON_ID = #{conId} 
-        ORDER BY SORT_ORDER ASC
-    </select>
+	<select id="selectStarDetail" parameterType="hashmap" resultType="hashmap">
+	    SELECT
+	        P.PRS_ID as id,
+	        P.PRS_NAME as name,
+	        P.STORED_FILE_NM as image,
+	        P.STATUS_MSG as status,
+	        P.PRS_HOMEPAGE as homepage,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') AS viewCount,
+	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
+	        IFNULL(P.COMMENT_CNT, 0) AS COMMENT_CNT,
+	        IFNULL(P.SHARE_CNT, 0) AS SHARE_CNT,
+	        IF((SELECT COUNT(*) FROM WH_GUEST_LIKE WHERE TARGET_TYPE = 'STAR' AND TARGET_ID = P.PRS_ID AND DEVICE_ID = #{deviceId}) > 0, 1, 0) AS IS_LIKED,
+	        
+	        -- 🌟 신규: 전체 스타 수 (분모용, 예: 8B pages)
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS,
+	        
+	        -- 🌟 신규: 현재 스타의 실시간 글로벌 랭킹 추출
+	        (
+	            SELECT global_rank FROM (
+	                SELECT 
+	                    P2.PRS_ID,
+	                    ROW_NUMBER() OVER (
+	                        ORDER BY 
+	                            (
+	                                IFNULL(A2.viewCount, 0) * 1 + 
+	                                IFNULL(P2.LIKE_CNT, 0) * 3 + 
+	                                IFNULL(P2.FOLLOWER_CNT, 0) * 5
+	                            ) DESC,
+	                            IFNULL(A2.viewCount, 0) DESC,
+	                            IFNULL(P2.FOLLOWER_CNT, 0) DESC,
+	                            P2.PRS_ID ASC
+	                    ) AS global_rank
+	                FROM WH_PRESS P2
+	                LEFT JOIN (
+	                    SELECT PRS_ID, COUNT(*) as viewCount 
+	                    FROM WH_AD_LOG 
+	                    WHERE ACTION = 'IMPRESSION' 
+	                    GROUP BY PRS_ID
+	                ) A2 ON P2.PRS_ID = A2.PRS_ID
+	                WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
+	            ) r WHERE r.PRS_ID = P.PRS_ID
+	        ) AS GLOBAL_RANK,
+	        P.OWNER_EMAIL
+	        
+	    FROM WH_PRESS P
+	    WHERE
+	        P.PRS_ID = #{starId}
+	</select>
 
-    <insert id="insertAdLog" parameterType="hashmap">
-	    INSERT INTO WH_AD_LOG (
-	        MEM_ID, 
-	        PRS_ID, 
-	        AD_TYPE, 
-	        OS,        ACTION,    CREATED_DATE
+	<select id="selectStarGallery" parameterType="map" resultType="map">
+		-- 1. 원래 스타가 작성한 피드
+		SELECT
+			M.PRS_ID,
+			M.CON_ID,
+			M.CON_BODY,
+			M.YOUTUBE_URL,    
+			M.IS_PINNED,
+			M.CREATED_DATE,
+			D.THUMB_URL as image,
+			D.MEDIA_URL,
+			D.MEDIA_TYPE,
+			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) as media_count,
+			P.PRS_NAME as MEM_NAME,
+			P.STORED_FILE_NM as MEM_PICTURE,
+			IFNULL(M.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
+			IFNULL(M.SHARE_CNT, 0) AS SHARE_CNT,
+			IF((SELECT COUNT(*) FROM WH_GUEST_LIKE WHERE TARGET_TYPE = 'FEED' AND TARGET_ID = M.CON_ID AND DEVICE_ID = #{deviceId}) > 0, 1, 0) AS IS_LIKED,
+			'STAR' AS FEED_TYPE,
+			
+			-- 🌟 [수정] 개별 피드의 컬럼에서 꺼내며, N일 경우 NULL로 원천 차단
+			IF(M.IS_PINNED = 'Y', M.PIN_LINK_TEXT1, NULL) AS PIN_LINK_TEXT1,
+			IF(M.IS_PINNED = 'Y', M.PIN_LINK_URL1, NULL) AS PIN_LINK_URL1,
+			IF(M.IS_PINNED = 'Y', M.PIN_LINK_TEXT2, NULL) AS PIN_LINK_TEXT2,
+			IF(M.IS_PINNED = 'Y', M.PIN_LINK_URL2, NULL) AS PIN_LINK_URL2
+			
+		FROM WH_STAR_CONTENT M
+		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID
+		WHERE M.PRS_ID = #{starId}
+
+		UNION ALL
+
+		-- 2. 관리자가 작성한 공지 피드
+		SELECT
+			A.ADMIN_ID AS PRS_ID,
+			CONCAT('A', A.ADMIN_CON_ID) AS CON_ID,
+			A.CON_BODY,
+			NULL AS YOUTUBE_URL,    
+			'N' AS IS_PINNED,
+			A.CREATED_DATE,
+			A.IMAGE_URL as image,
+			A.IMAGE_URL as MEDIA_URL,
+			'PHOTO' as MEDIA_TYPE,
+			IF(A.IMAGE_URL IS NULL, 0, 1) as media_count,
+			CASE WHEN A.ADMIN_LEVEL = 'GLOBAL' THEN '운영자 공지' ELSE '지역 공지' END as MEM_NAME,
+			'assets/img/defaultImg/avatar.svg' as MEM_PICTURE,
+			0 AS LIKE_CNT, 0 AS COMMENT_CNT, 0 AS SHARE_CNT, 0 AS IS_LIKED,
+			'ADMIN' AS FEED_TYPE,
+			
+			-- 🌟 [수정] 관리자 공지는 프로모션 링크가 없으므로 컬럼 갯수를 맞추기 위해 NULL 반환
+			NULL AS PIN_LINK_TEXT1,
+			NULL AS PIN_LINK_URL1,
+			NULL AS PIN_LINK_TEXT2,
+			NULL AS PIN_LINK_URL2
+			
+		FROM WH_ADMIN_CONTENT A
+		WHERE A.ADMIN_LEVEL = 'GLOBAL'
+		   OR (A.ADMIN_LEVEL = 'LOCAL' AND A.ADMIN_COUNTRY = (SELECT PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{starId}))
+		   
+		-- 최종 정렬
+		ORDER BY IS_PINNED DESC, CREATED_DATE DESC
+	</select>
+
+	<select id="selectContentDetail" parameterType="map" resultType="map">
+		SELECT
+			A.CON_ID,
+			A.CON_BODY,
+			A.YOUTUBE_URL,
+			A.CREATED_DATE,
+			A.IS_PINNED,
+			A.PRS_ID,
+			B.PRS_NAME,
+			B.STORED_FILE_NM,
+			'STAR' AS FEED_TYPE,
+			
+			-- 🌟 [수정] PPRO 조인 제거 후 A(본체) 테이블에서 직접 참조. N이면 NULL.
+			IF(A.IS_PINNED = 'Y', A.PIN_LINK_TEXT1, NULL) AS PIN_LINK_TEXT1,
+			IF(A.IS_PINNED = 'Y', A.PIN_LINK_URL1, NULL) AS PIN_LINK_URL1,
+			IF(A.IS_PINNED = 'Y', A.PIN_LINK_TEXT2, NULL) AS PIN_LINK_TEXT2,
+			IF(A.IS_PINNED = 'Y', A.PIN_LINK_URL2, NULL) AS PIN_LINK_URL2
+			
+		FROM WH_STAR_CONTENT A
+		JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
+		WHERE
+			A.CON_ID = #{conId}
+	</select>
+
+	<select id="selectAdminContentDetail" parameterType="map" resultType="map">
+		SELECT
+		CONCAT('A', ADMIN_CON_ID) AS CON_ID,
+		CON_BODY,
+		NULL AS
+		YOUTUBE_URL,
+		CREATED_DATE,
+		'N' AS IS_PINNED,
+		ADMIN_ID AS PRS_ID,
+		CASE WHEN
+		ADMIN_LEVEL = 'GLOBAL' THEN '운영자 공지' ELSE '지역 공지' END AS
+		PRS_NAME,
+		'assets/img/defaultImg/avatar.svg' AS STORED_FILE_NM,
+		'ADMIN' AS
+		FEED_TYPE,
+		IMAGE_URL
+		FROM WH_ADMIN_CONTENT
+		WHERE ADMIN_CON_ID =
+		#{realConId}
+	</select>
+
+	<select id="selectContentMedias" parameterType="map" resultType="map">
+		SELECT * FROM STAR_CONTENT_MEDIA
+		WHERE CON_ID = #{conId}
+		ORDER BY SORT_ORDER ASC
+	</select>
+
+	<insert id="insertAdLog" parameterType="hashmap">
+		INSERT INTO WH_AD_LOG (
+		MEM_ID,
+		PRS_ID,
+		AD_TYPE,
+		OS, ACTION, CREATED_DATE
+		) VALUES (
+		#{MEM_ID},
+		#{PRS_ID},
+		#{AD_TYPE},
+		#{OS}, #{ACTION}, NOW()
+		)
+	</insert>
+
+	<update id="updateFollowerCount" parameterType="hashmap">
+		UPDATE WH_PRESS
+		SET FOLLOWER_CNT = FOLLOWER_CNT + #{amount}
+		WHERE PRS_ID = #{starId}
+		AND (FOLLOWER_CNT + #{amount}) >= 0
+	</update>
+
+	<select id="selectCommentList" parameterType="map" resultType="map">
+		SELECT
+			wgc.CMT_ID,
+			wgc.TARGET_TYPE,
+			wgc.TARGET_ID,
+			wgc.NICKNAME,
+			wgc.CONTENT,
+			DATE_FORMAT(wgc.CREATED_AT, '%Y.%m.%d %H:%i')
+			AS date,
+			wgc.DEVICE_ID
+		FROM WH_GUEST_COMMENT wgc
+			LEFT JOIN
+			WH_GUEST_BLACKLIST wb ON wb.PRS_ID = wgc.TARGET_ID AND wb.DEVICE_ID = wgc.DEVICE_ID
+		WHERE TARGET_TYPE = #{targetType}
+			AND TARGET_ID = #{targetId}
+			AND STATUS = 'NORMAL'
+			AND wb.DEVICE_ID IS NULL
+		ORDER BY CREATED_AT DESC
+	</select>
+
+	<insert id="insertComment" parameterType="map">
+		INSERT INTO
+		WH_GUEST_COMMENT (TARGET_TYPE, TARGET_ID, DEVICE_ID, NICKNAME,
+		PASSWORD, CONTENT)
+		VALUES (#{targetType}, #{targetId}, #{deviceId},
+		#{nickname}, #{password},
+		#{content})
+	</insert>
+
+	<insert id="insertCommentReport" parameterType="map">
+		INSERT INTO
+		WH_GUEST_REPORT (TARGET_TYPE, TARGET_ID, REPORTER_DEVICE_ID,
+		REASON,
+		CREATED_DATE)
+		VALUES ('COMMENT', #{cmtId}, #{deviceId}, #{reason},
+		NOW())
+	</insert>
+
+	<select id="checkCommentPassword" parameterType="map" resultType="string">
+		SELECT PASSWORD FROM WH_GUEST_COMMENT WHERE CMT_ID =
+		#{cmtId}
+	</select>
+
+	<update id="deleteComment" parameterType="map">
+		UPDATE WH_GUEST_COMMENT
+		SET STATUS = 'DELETED' WHERE CMT_ID = #{cmtId}
+	</update>
+
+	<update id="updateCommentCount" parameterType="map">
+		<choose>
+			<when test='targetType == "STAR"'>
+				UPDATE WH_PRESS SET COMMENT_CNT = COMMENT_CNT +
+				#{amount} WHERE PRS_ID =
+				#{targetId} AND COMMENT_CNT + #{amount} >= 0
+			</when>
+			<otherwise>
+				UPDATE WH_STAR_CONTENT SET COMMENT_CNT = COMMENT_CNT +
+				#{amount} WHERE
+				CON_ID = #{targetId} AND COMMENT_CNT + #{amount} >= 0
+			</otherwise>
+		</choose>
+	</update>
+
+	<select id="checkGuestLike" parameterType="map" resultType="int">
+		SELECT COUNT(*) FROM WH_GUEST_LIKE
+		WHERE TARGET_TYPE = #{targetType}
+		AND TARGET_ID = #{targetId} AND DEVICE_ID = #{deviceId}
+	</select>
+
+	<insert id="insertGuestLike" parameterType="map">
+		INSERT INTO
+		WH_GUEST_LIKE (TARGET_TYPE, TARGET_ID, DEVICE_ID)
+		VALUES
+		(#{targetType}, #{targetId}, #{deviceId})
+	</insert>
+
+	<delete id="deleteGuestLike" parameterType="map">
+		DELETE FROM
+		WH_GUEST_LIKE
+		WHERE TARGET_TYPE = #{targetType} AND TARGET_ID =
+		#{targetId} AND DEVICE_ID = #{deviceId}
+	</delete>
+
+	<update id="updateLikeCount" parameterType="map">
+		<choose>
+			<when test='targetType == "STAR"'>
+				UPDATE WH_PRESS SET LIKE_CNT = LIKE_CNT + #{amount}
+				WHERE PRS_ID =
+				#{targetId} AND LIKE_CNT + #{amount} >= 0
+			</when>
+			<otherwise>
+				UPDATE WH_STAR_CONTENT SET LIKE_CNT = LIKE_CNT + #{amount}
+				WHERE CON_ID =
+				#{targetId} AND LIKE_CNT + #{amount} >= 0
+			</otherwise>
+		</choose>
+	</update>
+
+	<update id="updateShareCount" parameterType="map">
+		<choose>
+			<when test='targetType == "STAR"'>
+				UPDATE WH_PRESS SET SHARE_CNT = SHARE_CNT + 1 WHERE
+				PRS_ID = #{targetId}
+			</when>
+			<otherwise>
+				UPDATE WH_STAR_CONTENT SET SHARE_CNT = SHARE_CNT + 1 WHERE
+				CON_ID =
+				#{targetId}
+			</otherwise>
+		</choose>
+	</update>
+
+	<select id="checkBlacklist" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM WH_GUEST_BLACKLIST WHERE DEVICE_ID =
+		#{deviceId} AND
+		PRS_ID = #{targetId}
+	</select>
+
+	<insert id="insertBlacklist" parameterType="hashmap">
+		INSERT INTO
+		WH_GUEST_BLACKLIST (DEVICE_ID, PRS_ID, REASON, CREATED_DATE)
+		VALUES
+		(#{targetDeviceId}, #{prsId}, #{reason}, NOW())
+		ON DUPLICATE KEY UPDATE
+		REASON = #{reason}
+	</insert>
+
+	<update id="updateCommentStatus" parameterType="hashmap">
+		UPDATE
+		WH_GUEST_COMMENT
+		SET STATUS = #{STATUS}
+		WHERE CMT_ID = #{cmtId}
+	</update>
+
+	<insert id="insertGuestReport" parameterType="map">
+		INSERT INTO
+		WH_GUEST_REPORT (TARGET_TYPE, TARGET_ID, REPORTER_DEVICE_ID,
+		REASON,
+		CREATED_DATE)
+		VALUES ('COMMENT', #{cmtId}, #{deviceId}, #{reason},
+		NOW())
+	</insert>
+
+	<select id="checkGlobalBlock" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM WH_GUEST_BLOCK WHERE DEVICE_ID =
+		#{deviceId}
+	</select>
+
+	<select id="selectPolledAdViews" parameterType="map" resultType="map">
+		SELECT
+		PRS_ID,
+		COUNT(*) AS NEW_VIEWS
+		FROM WH_AD_LOG
+		WHERE CREATED_DATE >
+		#{lastCheckTime}
+		<if test="starId != null and starId != ''">
+			AND PRS_ID = #{starId}
+		</if>
+		GROUP BY PRS_ID
+	</select>
+
+	<select id="selectDbCurrentTime" resultType="string">
+		SELECT
+		DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s')
+	</select>
+
+	<insert id="insertAutoPage" parameterType="map">
+	    INSERT INTO WH_PRESS (
+	        PRS_ID, APP_ID, PRS_PWD, PRS_NAME, PRS_COUNTRY, 
+	        PRS_TYPE, PRS_AUTH, PRS_USE_YN, IS_STAR, PRS_CREATE_DATE
 	    ) VALUES (
-	        #{MEM_ID}, 
-	        #{PRS_ID}, 
-	        #{AD_TYPE}, 
-	        #{OS},     #{ACTION}, NOW()
+	        #{pageId}, #{pageId}, '', #{name}, #{country}, 
+	        '4', 'ST', 'Y', 'Y', NOW()
 	    )
 	</insert>
 
+	<insert id="insertClaimToken" parameterType="map">
+	    INSERT INTO CLAIM_TOKENS (
+	        PAGE_ID, EMAIL, TEMP_PWD, TOKEN, EXPIRES_AT, USED
+	    ) VALUES (
+	        #{pageId}, #{email}, #{password}, #{token}, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0
+	    )
+	</insert>
+
+	<select id="selectClaimToken" parameterType="string" resultType="map">
+	    SELECT ID, PAGE_ID, EMAIL, TOKEN, USED, EXPIRES_AT, 
+	           IF(EXPIRES_AT > NOW(), 'Y', 'N') AS IS_VALID,
+	           TEMP_PWD
+	    FROM CLAIM_TOKENS 
+	    WHERE TOKEN = #{token}
+	</select>
+
+	<update id="updatePageOwner" parameterType="map">
+	    UPDATE WH_PRESS 
+	    SET OWNER_EMAIL = #{email}, 
+	        PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{password}))))) 
+	    WHERE PRS_ID = #{pageId};
+	    
+	    UPDATE CLAIM_TOKENS SET USED = 1 WHERE TOKEN = #{token};
+	</update>
+
+	<select id="selectDiscoverPages" parameterType="map" resultType="map">
+	    SELECT 
+	        PRS_ID, 
+	        PRS_NAME, 
+	        STORED_FILE_NM 
+	    FROM (
+	        (
+	            SELECT 
+	                P.PRS_ID, 
+	                P.PRS_NAME, 
+	                P.STORED_FILE_NM, 
+	                1 AS grp
+	            FROM WH_PRESS P
+	            JOIN WH_STAR_CONTENT C ON P.PRS_ID = C.PRS_ID
+	            WHERE P.PRS_USE_YN = 'Y' 
+	              AND P.IS_STAR = 'Y'
+		<if test="excludePageId != null and excludePageId != ''">
+	              AND P.PRS_ID != #{excludePageId}
+		</if>
+	            GROUP BY P.PRS_ID, P.PRS_NAME, P.STORED_FILE_NM
+	            ORDER BY MAX(C.CREATED_DATE) DESC
+	            LIMIT 16
+	        )
+	        UNION DISTINCT
+	        (
+	            SELECT 
+	                P.PRS_ID, 
+	                P.PRS_NAME, 
+	                P.STORED_FILE_NM, 
+	                2 AS grp
+	            FROM WH_PRESS P
+	            WHERE P.PRS_USE_YN = 'Y' 
+	              AND P.IS_STAR = 'Y'
+		<if test="excludePageId != null and excludePageId != ''">
+	              AND P.PRS_ID != #{excludePageId}
+		</if>
+	            ORDER BY RAND()
+	            LIMIT 20
+	        )
+	    ) AS COMBINED
+	    GROUP BY PRS_ID, PRS_NAME, STORED_FILE_NM
+	    ORDER BY MIN(grp) ASC, RAND()
+	    LIMIT 20
+	</select>
+
+	<insert id="insertMessage" parameterType="map">
+        INSERT INTO MESSAGES (
+            PAGE_ID,
+            SENDER_TYPE,
+            MESSAGE,
+            IS_READ,
+            CREATED_AT
+        ) VALUES (
+            #{pageId},
+            #{senderType}, -- 'USER' 또는 'ADMIN'
+            #{message},
+            0,
+            NOW()
+        )
+	</insert>
+
+	<select id="selectMessageList" parameterType="map" resultType="map">
+        SELECT
+            PAGE_ID,
+            SENDER_TYPE,
+            MESSAGE,
+            IS_READ,
+            CREATED_AT
+        FROM MESSAGES
+        WHERE PAGE_ID = #{pageId}
+        ORDER BY CREATED_AT ASC
+	</select>
+
+	<update id="updateMessageReadStatus" parameterType="map">
+        UPDATE MESSAGES
+        SET IS_READ = 1
+        WHERE PAGE_ID = #{pageId}
+		<choose>
+			<when test="readerType == 'USER'">
+                  AND SENDER_TYPE = 'ADMIN'
+			</when>
+			<otherwise>
+                  AND SENDER_TYPE = 'USER'
+			</otherwise>
+		</choose>
+          AND IS_READ = 0
+	</update>
+
+	<select id="selectLeaderboard" resultType="map">
+	    SELECT * FROM (
+	        SELECT 
+	            P.PRS_ID as id, 
+	            P.PRS_NAME as name, 
+	            P.STORED_FILE_NM as image,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            
+	            -- 🌟 RANK() 대신 ROW_NUMBER() 사용 + 동점자 정렬 기준 추가
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    -- 1. 통합 점수
+	                    (
+	                        IFNULL(A.viewCount, 0) * 1 + 
+	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    -- 2. 동점일 경우 조회수 높은 순
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    -- 3. 그래도 동점이면 팔로워 많은 순
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    -- 4. 그래도 동점이면 먼저 생성된 계정 우선
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	            
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    ORDER BY T.GLOBAL_RANK ASC 
+	    LIMIT 100
+	</select>
+
+	<select id="selectRevenueLeaderboard" resultType="map">
+	    SELECT * FROM (
+	        SELECT 
+	            P.PRS_ID as id, 
+	            P.PRS_NAME as name, 
+	            P.STORED_FILE_NM as image,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            
+	            -- 🌟 좋아요/팔로워 가중치를 뺀 순수 '수익(조회수)' 기반 랭킹
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    -- 1. 수익 점수 (오직 조회수 기준)
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    -- 2. 동점일 경우 팔로워 많은 순
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    -- 3. 그래도 동점이면 먼저 생성된 계정 우선
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	            
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    ORDER BY T.GLOBAL_RANK ASC 
+	    LIMIT 100
+	</select>
+
+	<select id="selectDailyLeaderboard" resultType="map">
+	    SELECT * FROM (
+	        SELECT 
+	            P.PRS_ID as id, 
+	            P.PRS_NAME as name, 
+	            P.STORED_FILE_NM as image,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            
+	            -- 오늘 발생한 조회수만 기준으로 랭킹 부여
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	            
+	        FROM WH_PRESS P
+	        INNER JOIN (  -- 🌟 핵심: 오늘 조회수가 발생한 유저만 먼저 걸러내어 속도 최적화
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	              AND CREATED_DATE >= CURDATE() -- 오늘 자정(00:00:00)부터 현재까지
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    ORDER BY T.GLOBAL_RANK ASC 
+	    LIMIT 100
+	</select>
+
+	<select id="selectDailyKings" resultType="map">
+	    WITH DailyCounts AS (
+	        -- 날짜별, 스타별 조회수 집계
+	        SELECT 
+	            DATE(A.CREATED_DATE) as rank_date, 
+	            A.PRS_ID, 
+	            COUNT(*) as viewCount
+	        FROM WH_AD_LOG A
+	        WHERE A.ACTION = 'IMPRESSION'
+	        GROUP BY DATE(A.CREATED_DATE), A.PRS_ID
+	    ),
+	    RankedDaily AS (
+	        -- 각 날짜별로 조회수 내림차순 순위 부여
+	        SELECT 
+	            rank_date, 
+	            PRS_ID, 
+	            viewCount,
+	            ROW_NUMBER() OVER(PARTITION BY rank_date ORDER BY viewCount DESC) as rn
+	        FROM DailyCounts
+	    )
+	    -- 각 날짜의 1위만 추출하여 스타 정보와 조인
+	    SELECT 
+	        DATE_FORMAT(R.rank_date, '%Y-%m-%d') as rankDate, 
+	        R.viewCount, 
+	        P.PRS_ID as id, 
+	        P.PRS_NAME as name, 
+	        P.STORED_FILE_NM as image
+	    FROM RankedDaily R
+	    JOIN WH_PRESS P ON R.PRS_ID = P.PRS_ID
+	    WHERE R.rn = 1 
+	      AND P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ORDER BY R.rank_date DESC
+	    LIMIT 30 </select>
+
+	<select id="selectMonthlyChampions" parameterType="map" resultType="map">
+	    SELECT * FROM (
+	        SELECT 
+	            P.PRS_ID as id, 
+	            P.PRS_NAME as name, 
+	            P.STORED_FILE_NM as image,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            
+	            -- 해당 월의 조회수 + 현재 시점의 좋아요/팔로워 가중치 합산
+	            (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) as score,
+	            
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	            
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION' 
+	              AND DATE_FORMAT(CREATED_DATE, '%Y-%m') = #{targetMonth} GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    WHERE T.viewCount > 0 ORDER BY T.GLOBAL_RANK ASC 
+	    LIMIT 5
+	</select>
+
+	<select id="selectYearlyChampions" parameterType="map" resultType="map">
+	    SELECT * FROM (
+	        SELECT 
+	            P.PRS_ID as id, 
+	            P.PRS_NAME as name, 
+	            P.STORED_FILE_NM as image,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            
+	            (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) as score,
+	            
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	            
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION' 
+	              AND DATE_FORMAT(CREATED_DATE, '%Y') = #{targetYear} GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    WHERE T.viewCount > 0
+	    ORDER BY T.GLOBAL_RANK ASC 
+	    LIMIT 5
+	</select>
+
+	<insert id="insertLazyClaimToken" parameterType="map">
+        INSERT INTO CLAIM_TOKENS (
+            PAGE_ID, EMAIL, TEMP_PWD, TOKEN, EXPIRES_AT, USED
+        ) VALUES (
+            #{reqName}, #{email}, #{password}, #{token}, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0
+        )
+	</insert>
+
+	<insert id="insertClaimedStar" parameterType="map">
+        INSERT INTO WH_PRESS (
+            PRS_ID, PRS_PWD, PRS_NAME, PRS_COUNTRY, 
+            PRS_TYPE, PRS_AUTH, PRS_USE_YN, APP_ID, 
+            PRS_CREATE_DATE, IS_STAR, OWNER_EMAIL
+        ) VALUES (
+            #{newStarId}, 
+            CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{password}))))), 
+            #{reqName}, 
+            #{country}, '4', 'ST', 'Y', #{newStarId}, 
+            NOW(), 'Y', #{email}
+        )
+	</insert>
+
+	<update id="updateTokenUsed" parameterType="string">
+        UPDATE CLAIM_TOKENS 
+        SET USED = 1 
+        WHERE TOKEN = #{token}
+	</update>
+
+	<select id="checkEmailDuplicate" resultType="int">
+        SELECT COUNT(*) 
+        FROM WH_PRESS 
+        WHERE OWNER_EMAIL = #{email}
+	</select>
+
+	<select id="selectAvailablePages" parameterType="string" resultType="map">
+        SELECT 
+            PRS_ID as id, 
+            PRS_NAME as slug, 
+            PRS_COUNTRY as country
+        FROM WH_PRESS
+        WHERE PRS_COUNTRY = #{country}
+          AND OWNER_EMAIL IS NULL
+          AND PRS_USE_YN = 'Y'
+          AND OWNER_EMAIL IS NULL
+        ORDER BY RAND()
+        LIMIT 20
+	</select>
+
+	<update id="claimSocialPage" parameterType="map">
+        UPDATE WH_PRESS 
+        SET OWNER_EMAIL = #{email},
+        	FIREBASE_UID = #{uid},
+            PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('SOCIAL_OAUTH_USER'))))) -- 임시 비밀번호 처리
+        WHERE PRS_NAME = #{reqName} 
+          AND PRS_COUNTRY = #{country}
+          AND OWNER_EMAIL IS NULL
+	</update>
+
+	<select id="selectStarByEmail" parameterType="string" resultType="map">
+        SELECT 
+            PRS_ID as starId, 
+            PRS_NAME as name, 
+            PRS_AUTH as auth
+        FROM WH_PRESS
+        WHERE OWNER_EMAIL = #{email} 
+          AND IS_STAR = 'Y'
+          AND PRS_USE_YN = 'Y'
+	</select>
+
+	<select id="checkStarToken" parameterType="map" resultType="int">
+	    SELECT COUNT(*) 
+	    FROM WH_PRESS 
+	    WHERE PRS_ID = #{starId} 
+	      AND PRS_TOKEN = #{starToken}
+	      AND TOKEN_EXPIRED_DATE > NOW()
+	</select>
+
+	<select id="selectStarByIdPw" parameterType="map" resultType="map">
+        SELECT PRS_ID, PRS_AUTH
+        FROM WH_PRESS
+        WHERE PRS_ID = #{PRS_ID} 
+          AND PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))) 
+          AND PRS_USE_YN = 'Y'
+	</select>
+
+	<update id="updateStarToken" parameterType="map">
+        UPDATE WH_PRESS
+        SET PRS_TOKEN = #{starToken},
+            TOKEN_EXPIRED_DATE = DATE_ADD(NOW(), INTERVAL 30 DAY) -- 토큰 유효기간 30일
+        WHERE PRS_ID = #{starId}
+	</update>
+
+	<insert id="insertContentMaster" parameterType="map" useGeneratedKeys="true" keyProperty="CON_ID">
+        INSERT INTO WH_STAR_CONTENT (
+            PRS_ID, CON_BODY, YOUTUBE_URL, CREATED_DATE, IS_PINNED,
+            PIN_LINK_TEXT1, PIN_LINK_URL1, PIN_LINK_TEXT2, PIN_LINK_URL2
+        )
+        VALUES (
+            #{PRS_ID}, #{CON_BODY}, #{YOUTUBE_URL}, NOW(), IFNULL(#{IS_PINNED}, 'N'),
+            #{PIN_LINK_TEXT1}, #{PIN_LINK_URL1}, #{PIN_LINK_TEXT2}, #{PIN_LINK_URL2}
+        )
+	</insert>
+
+	<insert id="insertContentMedia" parameterType="map">
+        INSERT INTO STAR_CONTENT_MEDIA (CON_ID, MEDIA_TYPE, MEDIA_URL, THUMB_URL, SORT_ORDER)
+        VALUES (#{CON_ID}, #{MEDIA_TYPE}, #{MEDIA_URL}, #{THUMB_URL}, #{SORT_ORDER})
+	</insert>
+
+	<select id="countEmptyPages" parameterType="string" resultType="int">
+	    SELECT COUNT(*) 
+	    FROM WH_PRESS 
+	    WHERE PRS_COUNTRY = #{country} 
+	      AND (OWNER_EMAIL IS NULL OR OWNER_EMAIL = '')
+	      AND PRS_TYPE = '4'
+	</select>
+
+	<select id="selectStarByEmailAndUid" parameterType="map" resultType="map">
+	    SELECT 
+	        PRS_ID as starId, 
+	        PRS_NAME as name, 
+	        PRS_AUTH as auth
+	    FROM WH_PRESS
+	    WHERE OWNER_EMAIL = #{email} 
+	      AND FIREBASE_UID = #{uid}  -- 🌟 핵심 보안: 비밀번호처럼 검증
+	      AND IS_STAR = 'Y'
+	      AND PRS_USE_YN = 'Y'
+	</select>
+
+	<update id="updateProfile" parameterType="map">
+	    UPDATE WH_PRESS
+	    SET 
+	        PRS_NAME = #{name}
+		<if test="profileImageUrl != null and profileImageUrl != ''">
+	            , STORED_FILE_NM = #{profileImageUrl}
+		</if>
+	    WHERE PRS_ID = #{starId}
+	</update>
+
+	<!-- [신규] 특정 스타 전용 실시간 조회수 증가 확인 -->
+	<select id="selectMyNewViewsCount" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_AD_LOG
+		WHERE PRS_ID = #{starId}
+		  AND CREATED_DATE > #{lastCheckTime}
+	</select>
+
+	<!-- [신규] FCM 토큰 업데이트 -->
+	<update id="updateFcmToken" parameterType="map">
+		UPDATE WH_PRESS
+		SET FCM_TOKEN = #{fcmToken}
+		WHERE PRS_ID = #{starId}
+	</update>
+
+	<!-- [신규] 푸시 알림 수신 설정 (PUSH_YN) 변경 -->
+	<update id="updatePushSetting" parameterType="map">
+		UPDATE WH_PRESS
+		SET PUSH_YN = #{pushYn}
+		WHERE PRS_ID = #{starId}
+	</update>
+
+	<!-- [참고용] 나중에 백그라운드 푸시를 쏠 때 유저의 토큰과 상태를 가져오는 쿼리 -->
+	<select id="selectPushTargetInfo" parameterType="string" resultType="map">
+		SELECT 
+			FCM_TOKEN as fcmToken,
+			IFNULL(PUSH_YN, 'Y') as pushYn 
+		FROM WH_PRESS 
+		WHERE PRS_ID = #{starId}
+	</select>
+
+	<select id="searchStars" parameterType="map" resultType="hashmap">
+	    SELECT * FROM (
+	        SELECT
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STATUS_MSG as status,
+	            P.PRS_COUNTRY,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	            
+	            -- 글로벌 랭킹 보존 (검색 필터 전 전체 순위 기준)
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (
+	                        IFNULL(A.viewCount, 0) * 1 + 
+	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK,
+	            
+	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) T
+	    WHERE LOWER(T.name) LIKE CONCAT('%', LOWER(#{query}), '%')
+	    ORDER BY T.GLOBAL_RANK ASC
+	    LIMIT #{limit} OFFSET #{offset}
+	</select>
+
+	<select id="countSearchStars" parameterType="map" resultType="int">
+	    SELECT COUNT(*)
+	    FROM WH_PRESS
+	    WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y'
+	      AND LOWER(PRS_NAME) LIKE CONCAT('%', LOWER(#{query}), '%')
+	</select>
+
+	<select id="searchContents" parameterType="map" resultType="hashmap">
+	    SELECT
+	        C.CON_ID as contentId,
+	        C.PRS_ID as starId,
+	        P.PRS_NAME as starName,
+	        P.STORED_FILE_NM as starImage,
+	        C.CON_BODY as content
+	    FROM WH_STAR_CONTENT C
+	    JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      AND LOWER(C.CON_BODY) LIKE CONCAT('%', LOWER(#{query}), '%')
+	    ORDER BY C.CREATED_DATE DESC
+	    LIMIT #{limit} OFFSET #{offset}
+	</select>
+
+	<select id="countSearchContents" parameterType="map" resultType="int">
+	    SELECT COUNT(*)
+	    FROM WH_STAR_CONTENT C
+	    JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      AND LOWER(C.CON_BODY) LIKE CONCAT('%', LOWER(#{query}), '%')
+	</select>
+
+	<select id="checkCommentBlockExists" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_COMMENT_BLOCK
+		WHERE BLOCKER_DEVICE_ID = #{blockerDeviceId}
+		  AND BLOCKED_DEVICE_ID = #{blockedDeviceId}
+	</select>
+
+	<insert id="insertCommentBlock" parameterType="map">
+		INSERT INTO WH_COMMENT_BLOCK (
+			BLOCKER_DEVICE_ID, 
+			BLOCKED_DEVICE_ID, 
+			BLOCKED_NICKNAME,
+			CREATED_AT
+		) VALUES (
+			#{blockerDeviceId}, 
+			#{blockedDeviceId}, 
+			#{blockedNickname},
+			NOW()
+		)
+	</insert>
+
+	<delete id="deleteCommentBlock" parameterType="map">
+		DELETE FROM WH_COMMENT_BLOCK
+		WHERE BLOCKER_DEVICE_ID = #{blockerDeviceId}
+		  AND BLOCKED_DEVICE_ID = #{blockedDeviceId}
+	</delete>
+
+	<select id="selectCommentBlockList" parameterType="map" resultType="map">
+		SELECT 
+			BLOCKED_DEVICE_ID as blockedDeviceId,
+			BLOCKED_NICKNAME as blockedNickname
+		FROM WH_COMMENT_BLOCK
+		WHERE BLOCKER_DEVICE_ID = #{blockerDeviceId}
+		ORDER BY CREATED_AT DESC
+	</select>
+
+	<insert id="insertLikeLog" parameterType="map">
+	    INSERT INTO WH_LIKE_LOG (PRS_ID, DEVICE_ID, ACTION, CREATED_DATE)
+	    VALUES (#{targetId}, #{deviceId}, #{actionType}, NOW())
+	</insert>
+
+	<insert id="insertFollowerLog" parameterType="map">
+	    INSERT INTO WH_FOLLOWER_LOG (PRS_ID, DEVICE_ID, ACTION, CREATED_DATE)
+	    VALUES (#{starId}, #{deviceId}, #{actionType}, NOW())
+	</insert>
+
+	<select id="selectMyInsight" parameterType="string" resultType="map">
+	    SELECT 
+	        P.PRS_ID,
+	        
+	        -- 1. 방문자(조회수) 통계: WH_AD_LOG 활용
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION' AND DATE(CREATED_DATE) = CURDATE()) AS todayVisitors,
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION' AND DATE_FORMAT(CREATED_DATE, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')) AS monthVisitors,
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') AS totalVisitors,
+
+	        -- 2. 좋아요 통계: WH_LIKE_LOG 활용 (순수하게 받은 좋아요 횟수 카운트)
+	        (SELECT COUNT(*) FROM WH_LIKE_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'LIKE' AND DATE(CREATED_DATE) = CURDATE()) AS todayLikes,
+	        (SELECT COUNT(*) FROM WH_LIKE_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'LIKE' AND DATE_FORMAT(CREATED_DATE, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')) AS monthLikes,
+	        IFNULL(P.LIKE_CNT, 0) AS totalLikes,
+
+	        -- 3. 즐겨찾기(팔로우) 통계: WH_FOLLOWER_LOG 활용
+	        (SELECT COUNT(*) FROM WH_FOLLOWER_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'FOLLOW' AND DATE(CREATED_DATE) = CURDATE()) AS todayFavorites,
+	        (SELECT COUNT(*) FROM WH_FOLLOWER_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'FOLLOW' AND DATE_FORMAT(CREATED_DATE, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')) AS monthFavorites,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS totalFavorites
+
+	    FROM WH_PRESS P
+	    WHERE P.PRS_ID = #{starId}
+	</select>
+
+	<select id="selectTotalViewsForRevenue" parameterType="string" resultType="long">
+	    SELECT COUNT(*) 
+	    FROM WH_AD_LOG 
+	    WHERE PRS_ID = #{starId} 
+	</select>
+
+	<select id="selectRecentVisitors" parameterType="string" resultType="map">
+	    SELECT 
+	        A.MEM_ID as deviceId,
+	        MAX(A.CREATED_DATE) as actionDate,
+	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(A.MEM_ID, 1, 5))) as name,
+	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
+	    FROM WH_AD_LOG A
+	    LEFT JOIN WH_PRESS P ON A.MEM_ID = P.PRS_ID
+	    WHERE A.PRS_ID = #{starId} AND A.ACTION = 'IMPRESSION'
+	    GROUP BY A.MEM_ID, P.PRS_NAME, P.STORED_FILE_NM
+	    ORDER BY MAX(A.CREATED_DATE) DESC
+	    LIMIT 500
+	</select>
+
+	<select id="selectRecentLikes" parameterType="string" resultType="map">
+	    SELECT 
+	        L.DEVICE_ID as deviceId,
+	        MAX(L.CREATED_DATE) as actionDate,
+	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(L.DEVICE_ID, 1, 5))) as name,
+	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
+	    FROM WH_LIKE_LOG L
+	    LEFT JOIN WH_PRESS P ON L.DEVICE_ID = P.PRS_ID
+	    WHERE L.PRS_ID = #{starId} AND L.ACTION = 'LIKE'
+	    GROUP BY L.DEVICE_ID, P.PRS_NAME, P.STORED_FILE_NM
+	    ORDER BY MAX(L.CREATED_DATE) DESC
+	    LIMIT 500
+	</select>
+
+	<select id="selectRecentFavorites" parameterType="string" resultType="map">
+	    SELECT 
+	        F.DEVICE_ID as deviceId,
+	        MAX(F.CREATED_DATE) as actionDate,
+	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(F.DEVICE_ID, 1, 5))) as name,
+	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
+	    FROM WH_FOLLOWER_LOG F
+	    LEFT JOIN WH_PRESS P ON F.DEVICE_ID = P.PRS_ID
+	    WHERE F.PRS_ID = #{starId} AND F.ACTION = 'FOLLOW'
+	    GROUP BY F.DEVICE_ID, P.PRS_NAME, P.STORED_FILE_NM
+	    ORDER BY MAX(F.CREATED_DATE) DESC
+	    LIMIT 500
+	</select>
+
+	<!-- ========================================== -->
+	<!-- [신규] 즐겨찾기한 스타 상세 정보 조회 API -->
+	<!-- ========================================== -->
+	<select id="selectFavoriteStars" parameterType="map" resultType="hashmap">
+	    WITH RankedStars AS (
+	        SELECT
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STATUS_MSG as status,
+	            P.PRS_COUNTRY,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	            
+	            -- 로비(selectAllStars)와 완벽히 동일한 글로벌 랭킹 계산
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (
+	                        IFNULL(A.viewCount, 0) * 1 + 
+	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK,
+	            
+	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    )
+	    SELECT * 
+	    FROM RankedStars
+	    WHERE id IN 
+		<foreach item="item" collection="starIds" open="(" separator="," close=")">
+	        #{item}
+		</foreach>
+	    ORDER BY GLOBAL_RANK ASC
+	</select>
+
+	<!-- [신규] 상단고정 글로벌 프로모션 정보 조회 -->
+	<select id="selectActivePromotion" resultType="map">
+		SELECT 
+			PIN_LINK_TEXT1, PIN_LINK_URL1, PIN_LINK_TEXT2, PIN_LINK_URL2
+		FROM WH_PIN_PROMOTION
+		WHERE STATUS = 'ACTIVE'
+		LIMIT 1
+	</select>
+
+	<!-- [신규] 상단고정 글로벌 프로모션 정보 등록/수정 -->
+	<insert id="insertOrUpdatePromotion" parameterType="map">
+		INSERT INTO WH_PIN_PROMOTION (
+			ID, PIN_LINK_TEXT1, PIN_LINK_URL1, PIN_LINK_TEXT2, PIN_LINK_URL2, STATUS, CREATED_DATE, UPDATED_DATE
+		) VALUES (
+			1, #{PIN_LINK_TEXT1}, #{PIN_LINK_URL1}, #{PIN_LINK_TEXT2}, #{PIN_LINK_URL2}, 'ACTIVE', NOW(), NOW()
+		)
+		ON DUPLICATE KEY UPDATE
+			PIN_LINK_TEXT1 = #{PIN_LINK_TEXT1},
+			PIN_LINK_URL1 = #{PIN_LINK_URL1},
+			PIN_LINK_TEXT2 = #{PIN_LINK_TEXT2},
+			PIN_LINK_URL2 = #{PIN_LINK_URL2},
+			UPDATED_DATE = NOW()
+	</insert>
+	
+	<select id="selectNewCreators" parameterType="map" resultType="hashmap">
+	    SELECT 
+	        P.PRS_ID as id,
+	        P.PRS_NAME as name,
+	        P.STORED_FILE_NM as image,
+	        P.STATUS_MSG as status,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	        IFNULL(A.viewCount, 0) AS viewCount
+	    FROM WH_PRESS P
+	    -- 게시물을 조인
+	    JOIN WH_STAR_CONTENT C ON P.PRS_ID = C.PRS_ID
+	    -- 조회수(뷰카운트) 조인
+	    LEFT JOIN (
+	        SELECT PRS_ID, COUNT(*) as viewCount
+	        FROM WH_AD_LOG
+	        WHERE ACTION = 'IMPRESSION'
+	        GROUP BY PRS_ID
+	    ) A ON P.PRS_ID = A.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' 
+	      AND P.IS_STAR = 'Y'
+	      -- 대표님 아이디어: 토큰이 있는 진짜 가입 유저만
+	      AND P.PRS_TOKEN IS NOT NULL 
+	      AND P.PRS_TOKEN != ''
+	      -- 필터: 접속자의 국가(선택사항, 필요없으면 제거 가능)
+	      <if test="country != null and country != ''">
+	          AND P.PRS_COUNTRY = #{country}
+	      </if>
+	    -- 스타 단위로 그룹화
+	    GROUP BY 
+	        P.PRS_ID, P.PRS_NAME, P.STORED_FILE_NM, P.STATUS_MSG, 
+	        P.FOLLOWER_CNT, A.viewCount
+	    -- 대표님 아이디어: 컨텐츠가 딱 1개인 사람만!
+	    HAVING COUNT(C.CON_ID) = 1
+	    LIMIT 40
+	</select>
 </mapper>

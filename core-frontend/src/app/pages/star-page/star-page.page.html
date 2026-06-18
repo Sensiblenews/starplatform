@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/lobby" text=""></ion-back-button>
     </ion-buttons>
-    <ion-title mode="md">Star Platform</ion-title>
+    <ion-title mode="md" (click)="goBack()" style="cursor: pointer;">Star Platform</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="presentPopover($event)">
         <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
@@ -158,6 +158,18 @@
             </ion-avatar>
             <span class="writer-name">{{ item.MEM_NAME || 'Anonymous' }}</span>
             
+            <!-- 🌟 [신규] 상단 고정 게시물 기업/상품 링크 영역 (최대 2개 링크 지원) -->
+            <div *ngIf="item.IS_PINNED === 'Y' && ((item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()) || (item.PIN_LINK_TEXT2 && item.PIN_LINK_TEXT2.trim()))" 
+                 class="pin-hyperlinks-wrapper" 
+                 [class.has-trash]="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')">
+              <span *ngIf="item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()" class="pin-hyperlink" (click)="openPinLink(item.PIN_LINK_URL1 || 'https://google.com', $event)">
+                {{ item.PIN_LINK_TEXT1 }}
+              </span>
+              <span *ngIf="item.PIN_LINK_TEXT2 && item.PIN_LINK_TEXT2.trim()" class="pin-hyperlink" (click)="openPinLink(item.PIN_LINK_URL2 || 'https://naver.com', $event)">
+                {{ item.PIN_LINK_TEXT2 }}
+              </span>
+            </div>
+            
             <ion-icon 
               *ngIf="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')" 
               name="trash-outline" 
@@ -240,4 +252,5 @@
       </div>
     </div>
   </div>
+
 </ion-content>

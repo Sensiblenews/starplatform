@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="market">
+
+    <insert id="insertIpoRequest" parameterType="map">
+        INSERT INTO ipo_requests (
+            name, category, description, sns_link, collab_price, partner_price, email, status
+        ) VALUES (
+            #{name}, #{category}, #{description}, #{snsLink}, #{collabPrice}, #{partnerPrice}, #{email}, 'pending'
+        )
+    </insert>
+
+    <select id="selectIpoList" parameterType="map" resultType="map">
+        SELECT 
+            id, name, category, description, sns_link AS snsLink, 
+            collab_price AS collabPrice, partner_price AS partnerPrice, status, created_at
+        FROM ipo_requests
+        WHERE status = 'approved'
+        ORDER BY 
+            <choose>
+                <when test="sortType == 'price_asc'">
+                    collab_price ASC, created_at DESC
+                </when>
+                <otherwise>
+                    created_at DESC
+                </otherwise>
+            </choose>
+    </select>
+
+    <insert id="insertPurchaseRequest" parameterType="map">
+        INSERT INTO purchase_requests (
+            target_ipo_id, company_name, manager_name, contact, email, message
+        ) VALUES (
+            #{target_ipo_id}, #{companyName}, #{managerName}, #{contact}, #{email}, #{message}
+        )
+    </insert>
+
+</mapper>

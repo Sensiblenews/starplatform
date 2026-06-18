@@ -1,0 +1,105 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서비스 이용약관 (Terms of Service) | Star Platform</title>
+    <style>
+        body { font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.7; color: #333; padding: 40px 20px; max-width: 900px; margin: 0 auto; background-color: #f4f7f9; }
+        .container { background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        h1 { font-size: 2rem; border-bottom: 3px solid #3880ff; padding-bottom: 15px; color: #1a1a1a; margin-bottom: 30px; }
+        h2 { margin-top: 40px; color: #2c3e50; font-size: 1.3rem; border-left: 5px solid #3880ff; padding-left: 15px; }
+        p, li { margin-bottom: 12px; font-size: 1rem; color: #4f5b66; }
+        ul { padding-left: 20px; }
+        .highlight { color: #3880ff; font-weight: 600; }
+        .footer-info { margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.9rem; color: #888; }
+        .kr-section { margin-top: 80px; padding-top: 40px; border-top: 3px dashed #ddd; }
+        .lang-notice { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 30px; font-size: 0.9rem; color: #666; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="lang-notice">
+            This document is provided in both English and Korean. <br>본 문서는 영문과 국문으로 제공됩니다. (국문은 하단 참조)
+        </div>
+
+        <h1>Terms of Service</h1>
+        
+        <p>Welcome to <span class="highlight">Star Platform</span> provided by "Sensible News" (hereinafter referred to as the "Company"). These Terms of Service govern your use of our app and website.</p>
+
+        <h2>1. Purpose</h2>
+        <p>The purpose of these Terms is to set forth the rights, obligations, and responsibilities of the Company and the User in connection with the use of the Star Platform service.</p>
+
+        <h2>2. User Obligations</h2>
+        <p>Users must not engage in the following activities:</p>
+        <ul>
+            <li>Providing false information or stealing others' information.</li>
+            <li>Abnormal or unauthorized methods to acquire points (Stars) or manipulate rankings.</li>
+            <li>Infringing on the intellectual property rights of the Company or third parties.</li>
+            <li>Interfering with the normal operation of the Service.</li>
+        </ul>
+
+        <h2>3. Points (Stars) and Rewards</h2>
+        <p>Users may earn "Stars" through activities within the Service (e.g., viewing ads, participating in events). Stars are non-transferable and cannot be exchanged for real currency unless explicitly stated by the Company. The Company reserves the right to adjust point policies with prior notice.</p>
+
+        <h2>4. Suspension of Service</h2>
+        <p>The Company may temporarily suspend the provision of the Service for maintenance, replacement, or breakdown of information and communication equipment. In such cases, the Company will notify Users in advance, except in emergencies.</p>
+
+        <h2>5. Disclaimer of Warranties</h2>
+        <p>The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Company explicitly disclaims any warranties regarding the accuracy, reliability, or uninterrupted use of the Service.</p>
+
+        <h2>6. Contact Information</h2>
+        <p>If you have any questions about these Terms, please contact us at:</p>
+        <ul>
+            <li><strong>Email:</strong> <a href="mailto:witchhunting777@gmail.com">witchhunting777@gmail.com</a></li>
+        </ul>
+
+        <div class="footer-info">
+            <p>Notification Date: April 11, 2026</p>
+            <p>Effective Date: April 11, 2026</p>
+        </div>
+
+
+        <div class="kr-section">
+            <h1>서비스 이용약관</h1>
+            
+            <p>“센서블뉴스”(이하 “회사”)가 제공하는 <span class="highlight">Star Platform</span> 서비스에 오신 것을 환영합니다. 본 약관은 회원이 제공되는 서비스를 이용함에 있어 회사와 회원 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.</p>
+
+            <h2>1. 약관의 효력 및 변경</h2>
+            <p>본 약관은 서비스를 이용하고자 하는 모든 회원에게 효력이 발생합니다. 회사는 관련 법령을 위배하지 않는 범위 내에서 본 약관을 개정할 수 있으며, 개정 시에는 사전에 공지합니다.</p>
+
+            <h2>2. 회원의 의무</h2>
+            <p>회원은 서비스를 이용할 때 다음 각 호의 행위를 하여서는 안 됩니다.</p>
+            <ul>
+                <li>타인의 정보 도용 및 허위 정보 입력</li>
+                <li>비정상적인 방법으로 포인트(별)를 획득하거나 랭킹을 조작하는 행위</li>
+                <li>회사 및 제3자의 지적재산권 등 기타 권리를 침해하는 행위</li>
+                <li>기타 불법적이거나 부당한 행위 및 서비스의 정상적인 운영을 방해하는 행위</li>
+            </ul>
+
+            <h2>3. 포인트(별) 및 보상</h2>
+            <p>회원은 서비스 내 활동(광고 시청, 이벤트 참여 등)을 통해 포인트 성격의 "별"을 획득할 수 있습니다. 획득한 별은 타인에게 양도할 수 없으며, 회사가 명시적으로 정한 경우를 제외하고는 현금으로 환급할 수 없습니다. 회사는 운영상 필요한 경우 별의 적립 및 사용 기준을 변경할 수 있습니다.</p>
+
+            <h2>4. 서비스의 중단</h2>
+            <p>회사는 컴퓨터 등 정보통신설비의 보수점검, 교체 및 고장, 통신두절 등의 사유가 발생한 경우에는 서비스의 제공을 일시적으로 중단할 수 있습니다. 이 경우 회사는 사전에 회원에게 통지하며, 부득이한 사유가 있는 경우 사후에 통지할 수 있습니다.</p>
+
+            <h2>5. 면책조항</h2>
+            <p>회사는 천재지변, 디도스(DDoS) 공격 등 불가항력으로 인하여 서비스를 제공할 수 없는 경우에는 서비스 제공에 관한 책임이 면제됩니다. 또한 회원의 귀책사유로 인한 서비스 이용의 장애에 대하여 책임을 지지 않습니다.</p>
+
+            <h2>6. 문의 및 연락처</h2>
+            <p>본 약관과 관련된 문의사항이 있으시면 아래 이메일로 연락해 주시기 바랍니다.</p>
+            <ul>
+                <li><strong>이메일:</strong> <a href="mailto:witchhunting777@gmail.com">witchhunting777@gmail.com</a></li>
+            </ul>
+
+            <div class="footer-info">
+                <p>공고일자: 2026년 04월 11일</p>
+                <p>시행일자: 2026년 04월 11일</p>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>

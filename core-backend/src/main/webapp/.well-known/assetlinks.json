@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.co.sensiblenews.witchHuntingVU2D7F2P7E",
+      "sha256_cert_fingerprints": [
+	"BE:D5:AD:83:CC:74:7F:95:C3:BB:81:32:6F:EF:50:E5:BD:CA:DF:62:8A:E5:78:9C:A9:07:A2:B8:D5:80:AC:79",
+        "37:FE:51:2D:EE:75:E6:96:76:AB:E9:B3:03:CE:53:F0:6C:31:6B:BA:39:06:25:2C:80:44:5F:1C:F9:15:46:49"
+      ]
+    }
+  }
+]

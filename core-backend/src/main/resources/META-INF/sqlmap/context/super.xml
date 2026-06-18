@@ -61,10 +61,19 @@
     <select id="selectSuperLogin" parameterType="map" resultType="com.sensible.admin.domain.UserVO">
         SELECT
             PRS_ID, PRS_NAME, PRS_AUTH, PRS_TYPE, APP_ID, PRS_USE_YN, PRS_COUNTRY FROM WH_PRESS
-        WHERE PRS_ID = #{PRS_ID}
+        WHERE (PRS_ID = #{PRS_ID} OR OWNER_EMAIL = #{PRS_ID})
           AND PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD})))))
           AND PRS_USE_YN = 'Y'
     </select>
+    
+    <update id="updateStarStatus" parameterType="java.util.Map">
+	    UPDATE WH_PRESS
+	    SET 
+	        PRS_USE_YN = #{TARGET_STATUS},
+	        PRS_UPDATE_DATE = CURRENT_TIMESTAMP
+	    WHERE 
+	        PRS_ID = #{PRS_ID}
+	</update>
 
     <insert id="insertLocalAdmin" parameterType="map">
         INSERT INTO WH_PRESS (
@@ -103,12 +112,18 @@
             PRS_ID, PRS_NAME, PRS_COUNTRY, PRS_USE_YN, 
             PRS_CREATE_DATE AS CON_CREATE_DATE,
             (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = A.PRS_ID) AS AD_VIEW_CNT,
-            IFNULL(IS_POPULAR, 'N') AS IS_POPULAR  FROM WH_PRESS A
+            IFNULL(IS_POPULAR, 'N') AS IS_POPULAR,
+            
+            -- [신규] 즐겨찾기(팔로워) 수 추가
+            IFNULL(FOLLOWER_CNT, 0) AS FOLLOWER_CNT
+            
+        FROM WH_PRESS A
         WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
         <if test="_parameter != null and _parameter != ''">
             AND PRS_COUNTRY = #{country}
         </if>
-        ORDER BY IS_POPULAR DESC, PRS_CREATE_DATE DESC </select>
+        ORDER BY IS_POPULAR DESC, PRS_CREATE_DATE DESC 
+    </select>
 
     <select id="countPopularStars" parameterType="string" resultType="int">
         SELECT COUNT(*) 
@@ -148,34 +163,37 @@
 	</select>
 
     <update id="updateFeedPin" parameterType="map">
-        UPDATE WH_STAR_CONTENT
-        SET IS_PINNED = #{targetStatus}
-        WHERE CON_ID = #{conId}
-    </update>
+	    UPDATE WH_STAR_CONTENT
+	    SET IS_PINNED = #{targetStatus},
+	        PIN_LINK_TEXT1 = #{pinLinkText1},
+	        PIN_LINK_URL1 = #{pinLinkUrl1},
+	        PIN_LINK_TEXT2 = #{pinLinkText2},
+	        PIN_LINK_URL2 = #{pinLinkUrl2}
+	    WHERE CON_ID = #{conId}
+	</update>
 
     <delete id="deleteFeedMaster" parameterType="string">
         DELETE FROM WH_STAR_CONTENT WHERE CON_ID = #{conId}
     </delete>
     
     
-	<select id="selectRecentFeedList" parameterType="string" resultType="map">
+	<select id="selectRecentFeedList" parameterType="map" resultType="map">
         SELECT 
             A.CON_ID,
             A.CON_BODY,
             A.CREATED_DATE,
             A.IS_PINNED,
-            B.PRS_NAME,      B.PRS_ID,        D.THUMB_URL as image,
-            D.MEDIA_URL,
-            D.MEDIA_TYPE
+            B.PRS_NAME, B.PRS_ID, D.THUMB_URL as image,
+            D.MEDIA_URL, D.MEDIA_TYPE
         FROM WH_STAR_CONTENT A
         JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
         JOIN STAR_CONTENT_MEDIA D ON A.CON_ID = D.CON_ID
         WHERE D.SORT_ORDER = 0
-        <if test="_parameter != null and _parameter != ''">
+        <if test="country != null and country != ''">
             AND B.PRS_COUNTRY = #{country}
         </if>
         ORDER BY A.CREATED_DATE DESC
-        LIMIT 100
+        LIMIT #{limit} OFFSET #{offset}
     </select>
     
     <select id="selectMonthlyStarStats" parameterType="map" resultType="map">
@@ -228,5 +246,177 @@
         
         GROUP BY B.PRS_ID, B.PRS_NAME, B.PRS_COUNTRY
         ORDER BY TOTAL_CNT DESC
+    </select>
+    
+    <select id="selectAvailableStarsForOrder" resultType="map">
+        SELECT PRS_ID, PRS_NAME FROM WH_PRESS 
+        WHERE PRS_TYPE = '4' AND PRS_USE_YN = 'Y'
+        <if test="_parameter != null and _parameter != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        ORDER BY PRS_NAME ASC
+    </select>
+
+    <select id="selectCurrentOrderSettings" resultType="map">
+        SELECT PRS_ID, POPULAR_ORDER, LIST_ORDER FROM WH_PRESS 
+        WHERE (POPULAR_ORDER > 0 OR LIST_ORDER > 0)
+    </select>
+
+    <update id="resetSMOrder">
+        UPDATE WH_PRESS 
+        SET POPULAR_ORDER = 0,
+            LIST_ORDER = CASE WHEN LIST_ORDER BETWEEN 1 AND 16 THEN 0 ELSE LIST_ORDER END
+    </update>
+
+    <update id="resetLCOrder" parameterType="string">
+        UPDATE WH_PRESS 
+        SET LIST_ORDER = 0
+        WHERE PRS_COUNTRY = #{country} AND LIST_ORDER BETWEEN 17 AND 32
+    </update>
+
+    <update id="updatePopularOrder" parameterType="map">
+        UPDATE WH_PRESS SET POPULAR_ORDER = #{POPULAR_ORDER} WHERE PRS_ID = #{PRS_ID}
+    </update>
+    <update id="updateListOrder" parameterType="map">
+        UPDATE WH_PRESS SET LIST_ORDER = #{LIST_ORDER} WHERE PRS_ID = #{PRS_ID}
+    </update>
+    
+	<select id="selectAdminIpoList" resultType="map">
+	    SELECT 
+	        id, name, category, description, sns_link, 
+	        collab_price, partner_price, email, status,
+	        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as created_at
+	    FROM ipo_requests
+	    WHERE status != 'hidden'  ORDER BY 
+	        CASE WHEN status = 'pending' THEN 1 ELSE 2 END ASC, -- 대기중인 걸 가장 위로
+	        created_at DESC
+	</select>
+
+    <update id="updateIpoStatus" parameterType="map">
+        UPDATE ipo_requests 
+        SET status = #{status} 
+        WHERE id = #{id}
+    </update>
+    
+    <update id="updateCommentStatus" parameterType="hashmap">
+	    UPDATE WH_GUEST_COMMENT 
+	    SET STATUS = #{STATUS} -- 'BLIND' 또는 'DELETE'
+	    WHERE CMT_ID = #{cmtId}
+	</update>
+	
+	<insert id="insertCommentReport" parameterType="hashmap">
+	    INSERT INTO WH_GUEST_REPORT (
+	        TARGET_TYPE, TARGET_ID, REPORTER_DEVICE_ID, REASON, CREATED_DATE
+	    ) VALUES (
+	        'COMMENT', #{cmtId}, #{deviceId}, #{reason}, NOW()
+	    )
+	</insert>
+	
+	<insert id="insertBlacklist" parameterType="hashmap">
+	    INSERT INTO WH_GUEST_BLACKLIST (
+	        DEVICE_ID, REASON, PRS_ID, CREATED_DATE
+	    ) VALUES (
+	        #{targetDeviceId}, #{reason}, #{prsId}, NOW()
+	    )
+	    ON DUPLICATE KEY UPDATE REASON = #{reason}
+	</insert>
+	
+	<select id="checkIsBlocked" parameterType="string" resultType="int">
+	    SELECT COUNT(*) FROM WH_GUEST_BLACKLIST WHERE DEVICE_ID = #{deviceId}
+	</select>
+	
+	<select id="selectReportList" resultType="map">
+	    SELECT 
+	        R.REPORT_ID,
+	        R.TARGET_TYPE,
+	        R.TARGET_ID,
+	        R.REPORTER_DEVICE_ID,
+	        R.REASON,
+	        DATE_FORMAT(R.CREATED_DATE, '%Y-%m-%d %H:%i') AS REPORT_DATE,
+	        C.CONTENT AS REPORTED_CONTENT,
+	        C.NICKNAME AS REPORTED_NICKNAME,
+	        C.DEVICE_ID AS REPORTED_DEVICE_ID,
+	        C.STATUS AS COMMENT_STATUS
+	    FROM WH_GUEST_REPORT R
+	    LEFT JOIN WH_GUEST_COMMENT C ON R.TARGET_ID = C.CMT_ID AND R.TARGET_TYPE = 'COMMENT'
+	    WHERE C.STATUS = 'NORMAL'  -- 🌟 조건 1: 아직 살아있는(NORMAL) 댓글만 보여줌
+	      AND NOT EXISTS (         -- 🌟 조건 2: 이미 영구 차단(글로벌 블락)된 기기의 신고는 안 보여줌
+	          SELECT 1 
+	          FROM WH_GUEST_BLOCK B 
+	          WHERE B.DEVICE_ID = C.DEVICE_ID
+	      )
+	    ORDER BY R.CREATED_DATE DESC
+	</select>
+	
+	<insert id="insertGlobalBlock" parameterType="hashmap">
+	    INSERT INTO WH_GUEST_BLOCK (DEVICE_ID, REASON, CREATED_DATE)
+	    VALUES (#{deviceId}, #{reason}, NOW())
+	    ON DUPLICATE KEY UPDATE REASON = #{reason}
+	</insert>
+	
+	<insert id="insertAdminFeed" parameterType="map">
+        INSERT INTO WH_ADMIN_CONTENT (ADMIN_ID, ADMIN_LEVEL, ADMIN_COUNTRY, CON_BODY, IMAGE_URL, CREATED_DATE)
+        VALUES (#{ADMIN_ID}, #{ADMIN_LEVEL}, #{ADMIN_COUNTRY}, #{CON_BODY}, #{IMAGE_URL}, NOW())
+    </insert>
+    
+    <delete id="deleteAdminFeed" parameterType="string">
+        DELETE FROM WH_ADMIN_CONTENT WHERE ADMIN_CON_ID = #{realConId}
+    </delete>
+    
+    <select id="selectTotalUnreadMessages" resultType="int">
+        SELECT COUNT(*) FROM MESSAGES WHERE SENDER_TYPE = 'USER' AND IS_READ = 0
+    </select>
+
+    <select id="selectMessageThreads" resultType="map">
+        SELECT 
+            M.PAGE_ID, 
+            P.PRS_NAME, 
+            MAX(M.CREATED_AT) as LAST_MSG_TIME,
+            (SELECT MESSAGE FROM MESSAGES WHERE PAGE_ID = M.PAGE_ID ORDER BY CREATED_AT DESC LIMIT 1) as LAST_MSG,
+            SUM(CASE WHEN M.SENDER_TYPE = 'USER' AND M.IS_READ = 0 THEN 1 ELSE 0 END) as UNREAD_COUNT
+        FROM MESSAGES M
+        JOIN WH_PRESS P ON M.PAGE_ID = P.PRS_ID
+        GROUP BY M.PAGE_ID, P.PRS_NAME
+        ORDER BY LAST_MSG_TIME DESC
+    </select>
+    
+    <select id="selectDAU" parameterType="string" resultType="int">
+        SELECT COUNT(DISTINCT A.MEM_ID)
+        FROM WH_AD_LOG A
+        <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID AND B.PRS_COUNTRY = #{country}
+        </if>
+        WHERE A.ACTION = 'IMPRESSION'
+          AND DATE(A.CREATED_DATE) = CURDATE()
+    </select>
+
+    <select id="selectNewSignups" parameterType="string" resultType="int">
+        SELECT COUNT(*)
+        FROM WH_PRESS
+        WHERE DATE(PRS_CREATE_DATE) = CURDATE()
+        <if test="_parameter != null and _parameter != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+    </select>
+
+    <select id="selectRetentionRate" parameterType="string" resultType="int">
+        SELECT 
+            IFNULL(ROUND((COUNT(DISTINCT TODAY.MEM_ID) / NULLIF(COUNT(DISTINCT YESTERDAY.MEM_ID), 0)) * 100), 0)
+        FROM (
+            SELECT DISTINCT A.MEM_ID
+            FROM WH_AD_LOG A
+            <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID AND B.PRS_COUNTRY = #{country}
+            </if>
+            WHERE A.ACTION = 'IMPRESSION' AND DATE(A.CREATED_DATE) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+        ) YESTERDAY
+        LEFT JOIN (
+            SELECT DISTINCT A.MEM_ID
+            FROM WH_AD_LOG A
+            <if test="_parameter != null and _parameter != ''">
+            INNER JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID AND B.PRS_COUNTRY = #{country}
+            </if>
+            WHERE A.ACTION = 'IMPRESSION' AND DATE(A.CREATED_DATE) = CURDATE()
+        ) TODAY ON YESTERDAY.MEM_ID = TODAY.MEM_ID
     </select>
 </mapper>

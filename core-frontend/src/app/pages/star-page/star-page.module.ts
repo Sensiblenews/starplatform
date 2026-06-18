@@ -9,13 +9,15 @@ import { TruncatePipe } from 'src/app/pipes/truncate.pipe';
 import { StarMenuComponent } from './star-menu.component';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
+import { AdminWriteModalModule } from '../lobby/modals/admin-write-modal.module';
 
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    StarPagePageRoutingModule
+    StarPagePageRoutingModule,
+    AdminWriteModalModule
   ],
   declarations: [StarPagePage, IsPlayingPipe, TruncatePipe, StarMenuComponent, CommentModalComponent, MyInsightModalComponent]
 })

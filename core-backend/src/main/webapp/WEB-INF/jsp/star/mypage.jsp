@@ -1,10 +1,10 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Star Page</title>
+    <title>My Creator Page</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -18,7 +18,7 @@
         .gallery-item:hover { transform: scale(1.02); }
         .btn-delete { position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; }
         
-        /* [신규] 업로드 프리뷰 박스 스타일 */
+        /* 업로드 프리뷰 박스 스타일 */
 		.upload-container {
 		    display: flex;
 		    flex-wrap: wrap;
@@ -88,8 +88,8 @@
 
 <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container">
-        <span class="navbar-brand mb-0 h1">🌟 Star Creator Studio</span>
-        <a href="/witch/super/logout.do" class="btn btn-outline-light btn-sm">로그아웃</a>
+        <span class="navbar-brand mb-0 h1">🌟 Creator Studio</span>
+        <a href="/witch/super/logout.do" class="btn btn-outline-light btn-sm">Logout</a>
     </div>
 </nav>
 
@@ -98,51 +98,63 @@
         <div class="col-md-4">
             <div class="profile-card mb-4">
                 <form id="profileForm" enctype="multipart/form-data">
+          
                     <div class="mb-3 position-relative">
                         <img src="${myInfo.STORED_FILE_NM != null ? myInfo.STORED_FILE_NM : '/witch/resources/img/avatar.svg'}" 
                              class="profile-img mb-3" id="previewImg" 
-                             onerror="this.src='/witch/resources/img/avatar.svg">
+                             onerror="this.src='/witch/resources/img/avatar.svg'">
                         <br>
                         <label class="btn btn-sm btn-outline-primary mt-2">
-                            <i class="fas fa-camera"></i> 사진 변경
+                            <i class="fas fa-camera"></i> Change Photo
                             <input type="file" name="profileImage" style="display: none;" onchange="readURL(this);">
                         </label>
                     </div>
                     
                     <h4 class="fw-bold">${myInfo.PRS_ID}</h4>
-                    <p class="text-muted small">${myInfo.PRS_COUNTRY} 지역 스타</p>
-
+               
+                    <p class="text-muted small">Creator from ${myInfo.PRS_COUNTRY}</p>
+					<div class="mb-3">
+                        <span class="badge bg-danger rounded-pill px-3 py-2 fs-6 shadow-sm">
+                            <i class="fas fa-heart me-1"></i> Favorite Fans: ${myInfo.FOLLOWER_CNT != null ? myInfo.FOLLOWER_CNT : 0}
+                        </span>
+                        <button type="button" class="btn btn-outline-dark btn-sm rounded-pill mt-1" onclick="openStarCommentModal()">
+					        <i class="fas fa-comments"></i> Profile Comments
+					    </button>
+                    </div>
+     
                     <hr>
                     <div class="mb-3 text-start">
-                        <label class="form-label fw-bold">활동명 (Display Name)</label>
+                        <label class="form-label fw-bold">Display Name</label>
                         <input type="text" class="form-control" name="PRS_NAME" value="${myInfo.PRS_NAME}">
                     </div>
                     <div class="mb-3 text-start">
-                        <label class="form-label fw-bold">새 비밀번호 (변경 시 입력)</label>
-                        <input type="password" class="form-control" name="PRS_PWD" placeholder="변경할 경우에만 입력">
+                        <label class="form-label fw-bold">New Password (Optional)</label>
+                        <input type="password" class="form-control" name="PRS_PWD" placeholder="Enter only if changing">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 fw-bold">프로필 저장</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Save Profile</button>
                 </form>
             </div>
         </div>
 
         <div class="col-md-8">
 		    <div class="d-flex justify-content-between align-items-center mb-3">
-		        <h4 class="fw-bold"><i class="fas fa-images me-2"></i>나의 피드</h4>
+		      
+                <h4 class="fw-bold"><i class="fas fa-images me-2"></i>My Feed</h4>
 		        
 		        <button class="btn btn-dark fw-bold" data-bs-toggle="modal" data-bs-target="#writeModal">
-		            <i class="fas fa-pen"></i> 글쓰기
+		            <i class="fas fa-pen"></i> Write
 		        </button>
 		    </div>
 		
 		    <div class="row g-3">
 		    	<div class="row g-3">
                 <c:forEach var="item" items="${gallery}">
+               
                     <div class="col-6 col-md-4">
                         <div class="gallery-item position-relative">
                             <img src="${item.IMG_URL}" class="gallery-img" 
 							     onclick="viewFeed(${item.CON_ID})" 
-							     style="cursor: pointer;" title="클릭해서 상세보기">
+							     style="cursor: pointer;" title="Click to view details">
                             
                             <c:if test="${item.MEDIA_TYPE eq 'VIDEO'}">
                                 <div class="position-absolute top-50 start-50 translate-middle">
@@ -170,7 +182,7 @@
                 <c:if test="${empty gallery}">
                     <div class="col-12 text-center py-5">
                         <i class="fas fa-camera fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">아직 업로드된 게시물이 없습니다.<br>첫 번째 게시물을 올려보세요!</p>
+                        <p class="text-muted">No posts uploaded yet.<br>Upload your first post!</p>
                     </div>
                 </c:if>
             </div>
@@ -182,27 +194,28 @@
 		    <div class="modal-content">
 		      
 		      <div class="modal-header bg-dark text-white">
-		        <h5 class="modal-title fw-bold"><i class="fas fa-edit"></i> 새 게시물 작성</h5>
+		        <h5 class="modal-title fw-bold"><i class="fas fa-edit"></i> New Post</h5>
 		        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 		      </div>
 		      
 		      <div class="modal-body">
 		        <form id="feedForm">
 		            <div class="mb-3">
-		                <label class="form-label fw-bold">내용</label>
+		            
+                        <label class="form-label fw-bold">Content</label>
 		                <textarea class="form-control" name="feedText" rows="5" maxlength="5000" 
-		                          placeholder="팬들에게 전하고 싶은 이야기를 적어주세요..."></textarea>
+		                          placeholder="Write a message to your fans..."></textarea>
 		                <div class="text-end text-muted small"><span id="charCount">0</span> / 5000</div>
 		            </div>
 		
 		            <div class="mb-3">
 		                <div class="mb-3">
-						    <label class="form-label fw-bold">사진 / 동영상 첨부 (최대 10개)</label>
+						    <label class="form-label fw-bold">Attach Photo / Video (Max 10)</label>
 						    
 						    <div class="upload-container" id="uploadBox">
 						        <div class="btn-add-file" onclick="$('#hiddenFileInput').click()">
 						            <i class="fas fa-plus fa-lg mb-1"></i>
-						            <span class="small">추가</span>
+						            <span class="small">Add</span>
 						        </div>
 						    </div>
 						
@@ -210,18 +223,22 @@
 						           style="display: none;" onchange="handleFileSelect(this)">
 						
 						    <div class="form-text text-danger small mt-2">
-						        * 동영상은 개당 최대 2MB까지 가능합니다.<br>
-						        * 최소 1개 이상의 미디어를 선택해주세요.
-						    </div>
+						        * Max 2MB per video.<br>
+						        * Please select at least one media file.
+                            </div>
 						</div>
 		            </div>
+		            <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="fab fa-youtube text-danger"></i> YouTube Link (Optional)</label>
+                        <input type="text" class="form-control" name="youtubeInput" placeholder="Paste YouTube video URL">
+                    </div>
 		        </form>
 		      </div>
 		      
 		      <div class="modal-footer">
-		        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+		        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
 		        <button type="button" class="btn btn-primary fw-bold" onclick="uploadFeed()">
-		            <i class="fas fa-paper-plane"></i> 게시하기
+		            <i class="fas fa-paper-plane"></i> Post
 		        </button>
 		      </div>
 		
@@ -240,7 +257,7 @@
 		        
 		        <div id="feedCarousel" class="carousel slide" data-bs-interval="false"> <div class="carousel-indicators" id="viewIndicators">
 		                </div>
-		            
+		    
 		            <div class="carousel-inner bg-black" id="viewMediaBox" style="min-height: 300px; max-height: 500px; display: flex; align-items: center;">
 		                </div>
 		
@@ -260,6 +277,19 @@
 		      </div>
 		    </div>
 		  </div>
+		</div>
+		
+		<div class="modal fade" id="starCommentModal" tabindex="-1" aria-hidden="true">
+		    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		        <div class="modal-content">
+		            <div class="modal-header bg-dark text-white">
+		                <h5 class="modal-title fw-bold"><i class="fas fa-comments me-2"></i>Manage Profile Comments</h5>
+		                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+		            </div>
+		            <div class="modal-body bg-light" id="starCommentBody">
+		                </div>
+		        </div>
+		    </div>
 		</div>
     </div>
 </div>
@@ -290,30 +320,9 @@
         });
     });
 
-    // 갤러리 업로드 (파일 선택 즉시 업로드)
-    $('#galleryInput').on('change', function(){
-        if(!this.files[0]) return;
-        var formData = new FormData();
-        formData.append('galleryImage', this.files[0]);
-
-        $.ajax({
-            url: '/witch/star/uploadGallery.do',
-            type: 'POST',
-            data: formData,
-            contentType: false, processData: false,
-            success: function(res) {
-                if(res.status==='success') {
-                    location.reload();
-                } else {
-                    alert(res.msg);
-                }
-            }
-        });
-    });
-
     // 갤러리 삭제
     function deletePhoto(conId) {
-        if(!confirm('정말 삭제하시겠습니까?')) return;
+        if(!confirm('Are you sure you want to delete?')) return;
         $.ajax({
             url: '/witch/star/deleteGallery.do',
             type: 'POST',
@@ -324,7 +333,7 @@
         });
     }
     
- // [기능 1] 글자수 세기
+    // [기능 1] 글자수 세기
     $('textarea[name=feedText]').on('input', function() {
         $('#charCount').text(this.value.length);
     });
@@ -336,27 +345,25 @@
         $preview.empty(); // 초기화
 
         if(files.length > 10) {
-            alert('최대 10개까지만 업로드 가능합니다.');
+            alert('You can upload up to 10 files.');
             this.value = ''; // 선택 초기화
-            $preview.text('선택된 파일이 없습니다.');
+            $preview.text('No file selected.');
             return;
         }
 
         if(files.length === 0) {
-            $preview.text('선택된 파일이 없습니다.');
+            $preview.text('No file selected.');
             return;
         }
 
-        // 파일 목록 보여주기
         var listHtml = '<ul class="list-unstyled mb-0">';
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
             
-            // 동영상 2MB 제한 체크 (Front-end 1차 방어)
-            if (file.type.startsWith('video') && file.size > 2 * 1024 * 1024) {
-                alert('⚠️ [' + file.name + '] 파일이 2MB를 초과하여 제외됩니다.');
-                this.value = ''; // 전체 초기화 (보안상 개별 삭제가 어려움)
-                $preview.text('다시 선택해주세요.');
+            if (file.type.startsWith('video') && file.size > 5 * 1024 * 1024) {
+                alert('⚠️ [' + file.name + '] file exceeds 5MB and will be excluded.');
+                this.value = ''; 
+                $preview.text('Please select again.');
                 return;
             }
 
@@ -367,52 +374,39 @@
         $preview.html(listHtml);
     });
 
-    // [기능 3] 업로드 실행 (AJAX)
     // [중요] 선택된 파일들을 담을 전역 배열
     var globalFiles = [];
 
-    // 1. 파일 선택 시 처리 (Handle File Select)
+    // 1. 파일 선택 시 처리
     function handleFileSelect(input) {
         var files = input.files;
         var totalCount = globalFiles.length + files.length;
 
-        // 개수 제한 체크
         if (totalCount > 10) {
-            alert('최대 10개까지만 업로드 가능합니다.');
-            input.value = ''; // 초기화
+            alert('You can upload up to 10 files.');
+            input.value = ''; 
             return;
         }
 
-        // 파일 유효성 검사 및 배열 추가
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
-
-            // 동영상 용량 체크 (2MB)
             if (file.type.startsWith('video') && file.size > 2 * 1024 * 1024) {
-                alert('⚠️ [' + file.name + '] 파일이 2MB를 초과하여 제외됩니다.');
+                alert('⚠️ [' + file.name + '] file exceeds 2MB and will be excluded.');
                 continue;
             }
-
-            // 배열에 추가
             globalFiles.push(file);
         }
 
-        // input 초기화 (같은 파일을 다시 선택할 수도 있으므로)
         input.value = '';
-        
-        // 화면 다시 그리기
         renderPreviews();
     }
 
-    // 2. 화면 렌더링 (Render Previews)
+    // 2. 화면 렌더링
     function renderPreviews() {
         var $box = $('#uploadBox');
-        
-        // 기존 썸네일들만 제거 ((+) 버튼은 유지하거나 다시 그림)
         $box.find('.preview-item').remove();
-        $box.find('.btn-add-file').remove(); // 순서 유지를 위해 버튼도 지웠다 맨 뒤에 붙임
+        $box.find('.btn-add-file').remove();
 
-        // 배열에 있는 파일들 루프
         globalFiles.forEach(function(file, index) {
             var isVideo = file.type.startsWith('video');
             var html = '';
@@ -421,13 +415,10 @@
             html += '  <button type="button" class="btn-remove-file" onclick="removeFile(' + index + ')"><i class="fas fa-times"></i></button>';
             
             if (isVideo) {
-                // 동영상은 비디오 태그로 미리보기 (음소거)
                 var blobUrl = URL.createObjectURL(file);
                 html += '  <video src="' + blobUrl + '" muted></video>';
-                // 비디오 아이콘 오버레이
                 html += '  <div class="position-absolute bottom-0 start-0 m-1 text-white small"><i class="fas fa-video"></i></div>';
             } else {
-                // 이미지는 img 태그
                 var blobUrl = URL.createObjectURL(file);
                 html += '  <img src="' + blobUrl + '">';
             }
@@ -436,46 +427,56 @@
             $box.append(html);
         });
 
-        // 10개가 꽉 차지 않았을 때만 (+) 버튼 표시
         if (globalFiles.length < 10) {
             var addBtn = '<div class="btn-add-file" onclick="$(\'#hiddenFileInput\').click()">' +
                          '  <i class="fas fa-plus fa-lg mb-1"></i>' +
-                         '  <span class="small">추가</span>' +
+                         '  <span class="small">Add</span>' +
                          '</div>';
             $box.append(addBtn);
         }
     }
 
-    // 3. 파일 삭제 (Remove File)
+    // 3. 파일 삭제
     function removeFile(index) {
-        globalFiles.splice(index, 1); // 배열에서 삭제
-        renderPreviews(); // 다시 그리기
+        globalFiles.splice(index, 1);
+        renderPreviews();
     }
 
-    // 4. 업로드 실행 (AJAX) - 수정됨
+    // 4. 업로드 실행 (AJAX)
     function uploadFeed() {
-        // 필수 체크
         if (globalFiles.length === 0) {
-            alert('사진이나 동영상을 최소 1개 이상 첨부해주세요.');
+            alert('Please attach at least one photo or video.');
             return;
         }
 
-        // FormData 직접 구성 (중요!)
         var formData = new FormData();
-        
-        // 텍스트 추가
         formData.append('feedText', $('textarea[name=feedText]').val());
-
-        // 파일 배열 추가
-        // 주의: Controller는 'mediaFiles'라는 이름의 List<MultipartFile>을 받습니다.
+        
+        var rawYoutubeUrl = $('input[name=youtubeInput]').val().trim();
+        var formattedUrl = "";
+        
+        if (rawYoutubeUrl !== "") {
+            var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            var match = rawYoutubeUrl.match(regExp);
+            
+            if (match && match[2].length === 11) {
+                formattedUrl = 'https://www.youtube.com/embed/' + match[2];
+            } else {
+                alert('Invalid YouTube link format.\n(e.g., https://youtu.be/...)');
+                return;
+            }
+        }
+        
+        formData.append('youtubeUrl', formattedUrl);
+        
         globalFiles.forEach(function(file) {
             formData.append('mediaFiles', file);
         });
-
-        // 로딩 UI
+        
         var $btn = $('.modal-footer .btn-primary');
         var originText = $btn.html();
-        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 업로드 중...');
+        
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Uploading...');
 
         $.ajax({
             url: '/witch/star/writeFeed.do',
@@ -484,7 +485,7 @@
             contentType: false, processData: false,
             success: function(res) {
                 if(res.status === 'success') {
-                    alert('성공적으로 게시되었습니다!');
+                    alert('Posted successfully!');
                     location.reload();
                 } else {
                     alert(res.msg);
@@ -492,28 +493,25 @@
                 }
             },
             error: function() {
-                alert('서버 오류가 발생했습니다.');
+                alert('Server error occurred.');
                 $btn.prop('disabled', false).html(originText);
             }
         });
     }
 
-    // [참고] 모달이 닫힐 때 초기화해주면 좋음
     $('#writeModal').on('hidden.bs.modal', function () {
-        globalFiles = []; // 배열 비우기
-        $('textarea[name=feedText]').val(''); // 글 비우기
+        globalFiles = []; 
+        $('textarea[name=feedText]').val(''); 
         $('#charCount').text('0');
-        renderPreviews(); // 화면 초기화
+        renderPreviews(); 
     });
     
     function viewFeed(conId) {
-        // 1. 모달 초기화 (이전 데이터 잔상 제거)
         $('#viewMediaBox').empty();
         $('#viewIndicators').empty();
         $('#viewBody').text('');
         $('#viewDate').text('');
 
-        // 2. 데이터 요청
         $.ajax({
             url: '/witch/star/getFeedDetail.do',
             type: 'GET',
@@ -521,42 +519,34 @@
             success: function(res) {
                 if(res.status === 'success') {
                     renderViewModal(res.master, res.medias);
-                    $('#viewModal').modal('show'); // 모달 띄우기
+                    $('#viewModal').modal('show'); 
                 } else {
                     alert(res.msg);
                 }
             },
             error: function() {
-                alert('데이터를 불러오지 못했습니다.');
+                alert('Failed to load data.');
             }
         });
     }
 
-    // [Helper] 모달 렌더링 함수
     function renderViewModal(master, medias) {
-        // A. 텍스트 바인딩
-        $('#viewBody').text(master.CON_BODY); // text()로 넣어야 XSS 방지 및 줄바꿈 처리됨
+        $('#viewBody').text(master.CON_BODY);
         $('#viewDate').text(master.CREATED_DATE);
-
-        // B. 미디어 바인딩 (Carousel)
+        
         var innerHtml = '';
         var indicatorsHtml = '';
-
+        
         for(var i=0; i<medias.length; i++) {
             var media = medias[i];
-            var activeClass = (i === 0) ? 'active' : ''; // 첫 번째 슬라이드만 active
+            var activeClass = (i === 0) ? 'active' : '';
             
-            // 인디케이터 (하단 점)
             indicatorsHtml += '<button type="button" data-bs-target="#feedCarousel" data-bs-slide-to="' + i + '" class="' + activeClass + '"></button>';
-
-            // 슬라이드 아이템
             innerHtml += '<div class="carousel-item ' + activeClass + '" style="height: 100%;">';
             
             if(media.MEDIA_TYPE === 'VIDEO') {
-                // 동영상: controls 속성으로 재생바 표시
                 innerHtml += '<video src="' + media.MEDIA_URL + '" class="d-block w-100" style="max-height: 500px; object-fit: contain;" controls playsinline></video>';
             } else {
-                // 사진
                 innerHtml += '<img src="' + media.MEDIA_URL + '" class="d-block w-100" style="max-height: 500px; object-fit: contain;">';
             }
             innerHtml += '</div>';
@@ -564,13 +554,111 @@
 
         $('#viewMediaBox').html(innerHtml);
         
-        // 미디어가 1개면 인디케이터/화살표 숨기기 (UI 디테일)
         if(medias.length > 1) {
             $('#viewIndicators').html(indicatorsHtml);
             $('.carousel-control-prev, .carousel-control-next').show();
         } else {
             $('.carousel-control-prev, .carousel-control-next').hide();
         }
+        
+        loadAdminComments(master.CON_ID);
+    }
+    
+    function loadAdminComments(conId) {
+        $('.admin-comment-section').remove();
+        
+        $.post('/witch/api/super/comment/list', { 
+        	targetType: 'FEED', 
+        	targetId: conId,
+        	prsId: '${myInfo.PRS_ID}'
+       	}, function(res) {
+            var html = '<div class="admin-comment-section mt-4 p-3 border-top bg-white">';
+            html += '<h6 class="fw-bold mb-3"><i class="fas fa-tools me-2"></i>Admin Comment Management</h6>';
+            
+            if(res.comments && res.comments.length > 0) {
+                res.comments.forEach(function(c) {
+                    html += '<div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border">';
+                    html += '  <div class="small">';
+                    html += '    <strong class="text-primary">' + c.NICKNAME + '</strong>: ' + c.CONTENT;
+                    html += '    <div class="text-muted" style="font-size: 10px;">Device ID: ' + c.DEVICE_ID + ' | Date: ' + (c.date || c.DATE) + '</div>';
+                    html += '  </div>';
+                    html += '  <div class="btn-group btn-group-sm ms-2" style="flex-shrink: 0;">';
+                    html += '    <button class="btn btn-outline-danger" onclick="blindComment(\'' + c.CMT_ID + '\', \'FEED\')">Delete</button>';
+                    html += '    <button class="btn btn-danger" onclick="blockUser(\'' + c.DEVICE_ID + '\', \'' + c.NICKNAME + '\')">Block</button>';
+                    html += '  </div>';
+                    html += '</div>';
+                });
+            } else {
+                html += '<p class="text-muted small text-center py-3">No comments registered.</p>';
+            }
+            html += '</div>';
+            
+            $('#viewModal .modal-body').append(html);
+        });
+    }
+    
+    function openStarCommentModal() {
+        $('#starCommentModal').modal('show');
+        loadStarComments();
+    }
+
+    function loadStarComments() {
+        $('#starCommentBody').empty();
+
+        $.post('/witch/api/super/comment/list', { 
+            targetType: 'STAR', 
+            targetId: '${myInfo.PRS_ID}',
+            prsId: '${myInfo.PRS_ID}'
+        }, function(res) {
+            var html = '<div class="admin-comment-section p-2">';
+            
+            if(res.comments && res.comments.length > 0) {
+                res.comments.forEach(function(c) {
+                    html += '<div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white rounded border shadow-sm">';
+                    html += '  <div class="small">';
+                    html += '    <strong class="text-primary">' + c.NICKNAME + '</strong>: ' + c.CONTENT;
+                    html += '    <div class="text-muted" style="font-size: 10px;">Device ID: ' + c.DEVICE_ID + ' | Date: ' + (c.date || c.DATE) + '</div>';
+                    html += '  </div>';
+                    html += '  <div class="btn-group btn-group-sm ms-2" style="flex-shrink: 0;">';
+                    html += '    <button class="btn btn-outline-danger" onclick="blindComment(\'' + c.CMT_ID + '\', \'STAR\')">Delete</button>';
+                    html += '    <button class="btn btn-danger" onclick="blockUser(\'' + c.DEVICE_ID + '\', \'' + c.NICKNAME + '\')">Block</button>';
+                    html += '  </div>';
+                    html += '</div>';
+                });
+            } else {
+                html += '<p class="text-muted small text-center py-4">No profile comments registered.</p>';
+            }
+            html += '</div>';
+            
+            $('#starCommentBody').html(html);
+        });
+    }
+
+    function blindComment(cmtId, type) {
+	    if(!confirm('Are you sure you want to delete (blind) this comment?')) return;
+	    
+	    $.post('/witch/star/manageComment.do', { action: 'BLIND', cmtId: cmtId }, function(res) {
+	        if(res.status === 'success') {
+	            alert(res.msg);
+	            
+	            if (type === 'STAR') {
+	                loadStarComments();
+	            } else {
+	                var currentConId = $('#viewModal').data('conId'); 
+	                loadAdminComments(currentConId);
+	            }
+	        } else {
+	            alert(res.msg);
+	        }
+	    });
+	}
+    
+    function blockUser(deviceId, nickname) {
+        if(!confirm('Are you sure you want to permanently block [' + nickname + ']?\nThis device (ID: ' + deviceId + ') will no longer be able to write comments.')) return;
+        
+        $.post('/witch/star/manageComment.do', { action: 'BLOCK', targetDeviceId: deviceId, reason: 'Repeated malicious comments' }, function(res) {
+            alert(res.msg);
+        });
     }
 </script>
 </body>

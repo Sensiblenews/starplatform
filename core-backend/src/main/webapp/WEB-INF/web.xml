@@ -116,5 +116,12 @@
     <location>/error/500Error.do</location>
   </error-page>
   
-
+	<mime-mapping>
+        <extension>apple-app-site-association</extension>
+        <mime-type>application/json</mime-type>
+    </mime-mapping>
+    <mime-mapping>
+        <extension>assetlinks.json</extension>
+        <mime-type>application/json</mime-type>
+    </mime-mapping>
 </web-app>

@@ -37,6 +37,11 @@
                 <li class="nav-item mb-2">
                     <a href="/witch/super/local/create.do" class="nav-link text-warning"><i class="fas fa-user-shield me-2"></i> 지역 관리자 생성</a>
                 </li>
+                <li class="nav-item mb-2">
+                    <a href="/witch/super/report/list.do" class="nav-link" style="color: #ff8a65;">
+                        <i class="fas fa-flag me-2"></i> 신고 관리
+                    </a>
+                </li>
             </c:if>
             <li class="nav-item mt-auto">
                 <a href="/witch/super/logout.do" class="nav-link text-danger"><i class="fas fa-sign-out-alt me-2"></i> 로그아웃</a>

@@ -41,6 +41,8 @@ export class AdminWriteModalComponent implements OnInit {
     console.log(`[Write Modal] isStar: ${this.isStar} / Admin Level: ${this.adminLevel}`);
   }
 
+
+
   close() {
     this.modalCtrl.dismiss();
   }
@@ -202,21 +204,24 @@ export class AdminWriteModalComponent implements OnInit {
 
     const targetUrl = this.isStar ? '/api/super/star/feed/add' : '/api/super/admin/feed/add';
 
+    // 1. 백그라운드 업로드 시작 (컴포넌트가 사라져도 브라우저가 네트워크 작업을 진행함)
     this.http.post(targetUrl, payload).subscribe({
-      next: async (res: any) => {
-        this.isSubmitting = false;
-        if (res.result === 'OK') {
-          this.modalCtrl.dismiss({ success: true });
-        } else {
-          this.showError(res.msg || 'Failed to post.');
+      next: (res: any) => {
+        console.log('[Background Upload] Success:', res);
+        if (res.result !== 'OK') {
+          console.error('[Background Upload] Server error:', res.msg);
         }
       },
       error: (err) => {
-        this.isSubmitting = false;
-        console.error(err);
-        this.showError('Server communication error occurred.');
+        console.error('[Background Upload] Request error:', err);
       }
     });
+
+    // 2. 사용자에게는 0.5초(500ms) 동안만 로딩 오버레이를 보여준 뒤 즉시 모달 닫기
+    setTimeout(() => {
+      this.isSubmitting = false;
+      this.modalCtrl.dismiss({ success: true });
+    }, 500);
   }
 
   async showError(msg: string) {

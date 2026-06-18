@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, PopoverController, AlertController, ModalController } from '@ionic/angular';
+import { Platform, PopoverController, AlertController, ModalController, NavController } from '@ionic/angular';
 import NativeBridge from 'src/app/plugins/native-bridge';
 import { AdMobService } from 'src/app/services/ad-mob.service';
 import { AdProtectionService } from 'src/app/services/ad-protection.service';
@@ -11,6 +11,9 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { Device } from '@capacitor/device';
+import { WriteModalService } from 'src/app/services/write-modal.service';
+import { Browser } from '@capacitor/browser';
+
 
 @Component({
   selector: 'app-star-page',
@@ -79,6 +82,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private ngZone: NgZone,
     private alertCtrl: AlertController,
     private modalCtrl: ModalController,
+    private writeModalService: WriteModalService,
+    private navCtrl: NavController,
   ) { }
 
   async ngOnInit() {
@@ -144,11 +149,10 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // if (this.platform.is('capacitor')) {
-    if (true) { // 개발용
+    if (this.platform.is('capacitor')) {
       let canShow = await this.adProtection.shouldShowAd(this.starId);
       console.log("Ad Protection Check for Star ID:", this.starId, "Can Show Ad:", canShow);
-      canShow = true // 개발용
+      // canShow = true // 개발용
 
       if (canShow) {
         NativeBridge.setShow({ show: true, page: 'star' });
@@ -268,7 +272,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
         const photos = res.starInfo.photos || [];
 
-        photos.forEach((item: any) => {
+        photos.forEach((item: any, index: number) => {
           if (item.MEDIA_TYPE === 'VIDEO') item.isMuted = true;
           item.isLoaded = false;
 
@@ -731,6 +735,16 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     await alert.present();
   }
 
+  async openPinLink(url: string, event: Event) {
+    event.stopPropagation();
+    const targetUrl = url || 'https://google.com';
+    try {
+      await Browser.open({ url: targetUrl });
+    } catch (e) {
+      window.open(targetUrl, '_blank');
+    }
+  }
+
   async showError(msg: string) {
     const alert = await this.alertCtrl.create({ header: 'Notice', message: msg, buttons: ['OK'] });
     await alert.present();
@@ -983,5 +997,20 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   // 🌟 [신규] 프로필 사진 확대 뷰어 닫기
   closeProfileViewer() {
     this.isProfileViewerOpen = false;
+  }
+
+  handleWriteButtonClick() {
+    this.writeModalService.openWriteModal(
+      this.isStar,
+      this.starId,
+      localStorage.getItem('adminLevel') || '',
+      () => {
+        this.loadStarDetail(); // Reload page feeds on success
+      }
+    );
+  }
+
+  goBack() {
+    this.navCtrl.navigateBack('/lobby');
   }
 }

@@ -23,14 +23,14 @@ import { Browser } from '@capacitor/browser';
       <div style="height: 1px; background: #eee; margin: 4px 0;"></div>
 
       <ng-container *ngIf="!isLoggedIn">
-        <ion-item button (click)="selectMenu('login_star')">
+        <!-- <ion-item button (click)="selectMenu('login_star')">
           <ion-icon name="person-circle-outline" slot="start" color="secondary"></ion-icon>
           <ion-label class="fw-bold text-dark" style="font-size: 15px;">Creator Login</ion-label>
-        </ion-item>
-        <ion-item button (click)="selectMenu('login_admin')">
+        </ion-item> -->
+        <!-- <ion-item button (click)="selectMenu('login_admin')">
           <ion-icon name="settings-outline" slot="start" color="medium"></ion-icon>
           <ion-label class="fw-bold text-dark" style="font-size: 15px;">Admin Login</ion-label>
-        </ion-item>
+        </ion-item> -->
       </ng-container>
 
       <ion-item button (click)="openExternal('https://witch-hunting.com/witch/privacy')">
@@ -47,7 +47,7 @@ import { Browser } from '@capacitor/browser';
 export class MarketMenuPopoverComponent {
   @Input() isLoggedIn: boolean = false;
 
-  constructor(private popoverCtrl: PopoverController) {}
+  constructor(private popoverCtrl: PopoverController) { }
 
   selectMenu(action: string) {
     this.popoverCtrl.dismiss({ action });

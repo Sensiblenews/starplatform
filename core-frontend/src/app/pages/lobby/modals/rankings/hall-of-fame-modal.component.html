@@ -1,13 +1,5 @@
-<ion-header class="ion-no-border">
-  <ion-toolbar>
-    <ion-title>⭐ Hall of Fame</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="close()">
-        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-
+<!-- Inline Mode -->
+<div class="hall-of-fame-inline-wrapper" *ngIf="isInline">
   <!-- Tab Bar -->
   <div class="tab-bar">
     <div class="tab-item" [class.active]="activeTab === 'daily'" (click)="setTab('daily')">
@@ -27,10 +19,52 @@
       <span class="tab-label">Yearly</span>
     </div>
   </div>
-</ion-header>
 
-<ion-content class="ion-padding">
+  <div style="padding: 16px 0;">
+    <ng-container *ngTemplateOutlet="tabContentTemplate"></ng-container>
+  </div>
+</div>
 
+<!-- Modal Mode -->
+<ng-container *ngIf="!isInline">
+  <ion-header class="ion-no-border">
+    <ion-toolbar>
+      <ion-title>⭐ Hall of Fame</ion-title>
+      <ion-buttons slot="end">
+        <ion-button (click)="close()">
+          <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item" [class.active]="activeTab === 'daily'" (click)="setTab('daily')">
+        <span class="tab-icon">👑</span>
+        <span class="tab-label">Daily Kings</span>
+      </div>
+      <div class="tab-item" [class.active]="activeTab === 'top100'" (click)="setTab('top100')">
+        <span class="tab-icon">🏆</span>
+        <span class="tab-label">Top 100</span>
+      </div>
+      <div class="tab-item" [class.active]="activeTab === 'monthly'" (click)="setTab('monthly')">
+        <span class="tab-icon">📅</span>
+        <span class="tab-label">Monthly</span>
+      </div>
+      <div class="tab-item" [class.active]="activeTab === 'yearly'" (click)="setTab('yearly')">
+        <span class="tab-icon">🎖️</span>
+        <span class="tab-label">Yearly</span>
+      </div>
+    </div>
+  </ion-header>
+
+  <ion-content class="ion-padding">
+    <ng-container *ngTemplateOutlet="tabContentTemplate"></ng-container>
+  </ion-content>
+</ng-container>
+
+<!-- Shared Tab Content Template -->
+<ng-template #tabContentTemplate>
   <!-- ═══ TAB 1: Daily Kings ═══ -->
   <div *ngIf="activeTab === 'daily'" class="tab-content">
     <!-- Loading -->
@@ -230,5 +264,4 @@
       No data for {{ selectedYearForYearly }}.
     </div>
   </div>
-
-</ion-content>
+</ng-template>

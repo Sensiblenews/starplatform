@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 import { Router } from '@angular/router';
 import { ModalController } from '@ionic/angular';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -10,6 +10,8 @@ import { HttpService } from '../../../../services/http.service';
   styleUrls: ['./hall-of-fame-modal.component.scss']
 })
 export class HallOfFameModalComponent implements OnInit {
+  @Input() isInline: boolean = false;
+  
   public defaultAvatar = 'assets/img/defaultImg/avatar.svg';
 
   activeTab: 'daily' | 'top100' | 'monthly' | 'yearly' = 'daily';
@@ -68,7 +70,9 @@ export class HallOfFameModalComponent implements OnInit {
   }
 
   close() {
-    this.modalCtrl.dismiss();
+    if (!this.isInline) {
+      this.modalCtrl.dismiss();
+    }
   }
 
   // ── Tab Navigation ──────────────────────────────────────
@@ -193,7 +197,9 @@ export class HallOfFameModalComponent implements OnInit {
 
   async goToStarPage(starId: string) {
     try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) {}
-    this.modalCtrl.dismiss();
+    if (!this.isInline) {
+      this.modalCtrl.dismiss();
+    }
     this.router.navigate(['/star', starId]);
   }
 }

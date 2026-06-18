@@ -7,7 +7,7 @@ import { LobbyPage } from './lobby.page';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { IpoModalComponent } from './modals/ipo-modal.component';
 import { PurchaseModalComponent } from './modals/purchase-modal.component';
-import { AdminWriteModalComponent } from './modals/admin-write-modal.component';
+import { AdminWriteModalModule } from './modals/admin-write-modal.module';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
 import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-modal.component';
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
@@ -19,14 +19,14 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
     CommonModule,
     FormsModule,
     IonicModule,
-    LobbyPageRoutingModule
+    LobbyPageRoutingModule,
+    AdminWriteModalModule
   ],
   declarations: [
     LobbyPage,
     IpoModalComponent,
     BoardModalComponent,
     PurchaseModalComponent,
-    AdminWriteModalComponent,
     AvailablePageModalComponent,
     GeneralRankingModalComponent,
     RevenueRankingModalComponent,

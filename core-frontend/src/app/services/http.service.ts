@@ -4,7 +4,6 @@ import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, retry } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import { APP_KEY } from '../constants/Keys';
-import { CapacitorHttp  } from '@capacitor/core';
 import type { CreateHeaderOptions, RequestHeader } from '../types/http';
 
 @Injectable({
@@ -18,7 +17,7 @@ export class HttpService {
 
   constructor(
     private http: HttpClient,
-  ) {}
+  ) { }
 
   setUserToken(token: string): Promise<string> {
     this.userToken.next(token);
@@ -89,8 +88,8 @@ export class HttpService {
       contentType: 'multipart-file',
     },
   ): Observable<T> {
-    const header = this.createHeader(headerOption); 
-    
+    const header = this.createHeader(headerOption);
+
     return this.http
       .post<T>(`${this.apiBaseURL}${path}`, formData, header)
       .pipe(retry(this.retryCount), catchError(this.errorHandler));

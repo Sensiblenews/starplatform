@@ -206,17 +206,17 @@ public class AppleController {
 
         SignedJWT jwt = new SignedJWT(header, claimsSet);
 
-        try {
-            ECPrivateKey ecPrivateKey = new ECPrivateKeyImpl(readPrivateKey(keyPath));
-            JWSSigner jwsSigner = new ECDSASigner(ecPrivateKey.getS());
+        // try {
+        //     ECPrivateKey ecPrivateKey = new ECPrivateKeyImpl(readPrivateKey(keyPath));
+        //     JWSSigner jwsSigner = new ECDSASigner(ecPrivateKey.getS());
 
-            jwt.sign(jwsSigner);
+        //     jwt.sign(jwsSigner);
 
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (JOSEException e) {
-            e.printStackTrace();
-        }
+        // } catch (InvalidKeyException e) {
+        //     e.printStackTrace();
+        // } catch (JOSEException e) {
+        //     e.printStackTrace();
+        // }
 
         return jwt.serialize();
     }   

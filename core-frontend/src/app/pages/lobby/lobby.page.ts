@@ -7,13 +7,12 @@ import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { AdminWriteModalComponent } from './modals/admin-write-modal.component';
+import { WriteModalService } from '../../services/write-modal.service';
 import { ProfileMenuPopoverComponent } from './profile-menu-popover.component';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
 import { FirebaseAuthService } from 'src/app/services/oauth/firebase-auth.service';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { GlobalFeedbackService } from 'src/app/services/global-feedback.service';
 import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-modal.component';
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
@@ -39,6 +38,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   popularStars: any[] = [];
   allStars: any[] = [];
   allStarsOriginal: any[] = [];
+  newCreators: any[] = [];
+  newCreatorsOriginal: any[] = [];
 
   searchResults: any[] = [];
   contentResults: any[] = [];
@@ -50,6 +51,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   favoriteStars: any[] = [];
 
   isShowingRanking = false;
+  showHallOfFameInline = false;
   rankingMode: 'general' | 'revenue' | 'daily' = 'general';
   revenueRankingStars: any[] = [];
   dailyRankingStars: any[] = [];
@@ -99,6 +101,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private actionSheetCtrl: ActionSheetController, // 🌟 추가
     private firebaseAuth: FirebaseAuthService,
+    private writeModalService: WriteModalService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -283,7 +286,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoShuffle();
     this.shuffleInterval = setInterval(() => {
       // 검색 중이거나 즐겨찾기 화면일 때는 안 섞임
-      if (!this.isSearching && !this.isShowingFavorites && this.allStarsOriginal.length > 0) {
+      if (!this.isSearching && !this.isShowingFavorites && (this.allStarsOriginal.length > 0 || this.newCreatorsOriginal.length > 0)) {
         this.shuffleStars();
       }
     }, 10000);
@@ -300,6 +303,10 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     // 배열을 비우지 않고 바로 교체 (스크롤 위치 유지)
     this.allStars = shuffled.slice(0, 32);
+
+    const shuffledNew = [...this.newCreatorsOriginal].sort(() => Math.random() - 0.5);
+    this.newCreators = shuffledNew.slice(0, 32);
+
     this.setupMotionObserver(); // 등장 애니메이션 재부착
   }
 
@@ -328,6 +335,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         if (res.result === 'OK') {
           this.popularStars = (res.popularStars || []).map(this.initStarData);
           this.allStarsOriginal = (res.allStars || []).map(this.initStarData);
+          this.newCreatorsOriginal = (res.newCreators || []).map(this.initStarData);
 
           // 🌟 로딩 완료 즉시 16명 셔플해서 초기화
           this.shuffleStars();
@@ -412,6 +420,8 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.isShowingFavorites = false; // 즐겨찾기 끄기
       this.rankingMode = 'general';
       this.loadMyRevenue();
+    } else {
+      this.showHallOfFameInline = false;
     }
   }
 
@@ -461,6 +471,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async openGeneralRankingModal() {
+    this.showHallOfFameInline = false;
     const modal = await this.modalCtrl.create({
       component: GeneralRankingModalComponent,
       componentProps: {
@@ -471,6 +482,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async openRevenueRankingModal() {
+    this.showHallOfFameInline = false;
     const modal = await this.modalCtrl.create({
       component: RevenueRankingModalComponent,
       componentProps: {
@@ -481,6 +493,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async openDailyRankingModal() {
+    this.showHallOfFameInline = false;
     const modal = await this.modalCtrl.create({
       component: DailyRankingModalComponent,
       componentProps: {
@@ -490,11 +503,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     await modal.present();
   }
 
-  async openHallOfFameModal() {
-    const modal = await this.modalCtrl.create({
-      component: HallOfFameModalComponent
-    });
-    await modal.present();
+  openHallOfFameModal() {
+    this.showHallOfFameInline = !this.showHallOfFameInline;
   }
 
   loadFavoriteStars() {
@@ -720,7 +730,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   distributePolledViews(polledData: any[]) {
     polledData.forEach(item => {
-      const star = this.allStarsOriginal.find(s => s.id === item.PRS_ID);
+      const star = this.allStarsOriginal.find(s => s.id === item.PRS_ID) || this.newCreatorsOriginal.find(s => s.id === item.PRS_ID);
       const newViews = item.NEW_VIEWS;
 
       if (star && newViews > 0) {
@@ -876,26 +886,18 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async openAdminWriteModal() {
-    const modal = await this.modalCtrl.create({
-      component: AdminWriteModalComponent,
-      componentProps: {
-        isStar: this.isStar,
-        starId: this.starId,
-        adminLevel: this.adminLevel
+    this.writeModalService.openWriteModal(
+      this.isStar,
+      this.starId,
+      this.adminLevel,
+      () => {
+        if (this.isStar && this.starId) {
+          this.router.navigate(['/star', this.starId]);
+        } else {
+          this.loadLobbyData();
+        }
       }
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onDidDismiss();
-    if (data && data.success) {
-      this.showSimpleAlert('Your post has been successfully created!');
-      if (this.isStar && this.starId) {
-        this.router.navigate(['/star', this.starId]);
-      } else {
-        this.loadLobbyData();
-      }
-    }
+    );
   }
 
   toggleFavorite(star: any, event: Event) {
@@ -912,6 +914,18 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     localStorage.setItem('favorite_stars', JSON.stringify(favList));
     star.isFavorite = !star.isFavorite;
+
+    const allLists = [this.allStars, this.popularStars, this.newCreators, this.allStarsOriginal, this.newCreatorsOriginal];
+    allLists.forEach(list => {
+      if (list) {
+        list.forEach(s => {
+          if (String(s.id) === String(star.id)) {
+            s.isFavorite = star.isFavorite;
+            s.followerCount = star.followerCount;
+          }
+        });
+      }
+    });
 
     this.http.post('/api/super/star/toggleFollow', { starId: star.id, isAdd: star.isFavorite, deviceId: this.deviceId }).subscribe();
 

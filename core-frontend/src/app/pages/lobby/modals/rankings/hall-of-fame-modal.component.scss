@@ -400,3 +400,18 @@ ion-content {
     margin-top: 2px;
   }
 }
+
+.hall-of-fame-inline-wrapper {
+  background: #ffffff;
+  border: 1px solid #eaeaea;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  margin: 0 16px 20px;
+  
+  .tab-bar {
+    border-radius: 8px;
+    background: #fdfdfd;
+    padding: 0;
+  }
+}

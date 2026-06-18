@@ -3,11 +3,14 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns:context="http://www.springframework.org/schema/context"
 	xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:task="http://www.springframework.org/schema/task"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans 
 						http://www.springframework.org/schema/beans/spring-beans.xsd
         				http://www.springframework.org/schema/context 
         				http://www.springframework.org/schema/context/spring-context.xsd 
-        				http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+        				http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+        				http://www.springframework.org/schema/task
+           				http://www.springframework.org/schema/task/spring-task.xsd">
 
     <!-- Config.properties -->
     <util:properties id="config" location="classpath:META-INF/props/globals.properties"/>
@@ -81,6 +84,23 @@
         <property name="maxUploadSize" value="-1" />
         <property name="maxInMemorySize" value="100000000" />
     </bean>
+    
+    <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
+        <property name="host" value="smtp.gmail.com" />
+        <property name="port" value="587" />
+        
+        <property name="username" value="ztwo5595@gmail.com" />
+        
+        <property name="password" value="prscvyswrwlhsyge" />
+        
+        <property name="javaMailProperties">
+            <props>
+                <prop key="mail.transport.protocol">smtp</prop>
+                <prop key="mail.smtp.auth">true</prop>
+                <prop key="mail.smtp.starttls.enable">true</prop>
+                <prop key="mail.debug">true</prop> </props>
+        </property>
+    </bean>
    
 
     <alias name="spring.RegularCommonsMultipartResolver" alias="multipartResolver" />
@@ -92,5 +112,7 @@
 		<context:exclude-filter type="annotation"
 			expression="org.springframework.stereotype.Controller" />
 	</context:component-scan>
+	<task:annotation-driven />
 	<context:component-scan base-package="com.sensible.admin.*"/>
+	
 </beans>

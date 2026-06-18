@@ -82,6 +82,8 @@
 	        <mvc:exclude-mapping path="/super/loginPrc"/>
 	        <mvc:exclude-mapping path="/resources/**"/>
 	        
+	        
+	        
 	        <bean id="SuperJwtInterceptor" class="com.sensible.common.filter.SuperJwtInterceptor"/>
 	    </mvc:interceptor>
 	</mvc:interceptors>
@@ -127,7 +129,10 @@
 	
 	<!-- resource 정의 -->
 	<mvc:resources location="/resources/" mapping="/resources/**"></mvc:resources>
-	 
+	<mvc:resources mapping="/app-ads.txt" location="/app-ads.txt" />
+	<mvc:resources mapping="/.well-known/**" location="/.well-known/" />
+	<mvc:resources mapping="/robots.txt" location="/robots.txt" />
+	<mvc:resources mapping="/sitemap.xml" location="/sitemap.xml" />
 	    
     <!--
         - This bean configures the 'prefix' and 'suffix' properties of 

@@ -5,7 +5,7 @@
 
   .media-item {
     width: 100%;
-    margin-bottom: 2px; // 사진 사이 얇은 간격
+    margin-bottom: 24px; // 사진 사이 여백
     background: #000;
     display: flex;
     justify-content: center;
@@ -22,7 +22,7 @@
   // 🎥 [신규] 동영상 아이템 스타일
   .media-item-video {
     width: 100%;
-    margin-bottom: 2px;
+    margin-bottom: 24px;
     background: #000;
     display: flex;
     justify-content: center;
@@ -75,7 +75,7 @@
   // 🎬 [신규] YouTube 아이템 스타일
   .media-item-youtube {
     width: 100%;
-    margin-bottom: 2px;
+    margin-bottom: 24px;
     background: #000;
     display: flex;
     justify-content: center;
@@ -120,8 +120,17 @@
       display: flex;
       flex-direction: column;
 
-      .name { font-weight: 700; font-size: 14px; color: #222; }
-      .date { font-size: 12px; color: #888; margin-top: 2px; }
+      .name {
+        font-weight: 700;
+        font-size: 14px;
+        color: #222;
+      }
+
+      .date {
+        font-size: 12px;
+        color: #888;
+        margin-top: 2px;
+      }
     }
   }
 
@@ -146,8 +155,8 @@ ion-back-button {
   /* 좌우 터치 영역(패딩)을 넉넉하게 늘려줍니다 */
   --padding-start: 25px;
   --padding-end: 25px;
-  
+
   /* 패딩을 늘리면 화살표 아이콘이 오른쪽으로 밀려 보일 수 있으므로, 
      마진을 이용해 시각적인 위치는 원래대로(왼쪽으로) 살짝 당겨줍니다. */
-  margin-left: -10px; 
+  margin-left: -10px;
 }

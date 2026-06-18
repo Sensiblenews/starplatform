@@ -57,10 +57,16 @@ public class FirebaseService {
         AndroidConfig androidConfig = AndroidConfig.builder()
                 .setPriority(AndroidConfig.Priority.HIGH)
                 .setTtl(Duration.ofMinutes(2).toMillis())
-                .setNotification(AndroidNotification.builder().setChannelId("500").build())
+                .setNotification(AndroidNotification.builder()
+                		.setChannelId("star_visitor_channel")
+                		.setSound("tick.mp3")
+                		.build())
                 .build();
+        
         ApnsConfig apnsConfig = ApnsConfig.builder()
-                .setAps(Aps.builder().build())
+                .setAps(Aps.builder()
+                		.setSound("tick")
+                		.build())
                 .build();
 
         Message msg = Message.builder()

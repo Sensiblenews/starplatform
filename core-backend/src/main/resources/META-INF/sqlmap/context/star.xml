@@ -21,8 +21,8 @@
     </update>
 
     <insert id="insertContentMaster" parameterType="map" useGeneratedKeys="true" keyProperty="CON_ID">
-        INSERT INTO WH_STAR_CONTENT (PRS_ID, CON_BODY, CREATED_DATE)
-        VALUES (#{PRS_ID}, #{CON_BODY}, NOW())
+        INSERT INTO WH_STAR_CONTENT (PRS_ID, CON_BODY, YOUTUBE_URL, CREATED_DATE)
+        VALUES (#{PRS_ID}, #{CON_BODY}, #{YOUTUBE_URL}, NOW())
     </insert>
 
     <insert id="insertContentMedia" parameterType="map">
@@ -60,5 +60,32 @@
         WHERE CON_ID = #{CON_ID}
         ORDER BY SORT_ORDER ASC
     </select>
+    
+    <update id="updateCommentStatus" parameterType="hashmap">
+	    UPDATE WH_GUEST_COMMENT 
+	    SET STATUS = #{STATUS} -- 'BLIND' 또는 'DELETE'
+	    WHERE CMT_ID = #{cmtId}
+	</update>
+	
+	<insert id="insertCommentReport" parameterType="hashmap">
+	    INSERT INTO WH_GUEST_REPORT (
+	        TARGET_TYPE, TARGET_ID, REPORTER_DEVICE_ID, REASON, CREATED_DATE
+	    ) VALUES (
+	        'COMMENT', #{cmtId}, #{deviceId}, #{reason}, NOW()
+	    )
+	</insert>
+	
+	<insert id="insertBlacklist" parameterType="hashmap">
+	    INSERT INTO WH_GUEST_BLACKLIST (
+	        DEVICE_ID, REASON, PRS_ID, CREATED_DATE
+	    ) VALUES (
+	        #{targetDeviceId}, #{reason}, #{prsId}, NOW()
+	    )
+	    ON DUPLICATE KEY UPDATE REASON = #{reason}
+	</insert>
+	
+	<select id="checkIsBlocked" parameterType="string" resultType="int">
+	    SELECT COUNT(*) FROM WH_GUEST_BLACKLIST WHERE DEVICE_ID = #{deviceId}
+	</select>
 
 </mapper>
