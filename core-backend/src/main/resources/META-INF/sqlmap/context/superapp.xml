@@ -637,39 +637,58 @@
 	    LIMIT 100
 	</select>
 
-	<select id="selectDailyLeaderboard" resultType="map">
+	<!-- 지정된 날짜(Daily) 조회수 기준 상위 500위 크리에이터 조회 -->
+	<select id="selectDailyLeaderboard" parameterType="map" resultType="map">
 	    SELECT * FROM (
 	        SELECT 
 	            P.PRS_ID as id, 
 	            P.PRS_NAME as name, 
 	            P.STORED_FILE_NM as image,
 	            IFNULL(A.viewCount, 0) as viewCount,
-	            IFNULL(P.LIKE_CNT, 0) as LIKE_CNT,
-	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            IFNULL(A.viewCount, 0) as displayViewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) as FOLLOWER_CNT,
 	            
-	            -- 오늘 발생한 조회수만 기준으로 랭킹 부여
+	            -- 🌟 DB 컬럼이 아닌 ROW_NUMBER() 함수로 실시간 랭킹 계산 (동점자 방어 포함)
 	            ROW_NUMBER() OVER (
 	                ORDER BY 
 	                    IFNULL(A.viewCount, 0) DESC,
 	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
 	                    P.PRS_ID ASC
-	            ) AS GLOBAL_RANK
+	            ) AS globalRank,
+	            
+	            -- 명세서 하위 호환을 위한 대문자 키값 추가
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK,
+	            
+	            (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE PRS_ID = P.PRS_ID) AS TOTAL_STARS
 	            
 	        FROM WH_PRESS P
-	        INNER JOIN (  -- 🌟 핵심: 오늘 조회수가 발생한 유저만 먼저 걸러내어 속도 최적화
+	        INNER JOIN (  
+	            -- 핵심: 특정 날짜에 조회수가 발생한 유저만 그룹화하여 속도 최적화
 	            SELECT PRS_ID, COUNT(*) as viewCount
 	            FROM WH_AD_LOG
 	            WHERE ACTION = 'IMPRESSION'
-	              AND CREATED_DATE >= CURDATE() -- 오늘 자정(00:00:00)부터 현재까지
+	            <choose>
+	                <when test="date != null and date != ''">
+	                    AND DATE(CREATED_DATE) = #{date}
+	                </when>
+	                <otherwise>
+	                    AND CREATED_DATE >= CURDATE()
+	                </otherwise>
+	            </choose>
 	            GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 	    ) T
-	    ORDER BY T.GLOBAL_RANK ASC 
-	    LIMIT 100
+	    ORDER BY T.globalRank ASC 
+	    LIMIT 500
 	</select>
 
-	<select id="selectDailyKings" resultType="map">
+	<select id="selectDailyKings" parameterType="map" resultType="map">
 	    WITH DailyCounts AS (
 	        -- 날짜별, 스타별 조회수 집계
 	        SELECT 
@@ -678,6 +697,9 @@
 	            COUNT(*) as viewCount
 	        FROM WH_AD_LOG A
 	        WHERE A.ACTION = 'IMPRESSION'
+	        <if test="targetMonth != null and targetMonth != ''">
+	            AND DATE_FORMAT(A.CREATED_DATE, '%Y-%m') = #{targetMonth}
+	        </if>
 	        GROUP BY DATE(A.CREATED_DATE), A.PRS_ID
 	    ),
 	    RankedDaily AS (
@@ -701,7 +723,10 @@
 	    WHERE R.rn = 1 
 	      AND P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 	    ORDER BY R.rank_date DESC
-	    LIMIT 30 </select>
+	    <if test="targetMonth == null or targetMonth == ''">
+	        LIMIT 30
+	    </if>
+	</select>
 
 	<select id="selectMonthlyChampions" parameterType="map" resultType="map">
 	    SELECT * FROM (
@@ -1087,8 +1112,8 @@
 	    SELECT 
 	        A.MEM_ID as deviceId,
 	        MAX(A.CREATED_DATE) as actionDate,
-	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(A.MEM_ID, 1, 5))) as name,
+	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(A.MEM_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_AD_LOG A
 	    LEFT JOIN WH_PRESS P ON A.MEM_ID = P.PRS_ID
@@ -1102,8 +1127,8 @@
 	    SELECT 
 	        L.DEVICE_ID as deviceId,
 	        MAX(L.CREATED_DATE) as actionDate,
-	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(L.DEVICE_ID, 1, 5))) as name,
+	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(L.DEVICE_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_LIKE_LOG L
 	    LEFT JOIN WH_PRESS P ON L.DEVICE_ID = P.PRS_ID
@@ -1117,8 +1142,8 @@
 	    SELECT 
 	        F.DEVICE_ID as deviceId,
 	        MAX(F.CREATED_DATE) as actionDate,
-	        -- 🌟 수정: 계정이 없으면 'SP-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('SP-', SUBSTRING(F.DEVICE_ID, 1, 5))) as name,
+	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
+	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(F.DEVICE_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_FOLLOWER_LOG F
 	    LEFT JOIN WH_PRESS P ON F.DEVICE_ID = P.PRS_ID

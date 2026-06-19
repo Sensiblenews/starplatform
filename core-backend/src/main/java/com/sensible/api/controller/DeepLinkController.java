@@ -18,12 +18,29 @@ public class DeepLinkController {
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
 
+	private String getBaseUrl(HttpServletRequest request) {
+		String serverName = request.getServerName();
+		int serverPort = request.getServerPort();
+		String scheme = request.getScheme();
+
+		if (serverName.equals("localhost") || serverName.equals("127.0.0.1") || serverName.startsWith("192.168.")) {
+			String portStr = "";
+			if (("http".equals(scheme) && serverPort != 80) || ("https".equals(scheme) && serverPort != 443)) {
+				portStr = ":" + serverPort;
+			}
+			return scheme + "://" + serverName + portStr;
+		}
+
+		return "https://witch-hunting.com";
+	}
+
 	// 🌟 앱에서 공유하기로 생성되는 링크 주소들을 모두 이곳으로 연결
 	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}" })
 	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request, Model model) {
 		System.out.println("DeepLink Triggered");
 
 		String uri = request.getRequestURI();
+		String baseUrl = getBaseUrl(request);
 
 		try {
 			// 🌟 1. 스타 페이지 공유 링크인 경우
@@ -44,7 +61,7 @@ public class DeepLinkController {
 					model.addAttribute("ogDesc",
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					model.addAttribute("ogImage", starInfo.get("image"));
-					model.addAttribute("ogUrl", "https://starplatform.com" + uri);
+					model.addAttribute("ogUrl", baseUrl + uri);
 				}
 			}
 			// 🌟 2. 피드(게시글) 공유 링크인 경우
@@ -71,7 +88,7 @@ public class DeepLinkController {
 					}
 
 					// 기본 썸네일 이미지 주소
-					String imageUrl = "https://starplatform.com/assets/img/default-share.jpg";
+					String imageUrl = baseUrl + "/resources/img/icon.png";
 
 					// 💡 첨부된 미디어(사진)가 있다면 첫 번째 사진을 썸네일로 교체!
 					if (medias != null && !medias.isEmpty()) {
@@ -84,7 +101,7 @@ public class DeepLinkController {
 
 						// 카카오톡 봇은 무조건 절대경로(http)를 요구하므로, 상대경로일 경우 도메인 붙여주기
 						if (targetUrl.startsWith("/")) {
-							targetUrl = "https://starplatform.com" + targetUrl;
+							targetUrl = baseUrl + targetUrl;
 						}
 						imageUrl = targetUrl;
 					}
@@ -92,15 +109,15 @@ public class DeepLinkController {
 					model.addAttribute("ogTitle", starName + "'s Post | StarPlatform");
 					model.addAttribute("ogDesc", body != null ? body : "Check out the latest updates.");
 					model.addAttribute("ogImage", imageUrl);
-					model.addAttribute("ogUrl", "https://starplatform.com" + uri);
+					model.addAttribute("ogUrl", baseUrl + uri);
 				}
 			}
 			// 🌟 3. 그 외 알 수 없는 링크일 경우 기본값
 			else {
-				model.addAttribute("ogTitle", "StarPlatform");
-				model.addAttribute("ogDesc", "Connect with your favorite stars!");
-				model.addAttribute("ogImage", "https://starplatform.com/assets/img/default-share.jpg");
-				model.addAttribute("ogUrl", "https://starplatform.com" + uri);
+				model.addAttribute("ogTitle", "StarPlatform SuperApp");
+				model.addAttribute("ogDesc", "대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작");
+				model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png");
+				model.addAttribute("ogUrl", baseUrl + uri);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -130,11 +147,12 @@ public class DeepLinkController {
 
         // 📱 4. 모바일 환경이거나 미리보기 수집 봇인 경우 -> 브릿지 페이지로 연결 (OG태그 노출)
         String uri = request.getRequestURI();
+        String baseUrl = getBaseUrl(request);
         
-        model.addAttribute("ogTitle", "StarPlatform");
-        model.addAttribute("ogDesc", "Connect with your favorite stars!");
-        model.addAttribute("ogImage", "https://starplatform.com/assets/img/default-share.jpg"); 
-        model.addAttribute("ogUrl", "https://starplatform.com" + uri);
+        model.addAttribute("ogTitle", "StarPlatform SuperApp");
+        model.addAttribute("ogDesc", "대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작");
+        model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png"); 
+        model.addAttribute("ogUrl", baseUrl + uri);
         
         return "/common/deeplink_redirect"; 
     }

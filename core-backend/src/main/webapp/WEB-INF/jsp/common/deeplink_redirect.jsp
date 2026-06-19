@@ -1,17 +1,39 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%
+    String scheme = request.getScheme();
+    String serverName = request.getServerName();
+    int serverPort = request.getServerPort();
+    String portStr = "";
+    if (("http".equals(scheme) && serverPort != 80) || ("https".equals(scheme) && serverPort != 443)) {
+        portStr = ":" + serverPort;
+    }
+    String fallbackBaseUrl = "";
+    if ("localhost".equals(serverName) || "127.0.0.1".equals(serverName) || serverName.startsWith("192.168.")) {
+        fallbackBaseUrl = scheme + "://" + serverName + portStr;
+    } else {
+        fallbackBaseUrl = "https://witch-hunting.com";
+    }
+    request.setAttribute("fallbackBaseUrl", fallbackBaseUrl);
+%>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-itunes-app" content="app-id=1188195403">
-    <title>${not empty ogTitle ? ogTitle : 'Connecting to Star Platform...'}</title>
+    <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
     
-    <meta property="og:title" content="${not empty ogTitle ? ogTitle : 'Star Platform'}">
-    <meta property="og:description" content="${not empty ogDesc ? ogDesc : 'Connect with your favorite stars!'}">
-    <meta property="og:image" content="${not empty ogImage ? ogImage : 'https://starplatform.com/assets/img/default-share.jpg'}">
+    <meta property="og:title" content="${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}">
+    <meta property="og:description" content="${not empty ogDesc ? ogDesc : '대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작'}">
+    <meta property="og:image" content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
     <meta property="og:url" content="${ogUrl}">
     <meta property="og:type" content="website">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}">
+    <meta name="twitter:description" content="${not empty ogDesc ? ogDesc : '대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작'}">
+    <meta name="twitter:image" content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
 
     <style>
         body { text-align: center; padding-top: 50px; font-family: 'Pretendard', sans-serif; color: #333; }

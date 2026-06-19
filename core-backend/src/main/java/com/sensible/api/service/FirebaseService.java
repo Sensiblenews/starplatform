@@ -65,7 +65,8 @@ public class FirebaseService {
         
         ApnsConfig apnsConfig = ApnsConfig.builder()
                 .setAps(Aps.builder()
-                		.setSound("tick")
+                		.setSound("tick.wav")
+                		.setBadge(1)
                 		.build())
                 .build();
 

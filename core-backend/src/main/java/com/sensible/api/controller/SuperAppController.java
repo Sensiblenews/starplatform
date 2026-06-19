@@ -252,8 +252,12 @@ public class SuperAppController {
 
 	@RequestMapping(value = "/api/super/leaderboard/daily", method = RequestMethod.POST)
 	@ResponseBody
-	public Map<String, Object> getDailyLeaderboard() throws Exception {
-		return superAppService.getDailyLeaderboard();
+	public Map<String, Object> getDailyLeaderboard(@RequestBody(required = false) Map<String, Object> params) throws Exception {
+	    // 파라미터가 아예 없이 올 경우 NullPointerException 방지를 위해 빈 맵 생성
+	    if (params == null) {
+	        params = new HashMap<>();
+	    }
+	    return superAppService.getDailyLeaderboard(params);
 	}
 
 	// ==========================================
@@ -263,8 +267,11 @@ public class SuperAppController {
 	// 1. 역대 오늘의 왕
 	@RequestMapping(value = "/api/super/hall-of-fame/daily-kings", method = RequestMethod.POST)
 	@ResponseBody
-	public Map<String, Object> getDailyKings() throws Exception {
-		return superAppService.getDailyKings();
+	public Map<String, Object> getDailyKings(@RequestBody(required = false) Map<String, Object> params) throws Exception {
+		if (params == null) {
+			params = new HashMap<>();
+		}
+		return superAppService.getDailyKings(params);
 	}
 
 	// 2. 역대 TOP 100 (명예의 전당 탭 용)

@@ -44,18 +44,26 @@ export class LobbyPage implements OnInit, OnDestroy {
   searchResults: any[] = [];
   contentResults: any[] = [];
   isSearching: boolean = false;
+  searchQuery: string = '';
   private searchInput$ = new Subject<string>();
   private searchSub: Subscription;
 
   isShowingFavorites: boolean = false;
   favoriteStars: any[] = [];
+  activeFavoriteTab: 'M' | 'F' | 'V' = 'M';
+  followerStars: any[] = [];
+  visitorStars: any[] = [];
+  isLoadingFollowers: boolean = false;
+  isLoadingVisitors: boolean = false;
 
   isShowingRanking = false;
   showHallOfFameInline = false;
+  activeRankingTab: 'G' | 'R' | 'D' | 'H' | null = null;
   rankingMode: 'general' | 'revenue' | 'daily' = 'general';
   revenueRankingStars: any[] = [];
   dailyRankingStars: any[] = [];
   hallOfFameStars: any[] = [];
+  selectedDailyDate: string = '';
 
   // 🌟 [신규] 누적 수익 데이터
   myRevenue: { totalVisits: number; revenueUsd: number; revenueKrw: number } | null = null;
@@ -108,6 +116,12 @@ export class LobbyPage implements OnInit, OnDestroy {
   async ngOnInit() {
     const info = await Device.getId();
     this.deviceId = info.identifier;
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    this.selectedDailyDate = `${yyyy}-${mm}-${dd}`;
 
     this.loadLobbyData();
     this.startPolling();
@@ -371,13 +385,23 @@ export class LobbyPage implements OnInit, OnDestroy {
       }
     });
 
-    this.http.post(this.rankingEndpoints.daily, {}).subscribe((res: any) => {
+    this.loadDailyRanking();
+
+    this.hallOfFameStars = [];
+  }
+
+  loadDailyRanking() {
+    this.http.post(this.rankingEndpoints.daily, {
+      date: this.selectedDailyDate
+    }).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.dailyRankingStars = (res.list || []).map(this.initStarData);
       }
     });
+  }
 
-    this.hallOfFameStars = [];
+  onDailyDateChanged() {
+    this.loadDailyRanking();
   }
 
   private initStarData = (star: any) => {
@@ -409,6 +433,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.isShowingFavorites) {
       this.isSearching = false;
       this.isShowingRanking = false;
+      this.activeRankingTab = null;
+      this.activeFavoriteTab = 'M';
       this.loadFavoriteStars();
     }
   }
@@ -418,9 +444,11 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.isShowingRanking) {
       this.isSearching = false;
       this.isShowingFavorites = false; // 즐겨찾기 끄기
-      this.rankingMode = 'general';
+      this.activeRankingTab = 'H'; // Default to H (Hall of Fame) when clicked
+      this.showHallOfFameInline = true;
       this.loadMyRevenue();
     } else {
+      this.activeRankingTab = null;
       this.showHallOfFameInline = false;
     }
   }
@@ -470,41 +498,24 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.rankingMode = mode;
   }
 
-  async openGeneralRankingModal() {
+  openGeneralRankingModal() {
+    this.activeRankingTab = 'G';
     this.showHallOfFameInline = false;
-    const modal = await this.modalCtrl.create({
-      component: GeneralRankingModalComponent,
-      componentProps: {
-        stars: this.rankingStars
-      }
-    });
-    await modal.present();
   }
 
-  async openRevenueRankingModal() {
+  openRevenueRankingModal() {
+    this.activeRankingTab = 'R';
     this.showHallOfFameInline = false;
-    const modal = await this.modalCtrl.create({
-      component: RevenueRankingModalComponent,
-      componentProps: {
-        stars: this.revenueRankingStars
-      }
-    });
-    await modal.present();
   }
 
-  async openDailyRankingModal() {
+  openDailyRankingModal() {
+    this.activeRankingTab = 'D';
     this.showHallOfFameInline = false;
-    const modal = await this.modalCtrl.create({
-      component: DailyRankingModalComponent,
-      componentProps: {
-        stars: this.dailyRankingStars
-      }
-    });
-    await modal.present();
   }
 
   openHallOfFameModal() {
-    this.showHallOfFameInline = !this.showHallOfFameInline;
+    this.activeRankingTab = 'H';
+    this.showHallOfFameInline = true;
   }
 
   loadFavoriteStars() {
@@ -537,6 +548,67 @@ export class LobbyPage implements OnInit, OnDestroy {
           favIds.includes(String(star.id))
         );
         this.setupMotionObserver();
+      }
+    });
+  }
+
+  setFavoriteTab(tab: 'M' | 'F' | 'V') {
+    this.activeFavoriteTab = tab;
+    if (tab === 'M') {
+      this.loadFavoriteStars();
+    } else if (tab === 'F') {
+      this.loadFollowerStars();
+    } else if (tab === 'V') {
+      this.loadVisitorStars();
+    }
+  }
+
+  loadFollowerStars() {
+    if (!this.isStar || !this.starId) {
+      this.followerStars = [];
+      return;
+    }
+    this.isLoadingFollowers = true;
+    const starToken = localStorage.getItem('starToken') || '';
+    this.http.post('/api/super/my-insight/logs', {
+      starId: this.starId,
+      starToken: starToken,
+      type: 'FAVORITE'
+    }).subscribe({
+      next: (res: any) => {
+        if (res.result === 'OK') {
+          this.followerStars = res.list || [];
+        }
+        this.isLoadingFollowers = false;
+        this.setupMotionObserver();
+      },
+      error: () => {
+        this.isLoadingFollowers = false;
+      }
+    });
+  }
+
+  loadVisitorStars() {
+    if (!this.isStar || !this.starId) {
+      this.visitorStars = [];
+      return;
+    }
+    this.isLoadingVisitors = true;
+    const starToken = localStorage.getItem('starToken') || '';
+    this.http.post('/api/super/my-insight/logs', {
+      starId: this.starId,
+      starToken: starToken,
+      type: 'VISITOR'
+    }).subscribe({
+      next: (res: any) => {
+        if (res.result === 'OK') {
+          this.visitorStars = res.list || [];
+        }
+        this.isLoadingVisitors = false;
+        this.setupMotionObserver();
+      },
+      error: () => {
+        this.isLoadingVisitors = false;
       }
     });
   }
@@ -777,6 +849,15 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   onTitleTap() {
+    this.isSearching = false;
+    this.isShowingFavorites = false;
+    this.isShowingRanking = false;
+    this.activeRankingTab = null;
+    this.searchQuery = '';
+    this.searchResults = [];
+    this.contentResults = [];
+    this.shuffleStars();
+
     this.titleTapCount++;
     clearTimeout(this.tapTimeout);
     this.tapTimeout = setTimeout(() => { this.titleTapCount = 0; }, 1500);

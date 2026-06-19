@@ -67,6 +67,27 @@
 <ng-template #tabContentTemplate>
   <!-- ═══ TAB 1: Daily Kings ═══ -->
   <div *ngIf="activeTab === 'daily'" class="tab-content">
+    <!-- Year/Month Picker for Daily Kings -->
+    <div class="period-picker">
+      <div class="year-selector">
+        <button class="year-arrow" (click)="selectedDailyKingsYear = selectedDailyKingsYear - 1; onDailyKingsPeriodChanged()" [disabled]="selectedDailyKingsYear <= 2024">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <span class="year-label">{{ selectedDailyKingsYear }}</span>
+        <button class="year-arrow" (click)="selectedDailyKingsYear = selectedDailyKingsYear + 1; onDailyKingsPeriodChanged()" [disabled]="selectedDailyKingsYear >= 2026">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="month-grid">
+        <div *ngFor="let m of availableMonths"
+             class="month-chip"
+             [class.selected]="m.value === selectedDailyKingsMonth"
+             (click)="selectedDailyKingsMonth = m.value; onDailyKingsPeriodChanged()">
+          {{ m.label }}
+        </div>
+      </div>
+    </div>
     <!-- Loading -->
     <div *ngIf="dailyKingsLoading" class="loading-container">
       <ion-spinner name="crescent" color="danger"></ion-spinner>
@@ -86,7 +107,7 @@
           </ion-avatar>
           <div class="king-details">
             <div class="king-name">{{ king.name }}</div>
-            <div class="king-views">{{ formatNumber(king.viewCount) }} views</div>
+            <div class="king-views">{{ formatNumber(king.viewCount) }} visitors</div>
           </div>
         </div>
       </div>
@@ -119,11 +140,17 @@
         
         <ion-label class="info-container">
           <h2 class="star-name">{{ star.name }}</h2>
+          
+          <!-- 2단: 눈썹(👁️)과 숫자 -->
           <div class="stats-row">
             <div style="display: flex; align-items: center; gap: 2px;">
               👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 2px;">
+          </div>
+          
+          <!-- 3단: 하트(❤️)와 숫자  별(⭐)과 숫자 -->
+          <div class="stats-row" style="margin-top: 2px;">
+            <div style="display: flex; align-items: center; gap: 2px; margin-right: 12px;">
               ❤️ <span style="font-weight: 600;">{{ formatNumber(star.LIKE_CNT) }}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 2px;">

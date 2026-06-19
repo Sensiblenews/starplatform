@@ -738,9 +738,9 @@ public class SuperAppService {
 	// ==========================================
 
 	// 1. 역대 오늘의 왕 (일자별 1위)
-	public Map<String, Object> getDailyKings() throws Exception {
+	public Map<String, Object> getDailyKings(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
-		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyKings");
+		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyKings", params);
 		resultMap.put("result", "OK");
 		resultMap.put("list", list);
 		return resultMap;
@@ -776,11 +776,11 @@ public class SuperAppService {
 		return resultMap;
 	}
 
-	public Map<String, Object> getDailyLeaderboard() throws Exception {
+	public Map<String, Object> getDailyLeaderboard(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 
-		// 오늘 발생한 조회수 기반 상위 100명 조회
-		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyLeaderboard");
+		// date 파라미터 유무에 따른 동적 날짜 조회 (최대 100명)
+		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyLeaderboard", params);
 
 		resultMap.put("result", "OK");
 		resultMap.put("list", list);

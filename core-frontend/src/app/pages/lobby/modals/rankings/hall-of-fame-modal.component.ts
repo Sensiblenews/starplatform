@@ -19,6 +19,8 @@ export class HallOfFameModalComponent implements OnInit {
   // Daily Kings
   dailyKings: any[] = [];
   dailyKingsLoading = false;
+  selectedDailyKingsYear: number;
+  selectedDailyKingsMonth: number;
 
   // All-time Top 100
   top100Stars: any[] = [];
@@ -56,6 +58,8 @@ export class HallOfFameModalComponent implements OnInit {
     this.selectedYear = now.getFullYear();
     this.selectedMonth = now.getMonth() + 1;
     this.selectedYearForYearly = now.getFullYear();
+    this.selectedDailyKingsYear = now.getFullYear();
+    this.selectedDailyKingsMonth = now.getMonth() + 1;
 
     // Generate year range: 2024 ~ current year
     const currentYear = now.getFullYear();
@@ -105,7 +109,8 @@ export class HallOfFameModalComponent implements OnInit {
   // ── 1. Daily Kings ──────────────────────────────────────
   loadDailyKings() {
     this.dailyKingsLoading = true;
-    this.http.post('/api/super/hall-of-fame/daily-kings', {}).subscribe(
+    const targetMonth = `${this.selectedDailyKingsYear}-${String(this.selectedDailyKingsMonth).padStart(2, '0')}`;
+    this.http.post('/api/super/hall-of-fame/daily-kings', { targetMonth }).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.dailyKings = res.list || [];
@@ -114,6 +119,11 @@ export class HallOfFameModalComponent implements OnInit {
       },
       () => { this.dailyKingsLoading = false; }
     );
+  }
+
+  onDailyKingsPeriodChanged() {
+    this.dailyKings = [];
+    this.loadDailyKings();
   }
 
   // ── 2. All-time Top 100 ─────────────────────────────────
