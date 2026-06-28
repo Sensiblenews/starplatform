@@ -21,6 +21,7 @@ import { TermsBigModal } from './modals/terms-big/terms-big.component';
 import { CheckMessageService } from './services/check-message.service';
 import { TextZoom } from '@capacitor/text-zoom';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { Badge } from '@capawesome/capacitor-badge';
 
 export const interstitialOptions: AdOptions = {
   adId: 'ca-app-pub-9109251900558498/1182509295',
@@ -67,6 +68,16 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       await this.limitTextZoom();
 
       this.setupPushNotifications(); // 🌟 [신규 추가] 앱 시작 시 1회만 등록되는 전역 푸시 리스너
+
+      // 🌟 [신규 추가] 앱 활성화(포그라운드 복귀) 시 뱃지 및 알림 초기화 (iOS 전용)
+      App.addListener('appStateChange', (state) => {
+        if (state.isActive) {
+          this.clearBadgesAndNotifications();
+        }
+      });
+
+      // 앱 구동 시 최초 1회 초기화 (iOS 전용)
+      this.clearBadgesAndNotifications();
 
       // 🌟 [최적화] 미사용 기능 주석 처리로 병목 구간 완벽 제거
       // await this.setStores();
@@ -176,10 +187,10 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // 1. 토큰 발급/갱신 시 localStorage에 캐싱 + 백엔드로 자동 전송
       PushNotifications.addListener('registration', (token) => {
         console.log('[starfcm] ✅ 토큰 생성 성공:', token.value);
-        
+
         // 🔴 [Critical Fix] 토큰을 localStorage에 캐싱 (로그인 시 직접 전송용)
         localStorage.setItem('fcmToken', token.value);
-        
+
         const isStar = localStorage.getItem('isStar') === 'true';
         const starId = localStorage.getItem('starId');
 
@@ -394,7 +405,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
         // 🌟 1. 커스텀 스킴 (witchhunting://) 감지 시
         if (urlObj.protocol === 'witchhunting:') {
-          if (urlObj.hostname === 'claim-verify') {
+          const host = urlObj.hostname;
+
+          if (host === 'claim-verify') {
             const starId = urlObj.searchParams.get('starId');
             const email = urlObj.searchParams.get('email');
             const pw = urlObj.searchParams.get('pw');
@@ -403,6 +416,37 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
             if (starId && email) {
               this.executeMagicLogin(starId, email, pw);
+              return;
+            }
+          } else {
+            let path = '/' + host + urlObj.pathname;
+
+            if (path.startsWith('/witch')) {
+              path = path.replace('/witch', '');
+            }
+
+            const routeParts = path.split('/').filter(p => p !== '');
+
+            if (routeParts.length >= 2) {
+              const type = routeParts[0];
+              const id = routeParts[1];
+
+              if (type === 'post') {
+                console.log('✅ 딥링크 피드 페이지 이동:', id);
+                this.router.navigate(['/feed-detail', id]);
+                return;
+              } else if (type === 'star') {
+                console.log('✅ 딥링크 스타 페이지 이동:', id);
+                this.router.navigate(['/star', id]);
+                return;
+              } else {
+                console.log('✅ 딥링크 일반 이동:', path);
+                this.router.navigateByUrl(path);
+                return;
+              }
+            } else {
+              console.log('✅ 딥링크 일반 이동:', path);
+              this.router.navigateByUrl(path);
               return;
             }
           }
@@ -539,5 +583,17 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       const hasNewMessage = res.UNREAD_COUNT && res.UNREAD_COUNT > 0;
       this.checkMessageService.updateNewMessageState(hasNewMessage);
     });
+  }
+
+  private async clearBadgesAndNotifications() {
+    if (Capacitor.isNativePlatform() && this.platform.is('ios')) {
+      try {
+        await Badge.clear();
+        await PushNotifications.removeAllDeliveredNotifications();
+        console.log('[Badge/Notification] Cleared badge and notifications successfully on iOS');
+      } catch (error) {
+        console.error('[Badge/Notification] Failed to clear badge and notifications:', error);
+      }
+    }
   }
 }

@@ -228,12 +228,12 @@
                     <div class="row">
                         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
                             <div class="col-md-6 border-end">
-                                <h5 class="fw-bold text-warning mb-3"><i class="fas fa-star"></i> 가로 스와이프 (최대 16명)</h5>
+                                <h5 class="fw-bold text-warning mb-3"><i class="fas fa-star"></i> 가로 스와이프 (글로벌 수동 12~16번)</h5>
                                 <div id="popularSlots">
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <h5 class="fw-bold text-primary mb-3"><i class="fas fa-sort-amount-down"></i> 세로 리스트 최상단 (1~16번)</h5>
+                                <h5 class="fw-bold text-primary mb-3"><i class="fas fa-sort-amount-down"></i> 세로 리스트 글로벌 수동 (9~16번)</h5>
                                 <div id="listTopSlots">
                                 </div>
                             </div>
@@ -241,8 +241,8 @@
 
                         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'LC'}">
                             <div class="col-md-12">
-                                <h5 class="fw-bold text-success mb-3"><i class="fas fa-sort-numeric-down"></i> 세로 리스트 지역할당 (17~32번)</h5>
-                                <p class="text-muted small">* 1~16번은 최고관리자가 글로벌 스타로 지정합니다.</p>
+                                <h5 class="fw-bold text-success mb-3"><i class="fas fa-sort-numeric-down"></i> 세로 리스트 지역 수동 (25~32번)</h5>
+                                <p class="text-muted small">* 1~24번은 자동 선정 및 글로벌 수동 지정 영역입니다.</p>
                                 <div class="row" id="listLocalSlots">
                                 </div>
                             </div>
@@ -676,39 +676,39 @@
         const auth = '${sessionScope.SUPER_USER_SESSION.PRS_AUTH}';
 
         if (auth === 'SM') {
-            // SM: 인기 1~6번
+            // SM: 인기 12~16번
             let popHtml = '';
-            for(let i=1; i<=16; i++) {
+            for(let i=12; i<=16; i++) {
                 popHtml += '<div class="mb-2 input-group"><span class="input-group-text bg-warning fw-bold">' + i + '위</span><select class="form-select pop-slot" data-slot="' + i + '">' + optionsHtml + '</select></div>';
             }
             $('#popularSlots').html(popHtml);
             
-            // SM: 리스트 1~16번
+            // SM: 리스트 9~16번
             let listTopHtml = '';
-            for(let i=1; i<=16; i++) {
+            for(let i=9; i<=16; i++) {
                 listTopHtml += '<div class="mb-2 input-group"><span class="input-group-text bg-primary text-white fw-bold">' + i + '위</span><select class="form-select list-slot" data-slot="' + i + '">' + optionsHtml + '</select></div>';
             }
             $('#listTopSlots').html(listTopHtml);
 
             // 선택값 매핑 (따옴표로 확실하게 감싸줌)
-            for(let i=1; i<=16; i++) {
+            for(let i=12; i<=16; i++) {
                 $('.pop-slot[data-slot="' + i + '"]').val(current.popular[i] || '');
             }
-            for(let i=1; i<=16; i++) {
+            for(let i=9; i<=16; i++) {
                 $('.list-slot[data-slot="' + i + '"]').val(current.list[i] || '');
             }
 
          // [기존 코드 삭제 후 아래 코드로 교체]
         } else if (auth === 'LC') {
-            // LC: 리스트 17~32번 (지역 할당)
+            // LC: 리스트 25~32번 (지역 할당)
             let localHtml = '';
-            for(let i=17; i<=32; i++) {
-                localHtml += '<div class="col-md-6 mb-2"><div class="input-group"><span class="input-group-text bg-success text-white fw-bold">지역 ' + (i-16) + '위</span><select class="form-select list-slot" data-slot="' + i + '">' + optionsHtml + '</select></div></div>';
+            for(let i=25; i<=32; i++) {
+                localHtml += '<div class="col-md-6 mb-2"><div class="input-group"><span class="input-group-text bg-success text-white fw-bold">지역 ' + (i-24) + '위</span><select class="form-select list-slot" data-slot="' + i + '">' + optionsHtml + '</select></div></div>';
             }
             $('#listLocalSlots').html(localHtml);
             
             // 선택값 매핑
-            for(let i=17; i<=32; i++) {
+            for(let i=25; i<=32; i++) {
                 $('.list-slot[data-slot="' + i + '"]').val(current.list[i] || '');
             }
         }

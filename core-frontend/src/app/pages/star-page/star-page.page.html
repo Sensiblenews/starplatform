@@ -96,7 +96,7 @@
       </div>
 
       <div class="feed-card" *ngIf="!item.isAd" (click)="goDetail(item.CON_ID)">
-        <div class="media-wrapper">
+        <div class="media-wrapper" *ngIf="item.MEDIA_TYPE === 'VIDEO' || item.image || item.youtubeUrl || item.YOUTUBE_URL">
           <div class="loading-spinner-box" *ngIf="!item.isLoaded">
             <ion-spinner name="crescent"></ion-spinner>
           </div>
@@ -222,7 +222,7 @@
       Next Page <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
     </ion-button>
 
-    <div class="claim-banner-box" *ngIf="!isClaimed" style="margin-top: 15px;">
+    <div class="claim-banner-box" *ngIf="!isClaimed && !isStar" style="margin-top: 15px;">
       <ion-button expand="block" color="primary" shape="round" (click)="claimPage()" style="font-size: 14px;">
         <ion-icon name="key-outline" slot="start"></ion-icon>
         Manage

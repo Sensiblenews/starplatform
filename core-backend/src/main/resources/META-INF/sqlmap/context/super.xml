@@ -264,14 +264,14 @@
 
     <update id="resetSMOrder">
         UPDATE WH_PRESS 
-        SET POPULAR_ORDER = 0,
-            LIST_ORDER = CASE WHEN LIST_ORDER BETWEEN 1 AND 16 THEN 0 ELSE LIST_ORDER END
+        SET POPULAR_ORDER = CASE WHEN POPULAR_ORDER BETWEEN 12 AND 16 THEN 0 ELSE POPULAR_ORDER END,
+            LIST_ORDER = CASE WHEN LIST_ORDER BETWEEN 9 AND 16 THEN 0 ELSE LIST_ORDER END
     </update>
 
     <update id="resetLCOrder" parameterType="string">
         UPDATE WH_PRESS 
         SET LIST_ORDER = 0
-        WHERE PRS_COUNTRY = #{country} AND LIST_ORDER BETWEEN 17 AND 32
+        WHERE PRS_COUNTRY = #{country} AND LIST_ORDER BETWEEN 25 AND 32
     </update>
 
     <update id="updatePopularOrder" parameterType="map">

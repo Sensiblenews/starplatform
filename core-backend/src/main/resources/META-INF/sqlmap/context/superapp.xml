@@ -4,15 +4,26 @@
 <mapper namespace="superapp">
 
 	<select id="selectPopularStars" resultType="hashmap">
-	    SELECT * FROM (
-	        SELECT
+	    SELECT 
+	        T.id, T.name, T.image, T.status, 
+	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS
+	    FROM (
+	        SELECT 
 	            P.PRS_ID as id,
 	            P.PRS_NAME as name,
 	            P.STORED_FILE_NM as image,
 	            P.STATUS_MSG as status,
-	            P.POPULAR_ORDER,
-	            
-	            -- 🌟 RANK() 대신 ROW_NUMBER() 및 타이 브레이커 적용
+	            ROW_NUMBER() OVER (ORDER BY 
+	                (
+	                    IFNULL(V.cnt, 0) * 1 + 
+	                    IFNULL(L.cnt, 0) * 3 + 
+	                    IFNULL(C.cnt, 0) * 5 + 
+	                    IFNULL(S.cnt, 0) * 8 + 
+	                    IFNULL(F.cnt, 0) * 10 + 
+	                    IF(IFNULL(N.newContent, 0) > 0, 100, 0)
+	                ) DESC,
+	                P.PRS_ID ASC
+	            ) AS POPULAR_ORDER,
 	            ROW_NUMBER() OVER (
 	                ORDER BY 
 	                    (
@@ -24,9 +35,7 @@
 	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
 	                    P.PRS_ID ASC
 	            ) AS GLOBAL_RANK,
-	            
-	            COUNT(*) OVER () AS TOTAL_STARS
-	
+	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
 	        FROM WH_PRESS P
 	        LEFT JOIN (
 	            SELECT PRS_ID, COUNT(*) as viewCount
@@ -34,57 +43,289 @@
 	            WHERE ACTION = 'IMPRESSION'
 	            GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'IMPRESSION' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
+	        ) V ON P.PRS_ID = V.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
+	            WHERE ACTION = 'LIKE' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
+	        ) L ON P.PRS_ID = L.PRS_ID
+	        LEFT JOIN (
+	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
+	            FROM WH_GUEST_COMMENT wgc 
+	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
+	            WHERE wgc.STATUS = 'NORMAL' AND DATE(wgc.CREATED_AT) = CURDATE()
+	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
+	        ) C ON P.PRS_ID = C.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'SHARE' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
+	        ) S ON P.PRS_ID = S.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
+	            WHERE ACTION = 'FOLLOW' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
+	        ) F ON P.PRS_ID = F.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as newContent FROM WH_STAR_CONTENT 
+	            WHERE CREATED_DATE >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY PRS_ID
+	        ) N ON P.PRS_ID = N.PRS_ID
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	          AND (P.POPULAR_ORDER IS NULL OR P.POPULAR_ORDER NOT BETWEEN 12 AND 16)
 	    ) T
-	    WHERE T.POPULAR_ORDER > 0
-	    ORDER BY T.POPULAR_ORDER ASC
-	    LIMIT 16
+	    WHERE T.POPULAR_ORDER &lt;= 11
+
+	    UNION ALL
+
+	    SELECT 
+	        P.PRS_ID as id,
+	        P.PRS_NAME as name,
+	        P.STORED_FILE_NM as image,
+	        P.STATUS_MSG as status,
+	        P.POPULAR_ORDER,
+	        T_RANK.GLOBAL_RANK,
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	    FROM WH_PRESS P
+	    LEFT JOIN (
+	        SELECT 
+	            P2.PRS_ID,
+	            ROW_NUMBER() OVER (
+	                ORDER BY 
+	                    (
+	                        IFNULL(A2.viewCount, 0) * 1 + 
+	                        IFNULL(P2.LIKE_CNT, 0) * 3 + 
+	                        IFNULL(P2.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A2.viewCount, 0) DESC,
+	                    IFNULL(P2.FOLLOWER_CNT, 0) DESC,
+	                    P2.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	        FROM WH_PRESS P2
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	        ) A2 ON P2.PRS_ID = A2.PRS_ID
+	        WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
+	    ) T_RANK ON P.PRS_ID = T_RANK.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      AND P.POPULAR_ORDER BETWEEN 12 AND 16
+
+	    ORDER BY POPULAR_ORDER ASC
 	</select>
+
 	<select id="selectAllStars" parameterType="map" resultType="hashmap">
-	   SELECT * FROM (
-	        SELECT
-	            P.PRS_ID as id,
-	            P.PRS_NAME as name,
-	            P.STORED_FILE_NM as image,
-	            P.STATUS_MSG as status,
-	            P.LIST_ORDER,
+	    SELECT 
+	        T.id, T.name, T.image, T.status, 
+	        T.LIST_ORDER, T.PRS_COUNTRY, T.viewCount, T.FOLLOWER_CNT, T.GLOBAL_RANK, T.TOTAL_STARS
+	    FROM (
+	        SELECT 
+	            P.PRS_ID as id, P.PRS_NAME as name, P.STORED_FILE_NM as image, P.STATUS_MSG as status,
+	            ROW_NUMBER() OVER (ORDER BY 
+	                (
+	                    (IFNULL(H1_V.cnt, 0) - IFNULL(H2_V.cnt, 0)) * 1 +
+	                    (IFNULL(H1_L.cnt, 0) - IFNULL(H2_L.cnt, 0)) * 3 +
+	                    (IFNULL(H1_C.cnt, 0) - IFNULL(H2_C.cnt, 0)) * 5 +
+	                    (IFNULL(H1_S.cnt, 0) - IFNULL(H2_S.cnt, 0)) * 8 +
+	                    (IFNULL(H1_F.cnt, 0) - IFNULL(H2_F.cnt, 0)) * 10
+	                ) DESC,
+	                P.PRS_ID ASC
+	            ) AS LIST_ORDER,
 	            P.PRS_COUNTRY,
 	            IFNULL(A.viewCount, 0) as viewCount,
 	            IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
-	            
-	            -- 글로벌 랭킹 보존
-	            ROW_NUMBER() OVER (
-	                ORDER BY 
-	                    (
-	                        IFNULL(A.viewCount, 0) * 1 + 
-	                        IFNULL(P.LIKE_CNT, 0) * 3 + 
-	                        IFNULL(P.FOLLOWER_CNT, 0) * 5
-	                    ) DESC,
-	                    IFNULL(A.viewCount, 0) DESC,
-	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
-	                    P.PRS_ID ASC
-	            ) AS GLOBAL_RANK,
-	            
+	            ROW_NUMBER() OVER (ORDER BY (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) DESC, IFNULL(A.viewCount, 0) DESC, IFNULL(P.FOLLOWER_CNT, 0) DESC, P.PRS_ID ASC) AS GLOBAL_RANK,
 	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
-	
 	        FROM WH_PRESS P
 	        LEFT JOIN (
-	            SELECT PRS_ID, COUNT(*) as viewCount
-	            FROM WH_AD_LOG
-	            WHERE ACTION = 'IMPRESSION'
-	            GROUP BY PRS_ID
+	            SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'IMPRESSION' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_V ON P.PRS_ID = H1_V.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'IMPRESSION' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_V ON P.PRS_ID = H2_V.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
+	            WHERE ACTION = 'LIKE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_L ON P.PRS_ID = H1_L.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
+	            WHERE ACTION = 'LIKE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_L ON P.PRS_ID = H2_L.PRS_ID
+	        LEFT JOIN (
+	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
+	            FROM WH_GUEST_COMMENT wgc 
+	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
+	            WHERE wgc.STATUS = 'NORMAL' AND wgc.CREATED_AT &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
+	        ) H1_C ON P.PRS_ID = H1_C.PRS_ID
+	        LEFT JOIN (
+	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
+	            FROM WH_GUEST_COMMENT wgc 
+	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
+	            WHERE wgc.STATUS = 'NORMAL' AND wgc.CREATED_AT &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND wgc.CREATED_AT &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR)
+	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
+	        ) H2_C ON P.PRS_ID = H2_C.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'SHARE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_S ON P.PRS_ID = H1_S.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'SHARE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_S ON P.PRS_ID = H2_S.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
+	            WHERE ACTION = 'FOLLOW' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_F ON P.PRS_ID = H1_F.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
+	            WHERE ACTION = 'FOLLOW' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_F ON P.PRS_ID = H2_F.PRS_ID
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	          AND (P.LIST_ORDER IS NULL OR P.LIST_ORDER NOT BETWEEN 9 AND 16)
 	    ) T
-	    -- 🌟 [핵심 로직] 글로벌 어드민(1~16번) + 로컬 어드민(17~32번 중 접속 유저의 국가만) 추출
-	    WHERE T.LIST_ORDER BETWEEN 1 AND 16
-	       OR (
-	           T.LIST_ORDER BETWEEN 17 AND 32
-		<if test="country != null and country != ''">
-	               AND T.PRS_COUNTRY = #{country}
-		</if>
-	       )
-	    ORDER BY T.LIST_ORDER ASC
+	    WHERE T.LIST_ORDER &lt;= 8
+
+	    UNION ALL
+
+	    SELECT 
+	        P.PRS_ID as id, P.PRS_NAME as name, P.STORED_FILE_NM as image, P.STATUS_MSG as status,
+	        P.LIST_ORDER, P.PRS_COUNTRY,
+	        IFNULL(A.viewCount, 0) as viewCount,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	        T_RANK.GLOBAL_RANK,
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	    FROM WH_PRESS P
+	    LEFT JOIN (
+	        SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	    ) A ON P.PRS_ID = A.PRS_ID
+	    LEFT JOIN (
+	        SELECT 
+	            P2.PRS_ID,
+	            ROW_NUMBER() OVER (ORDER BY (IFNULL(A2.viewCount, 0) * 1 + IFNULL(P2.LIKE_CNT, 0) * 3 + IFNULL(P2.FOLLOWER_CNT, 0) * 5) DESC, IFNULL(A2.viewCount, 0) DESC, IFNULL(P2.FOLLOWER_CNT, 0) DESC, P2.PRS_ID ASC) AS GLOBAL_RANK
+	        FROM WH_PRESS P2
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	        ) A2 ON P2.PRS_ID = A2.PRS_ID
+	        WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
+	    ) T_RANK ON P.PRS_ID = T_RANK.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      AND P.LIST_ORDER BETWEEN 9 AND 16
+
+	    UNION ALL
+
+	    SELECT 
+	        T.id, T.name, T.image, T.status, 
+	        T.LIST_ORDER, T.PRS_COUNTRY, T.viewCount, T.FOLLOWER_CNT, T.GLOBAL_RANK, T.TOTAL_STARS
+	    FROM (
+	        SELECT 
+	            P.PRS_ID as id, P.PRS_NAME as name, P.STORED_FILE_NM as image, P.STATUS_MSG as status,
+	            (ROW_NUMBER() OVER (ORDER BY 
+	                (
+	                    (IFNULL(H1_V.cnt, 0) - IFNULL(H2_V.cnt, 0)) * 1 +
+	                    (IFNULL(H1_L.cnt, 0) - IFNULL(H2_L.cnt, 0)) * 3 +
+	                    (IFNULL(H1_C.cnt, 0) - IFNULL(H2_C.cnt, 0)) * 5 +
+	                    (IFNULL(H1_S.cnt, 0) - IFNULL(H2_S.cnt, 0)) * 8 +
+	                    (IFNULL(H1_F.cnt, 0) - IFNULL(H2_F.cnt, 0)) * 10
+	                ) DESC,
+	                P.PRS_ID ASC
+	            ) + 16) AS LIST_ORDER,
+	            P.PRS_COUNTRY,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	            ROW_NUMBER() OVER (ORDER BY (IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5) DESC, IFNULL(A.viewCount, 0) DESC, IFNULL(P.FOLLOWER_CNT, 0) DESC, P.PRS_ID ASC) AS GLOBAL_RANK,
+	            (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'IMPRESSION' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_V ON P.PRS_ID = H1_V.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'IMPRESSION' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_V ON P.PRS_ID = H2_V.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
+	            WHERE ACTION = 'LIKE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_L ON P.PRS_ID = H1_L.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
+	            WHERE ACTION = 'LIKE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_L ON P.PRS_ID = H2_L.PRS_ID
+	        LEFT JOIN (
+	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
+	            FROM WH_GUEST_COMMENT wgc 
+	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
+	            WHERE wgc.STATUS = 'NORMAL' AND wgc.CREATED_AT &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
+	        ) H1_C ON P.PRS_ID = H1_C.PRS_ID
+	        LEFT JOIN (
+	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
+	            FROM WH_GUEST_COMMENT wgc 
+	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
+	            WHERE wgc.STATUS = 'NORMAL' AND wgc.CREATED_AT &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND wgc.CREATED_AT &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR)
+	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
+	        ) H2_C ON P.PRS_ID = H2_C.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'SHARE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_S ON P.PRS_ID = H1_S.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
+	            WHERE ACTION = 'SHARE' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_S ON P.PRS_ID = H2_S.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
+	            WHERE ACTION = 'FOLLOW' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H1_F ON P.PRS_ID = H1_F.PRS_ID
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
+	            WHERE ACTION = 'FOLLOW' AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL 2 HOUR) AND CREATED_DATE &lt; DATE_SUB(NOW(), INTERVAL 1 HOUR) GROUP BY PRS_ID
+	        ) H2_F ON P.PRS_ID = H2_F.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	        <if test="country != null and country != ''">
+	            AND P.PRS_COUNTRY = #{country}
+	        </if>
+	          AND (P.LIST_ORDER IS NULL OR P.LIST_ORDER NOT BETWEEN 25 AND 32)
+	    ) T
+	    WHERE T.LIST_ORDER &lt;= 24
+
+	    UNION ALL
+
+	    SELECT 
+	        P.PRS_ID as id, P.PRS_NAME as name, P.STORED_FILE_NM as image, P.STATUS_MSG as status,
+	        P.LIST_ORDER, P.PRS_COUNTRY,
+	        IFNULL(A.viewCount, 0) as viewCount,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	        T_RANK.GLOBAL_RANK,
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	    FROM WH_PRESS P
+	    LEFT JOIN (
+	        SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	    ) A ON P.PRS_ID = A.PRS_ID
+	    LEFT JOIN (
+	        SELECT 
+	            P2.PRS_ID,
+	            ROW_NUMBER() OVER (ORDER BY (IFNULL(A2.viewCount, 0) * 1 + IFNULL(P2.LIKE_CNT, 0) * 3 + IFNULL(P2.FOLLOWER_CNT, 0) * 5) DESC, IFNULL(A2.viewCount, 0) DESC, IFNULL(P2.FOLLOWER_CNT, 0) DESC, P2.PRS_ID ASC) AS GLOBAL_RANK
+	        FROM WH_PRESS P2
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' GROUP BY PRS_ID
+	        ) A2 ON P2.PRS_ID = A2.PRS_ID
+	        WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
+	    ) T_RANK ON P.PRS_ID = T_RANK.PRS_ID
+	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    <if test="country != null and country != ''">
+	        AND P.PRS_COUNTRY = #{country}
+	    </if>
+	      AND P.LIST_ORDER BETWEEN 25 AND 32
+
+	    ORDER BY LIST_ORDER ASC
 	</select>
 
 	<select id="selectStarDetail" parameterType="hashmap" resultType="hashmap">
@@ -130,7 +371,8 @@
 	                WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
 	            ) r WHERE r.PRS_ID = P.PRS_ID
 	        ) AS GLOBAL_RANK,
-	        P.OWNER_EMAIL
+	        P.OWNER_EMAIL,
+	        IF(P.PRS_PWD IS NOT NULL AND P.PRS_PWD != '', 'Y', 'N') AS IS_CLAIMED
 	        
 	    FROM WH_PRESS P
 	    WHERE
@@ -375,13 +617,14 @@
 	<update id="updateShareCount" parameterType="map">
 		<choose>
 			<when test='targetType == "STAR"'>
-				UPDATE WH_PRESS SET SHARE_CNT = SHARE_CNT + 1 WHERE
-				PRS_ID = #{targetId}
+				UPDATE WH_PRESS SET SHARE_CNT = SHARE_CNT + 1 WHERE PRS_ID = #{targetId};
+				INSERT INTO WH_AD_LOG (MEM_ID, PRS_ID, ACTION, CREATED_DATE)
+				VALUES ('SYSTEM', #{targetId}, 'SHARE', NOW());
 			</when>
 			<otherwise>
-				UPDATE WH_STAR_CONTENT SET SHARE_CNT = SHARE_CNT + 1 WHERE
-				CON_ID =
-				#{targetId}
+				UPDATE WH_STAR_CONTENT SET SHARE_CNT = SHARE_CNT + 1 WHERE CON_ID = #{targetId};
+				INSERT INTO WH_AD_LOG (MEM_ID, PRS_ID, ACTION, CREATED_DATE)
+				VALUES ('SYSTEM', (SELECT PRS_ID FROM WH_STAR_CONTENT WHERE CON_ID = #{targetId}), 'SHARE', NOW());
 			</otherwise>
 		</choose>
 	</update>
@@ -922,6 +1165,19 @@
 	      AND PRS_USE_YN = 'Y'
 	</select>
 
+	<select id="selectStarByEmailAndPassword" parameterType="map" resultType="map">
+	    SELECT 
+	        PRS_ID as starId, 
+	        PRS_NAME as name, 
+	        PRS_AUTH as auth
+	    FROM WH_PRESS
+	    WHERE PRS_ID = #{email} 
+	      AND PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{password})))))
+	      AND IS_STAR = 'Y'
+	      AND PRS_USE_YN = 'Y'
+	</select>
+
+
 	<update id="updateProfile" parameterType="map">
 	    UPDATE WH_PRESS
 	    SET 
@@ -1113,7 +1369,7 @@
 	        A.MEM_ID as deviceId,
 	        MAX(A.CREATED_DATE) as actionDate,
 	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(A.MEM_ID, 1, 5))) as name,
+	        IFNULL(P.PRS_NAME, CONCAT('user', SUBSTRING(A.MEM_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_AD_LOG A
 	    LEFT JOIN WH_PRESS P ON A.MEM_ID = P.PRS_ID
@@ -1128,7 +1384,7 @@
 	        L.DEVICE_ID as deviceId,
 	        MAX(L.CREATED_DATE) as actionDate,
 	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(L.DEVICE_ID, 1, 5))) as name,
+	        IFNULL(P.PRS_NAME, CONCAT('user', SUBSTRING(L.DEVICE_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_LIKE_LOG L
 	    LEFT JOIN WH_PRESS P ON L.DEVICE_ID = P.PRS_ID
@@ -1143,7 +1399,7 @@
 	        F.DEVICE_ID as deviceId,
 	        MAX(F.CREATED_DATE) as actionDate,
 	        -- 🌟 수정: 계정이 없으면 '사용자-기기ID앞5글자' 조합으로 이름 생성
-	        IFNULL(P.PRS_NAME, CONCAT('사용자-', SUBSTRING(F.DEVICE_ID, 1, 5))) as name,
+	        IFNULL(P.PRS_NAME, CONCAT('user', SUBSTRING(F.DEVICE_ID, 1, 5))) as name,
 	        IFNULL(P.STORED_FILE_NM, 'assets/img/defaultImg/avatar.svg') as image
 	    FROM WH_FOLLOWER_LOG F
 	    LEFT JOIN WH_PRESS P ON F.DEVICE_ID = P.PRS_ID

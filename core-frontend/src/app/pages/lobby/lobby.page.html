@@ -103,8 +103,9 @@
 
   <div class="section-container" *ngIf="isShowingFavorites && !isSearching">
     <div class="section-header">
-      <ion-icon [name]="activeFavoriteTab === 'M' ? 'star' : (activeFavoriteTab === 'F' ? 'people' : 'eye')" 
-                class="title-icon" [style.color]="activeFavoriteTab === 'M' ? '#ffca28' : (activeFavoriteTab === 'F' ? '#3880ff' : '#2ecc71')"></ion-icon>
+      <ion-icon [name]="activeFavoriteTab === 'M' ? 'star' : (activeFavoriteTab === 'F' ? 'people' : 'eye')"
+        class="title-icon"
+        [style.color]="activeFavoriteTab === 'M' ? '#ffca28' : (activeFavoriteTab === 'F' ? '#3880ff' : '#2ecc71')"></ion-icon>
       <ion-label *ngIf="activeFavoriteTab === 'M'">My Favorites ({{ favoriteStars.length }})</ion-label>
       <ion-label *ngIf="activeFavoriteTab === 'F'">Followers ({{ followerStars.length }})</ion-label>
       <ion-label *ngIf="activeFavoriteTab === 'V'">Visitors ({{ visitorStars.length }})</ion-label>
@@ -135,11 +136,10 @@
           </ion-avatar>
           <ion-label class="info-container">
             <h2 class="star-name">{{ star.name }}</h2>
-            <div class="stats-row">
-              <div style="position: relative; display: flex; align-items: center; gap: 2px;">
-                👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
-                <div *ngIf="star.showPlus" class="floating-plus">+1</div>
-              </div>
+            <div class="stats-row" *ngIf="star.globalRank > 0">
+              <span style="font-size: 13px; color: #888; font-weight: 600;">
+                #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+              </span>
             </div>
           </ion-label>
         </ion-item>
@@ -150,9 +150,9 @@
     <!-- F (Followers) Content -->
     <ng-container *ngIf="activeFavoriteTab === 'F'">
       <ion-list lines="none" *ngIf="followerStars.length > 0">
-        <ion-item *ngFor="let user of followerStars" 
-                  (click)="user.deviceId && (user.deviceId.startsWith('SP-') || user.deviceId.startsWith('star_')) ? goToStarPage(user.deviceId) : null"
-                  class="star-list-item motion-card">
+        <ion-item *ngFor="let user of followerStars"
+          (click)="user.deviceId && (user.deviceId.startsWith('SP-') || user.deviceId.startsWith('star_')) ? goToStarPage(user.deviceId) : null"
+          class="star-list-item motion-card">
           <ion-avatar slot="start">
             <img [src]="user.image || defaultAvatar" (error)="handleImageError($event)" />
           </ion-avatar>
@@ -171,9 +171,9 @@
     <!-- V (Visitors) Content -->
     <ng-container *ngIf="activeFavoriteTab === 'V'">
       <ion-list lines="none" *ngIf="visitorStars.length > 0">
-        <ion-item *ngFor="let user of visitorStars" 
-                  (click)="user.deviceId && (user.deviceId.startsWith('SP-') || user.deviceId.startsWith('star_')) ? goToStarPage(user.deviceId) : null"
-                  class="star-list-item motion-card">
+        <ion-item *ngFor="let user of visitorStars"
+          (click)="user.deviceId && (user.deviceId.startsWith('SP-') || user.deviceId.startsWith('star_')) ? goToStarPage(user.deviceId) : null"
+          class="star-list-item motion-card">
           <ion-avatar slot="start">
             <img [src]="user.image || defaultAvatar" (error)="handleImageError($event)" />
           </ion-avatar>
@@ -250,7 +250,7 @@
     <!-- G (General Ranking) Inline View -->
     <ng-container *ngIf="activeRankingTab === 'G'">
       <ion-list lines="none" *ngIf="rankingStars && rankingStars.length > 0">
-        <ion-item *ngFor="let star of rankingStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-item *ngFor="let star of rankingStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
           </div>
@@ -259,10 +259,8 @@
           </ion-avatar>
           <ion-label class="info-container">
             <h2 class="star-name">{{ star.name }}</h2>
-            <div class="stats-row">
-              <div style="display: flex; align-items: center; gap: 2px;">
-                👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
-              </div>
+            <div *ngIf="star.globalRank > 0" class="global-rank">
+              🌍 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.displayViewCount) }}
             </div>
           </ion-label>
         </ion-item>
@@ -276,7 +274,7 @@
     <ng-container *ngIf="activeRankingTab === 'R'">
       <ion-list lines="none" *ngIf="revenueRankingStars && revenueRankingStars.length > 0">
         <ion-item *ngFor="let star of revenueRankingStars" (click)="goToStarPage(star.id)"
-          class="star-list-item motion-card">
+          class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
           </div>
@@ -308,7 +306,7 @@
 
       <ion-list lines="none" *ngIf="dailyRankingStars && dailyRankingStars.length > 0">
         <ion-item *ngFor="let star of dailyRankingStars" (click)="goToStarPage(star.id)"
-          class="star-list-item motion-card">
+          class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
           </div>

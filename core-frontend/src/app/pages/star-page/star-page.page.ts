@@ -70,6 +70,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   recommendedPages: any[] = []; // 하단 무한 스크롤(Next Page)용 추천 리스트
 
   isStar: boolean = false; // 🌟 추가: 현재 사용자가 이 페이지의 주인인지 여부
+  private paramSub: any;
 
   constructor(
     private route: ActivatedRoute,
@@ -89,14 +90,16 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   async ngOnInit() {
     const info = await Device.getId();
     this.deviceId = info.identifier;
-    this.starId = this.route.snapshot.paramMap.get('starId');
-
-    this.isStar = localStorage.getItem('isStar') === 'true' && localStorage.getItem('starId') === this.starId;
     this.isAdmin = localStorage.getItem('isAdmin') === 'true';
     this.currentAdminId = localStorage.getItem('adminId') || '';
 
-    this.loadStarDetail();
-    this.checkFavoriteState();
+    this.paramSub = this.route.paramMap.subscribe(params => {
+      this.starId = params.get('starId');
+      this.isStar = localStorage.getItem('isStar') === 'true' && localStorage.getItem('starId') === this.starId;
+
+      this.loadStarDetail();
+      this.checkFavoriteState();
+    });
   }
 
   checkFavoriteState() {
@@ -134,6 +137,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.removeClickListener();
+    if (this.paramSub) {
+      this.paramSub.unsubscribe();
+    }
   }
 
   async ionViewDidEnter() {
@@ -274,7 +280,10 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
         photos.forEach((item: any, index: number) => {
           if (item.MEDIA_TYPE === 'VIDEO') item.isMuted = true;
-          item.isLoaded = false;
+          
+          // 미디어가 전혀 없는 텍스트 피드인 경우 로딩 완료(isLoaded = true) 처리
+          const hasMedia = item.MEDIA_TYPE === 'VIDEO' || item.image || item.youtubeUrl || item.YOUTUBE_URL;
+          item.isLoaded = hasMedia ? false : true;
 
           item.hasLiked = item.IS_LIKED == 1 || item.IS_LIKED === true;
           item.likeCount = item.LIKE_CNT || 0;
@@ -285,8 +294,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         // 최종 배열 기준으로 광고 빈칸을 삽입합니다.
         this.feedList = photos;
         this.insertAdSlots();
-        // 🌟 [신규] OWNER_EMAIL 값이 비어있으면(null) 주인이 없는 페이지!
-        this.isClaimed = this.starInfo.OWNER_EMAIL ? true : false;
+        // 🌟 [신규] OWNER_EMAIL 또는 PRS_PWD가 존재하면 주인이 있는 페이지! (백엔드 IS_CLAIMED 사용)
+        this.isClaimed = this.starInfo.IS_CLAIMED === 'Y';
         // 🌟 [신규] 페이지 디테일 로딩 시 하단 추천 페이지도 같이 불러옵니다.
         this.loadRecommendedPages();
       }

@@ -41,6 +41,9 @@ public class DeepLinkController {
 
 		String uri = request.getRequestURI();
 		String baseUrl = getBaseUrl(request);
+		
+		String userAgent = request.getHeader("User-Agent");
+		boolean isFacebookBot = userAgent != null && userAgent.toLowerCase().contains("facebookexternalhit");
 
 		try {
 			// 🌟 1. 스타 페이지 공유 링크인 경우
@@ -55,12 +58,24 @@ public class DeepLinkController {
 				if ("OK".equals(response.get("result"))) {
 					@SuppressWarnings("unchecked")
 					Map<String, Object> starInfo = (Map<String, Object>) response.get("starInfo");
+					
+					// 🌟 [핵심 수정] 이미지 경로가 상대경로면 무조건 절대경로(http...)로 변환 (트위터 호환성)
+					String imageUrl = (String) starInfo.get("image");
+					if (imageUrl != null && !imageUrl.startsWith("http")) {
+					    // DB에서 'assets/...' 처럼 슬래시 없이 넘어올 경우를 대비해 슬래시 추가
+					    if (!imageUrl.startsWith("/")) {
+					        imageUrl = "/" + imageUrl;
+					    }
+					    imageUrl = baseUrl + imageUrl;
+					}
 
 					// JSP로 데이터 넘겨주기
 					model.addAttribute("ogTitle", starInfo.get("name") + " | StarPlatform");
 					model.addAttribute("ogDesc",
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
-					model.addAttribute("ogImage", starInfo.get("image"));
+					
+					// 🌟 원본 데이터 대신 절대경로로 조립된 imageUrl 변수를 사용합니다.
+					model.addAttribute("ogImage", imageUrl); 
 					model.addAttribute("ogUrl", baseUrl + uri);
 				}
 			}
@@ -115,7 +130,11 @@ public class DeepLinkController {
 			// 🌟 3. 그 외 알 수 없는 링크일 경우 기본값
 			else {
 				model.addAttribute("ogTitle", "StarPlatform SuperApp");
-				model.addAttribute("ogDesc", "대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작");
+				String defaultTitle = "StarPlatform SuperApp";
+				if (isFacebookBot) {
+					defaultTitle += " | Everyone Can Earn";
+				}
+				model.addAttribute("ogDesc", "Everyone Can Earn");
 				model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png");
 				model.addAttribute("ogUrl", baseUrl + uri);
 			}
@@ -138,7 +157,16 @@ public class DeepLinkController {
         boolean isMobile = userAgent.contains("android") || userAgent.contains("iphone") || userAgent.contains("ipad");
         
         // 🌟 2. 카카오톡 등 미리보기 스크랩 봇인지 확인 추가
-        boolean isBot = userAgent.contains("bot") || userAgent.contains("scrap") || userAgent.contains("facebookexternalhit") || userAgent.contains("kakao");
+     // 🌟 2. 카카오톡 등 미리보기 스크랩 봇인지 확인 (트위터/X 추가)
+        boolean isBot = userAgent.contains("bot") 
+                     || userAgent.contains("scrap") 
+                     || userAgent.contains("facebookexternalhit") 
+                     || userAgent.contains("kakao")
+                     || userAgent.contains("twitter")
+                     || userAgent.contains("xbot");
+        
+     // 🌟 [추가] 특정해서 페이스북 봇인지 확인
+        boolean isFacebookBot = userAgent.contains("facebookexternalhit");
 
         // 💻 3. 모바일도 아니고 봇도 아닌 찐 PC 환경인 경우 -> 사내 관리자 로그인 페이지로
         if (!isMobile && !isBot) {
@@ -149,8 +177,14 @@ public class DeepLinkController {
         String uri = request.getRequestURI();
         String baseUrl = getBaseUrl(request);
         
-        model.addAttribute("ogTitle", "StarPlatform SuperApp");
-        model.addAttribute("ogDesc", "대한민국에 이제 백수는 없다. 사진 1장부터 수익창출 시작");
+     // 🌟 페이스북 봇일 경우에만 제목 뒤에 문구 추가
+        String defaultTitle = "StarPlatform SuperApp";
+        if (isFacebookBot) {
+            defaultTitle += " | Everyone Can Earn";
+        }
+        
+        model.addAttribute("ogTitle", defaultTitle);
+        model.addAttribute("ogDesc", "Everyone Can Earn");
         model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png"); 
         model.addAttribute("ogUrl", baseUrl + uri);
         

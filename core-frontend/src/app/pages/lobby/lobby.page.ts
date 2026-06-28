@@ -663,6 +663,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       else if (data.action === 'board') this.openBoardModal();
       else if (data.action === 'login_star') this.openCreatorLogin();
       else if (data.action === 'login_admin') this.showLogin('ADMIN');
+      else if (data.action === 'creator_studio') this.showLogin('STAR');
     }
   }
 
@@ -899,6 +900,7 @@ export class LobbyPage implements OnInit, OnDestroy {
                     localStorage.setItem('isStar', 'true');
                     localStorage.setItem('starId', this.starId);
                     localStorage.setItem('starPw', data.pw);
+                    localStorage.setItem('starToken', res.starToken);
                   }
 
                   if (type === 'STAR') {

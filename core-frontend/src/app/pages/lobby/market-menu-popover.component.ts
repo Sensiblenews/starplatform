@@ -14,6 +14,11 @@ import { Browser } from '@capacitor/browser';
         <ion-icon name="document-text-outline" slot="start" color="primary"></ion-icon>
         <ion-label class="fw-bold text-dark" style="font-size: 15px;">Create a Star Page</ion-label>
       </ion-item>
+
+      <ion-item button *ngIf="!isLoggedIn" (click)="selectMenu('creator_studio')">
+        <ion-icon name="easel-outline" slot="start" color="success"></ion-icon>
+        <ion-label class="fw-bold text-dark" style="font-size: 15px;">Creator Studio</ion-label>
+      </ion-item>
       
       <!-- <ion-item button (click)="selectMenu('board')">
         <ion-icon name="list-outline" slot="start" color="primary"></ion-icon>

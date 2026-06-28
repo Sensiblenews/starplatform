@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
@@ -8,7 +8,7 @@ import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-brows
   templateUrl: './feed-detail.page.html',
   styleUrls: ['./feed-detail.page.scss'],
 })
-export class FeedDetailPage implements OnInit {
+export class FeedDetailPage implements OnInit, OnDestroy {
   conId: string;
   contentInfo: any = {};
   mediaList: any[] = [];
@@ -20,6 +20,8 @@ export class FeedDetailPage implements OnInit {
   safeYoutubeUrl: SafeResourceUrl | null = null;
   safeContentHtml: SafeHtml | null = null;
 
+  private paramSub: any;
+
   constructor(
     private route: ActivatedRoute,
     private http: HttpService,
@@ -27,8 +29,16 @@ export class FeedDetailPage implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.conId = this.route.snapshot.paramMap.get('conId');
-    this.loadFeedDetail();
+    this.paramSub = this.route.paramMap.subscribe(params => {
+      this.conId = params.get('conId');
+      this.loadFeedDetail();
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.paramSub) {
+      this.paramSub.unsubscribe();
+    }
   }
 
   loadFeedDetail() {

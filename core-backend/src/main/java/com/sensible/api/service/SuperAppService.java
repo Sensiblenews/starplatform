@@ -44,6 +44,10 @@ public class SuperAppService {
 
 		// 인기 스타 (가로)
 		List<Map<String, Object>> popularStars = dao.selectList("superapp.selectPopularStars", map);
+		if (popularStars != null && !popularStars.isEmpty()) {
+			popularStars = new ArrayList<>(popularStars);
+			java.util.Collections.shuffle(popularStars);
+		}
 		// 전체 스타 (세로)
 		List<Map<String, Object>> allStars = dao.selectList("superapp.selectAllStars", map);
 		
@@ -933,32 +937,40 @@ public class SuperAppService {
 	public Map<String, Object> mobileStarLogin(Map<String, Object> params) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			// 프론트에서 넘어온 id, pw 파라미터 매핑
+			String email = (String) params.get("email");
+			if (email == null) {
+				email = (String) params.get("id");
+			}
+			String password = (String) params.get("password");
+			if (password == null) {
+				password = (String) params.get("pw");
+			}
+
 			Map<String, Object> loginParams = new HashMap<>();
-			loginParams.put("PRS_ID", params.get("id"));
-			loginParams.put("PRS_PWD", params.get("pw"));
+			loginParams.put("email", email);
+			loginParams.put("password", password);
 
-			// 1. ID / PW 검증 (기존 superAdminService.loginCheck 대체 쿼리)
-			Map<String, Object> starUser = dao.selectOne("superapp.selectStarByIdPw", loginParams);
+			// 1. Email / PW 검증
+			Map<String, Object> starInfo = dao.selectOne("superapp.selectStarByEmailAndPassword", loginParams);
 
-			if (starUser != null && "ST".equals(starUser.get("PRS_AUTH"))) {
+			if (starInfo != null && "ST".equals(starInfo.get("auth"))) {
 				// 2. 🌟 인증 성공 시 세션 토큰 생성 (소셜 유저와 동일한 규격)
-				String starToken = UUID.randomUUID().toString();
+				String token = UUID.randomUUID().toString();
 
 				Map<String, Object> tokenParam = new HashMap<>();
-				tokenParam.put("starId", starUser.get("PRS_ID"));
-				tokenParam.put("starToken", starToken);
+				tokenParam.put("starId", starInfo.get("starId"));
+				tokenParam.put("starToken", token);
 
 				// DB에 발급한 토큰 업데이트
 				dao.update("superapp.updateStarToken", tokenParam);
 
 				resultMap.put("result", "OK");
-				resultMap.put("starId", starUser.get("PRS_ID"));
-				resultMap.put("starToken", starToken); // 🌟 클라이언트에 토큰 전달
+				resultMap.put("starId", starInfo.get("starId"));
+				resultMap.put("starToken", token); // 🌟 클라이언트에 토큰 전달
 				resultMap.put("msg", "Login successful.");
 			} else {
 				resultMap.put("result", "FAIL");
-				resultMap.put("msg", "Invalid ID or password.");
+				resultMap.put("msg", "Invalid email or password.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
