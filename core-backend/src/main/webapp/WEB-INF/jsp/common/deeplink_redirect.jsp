@@ -116,26 +116,10 @@
                 <button class="btn btn-secondary" onclick="goStore()">Download App</button>
             </div>
 
-            <!-- 페이스북 인앱 브라우저용 안내 레이어 -->
-            <div id="fb-guide-layer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; color: white; padding: 20px; font-family: sans-serif; box-sizing: border-box;">
-                <div style="text-align: right; font-size: 20px; color: #ff4b5c; font-weight: bold; margin-bottom: 20px; padding-top: 10px;">
-                    ↗️ 오른쪽 위 메뉴 버튼 클릭
-                </div>
-                <div style="margin-top: 100px; text-align: center;">
-                    <h3 style="font-size: 1.4rem; line-height: 1.6; margin-bottom: 15px; color: white;">
-                        Safari 브라우저에서 열기
-                    </h3>
-                    <p style="font-size: 0.95rem; color: #ccc; line-height: 1.8;">
-                        페이스북 내부에서는 앱이 자동으로 실행되지 않습니다.<br>
-                        우측 상단의 더보기 <strong>(...)</strong> 또는 공유 버튼을 누른 뒤<br>
-                        <span style="color: #ff4b5c; font-weight: bold;">[Safari에서 열기]</span>를 선택하시면 즉시 이동합니다.
-                    </p>
-                </div>
-            </div>
-
             <script>
                 var ua = navigator.userAgent.toLowerCase();
-                var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1;
+                // 🌟 페이스북 및 인스타그램 인앱 브라우저 통합 감지
+                var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1 || ua.indexOf('instagram') > -1;
                 var isKakaoTalk = ua.indexOf('kakaotalk') > -1;
 
                 // 🌟 [개선] 모던 iOS/iPadOS 사파리 데스크톱 모드 대응을 포함한 iOS 판정식 강화
@@ -149,21 +133,19 @@
                     }, 300);
                 }
 
-                // 🌟 [추가/개선] iOS 페이스북 가이드 레이어 노출 (DOMContentLoaded 경합 및 렌더링 타이밍 보완)
-                function showFbGuide() {
-                    if (isIOS && isFacebookApp) {
-                        var fbGuide = document.getElementById('fb-guide-layer');
-                        if (fbGuide) {
-                            fbGuide.style.display = 'block';
-                        }
+                // 🌟 [페이스북/인스타그램 대응] 자동 실행 대신 "앱에서 보기" 버튼 클릭 유도 UX 설정
+                window.addEventListener('DOMContentLoaded', function() {
+                    if (isFacebookApp) {
+                        var spinner = document.querySelector('.spinner');
+                        if (spinner) spinner.style.display = 'none';
+                        
+                        var header = document.querySelector('h3');
+                        if (header) header.innerHTML = "앱에서 보기 (Open in App)";
+                        
+                        var desc = document.querySelector('p.desc');
+                        if (desc) desc.innerHTML = "아래 버튼을 누르면 앱 상세 페이지로 즉시 연결됩니다.";
                     }
-                }
-                
-                // 다중 리스너 및 즉시 호출을 통한 노출 보장
-                showFbGuide();
-                window.addEventListener('DOMContentLoaded', showFbGuide);
-                window.addEventListener('load', showFbGuide);
-                setTimeout(showFbGuide, 200);
+                });
 
                 var path = window.location.pathname.replace(/^\//, '');
                 var targetUrl = '${targetAppUrl}';
@@ -206,7 +188,10 @@
                         // 🤖 안드로이드 (카카오톡, 크롬 등)
                         // intent://를 실행하면, 크롬 브라우저가 자체적으로 앱 설치 여부를 판단해서
                         // 앱이 없으면 자바스크립트 타이머 없이도 알아서 플레이스토어로 꽂아줍니다!
-                        location.href = androidIntent;
+                        // 페이스북/인스타그램 앱은 유저 인터랙션이 요구되므로 자동 로드 실행 제외
+                        if (!isFacebookApp) {
+                            location.href = androidIntent;
+                        }
 
                         // 페이스북/카카오톡 등 인앱브라우저의 팝업 확인 시간을 고려하여 유예 시간을 10초(10000ms)로 연장
                         // 단, 페이스북 앱 내부 브라우저인 경우 스토어로의 자동 강제 이동을 아예 비활성화합니다.
@@ -220,7 +205,10 @@
                     }
                     else if (isIOS) {
                         // 🍎 iOS: 먼저 커스텀 스킴을 호출하여 앱 실행을 시도합니다.
-                        location.href = schemeUrl;
+                        // 페이스북/인스타그램 앱은 유저 인터랙션이 요구되므로 자동 로드 실행 제외
+                        if (!isFacebookApp) {
+                            location.href = schemeUrl;
+                        }
 
                         // 🍎 iOS (페이스북/카카오톡 팝업 확인 시간을 고려하여 유예 시간을 10초(10000ms)로 연장)
                         // 단, 페이스북 앱 내부 브라우저이거나 카카오톡 브라우저인 경우 스토어로의 자동 강제 이동을 아예 비활성화합니다.
