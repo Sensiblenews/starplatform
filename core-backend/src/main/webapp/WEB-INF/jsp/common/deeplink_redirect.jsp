@@ -14,6 +14,17 @@
             <meta name="apple-itunes-app" content="app-id=1188195403">
             <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
 
+            <!-- Twitter Card Meta Tags (X 공유 최적화) -->
+            <meta name="twitter:card" content="summary_large_image">
+            <meta name="twitter:site" content="@StarPlatform">
+            <meta name="twitter:domain" content="witch-hunting.com">
+            <meta name="twitter:url" content="${ogUrl}">
+            <meta name="twitter:title" content="${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}">
+            <meta name="twitter:description" content="${not empty ogDesc ? ogDesc : 'Everyone Can Earn'}">
+            <meta name="twitter:image" content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
+            <meta name="twitter:image:src" content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
+
+            <!-- Open Graph Meta Tags (카카오톡, 페이스북 등) -->
             <meta property="og:title"
                 content="${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp | Everyone Can Earn'}">
             <meta property="og:description" content="${not empty ogDesc ? ogDesc : 'Everyone Can Earn'}">
@@ -21,16 +32,6 @@
                 content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
             <meta property="og:url" content="${ogUrl}">
             <meta property="og:type" content="website">
-
-            <!-- Twitter Card Meta Tags -->
-            <meta name="twitter:card" content="summary_large_image">
-            <meta name="twitter:domain" content="witch-hunting.com">
-            <meta name="twitter:url" content="${ogUrl}">
-
-            <meta name="twitter:title" content="${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}">
-            <meta name="twitter:description" content="${not empty ogDesc ? ogDesc : 'Everyone Can Earn'}">
-            <meta name="twitter:image"
-                content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
 
             <style>
                 body {
@@ -115,9 +116,55 @@
                 <button class="btn btn-secondary" onclick="goStore()">Download App</button>
             </div>
 
+            <!-- 페이스북 인앱 브라우저용 안내 레이어 -->
+            <div id="fb-guide-layer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; color: white; padding: 20px; font-family: sans-serif; box-sizing: border-box;">
+                <div style="text-align: right; font-size: 20px; color: #ff4b5c; font-weight: bold; margin-bottom: 20px; padding-top: 10px;">
+                    ↗️ 오른쪽 위 메뉴 버튼 클릭
+                </div>
+                <div style="margin-top: 100px; text-align: center;">
+                    <h3 style="font-size: 1.4rem; line-height: 1.6; margin-bottom: 15px; color: white;">
+                        Safari 브라우저에서 열기
+                    </h3>
+                    <p style="font-size: 0.95rem; color: #ccc; line-height: 1.8;">
+                        페이스북 내부에서는 앱이 자동으로 실행되지 않습니다.<br>
+                        우측 상단의 더보기 <strong>(...)</strong> 또는 공유 버튼을 누른 뒤<br>
+                        <span style="color: #ff4b5c; font-weight: bold;">[Safari에서 열기]</span>를 선택하시면 즉시 이동합니다.
+                    </p>
+                </div>
+            </div>
+
             <script>
                 var ua = navigator.userAgent.toLowerCase();
                 var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1;
+                var isKakaoTalk = ua.indexOf('kakaotalk') > -1;
+
+                // 🌟 [개선] 모던 iOS/iPadOS 사파리 데스크톱 모드 대응을 포함한 iOS 판정식 강화
+                var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+                // 🌟 [추가/개선] iOS 카카오톡 아웃링크 강제 사파리 전환 (300ms 딜레이를 주어 웹뷰 초기 차단 우회)
+                if (isIOS && isKakaoTalk) {
+                    setTimeout(function() {
+                        var currentUrl = window.location.href;
+                        location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(currentUrl);
+                    }, 300);
+                }
+
+                // 🌟 [추가/개선] iOS 페이스북 가이드 레이어 노출 (DOMContentLoaded 경합 및 렌더링 타이밍 보완)
+                function showFbGuide() {
+                    if (isIOS && isFacebookApp) {
+                        var fbGuide = document.getElementById('fb-guide-layer');
+                        if (fbGuide) {
+                            fbGuide.style.display = 'block';
+                        }
+                    }
+                }
+                
+                // 다중 리스너 및 즉시 호출을 통한 노출 보장
+                showFbGuide();
+                window.addEventListener('DOMContentLoaded', showFbGuide);
+                window.addEventListener('load', showFbGuide);
+                setTimeout(showFbGuide, 200);
+
                 var path = window.location.pathname.replace(/^\//, '');
                 var targetUrl = '${targetAppUrl}';
                 var search = window.location.search;
@@ -172,9 +219,12 @@
                         }
                     }
                     else if (isIOS) {
+                        // 🍎 iOS: 먼저 커스텀 스킴을 호출하여 앱 실행을 시도합니다.
+                        location.href = schemeUrl;
+
                         // 🍎 iOS (페이스북/카카오톡 팝업 확인 시간을 고려하여 유예 시간을 10초(10000ms)로 연장)
-                        // 단, 페이스북 앱 내부 브라우저인 경우 스토어로의 자동 강제 이동을 아예 비활성화합니다.
-                        if (!isFacebookApp) {
+                        // 단, 페이스북 앱 내부 브라우저이거나 카카오톡 브라우저인 경우 스토어로의 자동 강제 이동을 아예 비활성화합니다.
+                        if (!isFacebookApp && !isKakaoTalk) {
                             setTimeout(function () {
                                 goStore();
                             }, 7000);

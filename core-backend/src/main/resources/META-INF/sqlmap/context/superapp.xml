@@ -1079,8 +1079,8 @@
         FROM WH_PRESS
         WHERE PRS_COUNTRY = #{country}
           AND OWNER_EMAIL IS NULL
+          AND (PRS_PWD IS NULL OR PRS_PWD = '')
           AND PRS_USE_YN = 'Y'
-          AND OWNER_EMAIL IS NULL
         ORDER BY RAND()
         LIMIT 20
 	</select>

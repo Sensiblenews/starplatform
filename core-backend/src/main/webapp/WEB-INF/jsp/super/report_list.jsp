@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
         body { background-color: #f0f2f5; }
         .sidebar { width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff; }
@@ -18,17 +19,9 @@
 </head>
 <body>
 
-    <div class="sidebar d-flex flex-column p-3">
-        <h3 class="text-center mb-5 mt-3 fw-bold">🚀 Super Admin</h3>
-        <ul class="nav flex-column">
-            <li class="nav-item mb-2"><a href="/witch/super/dashboard.do" class="nav-link text-white-50"><i class="fas fa-chart-pie me-2"></i> 대시보드</a></li>
-            <li class="nav-item mb-2"><a href="/witch/super/star/list.do" class="nav-link text-white-50"><i class="fas fa-users-cog me-2"></i> 스타 관리</a></li>
-            <li class="nav-item mb-2"><a href="/witch/super/star/create.do" class="nav-link text-white-50"><i class="fas fa-user-plus me-2"></i> 스타 등록</a></li>
-            <li class="nav-item mb-2"><a href="/witch/super/local/create.do" class="nav-link text-warning"><i class="fas fa-user-shield me-2"></i> 지역 관리자 생성</a></li>
-            <li class="nav-item mb-2"><a href="/witch/super/report/list.do" class="nav-link active" style="color: #ff8a65;"><i class="fas fa-flag me-2"></i> 신고 관리</a></li>
-            <li class="nav-item mt-auto"><a href="/witch/super/logout.do" class="nav-link text-danger"><i class="fas fa-sign-out-alt me-2"></i> 로그아웃</a></li>
-        </ul>
-    </div>
+    <!-- 공통 사이드바 include -->
+    <c:set var="activeMenu" value="report" scope="request" />
+    <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
 
     <div class="main-content">
         <h2 class="fw-bold mb-4 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>유저 신고 내역 (Global)</h2>
@@ -99,7 +92,7 @@ function takeAction(actionType, cmtId, deviceId) {
 
     if(!confirm(confirmMsg)) return;
 
-    $.post('/witch/super/report/action.do', payload, function(res) {
+    $.post('/super/report/action.do', payload, function(res) {
         if(res.status === 'success') {
             alert(res.msg);
             location.reload(); // 즉시 새로고침하여 상태 반영

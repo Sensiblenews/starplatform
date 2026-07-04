@@ -107,6 +107,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     this.isFavorite = favList.includes(this.starId);
   }
 
+  getEffectiveDeviceId(): string {
+    const isStarLoggedIn = localStorage.getItem('isStar') === 'true';
+    const loggedInStarId = localStorage.getItem('starId');
+    if (isStarLoggedIn && loggedInStarId) {
+      return loggedInStarId;
+    }
+    return this.deviceId;
+  }
+
   toggleFavorite() {
     let favList = JSON.parse(localStorage.getItem('favorite_stars') || '[]');
 
@@ -121,7 +130,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     localStorage.setItem('favorite_stars', JSON.stringify(favList));
     this.isFavorite = !this.isFavorite;
 
-    this.http.post('/api/super/star/toggleFollow', { starId: this.starId, isAdd: this.isFavorite, deviceId: this.deviceId }).subscribe();
+    this.http.post('/api/super/star/toggleFollow', { starId: this.starId, isAdd: this.isFavorite, deviceId: this.getEffectiveDeviceId() }).subscribe();
   }
 
   // 🌟 [신규] 포인트 계산 (조회수 / 10 의 내림)
@@ -309,7 +318,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     const payload = {
       targetType: type.toUpperCase(),
       targetId: targetId,
-      deviceId: this.deviceId
+      deviceId: this.getEffectiveDeviceId()
     };
 
     this.http.post('/api/super/like/toggle', payload).subscribe((res: any) => {
@@ -489,7 +498,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const payload = {
-      MEM_ID: this.deviceId || 'GUEST',
+      MEM_ID: this.getEffectiveDeviceId() || 'GUEST',
       PRS_ID: this.starId,
       AD_TYPE: adType,
       OS: os,

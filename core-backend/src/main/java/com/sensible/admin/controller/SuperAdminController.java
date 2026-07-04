@@ -716,4 +716,90 @@ public class SuperAdminController {
         }
         return result;
     }
+
+    /**
+     * [화면] 스타 일괄 등록 폼 (SM 전용)
+     */
+    @RequestMapping(value = "/super/star/bulk-create.do")
+    public String createStarBulkForm(HttpServletRequest request, Model model) {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+        return "super/star_bulk_form";
+    }
+
+    /**
+     * [API] 스타 일괄 등록 (SM 전용)
+     */
+    @RequestMapping(value = "/super/star/bulk-insert.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> insertStarBulk(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+
+        if (user == null) {
+            result.put("status", "fail");
+            result.put("msg", "로그인 필요");
+            return result;
+        }
+
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            String rawText = (String) params.get("bulkText");
+            String pwd = (String) params.get("PRS_PWD");
+            String country = (String) params.get("PRS_COUNTRY");
+
+            if (rawText == null || rawText.trim().isEmpty()) {
+                throw new Exception("등록할 텍스트를 입력해 주세요.");
+            }
+            if (pwd == null || pwd.trim().isEmpty()) {
+                pwd = ""; // 비밀번호가 비어있으면 빈 문자열("")로 설정 (DB NOT NULL 제약조건 우회)
+            }
+            if (country == null || country.trim().isEmpty()) {
+                throw new Exception("기본 국가 코드를 선택해 주세요.");
+            }
+
+            // 개행 문자로 라인 분할 및 파싱 진행
+            java.util.List<String> names = new java.util.ArrayList<>();
+            String[] lines = rawText.split("\\r?\\n");
+            // [수정] 영문자 접두사(예: S-)가 붙어있는 패턴도 매칭되도록 정규식 보완
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^\\s*(?:[a-zA-Z]+-)?\\d+\\.\\s*(.+)$");
+
+            for (String line : lines) {
+                java.util.regex.Matcher matcher = pattern.matcher(line.trim());
+                if (matcher.find()) {
+                    String name = matcher.group(1).trim();
+                    // [수정] 뒤의 괄호에 표기된 메타 정보들(예: "(TWS / ...)")을 걷어내고 순수 이름만 추출
+                    int bracketIdx = name.indexOf("(");
+                    if (bracketIdx != -1) {
+                        name = name.substring(0, bracketIdx).trim();
+                    }
+                    if (!name.isEmpty()) {
+                        names.add(name);
+                    }
+                }
+            }
+
+            if (names.isEmpty()) {
+                throw new Exception("유효한 스타 목록 패턴 '(번호). (이름)'을 찾을 수 없습니다.");
+            }
+
+            Map<String, Object> bulkResult = superAdminService.insertStarBulk(names, pwd, country);
+            result.put("status", "success");
+            result.put("msg", bulkResult.get("successCount") + "명의 스타가 성공적으로 일괄 등록되었습니다.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "일괄 등록 실패: " + e.getMessage());
+        }
+        return result;
+    }
 }

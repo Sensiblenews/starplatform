@@ -1,15 +1,26 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>지역 관리자 생성</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style> /* 스타일 생략 (기존과 동일) */ </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Pretendard', sans-serif; }
+        .main-content { margin-left: 260px; padding: 30px; }
+    </style>
 </head>
 <body>
-    <div class="main-content" style="margin-left:260px; padding:30px;">
+
+    <!-- 공통 사이드바 include -->
+    <c:set var="activeMenu" value="local_create" scope="request" />
+    <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
+
+    <div class="main-content">
         <h2 class="fw-bold mb-4">🛡️ 지역 관리자(LC) 생성</h2>
         <div class="card p-5">
             <form id="localAdminForm">
@@ -45,12 +56,12 @@
         $('#localAdminForm').on('submit', function(e){
             e.preventDefault();
             $.ajax({
-                url: '/witch/super/local/insert.do',
+                url: '/super/local/insert.do',
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function(res) {
                     alert(res.msg);
-                    if(res.status === 'success') location.href = '/witch/super/dashboard.do';
+                    if(res.status === 'success') location.href = '/super/dashboard.do';
                 }
             });
         });

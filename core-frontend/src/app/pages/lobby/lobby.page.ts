@@ -1010,11 +1010,20 @@ export class LobbyPage implements OnInit, OnDestroy {
       }
     });
 
-    this.http.post('/api/super/star/toggleFollow', { starId: star.id, isAdd: star.isFavorite, deviceId: this.deviceId }).subscribe();
+    this.http.post('/api/super/star/toggleFollow', { starId: star.id, isAdd: star.isFavorite, deviceId: this.getEffectiveDeviceId() }).subscribe();
 
     if (this.isShowingFavorites && !star.isFavorite) {
       this.loadFavoriteStars();
     }
+  }
+
+  getEffectiveDeviceId(): string {
+    const isStarLoggedIn = localStorage.getItem('isStar') === 'true';
+    const loggedInStarId = localStorage.getItem('starId');
+    if (isStarLoggedIn && loggedInStarId) {
+      return loggedInStarId;
+    }
+    return this.deviceId;
   }
 
   async goToMyStarPage() {

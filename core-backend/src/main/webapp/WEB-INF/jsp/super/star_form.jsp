@@ -21,33 +21,9 @@
 </head>
 <body>
 
-    <div class="sidebar d-flex flex-column p-3">
-        <h3 class="text-center mb-5 mt-3 fw-bold">🚀 Super Admin</h3>
-        <ul class="nav flex-column">
-            <li class="nav-item mb-2">
-                <a href="/witch/super/dashboard.do" class="nav-link"><i class="fas fa-chart-pie me-2"></i> 대시보드</a>
-            </li>
-            <li class="nav-item mb-2">
-                <a href="/witch/super/star/list.do" class="nav-link"><i class="fas fa-users-cog me-2"></i> 스타 관리</a>
-            </li>
-            <li class="nav-item mb-2">
-                <a href="/witch/super/star/create.do" class="nav-link active"><i class="fas fa-user-plus me-2"></i> 스타 등록</a>
-            </li>
-            <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
-                <li class="nav-item mb-2">
-                    <a href="/witch/super/local/create.do" class="nav-link text-warning"><i class="fas fa-user-shield me-2"></i> 지역 관리자 생성</a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/witch/super/report/list.do" class="nav-link" style="color: #ff8a65;">
-                        <i class="fas fa-flag me-2"></i> 신고 관리
-                    </a>
-                </li>
-            </c:if>
-            <li class="nav-item mt-auto">
-                <a href="/witch/super/logout.do" class="nav-link text-danger"><i class="fas fa-sign-out-alt me-2"></i> 로그아웃</a>
-            </li>
-        </ul>
-    </div>
+    <!-- 공통 사이드바 include -->
+    <c:set var="activeMenu" value="star_create" scope="request" />
+    <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
 
     <div class="main-content">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -119,13 +95,13 @@
             // (아이디는 서버에서 자동 생성되므로 검사할 필요 없음)
 
             $.ajax({
-                url: '/witch/super/star/insert.do',
+                url: '/super/star/insert.do',
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function(res) {
                     if (res.status === 'success') {
                         alert(res.msg);
-                        location.href = '/witch/super/star/list.do'; 
+                        location.href = '/super/star/list.do'; 
                     } else {
                         alert('등록 실패: ' + res.msg);
                     }

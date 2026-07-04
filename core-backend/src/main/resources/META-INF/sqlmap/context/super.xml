@@ -92,20 +92,35 @@
         FROM WH_PRESS WHERE PRS_ID LIKE 'star_%'
     </select>
 
+    <select id="checkDuplicateStar" parameterType="map" resultType="int">
+        SELECT COUNT(*) 
+        FROM WH_PRESS 
+        WHERE PRS_NAME = #{PRS_NAME} 
+          AND PRS_COUNTRY = #{PRS_COUNTRY}
+    </select>
+
     <insert id="insertStar" parameterType="map">
         INSERT INTO WH_PRESS (
             PRS_ID, PRS_PWD, PRS_NAME, PRS_COUNTRY, 
             PRS_TYPE, PRS_AUTH, PRS_USE_YN, APP_ID, 
-            PRS_CREATE_DATE, IS_STAR
+            PRS_CREATE_DATE, IS_STAR, STORED_FILE_NM
         ) VALUES (
             #{PRS_ID}, 
             CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))), 
             #{PRS_NAME}, 
             IFNULL(NULLIF(#{PRS_COUNTRY}, ''), 'KR'), 
             '4', 'ST', 'Y', #{PRS_ID}, 
-            NOW(), 'Y'
+            NOW(), 'Y',
+            IFNULL(NULLIF(#{STORED_FILE_NM}, ''), CONCAT('https://api.dicebear.com/9.x/initials/svg?seed=', #{PRS_NAME}))
         )
     </insert>
+
+    <update id="migrateEmptyStarProfiles">
+        UPDATE WH_PRESS 
+        SET STORED_FILE_NM = CONCAT('https://api.dicebear.com/9.x/initials/svg?seed=', PRS_NAME)
+        WHERE IS_STAR = 'Y' 
+          AND (STORED_FILE_NM IS NULL OR STORED_FILE_NM = '')
+    </update>
 
 	<select id="selectStarList" parameterType="string" resultType="map">
         SELECT 

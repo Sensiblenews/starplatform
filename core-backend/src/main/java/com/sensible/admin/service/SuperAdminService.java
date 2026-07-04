@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
+import javax.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import com.sensible.admin.domain.UserVO;
 import com.sensible.common.dao.DefaultDAO;
@@ -13,6 +14,19 @@ public class SuperAdminService {
 
     @Resource(name="DefaultDAO")
     private DefaultDAO dao;
+
+    @PostConstruct
+    public void initEmptyStarProfiles() {
+        try {
+            int updated = dao.update("super.migrateEmptyStarProfiles");
+            if (updated > 0) {
+                System.out.println("🌟 [마이그레이션] 프로필 사진이 비어있는 스타 " + updated + "명에게 DiceBear 이니셜 프로필 링크 일괄 부여 완료!");
+            }
+        } catch (Exception e) {
+            System.err.println("❌ [마이그레이션 오류] 스타 프로필 사진 초기화 중 예외 발생: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
     
     public Map<String, Object> getDashboardStats(String country) throws Exception {
         Map<String, Object> stats = new HashMap<>();
@@ -342,5 +356,27 @@ public class SuperAdminService {
         dao.insert("superapp.insertOrUpdatePromotion", params);
     }
     
-    
+    // 🌟 [신규] 스타 일괄 등록 처리
+    public Map<String, Object> insertStarBulk(List<String> names, String pwd, String country) throws Exception {
+        int successCount = 0;
+        for (String name : names) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("PRS_NAME", name);
+            params.put("PRS_PWD", pwd);
+            params.put("PRS_COUNTRY", country);
+            
+            // [중복 무시] 동일 국가에 동일 이름의 스타가 이미 등록되어 있는지 체크
+            int duplicateCount = dao.selectOne("super.checkDuplicateStar", params);
+            if (duplicateCount > 0) {
+                continue; // 이미 존재하므로 등록 처리를 생략하고 다음으로 넘어감
+            }
+            
+            // 기존의 단건 등록 로직 재활용
+            insertStar(params);
+            successCount++;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", successCount);
+        return result;
+    }
 }

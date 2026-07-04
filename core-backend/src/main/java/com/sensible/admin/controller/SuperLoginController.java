@@ -73,9 +73,9 @@ public class SuperLoginController {
                     result.put("msg", "로그인 성공");
                     
                     if ("ST".equals(auth)) {
-                        result.put("redirectUrl", "/witch/star/mypage.do"); // 스타는 마이페이지로
+                        result.put("redirectUrl", "/star/mypage.do"); // 스타는 마이페이지로
                     } else {
-                        result.put("redirectUrl", "/witch/super/dashboard.do"); // 관리자는 대시보드로
+                        result.put("redirectUrl", "/super/dashboard.do"); // 관리자는 대시보드로
                     }
                 } else {
                     result.put("status", "fail");

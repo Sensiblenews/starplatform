@@ -61,20 +61,29 @@ public class DeepLinkController {
 					
 					// 🌟 [핵심 수정] 이미지 경로가 상대경로면 무조건 절대경로(http...)로 변환 (트위터 호환성)
 					String imageUrl = (String) starInfo.get("image");
-					if (imageUrl != null && !imageUrl.startsWith("http")) {
-					    // DB에서 'assets/...' 처럼 슬래시 없이 넘어올 경우를 대비해 슬래시 추가
-					    if (!imageUrl.startsWith("/")) {
-					        imageUrl = "/" + imageUrl;
+					if (imageUrl != null) {
+					    if (!imageUrl.startsWith("http")) {
+					        // DB에서 'assets/...' 처럼 슬래시 없이 넘어올 경우를 대비해 슬래시 추가
+					        if (!imageUrl.startsWith("/")) {
+					            imageUrl = "/" + imageUrl;
+					        }
+					        imageUrl = baseUrl + imageUrl;
 					    }
-					    imageUrl = baseUrl + imageUrl;
+					    // 🌟 [추가] http://witch-hunting.com 으로 시작한다면 강제로 https:// 로 변경 (트위터 HTTPS 요구 대응)
+					    if (imageUrl.startsWith("http://witch-hunting.com")) {
+					        imageUrl = imageUrl.replace("http://", "https://");
+					    }
+					    // 🌟 [추가] 트위터의 강력한 이미지 수집 실패 캐시를 파괴하기 위한 타임스탬프 쿼리스트링 삽입
+					    imageUrl = imageUrl + "?t=" + System.currentTimeMillis();
 					}
 
-					// JSP로 데이터 넘겨주기
-					model.addAttribute("ogTitle", starInfo.get("name") + " | StarPlatform");
+					// JSP로 데이터 넘겨주기 (X/트위터 UI가 카드 설명란을 노출하지 않는 이슈 대응하여 제목에 랭크 직접 표기)
+					String displayTitle = starInfo.get("name") + " (Global Rank #" + starInfo.get("GLOBAL_RANK") + ") | StarPlatform";
+					model.addAttribute("ogTitle", displayTitle);
 					model.addAttribute("ogDesc",
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					
-					// 🌟 원본 데이터 대신 절대경로로 조립된 imageUrl 변수를 사용합니다.
+					// 🌟 원본 데이터 대신 절대경로 및 캐시버스팅이 조립된 imageUrl 변수를 사용합니다.
 					model.addAttribute("ogImage", imageUrl); 
 					model.addAttribute("ogUrl", baseUrl + uri);
 				}
@@ -114,10 +123,16 @@ public class DeepLinkController {
 
 						String targetUrl = (thumbUrl != null) ? thumbUrl : (mediaUrl != null ? mediaUrl : imageUrl);
 
-						// 카카오톡 봇은 무조건 절대경로(http)를 요구하므로, 상대경로일 경우 도메인 붙여주기
+						// 카카오톡/트위터 봇 호환을 위해 상대경로일 경우 도메인 붙여주기
 						if (targetUrl.startsWith("/")) {
 							targetUrl = baseUrl + targetUrl;
 						}
+						// 🌟 [추가] http://witch-hunting.com 으로 시작한다면 강제로 https:// 로 변경 (트위터 HTTPS 대응)
+						if (targetUrl.startsWith("http://witch-hunting.com")) {
+							targetUrl = targetUrl.replace("http://", "https://");
+						}
+						// 🌟 [추가] 캐시 버스팅을 위한 타임스탬프 쿼리스트링 삽입
+						targetUrl = targetUrl + "?t=" + System.currentTimeMillis();
 						imageUrl = targetUrl;
 					}
 
@@ -135,7 +150,15 @@ public class DeepLinkController {
 					defaultTitle += " | Everyone Can Earn";
 				}
 				model.addAttribute("ogDesc", "Everyone Can Earn");
-				model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png");
+				
+				// 🌟 [추가] 기본 이미지에도 HTTPS 대응 및 캐시 버스팅 적용
+				String defaultIcon = baseUrl + "/resources/img/icon.png";
+				if (defaultIcon.startsWith("http://witch-hunting.com")) {
+				    defaultIcon = defaultIcon.replace("http://", "https://");
+				}
+				defaultIcon = defaultIcon + "?t=" + System.currentTimeMillis();
+				
+				model.addAttribute("ogImage", defaultIcon);
 				model.addAttribute("ogUrl", baseUrl + uri);
 			}
 		} catch (Exception e) {
@@ -185,7 +208,14 @@ public class DeepLinkController {
         
         model.addAttribute("ogTitle", defaultTitle);
         model.addAttribute("ogDesc", "Everyone Can Earn");
-        model.addAttribute("ogImage", baseUrl + "/resources/img/icon.png"); 
+        // 🌟 [추가] 기본 이미지에도 HTTPS 대응 및 캐시 버스팅 적용
+        String defaultIcon = baseUrl + "/resources/img/icon.png";
+        if (defaultIcon.startsWith("http://witch-hunting.com")) {
+            defaultIcon = defaultIcon.replace("http://", "https://");
+        }
+        defaultIcon = defaultIcon + "?t=" + System.currentTimeMillis();
+        
+        model.addAttribute("ogImage", defaultIcon);
         model.addAttribute("ogUrl", baseUrl + uri);
         
         return "/common/deeplink_redirect"; 

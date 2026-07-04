@@ -59,34 +59,9 @@
     </style>
 </head>
 <body>
-
-    <div class="sidebar d-flex flex-column p-3">
-        <h3 class="text-center mb-5 mt-3 fw-bold">🚀 Super Admin</h3>
-        <ul class="nav flex-column">
-            <li class="nav-item mb-2">
-                <a href="/witch/super/dashboard.do" class="nav-link"><i class="fas fa-chart-pie me-2"></i> 대시보드</a>
-            </li>
-            <li class="nav-item mb-2">
-                <a href="/witch/super/star/list.do" class="nav-link active"><i class="fas fa-users-cog me-2"></i> 스타 관리</a>
-            </li>
-            <li class="nav-item mb-2">
-                <a href="/witch/super/star/create.do" class="nav-link"><i class="fas fa-user-plus me-2"></i> 스타 등록</a>
-            </li>
-            <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
-                <li class="nav-item mb-2">
-                    <a href="/witch/super/local/create.do" class="nav-link text-warning"><i class="fas fa-user-shield me-2"></i> 지역 관리자 생성</a>
-                </li>
-                <li class="nav-item mb-2">
-                    <a href="/witch/super/report/list.do" class="nav-link" style="color: #ff8a65;">
-                        <i class="fas fa-flag me-2"></i> 신고 관리
-                    </a>
-                </li>
-            </c:if>
-            <li class="nav-item mt-auto">
-                <a href="/witch/super/logout.do" class="nav-link text-danger"><i class="fas fa-sign-out-alt me-2"></i> 로그아웃</a>
-            </li>
-        </ul>
-    </div>
+    <!-- 공통 사이드바 include -->
+    <c:set var="activeMenu" value="star_list" scope="request" />
+    <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
 
     <div class="main-content">
         <div class="d-flex justify-content-end mb-4">
@@ -109,7 +84,7 @@
                     <i class="fas fa-file-signature me-2"></i>개설 신청 관리
                 </button>
                 
-                <a href="/witch/super/star/create.do" class="btn btn-primary ms-2" style="width: 160px;">
+                <a href="/super/star/create.do" class="btn btn-primary ms-2" style="width: 160px;">
                     <i class="fas fa-plus me-2"></i>신규 등록
                 </a>
             </div>
@@ -341,7 +316,7 @@
         }
 
         $.ajax({
-            url: '/witch/super/star/toggleStatus.do',
+            url: '/super/star/toggleStatus.do',
             type: 'POST',
             data: {
                 PRS_ID: starId,
@@ -369,7 +344,7 @@
         const label = $(checkbox).siblings('label');
 
         $.ajax({
-            url: '/witch/super/star/togglePopular.do',
+            url: '/super/star/togglePopular.do',
             type: 'POST',
             data: {
                 PRS_ID: starId,
@@ -409,7 +384,7 @@
     // [2] 목록 불러오기 (AJAX)
     function loadFeedList() {
         $.ajax({
-            url: '/witch/super/star/feedList.do',
+            url: '/super/star/feedList.do',
             data: { starId: currentStarId },
             success: function(res) {
                 renderFeedGrid(res.list, false); // false: 작성자 이름 숨김 (이미 아니까)
@@ -482,7 +457,7 @@
 	    isAllFeedLoading = true;
 	
 	    $.ajax({
-	        url: '/witch/super/star/allFeedList.do',
+	        url: '/super/star/allFeedList.do',
 	        type: 'POST',
 	        data: { page: page }, // 페이지 번호 전송
 	        success: function(res) {
@@ -568,7 +543,7 @@
 
     // [신규] 실제 API 통신 로직
     function executePinUpdate(targetStatus, t1, u1, t2, u2) {
-        $.post('/witch/super/star/togglePin.do', {
+        $.post('/super/star/togglePin.do', {
             conId: currentConId,
             targetStatus: targetStatus,
             pinLinkText1: t1,
@@ -591,7 +566,7 @@
     function deleteFeed() {
         if(!confirm('정말 삭제하시겠습니까? 복구할 수 없습니다.')) return;
 
-        $.post('/witch/super/star/deleteFeed.do', { conId: currentConId }, function(res) {
+        $.post('/super/star/deleteFeed.do', { conId: currentConId }, function(res) {
             if(res.status === 'success') {
                 $('#feedActionModal').modal('hide');
                 loadFeedList(); // 목록 새로고침
@@ -615,14 +590,14 @@
         }
         
         // 페이지 이동 방식(location.href)으로 다운로드 트리거
-        location.href = '/witch/super/stats/download.do?targetMonth=' + month;
+        location.href = '/super/stats/download.do?targetMonth=' + month;
     }
     
     function downloadTotalStats() {
         if(!confirm("전체 기간의 통계를 다운로드 하시겠습니까?\n데이터 양에 따라 시간이 걸릴 수 있습니다.")) return;
         
         // targetMonth 파라미터를 빼고 호출 -> SQL에서 전체 조회됨
-        location.href = '/witch/super/stats/download.do'; 
+        location.href = '/super/stats/download.do'; 
     }
 
     // (참고) 페이지 로드 시 현재 달 자동 선택
@@ -652,7 +627,7 @@
  // [신규] 순서 설정 모달 열기
     function openOrderModal() {
         $.ajax({
-            url: '/witch/super/star/getOrderSettings.do',
+            url: '/super/star/getOrderSettings.do',
             type: 'GET',
             success: function(res) {
                 if(res.status === 'success') {
@@ -727,7 +702,7 @@
         }
 
         $.ajax({
-            url: '/witch/super/star/saveOrderSettings.do',
+            url: '/super/star/saveOrderSettings.do',
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(payload),
@@ -752,7 +727,7 @@
     // 🌟 [추가] 신청 리스트 AJAX 로드
     function loadIpoList() {
         $.ajax({
-            url: '/witch/super/ipo/getList.do', // 컨트롤러에 만든 주소 (경로가 맞는지 확인 필요)
+            url: '/super/ipo/getList.do', // 컨트롤러에 만든 주소 (경로가 맞는지 확인 필요)
             type: 'POST',
             success: function(res) {
                 if(res.status === 'success') {
@@ -831,7 +806,7 @@
         if(!confirm(confirmMsg)) return;
 
         $.ajax({
-            url: '/witch/super/ipo/process.do',
+            url: '/super/ipo/process.do',
             type: 'POST',
             data: { id: id, status: targetStatus },
             success: function(res) {
@@ -853,7 +828,7 @@
 
         // 기존의 process.do API를 재활용하여 status만 'hidden'으로 업데이트
         $.ajax({
-            url: '/witch/super/ipo/process.do',
+            url: '/super/ipo/process.do',
             type: 'POST',
             data: { id: id, status: 'hidden' },
             success: function(res) {

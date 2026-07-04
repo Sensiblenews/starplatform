@@ -75,13 +75,13 @@
             e.preventDefault(); // 기본 제출 막기
 
             $.ajax({
-                url: '/witch/super/loginPrc.do',
+                url: '/super/loginPrc.do',
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function(res) {
                 	if (res.status === 'success') {
                 	    // 서버가 주는 주소로 이동 (없으면 기본 대시보드)
-                	    location.href = res.redirectUrl ? res.redirectUrl : '/witch/super/dashboard.do';
+                	    location.href = res.redirectUrl ? res.redirectUrl : '/super/dashboard.do';
                 	} else {
                         alert(res.msg);
                     }
