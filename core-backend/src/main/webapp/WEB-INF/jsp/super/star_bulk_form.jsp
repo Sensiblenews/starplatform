@@ -33,7 +33,7 @@
                 <h5 class="mb-4 border-bottom pb-2">스타 대량 등록 설정</h5>
                 
                 <div class="row mb-3">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <label for="PRS_COUNTRY" class="form-label required">기본 국가 (Country Code)</label>
                         <select class="form-select" id="PRS_COUNTRY" name="PRS_COUNTRY" required>
                             <option value="KR" selected>🇰🇷 대한민국 (KR)</option>
@@ -43,6 +43,11 @@
                             <option value="FR">🇫🇷 프랑스 (FR)</option>
                             <option value="DE">🇩🇪 독일 (DE)</option>
                         </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="PRS_PWD" class="form-label">초기 비밀번호 (Default Password)</label>
+                        <input type="text" class="form-control" id="PRS_PWD" name="PRS_PWD" placeholder="기본값: 123" value="123">
+                        <div class="form-text text-muted small">입력하지 않으면 기본 비밀번호인 '123'으로 자동 등록됩니다.</div>
                     </div>
                 </div>
 
@@ -63,11 +68,18 @@
                     </div>
                 </div>
 
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="button" class="btn btn-secondary me-md-2" onclick="location.href='/super/star/list.do'">취소</button>
-                    <button type="submit" class="btn btn-primary px-5 fw-bold" id="submitBtn">
-                        <i class="fas fa-file-import me-1"></i> 일괄 등록 시작
-                    </button>
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                        <button type="button" class="btn btn-warning fw-bold text-dark" id="resetPwdBtn">
+                            <i class="fas fa-key me-1"></i> 미설정 스타 비번 123 초기화
+                        </button>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary me-md-2" onclick="location.href='/super/star/list.do'">취소</button>
+                        <button type="submit" class="btn btn-primary px-5 fw-bold" id="submitBtn">
+                            <i class="fas fa-file-import me-1"></i> 일괄 등록 시작
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -98,6 +110,30 @@
                     console.error(err);
                     alert('서버 통신 중 오류가 발생했습니다.');
                     submitBtn.prop('disabled', false).html('<i class="fas fa-file-import me-1"></i> 일괄 등록 시작');
+                }
+            });
+        });
+
+        // 🌟 미설정 스타 비밀번호 123으로 일괄 복구 버튼 핸들러
+        $('#resetPwdBtn').on('click', function() {
+            if(!confirm('star_ 로 시작하는 스타 중 비밀번호가 빈 값인 계정들의 비밀번호를 123으로 일괄 초기화하시겠습니까?')) {
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>처리 중...');
+
+            $.ajax({
+                url: '/super/star/reset-empty-pwd.do',
+                type: 'POST',
+                success: function(res) {
+                    alert(res.msg);
+                    btn.prop('disabled', false).html('<i class="fas fa-key me-1"></i> 미설정 스타 비번 123 초기화');
+                },
+                error: function(err) {
+                    console.error(err);
+                    alert('서버 통신 중 오류가 발생했습니다.');
+                    btn.prop('disabled', false).html('<i class="fas fa-key me-1"></i> 미설정 스타 비번 123 초기화');
                 }
             });
         });

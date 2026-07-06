@@ -73,15 +73,15 @@ public class ImageUploadController {
                     .format(System.currentTimeMillis()))
                     .append(UUID.randomUUID().toString())
                     .append(oldName.substring(oldName.lastIndexOf("."))).toString();
-            InputStream is = request.getInputStream();
-            OutputStream os = new FileOutputStream(filePath + saveName);
-            int numRead;
-            byte b[] = new byte[Integer.parseInt(request.getHeader("file-size"))];
-            while ((numRead = is.read(b, 0, b.length)) != -1) {
-                os.write(b, 0, numRead);
+            try (InputStream is = request.getInputStream();
+                 OutputStream os = new FileOutputStream(filePath + saveName)) {
+                int numRead;
+                byte[] b = new byte[8192]; // Fixed 8KB buffer
+                while ((numRead = is.read(b)) != -1) {
+                    os.write(b, 0, numRead);
+                }
+                os.flush();
             }
-            os.flush();
-            os.close();
             // 정보 출력
             sb = new StringBuffer();
             sb.append("&bNewLine=true")

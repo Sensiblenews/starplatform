@@ -40,6 +40,26 @@ public class SuperAdminController {
         return "LC".equals(user.getPRS_AUTH()) ? user.getPRS_COUNTRY() : null;
     }
 
+    // 헬퍼 메소드: GET 파라미터의 ISO-8859-1 한글 깨짐 디코딩
+    private String decodeGetParameter(String value) {
+        if (value == null || value.isEmpty()) return value;
+        try {
+            boolean isIso = true;
+            for (int i = 0; i < value.length(); i++) {
+                if (value.charAt(i) > 255) {
+                    isIso = false;
+                    break;
+                }
+            }
+            if (isIso) {
+                return new String(value.getBytes("ISO-8859-1"), "UTF-8");
+            }
+        } catch (Exception e) {
+            // 디코딩 실패 시 원본 반환
+        }
+        return value;
+    }
+
     /**
      * [대시보드] 권한에 따라 보여주는 데이터가 다름
      */
@@ -61,15 +81,53 @@ public class SuperAdminController {
      * [목록] 권한에 따라 필터링
      */
     @RequestMapping(value = "/super/star/list.do")
-    public String starList(HttpServletRequest request, Model model) throws Exception {
+    public String starList(HttpServletRequest request,
+                           @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+                           @RequestParam(value = "searchKeyword", required = false, defaultValue = "") String searchKeyword,
+                           Model model) throws Exception {
         UserVO user = getLoginUser(request);
         if (user == null)
             return "redirect:/super/login.do";
 
+        // GET 요청일 경우 ISO-8859-1 한글 깨짐 처리
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            searchKeyword = decodeGetParameter(searchKeyword);
+        }
+
         String filterCountry = getFilterCountry(user);
-        List<Map<String, Object>> starList = superAdminService.getStarList(filterCountry);
+        
+        int length = 30; // 30 items per page
+        int start = (page - 1) * length;
+        if (start < 0) start = 0;
+
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("country", filterCountry);
+        params.put("searchKeyword", searchKeyword.trim());
+        params.put("start", start);
+        params.put("length", length);
+
+        int totalCount = superAdminService.getStarListCount(params);
+        List<Map<String, Object>> starList = superAdminService.getStarList(params);
+
+        int totalPages = (int) Math.ceil((double) totalCount / length);
+        if (totalPages == 0) totalPages = 1;
+
+        // Calculate pagination sliding window (max 10 pages displayed)
+        int startPage = Math.max(1, page - 4);
+        int endPage = Math.min(totalPages, startPage + 9);
+        if (endPage - startPage < 9) {
+            startPage = Math.max(1, endPage - 9);
+        }
 
         model.addAttribute("starList", starList);
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
+        model.addAttribute("searchKeyword", searchKeyword);
+        model.addAttribute("activeMenu", "star_list");
+
         return "super/star_list";
     }
 
@@ -761,7 +819,7 @@ public class SuperAdminController {
                 throw new Exception("등록할 텍스트를 입력해 주세요.");
             }
             if (pwd == null || pwd.trim().isEmpty()) {
-                pwd = ""; // 비밀번호가 비어있으면 빈 문자열("")로 설정 (DB NOT NULL 제약조건 우회)
+                pwd = "123"; // 기본 초기 비밀번호 123
             }
             if (country == null || country.trim().isEmpty()) {
                 throw new Exception("기본 국가 코드를 선택해 주세요.");
@@ -800,6 +858,156 @@ public class SuperAdminController {
             result.put("status", "fail");
             result.put("msg", "일괄 등록 실패: " + e.getMessage());
         }
+        return result;
+    }
+
+    /**
+     * [API] 기존 비밀번호가 비어있는 스타(star_*) 비밀번호 123으로 일괄 변경 (SM 전용)
+     */
+    @RequestMapping(value = "/super/star/reset-empty-pwd.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetEmptyPwd(HttpServletRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            int updatedCount = superAdminService.resetEmptyPasswords();
+            result.put("status", "success");
+            result.put("msg", "비밀번호가 비어있던 스타 " + updatedCount + "명의 비밀번호를 123으로 변경 완료했습니다.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "오류 발생: " + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [화면] 시스템 관리 패널 (SM 전용)
+     */
+    @RequestMapping(value = "/super/system/panel.do")
+    public String systemPanel(HttpServletRequest request, Model model) {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+        model.addAttribute("activeMenu", "system_panel");
+        return "super/system_panel";
+    }
+
+    /**
+     * [API] 실시간 JVM 및 시스템 상태 조회 (SM 전용)
+     */
+    @RequestMapping(value = "/super/system/status.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSystemStatus(HttpServletRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            java.lang.management.MemoryMXBean memoryMXBean = java.lang.management.ManagementFactory.getMemoryMXBean();
+            java.lang.management.MemoryUsage heap = memoryMXBean.getHeapMemoryUsage();
+            java.lang.management.MemoryUsage nonHeap = memoryMXBean.getNonHeapMemoryUsage();
+            
+            java.lang.management.ThreadMXBean thread = java.lang.management.ManagementFactory.getThreadMXBean();
+            java.lang.management.RuntimeMXBean runtime = java.lang.management.ManagementFactory.getRuntimeMXBean();
+            java.lang.management.OperatingSystemMXBean os = java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+
+            long mb = 1024 * 1024;
+
+            // Heap memory status
+            result.put("heapInit", heap.getInit() / mb);
+            result.put("heapUsed", heap.getUsed() / mb);
+            result.put("heapCommitted", heap.getCommitted() / mb);
+            result.put("heapMax", heap.getMax() / mb);
+            result.put("heapPercent", heap.getMax() > 0 ? (int) ((double) heap.getUsed() / heap.getMax() * 100) : 0);
+
+            // Non-Heap memory status
+            result.put("nonHeapInit", nonHeap.getInit() / mb);
+            result.put("nonHeapUsed", nonHeap.getUsed() / mb);
+            result.put("nonHeapCommitted", nonHeap.getCommitted() / mb);
+            result.put("nonHeapMax", nonHeap.getMax() / mb);
+
+            // Threads status
+            result.put("threadCount", thread.getThreadCount());
+            result.put("peakThreadCount", thread.getPeakThreadCount());
+            result.put("totalStartedThreadCount", thread.getTotalStartedThreadCount());
+
+            // OS & JVM Info
+            result.put("availableProcessors", os.getAvailableProcessors());
+            result.put("systemLoadAverage", os.getSystemLoadAverage());
+            result.put("osName", os.getName());
+            result.put("osArch", os.getArch());
+            result.put("jvmName", runtime.getVmName());
+            result.put("jvmVersion", System.getProperty("java.version"));
+            
+            long uptimeMs = runtime.getUptime();
+            long uptimeSec = uptimeMs / 1000;
+            long uptimeMin = uptimeSec / 60;
+            long uptimeHour = uptimeMin / 60;
+            String uptimeStr = String.format("%d시간 %d분 %d초", uptimeHour, uptimeMin % 60, uptimeSec % 60);
+            result.put("jvmUptime", uptimeStr);
+
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "상태 조회 실패: " + e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
+     * [API] 메모리 정리(GC) 실행 (SM 전용)
+     */
+    @RequestMapping(value = "/super/system/clean.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> executeMemoryCleanup(HttpServletRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            java.lang.management.MemoryMXBean memoryMXBean = java.lang.management.ManagementFactory.getMemoryMXBean();
+            long beforeUsed = memoryMXBean.getHeapMemoryUsage().getUsed();
+            
+            // Explicit System GC execution
+            System.gc();
+            
+            // Wait briefly for GC thread to complete work
+            Thread.sleep(150);
+            
+            long afterUsed = memoryMXBean.getHeapMemoryUsage().getUsed();
+            long cleanedMemory = (beforeUsed - afterUsed) / (1024 * 1024);
+
+            result.put("status", "success");
+            result.put("cleanedMemoryMb", Math.max(0, cleanedMemory));
+            result.put("msg", "가비지 컬렉션(GC)을 실행하여 약 " + Math.max(0, cleanedMemory) + "MB의 메모리가 해제되었습니다.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "메모리 정리 실패: " + e.getMessage());
+        }
+
         return result;
     }
 }

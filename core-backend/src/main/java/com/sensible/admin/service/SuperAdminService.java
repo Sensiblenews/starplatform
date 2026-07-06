@@ -20,7 +20,7 @@ public class SuperAdminService {
         try {
             int updated = dao.update("super.migrateEmptyStarProfiles");
             if (updated > 0) {
-                System.out.println("🌟 [마이그레이션] 프로필 사진이 비어있는 스타 " + updated + "명에게 DiceBear 이니셜 프로필 링크 일괄 부여 완료!");
+                System.out.println("🌟 [마이그레이션] 프로필 사진이 비어있는 스타 " + updated + "명에게 DiceBear 랜덤 프로필 링크 일괄 부여 완료!");
             }
         } catch (Exception e) {
             System.err.println("❌ [마이그레이션 오류] 스타 프로필 사진 초기화 중 예외 발생: " + e.getMessage());
@@ -86,9 +86,14 @@ public class SuperAdminService {
         dao.insert("super.insertStar", params);
     }
     
-    // [수정] 목록 조회 (국가 필터)
-    public List<Map<String, Object>> getStarList(String country) throws Exception {
-        return dao.selectList("super.selectStarList", country);
+    // [수정] 목록 조회 (페이징 및 검색 필터)
+    public List<Map<String, Object>> getStarList(Map<String, Object> params) throws Exception {
+        return dao.selectList("super.selectStarList", params);
+    }
+    
+    // [신규] 목록 개수 조회 (페이징용)
+    public int getStarListCount(Map<String, Object> params) throws Exception {
+        return dao.selectOne("super.selectStarListCount", params);
     }
     
     public UserVO loginCheck(Map<String, Object> params) throws Exception {
@@ -378,5 +383,10 @@ public class SuperAdminService {
         Map<String, Object> result = new HashMap<>();
         result.put("successCount", successCount);
         return result;
+    }
+
+    // 🌟 [신규] 기존에 비밀번호가 비어있던 스타들의 비밀번호를 123으로 변경
+    public int resetEmptyPasswords() throws Exception {
+        return dao.update("super.updateEmptyPasswords");
     }
 }

@@ -45,6 +45,11 @@
                     <i class="fas fa-flag me-2"></i> 신고 관리
                 </a>
             </li>
+            <li class="nav-item mb-2">
+                <a href="/super/system/panel.do" class="nav-link <c:if test="${activeMenu eq 'system_panel'}">active</c:if>" style="color: #4fc3f7;">
+                    <i class="fas fa-server me-2"></i> 시스템 관리 (메모리)
+                </a>
+            </li>
         </c:if>
         
         <li class="nav-item mt-auto">

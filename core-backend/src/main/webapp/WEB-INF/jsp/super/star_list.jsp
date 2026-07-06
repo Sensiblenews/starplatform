@@ -90,6 +90,26 @@
             </div>
         </div>
 
+        <!-- 🔍 검색어 검색 바 추가 -->
+        <div class="card border-0 shadow-sm p-3 mb-3">
+            <form action="/super/star/list.do" method="GET" class="row g-2 align-items-center">
+                <div class="col-md-4 col-sm-8">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-secondary"><i class="fas fa-search"></i></span>
+                        <input type="text" name="searchKeyword" class="form-control border-start-0 ps-0" placeholder="스타 이름 또는 ID로 검색..." value="<c:out value="${searchKeyword}"/>">
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-1"></i>검색</button>
+                </div>
+                <c:if test="${not empty searchKeyword}">
+                    <div class="col-md-2 col-sm-4">
+                        <a href="/super/star/list.do" class="btn btn-outline-secondary w-100">초기화</a>
+                    </div>
+                </c:if>
+            </form>
+        </div>
+
         <div class="table-card p-3">
             <div class="table-responsive">
                 <table class="table table-hover align-middle text-nowrap mb-0">
@@ -144,6 +164,39 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- 📄 페이지네이션 추가 -->
+            <c:if test="${totalPages > 1}">
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item ${currentPage eq 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="/super/star/list.do?page=1&searchKeyword=${searchKeyword}" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item ${currentPage eq 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="/super/star/list.do?page=${currentPage - 1}&searchKeyword=${searchKeyword}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <c:forEach var="i" begin="${startPage}" end="${endPage}">
+                            <li class="page-item ${currentPage eq i ? 'active' : ''}">
+                                <a class="page-link" href="/super/star/list.do?page=${i}&searchKeyword=${searchKeyword}">${i}</a>
+                            </li>
+                        </c:forEach>
+                        <li class="page-item ${currentPage eq totalPages ? 'disabled' : ''}">
+                            <a class="page-link" href="/super/star/list.do?page=${currentPage + 1}&searchKeyword=${searchKeyword}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item ${currentPage eq totalPages ? 'disabled' : ''}">
+                            <a class="page-link" href="/super/star/list.do?page=${totalPages}&searchKeyword=${searchKeyword}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </c:if>
         </div>
     </div>
     

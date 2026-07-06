@@ -111,18 +111,26 @@
             IFNULL(NULLIF(#{PRS_COUNTRY}, ''), 'KR'), 
             '4', 'ST', 'Y', #{PRS_ID}, 
             NOW(), 'Y',
-            IFNULL(NULLIF(#{STORED_FILE_NM}, ''), CONCAT('https://api.dicebear.com/9.x/initials/svg?seed=', #{PRS_NAME}))
+            IFNULL(NULLIF(#{STORED_FILE_NM}, ''), ELT(FLOOR(1 + RAND() * 3), 
+                CONCAT('https://api.dicebear.com/9.x/lorelei/svg?seed=', #{PRS_NAME}), 
+                CONCAT('https://api.dicebear.com/9.x/avataaars/svg?seed=', #{PRS_NAME}), 
+                CONCAT('https://api.dicebear.com/9.x/shapes/svg?seed=', #{PRS_NAME})
+            ))
         )
     </insert>
 
     <update id="migrateEmptyStarProfiles">
         UPDATE WH_PRESS 
-        SET STORED_FILE_NM = CONCAT('https://api.dicebear.com/9.x/initials/svg?seed=', PRS_NAME)
+        SET STORED_FILE_NM = ELT(FLOOR(1 + RAND() * 3), 
+            CONCAT('https://api.dicebear.com/9.x/lorelei/svg?seed=', PRS_NAME), 
+            CONCAT('https://api.dicebear.com/9.x/avataaars/svg?seed=', PRS_NAME), 
+            CONCAT('https://api.dicebear.com/9.x/shapes/svg?seed=', PRS_NAME)
+        )
         WHERE IS_STAR = 'Y' 
           AND (STORED_FILE_NM IS NULL OR STORED_FILE_NM = '')
     </update>
 
-	<select id="selectStarList" parameterType="string" resultType="map">
+	<select id="selectStarList" parameterType="map" resultType="map">
         SELECT 
             PRS_ID, PRS_NAME, PRS_COUNTRY, PRS_USE_YN, 
             PRS_CREATE_DATE AS CON_CREATE_DATE,
@@ -134,10 +142,28 @@
             
         FROM WH_PRESS A
         WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
-        <if test="_parameter != null and _parameter != ''">
+        <if test="country != null and country != ''">
             AND PRS_COUNTRY = #{country}
         </if>
-        ORDER BY IS_POPULAR DESC, PRS_CREATE_DATE DESC 
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        ORDER BY IS_POPULAR DESC, PRS_CREATE_DATE DESC
+        <if test="start != null and length != null">
+            LIMIT #{start}, #{length}
+        </if>
+    </select>
+
+    <select id="selectStarListCount" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+        FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
     </select>
 
     <select id="countPopularStars" parameterType="string" resultType="int">
@@ -434,4 +460,11 @@
             WHERE A.ACTION = 'IMPRESSION' AND DATE(A.CREATED_DATE) = CURDATE()
         ) TODAY ON YESTERDAY.MEM_ID = TODAY.MEM_ID
     </select>
+
+    <update id="updateEmptyPasswords">
+        UPDATE WH_PRESS 
+        SET PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('123')))))
+        WHERE PRS_ID LIKE 'star_%' 
+          AND (PRS_PWD IS NULL OR PRS_PWD = '' OR PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(''))))))
+    </update>
 </mapper>

@@ -109,7 +109,12 @@
                 <div class="card stat-card bg-white border-0 p-3 h-100" style="border-left: 4px solid #36b9cc !important;">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="text-muted fw-bold mb-0"><i class="fas fa-server me-2"></i>서버 상태 모니터링</h6>
-                        <span class="badge bg-success"><i class="fas fa-database me-1"></i>DB: ${stats.dbStatus}</span>
+                        <div>
+                            <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
+                                <a href="/super/system/panel.do" class="btn btn-outline-info btn-sm px-2 py-0 me-2" style="font-size:11px; border-radius: 4px;"><i class="fas fa-cog me-1"></i>상세/정리</a>
+                            </c:if>
+                            <span class="badge bg-success"><i class="fas fa-database me-1"></i>DB: ${stats.dbStatus}</span>
+                        </div>
                     </div>
                     
                     <div class="mt-2">
