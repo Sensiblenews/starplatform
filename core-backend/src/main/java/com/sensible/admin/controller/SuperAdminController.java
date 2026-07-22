@@ -30,6 +30,16 @@ public class SuperAdminController {
     @Resource(name = "superAdminService")
     private SuperAdminService superAdminService;
 
+    // 시스템 모니터링용 기존 빈 재사용 주입 (신규 연결 생성 금지)
+    @Resource(name = "config")
+    private java.util.Properties config;
+
+    @Resource(name = "redisTemplate")
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
+
+    @Resource(name = "dataSource")
+    private javax.sql.DataSource dataSource;
+
     // 헬퍼 메소드: 로그인 유저 확인
     private UserVO getLoginUser(HttpServletRequest request) {
         return (UserVO) request.getSession().getAttribute("SUPER_USER_SESSION");
@@ -899,7 +909,29 @@ public class SuperAdminController {
             return "redirect:/super/dashboard.do";
         }
         model.addAttribute("activeMenu", "system_panel");
+
+        // global.properties 튜닝값을 프론트로 전달 (하드코딩 제거). 값이 없거나 파싱 실패 시 안전 기본값 사용
+        model.addAttribute("pollingInterval", getConfigInt("monitor.polling.interval", 5000));
+        model.addAttribute("cpuWarn", getConfigInt("monitor.cpu.threshold.warn", 60));
+        model.addAttribute("cpuDanger", getConfigInt("monitor.cpu.threshold.danger", 80));
+        model.addAttribute("diskWarn", getConfigInt("monitor.disk.threshold.warn", 70));
+        model.addAttribute("diskDanger", getConfigInt("monitor.disk.threshold.danger", 85));
+
         return "super/system_panel";
+    }
+
+    // global.properties(config 빈)에서 정수 설정값을 안전하게 읽는 헬퍼
+    private int getConfigInt(String key, int defaultValue) {
+        try {
+            if (config == null)
+                return defaultValue;
+            String v = config.getProperty(key);
+            if (v == null || v.trim().isEmpty())
+                return defaultValue;
+            return Integer.parseInt(v.trim());
+        } catch (Exception e) {
+            return defaultValue;
+        }
     }
 
     /**
@@ -960,6 +992,111 @@ public class SuperAdminController {
             long uptimeHour = uptimeMin / 60;
             String uptimeStr = String.format("%d시간 %d분 %d초", uptimeHour, uptimeMin % 60, uptimeSec % 60);
             result.put("jvmUptime", uptimeStr);
+
+            // ===== [신규] CPU / Disk / Redis / DB / Queue =====
+            // 각 지표는 독립적으로 격리 수집. 하나가 실패해도 나머지 지표와 엔드포인트는 정상 반환.
+
+            // 1) CPU 사용률(%) - com.sun.management API 우선, 미지원/실패 시 load average 폴백
+            result.put("cpuAvailable", false);
+            result.put("cpuSystemPercent", 0);
+            result.put("cpuProcessPercent", 0);
+            result.put("systemLoadAverage", os.getSystemLoadAverage());
+            try {
+                if (os instanceof com.sun.management.OperatingSystemMXBean) {
+                    com.sun.management.OperatingSystemMXBean sunOs = (com.sun.management.OperatingSystemMXBean) os;
+                    double sysLoad = sunOs.getSystemCpuLoad();   // 0.0 ~ 1.0 (음수면 아직 미측정)
+                    double procLoad = sunOs.getProcessCpuLoad(); // 0.0 ~ 1.0
+                    if (sysLoad >= 0) {
+                        result.put("cpuSystemPercent", (int) Math.round(sysLoad * 100));
+                        result.put("cpuAvailable", true);
+                    }
+                    if (procLoad >= 0) {
+                        result.put("cpuProcessPercent", (int) Math.round(procLoad * 100));
+                    }
+                }
+            } catch (Throwable t) {
+                // com.sun API 미지원 환경 등: load average 폴백값이 이미 채워져 있음
+                result.put("cpuAvailable", false);
+            }
+
+            // 2) Disk 사용량 - 설정된 경로(기본 "/")의 파일시스템 용량
+            result.put("diskAvailable", false);
+            result.put("diskTotalGb", 0);
+            result.put("diskUsedGb", 0);
+            result.put("diskFreeGb", 0);
+            result.put("diskPercent", 0);
+            try {
+                String diskPath = (config != null) ? config.getProperty("monitor.disk.path", "/") : "/";
+                if (diskPath == null || diskPath.trim().isEmpty())
+                    diskPath = "/";
+                java.io.File disk = new java.io.File(diskPath.trim());
+                long total = disk.getTotalSpace();
+                long usable = disk.getUsableSpace();
+                if (total > 0) {
+                    long gb = 1024L * 1024L * 1024L;
+                    long used = total - usable;
+                    result.put("diskTotalGb", total / gb);
+                    result.put("diskUsedGb", used / gb);
+                    result.put("diskFreeGb", usable / gb);
+                    result.put("diskPercent", (int) ((double) used / total * 100));
+                    result.put("diskAvailable", true);
+                }
+            } catch (Throwable t) {
+                result.put("diskAvailable", false);
+            }
+
+            // 3) Redis - 기존 redisTemplate 연결로 PING (로컬 미연결은 정상 시나리오 → DOWN 표기)
+            result.put("redisStatus", "DOWN");
+            result.put("redisMsg", "연결되지 않음");
+            org.springframework.data.redis.connection.RedisConnection redisConn = null;
+            try {
+                redisConn = redisTemplate.getConnectionFactory().getConnection();
+                String pong = redisConn.ping();
+                result.put("redisStatus", "UP");
+                result.put("redisMsg", (pong != null ? pong : "PONG"));
+            } catch (Throwable t) {
+                result.put("redisStatus", "DOWN");
+                result.put("redisMsg", "연결되지 않음");
+            } finally {
+                if (redisConn != null) {
+                    try {
+                        redisConn.close();
+                    } catch (Throwable ignore) {
+                    }
+                }
+            }
+
+            // 4) DB - 기존 dataSource로 SELECT 1 경량 헬스체크 + 커넥션 풀 현황
+            result.put("dbStatus", "DOWN");
+            result.put("dbMsg", "연결 실패");
+            result.put("dbActive", -1);
+            result.put("dbIdle", -1);
+            try (java.sql.Connection conn = dataSource.getConnection();
+                 java.sql.Statement stmt = conn.createStatement();
+                 java.sql.ResultSet rs = stmt.executeQuery("SELECT 1")) {
+                if (rs.next()) {
+                    result.put("dbStatus", "UP");
+                    result.put("dbMsg", "정상");
+                }
+            } catch (Throwable t) {
+                result.put("dbStatus", "DOWN");
+                result.put("dbMsg", "연결 실패");
+            }
+            // DBCP 풀 현황 (부가 정보). 주입된 dataSource는 log4jdbc 프록시가 BasicDataSource를
+            // 감싸고 있어 직접 캐스팅이 안 될 수 있음 → 도달 불가 시 -1 유지하고 프론트에서 숨김.
+            try {
+                if (dataSource instanceof org.apache.commons.dbcp.BasicDataSource) {
+                    org.apache.commons.dbcp.BasicDataSource bds = (org.apache.commons.dbcp.BasicDataSource) dataSource;
+                    result.put("dbActive", bds.getNumActive());
+                    result.put("dbIdle", bds.getNumIdle());
+                }
+            } catch (Throwable t) {
+                // 풀 통계는 부가 정보이므로 실패 무시
+            }
+
+            // 5) Queue - 프로젝트에 메시지 큐 미도입 → N/A 자리표시자
+            result.put("queueStatus", "N/A");
+            result.put("queueMsg", "메시지 큐 미도입");
 
             result.put("status", "success");
         } catch (Exception e) {

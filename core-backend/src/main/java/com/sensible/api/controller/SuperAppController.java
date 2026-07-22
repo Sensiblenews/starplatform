@@ -1,7 +1,6 @@
 package com.sensible.api.controller;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -10,10 +9,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.sensible.api.service.SuperAppService;
 import com.sensible.common.domain.CommandMap;
@@ -42,7 +36,8 @@ public class SuperAppController {
 	}
 
 	// 1. 로비 데이터 조회 (인기 스타 + 전체 리스트)
-	@RequestMapping(value = "/api/super/lobby", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/lobby", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
 	public Map<String, Object> getLobbyData(CommandMap commandMap) throws Exception {
 		return superAppService.getLobbyData(commandMap.getMap());
@@ -238,26 +233,26 @@ public class SuperAppController {
 		return superAppService.checkClaimStatus(token);
 	}
 
-	@RequestMapping(value = "/api/super/leaderboard", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/leaderboard", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
 	public Map<String, Object> getLeaderboard() throws Exception {
 		return superAppService.getLeaderboard();
 	}
 
-	@RequestMapping(value = "/api/super/leaderboard/revenue", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/leaderboard/revenue", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
 	public Map<String, Object> getRevenueLeaderboard() throws Exception {
 		return superAppService.getRevenueLeaderboard();
 	}
 
-	@RequestMapping(value = "/api/super/leaderboard/daily", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. 파라미터(date)는 쿼리스트링으로 수신.
+	// CommandMap이 GET 쿼리파라미터/JSON 바디를 모두 처리(CustomMapArgumentResolver)
+	@RequestMapping(value = "/api/super/leaderboard/daily", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getDailyLeaderboard(@RequestBody(required = false) Map<String, Object> params) throws Exception {
-	    // 파라미터가 아예 없이 올 경우 NullPointerException 방지를 위해 빈 맵 생성
-	    if (params == null) {
-	        params = new HashMap<>();
-	    }
-	    return superAppService.getDailyLeaderboard(params);
+	public Map<String, Object> getDailyLeaderboard(CommandMap commandMap) throws Exception {
+	    return superAppService.getDailyLeaderboard(commandMap.getMap());
 	}
 
 	// ==========================================
@@ -265,34 +260,35 @@ public class SuperAppController {
 	// ==========================================
 
 	// 1. 역대 오늘의 왕
-	@RequestMapping(value = "/api/super/hall-of-fame/daily-kings", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/hall-of-fame/daily-kings", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getDailyKings(@RequestBody(required = false) Map<String, Object> params) throws Exception {
-		if (params == null) {
-			params = new HashMap<>();
-		}
-		return superAppService.getDailyKings(params);
+	public Map<String, Object> getDailyKings(CommandMap commandMap) throws Exception {
+		return superAppService.getDailyKings(commandMap.getMap());
 	}
 
 	// 2. 역대 TOP 100 (명예의 전당 탭 용)
-	@RequestMapping(value = "/api/super/hall-of-fame/top100", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/hall-of-fame/top100", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
 	public Map<String, Object> getHallOfFameTop100() throws Exception {
 		return superAppService.getHallOfFameTop100();
 	}
 
-	// 3. 월간 챔피언 (body 파라미터로 targetMonth="2026-06" 전달)
-	@RequestMapping(value = "/api/super/hall-of-fame/monthly", method = RequestMethod.POST)
+	// 3. 월간 챔피언 (targetMonth="2026-06" 를 쿼리스트링으로 전달)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/hall-of-fame/monthly", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getMonthlyChampions(@RequestBody Map<String, Object> params) throws Exception {
-		return superAppService.getMonthlyChampions(params);
+	public Map<String, Object> getMonthlyChampions(CommandMap commandMap) throws Exception {
+		return superAppService.getMonthlyChampions(commandMap.getMap());
 	}
 
-	// 4. 연간 챔피언 (body 파라미터로 targetYear="2026" 전달)
-	@RequestMapping(value = "/api/super/hall-of-fame/yearly", method = RequestMethod.POST)
+	// 4. 연간 챔피언 (targetYear="2026" 을 쿼리스트링으로 전달)
+	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)
+	@RequestMapping(value = "/api/super/hall-of-fame/yearly", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getYearlyChampions(@RequestBody Map<String, Object> params) throws Exception {
-		return superAppService.getYearlyChampions(params);
+	public Map<String, Object> getYearlyChampions(CommandMap commandMap) throws Exception {
+		return superAppService.getYearlyChampions(commandMap.getMap());
 	}
 
 	/**
@@ -431,10 +427,12 @@ public class SuperAppController {
 	}
 
 	// 🌟 [신규] 랭킹 메뉴 - 내 누적 수익 조회
-	@RequestMapping(value = "/api/super/ranking/my-revenue", method = RequestMethod.POST)
+	// [Redis 캐시/읽기 전용] GET 전환. starId를 쿼리스트링으로 전달.
+	// ⚠ 사용자별 데이터이므로 공용 CDN(Cloudflare) 캐싱 대상에서 제외할 것 (origin Redis 캐시만)
+	@RequestMapping(value = "/api/super/ranking/my-revenue", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getMyRankingRevenue(@RequestBody Map<String, Object> params) throws Exception {
-		return superAppService.getMyRankingRevenue(params);
+	public Map<String, Object> getMyRankingRevenue(CommandMap commandMap) throws Exception {
+		return superAppService.getMyRankingRevenue(commandMap.getMap());
 	}
 
 	// 🌟 [신규] My Daily Insight - 최근 활동 유저 500명 리스트

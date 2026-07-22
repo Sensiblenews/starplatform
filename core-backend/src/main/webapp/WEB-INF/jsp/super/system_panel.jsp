@@ -44,7 +44,7 @@
             </div>
             <div class="bg-white px-3 py-2 rounded-3 shadow-sm d-flex align-items-center">
                 <span class="status-dot status-online"></span>
-                <span class="fw-semibold text-secondary small">모니터링 작동 중 (5초 주기)</span>
+                <span class="fw-semibold text-secondary small">모니터링 작동 중 (${pollingInterval / 1000}초 주기)</span>
             </div>
         </div>
 
@@ -178,6 +178,118 @@
                 </div>
             </div>
         </div>
+
+        <!-- ===== [신규] 시스템 리소스 & 외부 연동 실시간 모니터링 ===== -->
+        <div class="mt-5 mb-3">
+            <h4 class="fw-bold text-dark"><i class="fas fa-heartbeat text-danger me-2"></i>시스템 리소스 & 연동 상태</h4>
+            <p class="text-muted mb-0 small">CPU · 디스크 · Redis · DB · Queue 실시간 상태 (${pollingInterval / 1000}초 주기 자동 갱신)</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- CPU 사용률 -->
+            <div class="col-lg-6">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-microchip text-primary me-2"></i>CPU 사용률</h5>
+                        <span class="badge bg-light text-dark border" id="cpu-badge">-</span>
+                    </div>
+                    <div class="my-2">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="small text-secondary">시스템 전체 CPU</span>
+                            <span class="fw-bold small text-primary" id="cpu-system-text">- %</span>
+                        </div>
+                        <div class="progress mb-3">
+                            <div id="cpu-system-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="small text-secondary">이 프로세스(JVM) CPU</span>
+                            <span class="fw-semibold small text-info" id="cpu-process-text">- %</span>
+                        </div>
+                        <div class="progress">
+                            <div id="cpu-process-bar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-end">
+                        <span class="small text-muted">System Load Average: <span id="cpu-loadavg" class="fw-semibold">-</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk 사용량 -->
+            <div class="col-lg-6">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-hdd text-warning me-2"></i>디스크 사용량</h5>
+                        <span class="badge bg-light text-dark border" id="disk-badge">-</span>
+                    </div>
+                    <div class="my-2">
+                        <div class="progress mb-2">
+                            <div id="disk-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="text-end">
+                            <span class="fw-bold text-primary" id="disk-percent-text">0% 사용 중</span>
+                        </div>
+                    </div>
+                    <hr class="text-muted">
+                    <div class="row text-center mt-1">
+                        <div class="col-4 border-end">
+                            <div class="metric-label">전체 용량</div>
+                            <div class="metric-value" id="disk-total-val">0 GB</div>
+                        </div>
+                        <div class="col-4 border-end">
+                            <div class="metric-label">사용 중</div>
+                            <div class="metric-value text-success" id="disk-used-val">0 GB</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="metric-label">여유 공간</div>
+                            <div class="metric-value text-info" id="disk-free-val">0 GB</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-1">
+            <!-- Redis 상태 -->
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-bolt text-danger me-2"></i>Redis</h5>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="status-dot" id="redis-dot" style="background-color:#adb5bd;"></span>
+                        <span class="fw-bold fs-5" id="redis-status">확인 중...</span>
+                    </div>
+                    <p class="text-muted small mb-0" id="redis-msg">-</p>
+                </div>
+            </div>
+
+            <!-- DB 상태 -->
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-database text-primary me-2"></i>Database</h5>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="status-dot" id="db-dot" style="background-color:#adb5bd;"></span>
+                        <span class="fw-bold fs-5" id="db-status">확인 중...</span>
+                    </div>
+                    <p class="text-muted small mb-1" id="db-msg">-</p>
+                    <div class="small text-secondary" id="db-pool" style="display:none;">
+                        활성 커넥션: <span class="fw-semibold" id="db-active">-</span> /
+                        유휴: <span class="fw-semibold" id="db-idle">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue 상태 -->
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-stream text-secondary me-2"></i>Queue</h5>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="status-dot" style="background-color:#adb5bd;"></span>
+                        <span class="fw-bold fs-5 text-muted" id="queue-status">N/A</span>
+                    </div>
+                    <p class="text-muted small mb-0" id="queue-msg">메시지 큐 미도입</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 메모리 청소 확인용 모달 -->
@@ -230,11 +342,41 @@
         // 모니터링 상태 폴링 스크립트
         let pollingInterval = null;
 
+        // global.properties 에서 주입된 임계치 (색상 분기 기준)
+        const CPU_WARN = ${cpuWarn}, CPU_DANGER = ${cpuDanger};
+        const DISK_WARN = ${diskWarn}, DISK_DANGER = ${diskDanger};
+
+        // 진행바 + 퍼센트 텍스트를 임계치에 따라 색상과 함께 갱신
+        function setBar(barId, textId, percent, warn, danger, baseClass) {
+            const bar = document.getElementById(barId);
+            if (!bar) return;
+            const p = (typeof percent === 'number' && percent >= 0) ? percent : 0;
+            bar.style.width = p + "%";
+            bar.setAttribute('aria-valuenow', p);
+            bar.className = "progress-bar";
+            if (p >= danger)      bar.classList.add("bg-danger");
+            else if (p >= warn)   bar.classList.add("bg-warning");
+            else                  bar.classList.add(baseClass || "bg-success");
+            if (textId) document.getElementById(textId).innerText = p + " %";
+        }
+
+        // UP/DOWN 상태 점 + 텍스트 + 메시지 갱신
+        function setServiceStatus(dotId, statusId, msgId, status, msg) {
+            const isUp = (status === 'UP');
+            const dot = document.getElementById(dotId);
+            const statusEl = document.getElementById(statusId);
+            dot.style.backgroundColor = isUp ? '#2ecc71' : '#e74c3c';
+            dot.style.boxShadow = isUp ? '0 0 8px rgba(46,204,113,0.6)' : '0 0 8px rgba(231,76,60,0.5)';
+            statusEl.innerText = isUp ? '정상 (UP)' : '중단 (DOWN)';
+            statusEl.className = "fw-bold fs-5 " + (isUp ? 'text-success' : 'text-danger');
+            document.getElementById(msgId).innerText = msg || (isUp ? '정상' : '연결되지 않음');
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             // 즉시 데이터 1회 가져오기
             updateSystemStatus();
-            // 5초 간격 폴링 시작
-            pollingInterval = setInterval(updateSystemStatus, 5000);
+            // 폴링 주기(ms)는 global.properties(monitor.polling.interval)에서 주입
+            pollingInterval = setInterval(updateSystemStatus, ${pollingInterval});
         });
 
         function updateSystemStatus() {
@@ -289,6 +431,50 @@
                     document.getElementById('os-info').innerText = data.osName + " (" + data.osArch + ")";
                     document.getElementById('cpu-cores').innerText = data.availableProcessors + " Cores";
                     document.getElementById('jvm-uptime').innerText = data.jvmUptime;
+
+                    // 5. CPU 사용률 세팅
+                    if (data.cpuAvailable) {
+                        setBar('cpu-system-bar', 'cpu-system-text', data.cpuSystemPercent, CPU_WARN, CPU_DANGER);
+                        setBar('cpu-process-bar', 'cpu-process-text', data.cpuProcessPercent, CPU_WARN, CPU_DANGER, 'bg-info');
+                        document.getElementById('cpu-badge').innerText = data.cpuSystemPercent + "% (System)";
+                    } else {
+                        document.getElementById('cpu-badge').innerText = "정밀 측정 미지원";
+                        document.getElementById('cpu-system-text').innerText = "N/A";
+                        document.getElementById('cpu-process-text').innerText = "N/A";
+                    }
+                    const load = (typeof data.systemLoadAverage === 'number' && data.systemLoadAverage >= 0)
+                        ? data.systemLoadAverage.toFixed(2) : "N/A";
+                    document.getElementById('cpu-loadavg').innerText = load;
+
+                    // 6. Disk 사용량 세팅
+                    if (data.diskAvailable) {
+                        setBar('disk-bar', null, data.diskPercent, DISK_WARN, DISK_DANGER);
+                        document.getElementById('disk-percent-text').innerText = data.diskPercent + "% 사용 중";
+                        document.getElementById('disk-badge').innerText = data.diskPercent + "%";
+                        document.getElementById('disk-total-val').innerText = data.diskTotalGb.toLocaleString() + " GB";
+                        document.getElementById('disk-used-val').innerText = data.diskUsedGb.toLocaleString() + " GB";
+                        document.getElementById('disk-free-val').innerText = data.diskFreeGb.toLocaleString() + " GB";
+                    } else {
+                        document.getElementById('disk-badge').innerText = "조회 불가";
+                    }
+
+                    // 7. Redis 상태 세팅
+                    setServiceStatus('redis-dot', 'redis-status', 'redis-msg', data.redisStatus, data.redisMsg);
+
+                    // 8. DB 상태 세팅
+                    setServiceStatus('db-dot', 'db-status', 'db-msg', data.dbStatus, data.dbMsg);
+                    // DBCP 풀 통계 (도달 가능한 경우에만 표시)
+                    if (typeof data.dbActive === 'number' && data.dbActive >= 0) {
+                        document.getElementById('db-pool').style.display = 'block';
+                        document.getElementById('db-active').innerText = data.dbActive;
+                        document.getElementById('db-idle').innerText = data.dbIdle;
+                    }
+
+                    // 9. Queue 상태 세팅 (N/A 자리표시자)
+                    if (data.queueMsg) {
+                        document.getElementById('queue-status').innerText = data.queueStatus || "N/A";
+                        document.getElementById('queue-msg').innerText = data.queueMsg;
+                    }
                 }
             })
             .catch(error => {

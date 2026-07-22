@@ -15,14 +15,9 @@ import javax.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.google.firebase.messaging.Notification;
 import com.sensible.common.Constants;
@@ -45,9 +40,10 @@ public class SuperAppService {
 
 	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 120초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
+	// usePrefix=true가 캐시명("lobby")을 접두어로 붙이므로 키에는 country만 둔다 → Redis 키: lobby:KR
 	// 주의: popularStars의 Collections.shuffle는 캐시된 순서로 고정된다(TTL 동안 동일 순서).
 	@Cacheable(value = "lobby",
-			key = "'lobby:' + (T(org.springframework.util.StringUtils).hasText(#map['country']) ? #map['country'] : 'KR')",
+			key = "T(org.springframework.util.StringUtils).hasText(#map['country']) ? #map['country'] : 'KR'",
 			unless = "#result == null")
 	public Map<String, Object> getLobbyData(Map<String, Object> map) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
