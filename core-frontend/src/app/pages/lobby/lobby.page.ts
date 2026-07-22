@@ -344,7 +344,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   loadLobbyData(event?: any) {
-    this.http.post('/api/super/lobby', {}).subscribe(
+    this.http.get('/api/super/lobby').subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.popularStars = (res.popularStars || []).map(this.initStarData);
@@ -373,13 +373,13 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   loadLeaderboard() {
     // 백엔드 API 호출 (Top 100)
-    this.http.post(this.rankingEndpoints.general, {}).subscribe((res: any) => {
+    this.http.get(this.rankingEndpoints.general).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.rankingStars = (res.list || []).map(this.initStarData);
       }
     });
 
-    this.http.post(this.rankingEndpoints.revenue, {}).subscribe((res: any) => {
+    this.http.get(this.rankingEndpoints.revenue).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.revenueRankingStars = (res.list || []).map(this.initStarData);
       }
@@ -391,9 +391,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   loadDailyRanking() {
-    this.http.post(this.rankingEndpoints.daily, {
-      date: this.selectedDailyDate
-    }).subscribe((res: any) => {
+    this.http.get(`${this.rankingEndpoints.daily}?date=${encodeURIComponent(this.selectedDailyDate)}`).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.dailyRankingStars = (res.list || []).map(this.initStarData);
       }
@@ -463,10 +461,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.isLoadingRevenue = true;
     const starToken = localStorage.getItem('starToken') || '';
 
-    this.http.post('/api/super/ranking/my-revenue', {
-      starId: this.starId,
-      starToken: starToken
-    }).subscribe({
+    this.http.get(`/api/super/ranking/my-revenue?starId=${encodeURIComponent(this.starId)}&starToken=${encodeURIComponent(starToken)}`).subscribe({
       next: (res: any) => {
         this.isLoadingRevenue = false;
         if (res.result === 'OK') {

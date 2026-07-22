@@ -110,7 +110,7 @@ export class HallOfFameModalComponent implements OnInit {
   loadDailyKings() {
     this.dailyKingsLoading = true;
     const targetMonth = `${this.selectedDailyKingsYear}-${String(this.selectedDailyKingsMonth).padStart(2, '0')}`;
-    this.http.post('/api/super/hall-of-fame/daily-kings', { targetMonth }).subscribe(
+    this.http.get(`/api/super/hall-of-fame/daily-kings?targetMonth=${encodeURIComponent(targetMonth)}`).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.dailyKings = res.list || [];
@@ -129,7 +129,7 @@ export class HallOfFameModalComponent implements OnInit {
   // ── 2. All-time Top 100 ─────────────────────────────────
   loadTop100() {
     this.top100Loading = true;
-    this.http.post('/api/super/hall-of-fame/top100', {}).subscribe(
+    this.http.get('/api/super/hall-of-fame/top100').subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.top100Stars = res.list || [];
@@ -144,7 +144,7 @@ export class HallOfFameModalComponent implements OnInit {
   loadMonthly() {
     this.monthlyLoading = true;
     const targetMonth = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
-    this.http.post('/api/super/hall-of-fame/monthly', { targetMonth }).subscribe(
+    this.http.get(`/api/super/hall-of-fame/monthly?targetMonth=${encodeURIComponent(targetMonth)}`).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.monthlyStars = res.list || [];
@@ -166,7 +166,7 @@ export class HallOfFameModalComponent implements OnInit {
   loadYearly() {
     this.yearlyLoading = true;
     const targetYear = String(this.selectedYearForYearly);
-    this.http.post('/api/super/hall-of-fame/yearly', { targetYear }).subscribe(
+    this.http.get(`/api/super/hall-of-fame/yearly?targetYear=${encodeURIComponent(targetYear)}`).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.yearlyStars = res.list || [];
