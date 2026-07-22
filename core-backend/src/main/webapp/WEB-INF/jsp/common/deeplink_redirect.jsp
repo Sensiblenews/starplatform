@@ -30,6 +30,8 @@
             <meta property="og:description" content="${not empty ogDesc ? ogDesc : 'Everyone Can Earn'}">
             <meta property="og:image"
                 content="${not empty ogImage ? ogImage : fallbackBaseUrl.concat('/resources/img/icon.png')}">
+            <meta property="og:image:width" content="256">
+            <meta property="og:image:height" content="256">
             <meta property="og:url" content="${ogUrl}">
             <meta property="og:type" content="website">
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  jbit-core는 Maven 메타데이터 없이 배포된 레거시 커스텀 JAR입니다.
+  file 저장소(lib/)에서 해석될 수 있도록 최소 POM만 정의합니다.
+  의존성은 선언하지 않으며, 필요한 라이브러리는 상위 pom.xml에서 직접 관리합니다.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>jbit.core</groupId>
+	<artifactId>jbit-core</artifactId>
+	<version>1.0</version>
+	<packaging>jar</packaging>
+</project>

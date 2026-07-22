@@ -18,31 +18,34 @@ Spring MVC 기반 백엔드 API 서버입니다.
 
 ## 사전 요구 사항
 
-- **JDK 8** (`/usr/lib/jvm/java-8-openjdk-amd64`)
+- **JDK 8**
 - **Maven 3.8+** (`mvn --version`으로 확인)
 
-> JDK 8이 설치되어 있지 않다면:
-> ```bash
-> sudo apt install openjdk-8-jdk
-> ```
-
-## ⚠️ 최초 설정: JDK 경로 확인
-
-**JDK 8 설치 경로는 컴퓨터마다 다릅니다.** 프로젝트를 처음 클론한 후 반드시 `mvnw.sh`의 `JAVA_HOME` 경로를 본인 환경에 맞게 수정하세요:
+설치되어 있지 않다면:
 
 ```bash
-# mvnw.sh 파일 내 아래 줄을 찾아서 수정
-JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"  # ← 본인의 JDK 8 경로로 변경
+# macOS (Apple Silicon / Intel 공통) — Zulu 8은 arm64 네이티브 빌드 제공
+brew install --cask zulu@8
+brew install maven
+
+# Ubuntu
+sudo apt install openjdk-8-jdk maven
 ```
 
-JDK 8 경로 확인 방법:
+시스템 기본 JDK를 8로 바꿀 필요는 없습니다. `mvnw.sh`가 이 프로젝트를 빌드할 때만 `JAVA_HOME`을 JDK 8로 지정하므로, 전역 `java -version`은 그대로 두면 됩니다.
+
+## JDK 경로
+
+`mvnw.sh`가 아래 순서로 JDK 8을 자동 탐지하므로 별도 설정이 필요 없습니다.
+
+1. `JAVA8_HOME` 환경변수
+2. macOS: `/usr/libexec/java_home -v 1.8`
+3. Linux: `/usr/lib/jvm/java-8-*`
+
+비표준 경로에 설치했다면 환경변수로 직접 지정하세요:
 
 ```bash
-# Linux / macOS
-/usr/libexec/java_home -v 1.8  2>/dev/null || readlink -f $(which javac) | sed 's|/bin/javac||'
-
-# 또는 직접 확인
-ls /usr/lib/jvm/ | grep java-8
+JAVA8_HOME=/path/to/jdk8 ./mvnw.sh build
 ```
 
 ## 빌드 & 실행
@@ -80,7 +83,7 @@ ls /usr/lib/jvm/ | grep java-8
 빌드 후 WAR 파일은 아래 경로에 생성됩니다:
 
 ```
-target/witch-1.0.0-BUILD-SNAPSHOT.war
+target/witch.war
 ```
 
 <details>
@@ -89,13 +92,17 @@ target/witch-1.0.0-BUILD-SNAPSHOT.war
 모든 Maven 명령어 앞에 `JAVA_HOME`을 지정해야 합니다:
 
 ```bash
+# macOS
+JAVA_HOME=$(/usr/libexec/java_home -v 1.8) mvn clean package -DskipTests
+
+# Ubuntu
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 mvn clean package -DskipTests
 ```
 
 또는 환경변수를 미리 설정하세요:
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)   # macOS
 mvn clean package -DskipTests
 ```
 
@@ -107,8 +114,8 @@ mvn clean package -DskipTests
 core-backend/
 ├── mvnw.sh                          # Maven 래퍼 스크립트
 ├── pom.xml                          # Maven 빌드 설정
-├── lib/                             # 로컬 JAR 라이브러리 (Maven 로컬 레포)
-│   └── jbit/core/1.0/               # jbit-core 커스텀 라이브러리
+├── lib/                             # file 기반 Maven 저장소 (project-local-repo)
+│   └── jbit/core/jbit-core/1.0/     # jbit-core 커스텀 라이브러리
 ├── src/
 │   ├── main/
 │   │   ├── java/com/sensible/       # Java 소스 코드
@@ -125,3 +132,17 @@ core-backend/
 │   └── test/                        # 테스트 코드
 └── target/                          # 빌드 산출물 (gitignore)
 ```
+
+### 로컬 JAR 추가하기
+
+`lib/`은 `pom.xml`의 `project-local-repo`로 등록된 file 기반 Maven 저장소입니다. **Maven 저장소 레이아웃을 그대로 지켜야** 해석됩니다:
+
+```
+lib/<groupId를 /로 분해>/<artifactId>/<version>/<artifactId>-<version>.jar
+```
+
+예) `jbit.core:jbit-core:1.0` → `lib/jbit/core/jbit-core/1.0/jbit-core-1.0.jar`
+
+artifactId 디렉터리를 빠뜨리면 `was not found in file:///.../lib` 오류가 납니다. 같은 위치에 최소 `.pom` 파일도 함께 두면 "POM is missing" 경고가 사라집니다.
+
+> 해석 실패는 `~/.m2`에 캐시되므로, 경로를 고친 뒤에는 `-U` 옵션으로 재시도하세요: `./mvnw.sh compile -U`

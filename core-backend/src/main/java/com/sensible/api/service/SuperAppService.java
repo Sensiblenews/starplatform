@@ -13,10 +13,16 @@ import java.util.UUID;
 import javax.annotation.Resource;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.google.firebase.messaging.Notification;
 import com.sensible.common.Constants;
@@ -27,6 +33,9 @@ public class SuperAppService {
 
 	@Resource(name = "DefaultDAO")
 	private DefaultDAO dao;
+
+	@Resource(name = "redisTemplate")
+	private RedisTemplate<String, Object> redisTemplate;
 
 	@Autowired(required = false)
 	private JavaMailSender mailSender;
@@ -117,6 +126,18 @@ public class SuperAppService {
 							System.out.println("FCM 푸시 발송 실패: " + e.getMessage());
 						}
 					}
+				}
+			}
+
+			// 3. 🌟 [신규] Redis ZSET 실시간 스코어 가산 로직
+			if (starId != null && !starId.trim().isEmpty()) {
+				try {
+					// 글로벌 랭킹 조회수 1 가산
+					redisTemplate.opsForZSet().incrementScore("leaderboard:global", starId, 1.0);
+					// 수익 랭킹 0.1원 가산
+					redisTemplate.opsForZSet().incrementScore("leaderboard:revenue", starId, 0.1);
+				} catch (Exception e) {
+					System.out.println("Redis ZSET score increment failed: " + e.getMessage());
 				}
 			}
 
@@ -713,6 +734,7 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	@Cacheable(value = "dailyLeaderboard", key = "'leaderboard:global'", unless = "#result == null")
 	public Map<String, Object> getLeaderboard() throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 
@@ -725,6 +747,7 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	@Cacheable(value = "dailyLeaderboard", key = "'leaderboard:revenue'", unless = "#result == null")
 	public Map<String, Object> getRevenueLeaderboard() throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 
@@ -742,6 +765,7 @@ public class SuperAppService {
 	// ==========================================
 
 	// 1. 역대 오늘의 왕 (일자별 1위)
+	@Cacheable(value = "hallOfFame", key = "'dailyKings:' + #params.toString()", unless = "#result == null")
 	public Map<String, Object> getDailyKings(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyKings", params);
@@ -751,6 +775,7 @@ public class SuperAppService {
 	}
 
 	// 2. 역대 TOP 100 (현재 통합 랭킹 쿼리 재사용)
+	@Cacheable(value = "hallOfFame", key = "'top100'", unless = "#result == null")
 	public Map<String, Object> getHallOfFameTop100() throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 		// 기존 selectLeaderboard 쿼리를 그대로 호출하여 반환
@@ -761,6 +786,7 @@ public class SuperAppService {
 	}
 
 	// 3. 월간 챔피언
+	@Cacheable(value = "hallOfFame", key = "'monthly:' + #params.get('targetMonth')", unless = "#result == null")
 	public Map<String, Object> getMonthlyChampions(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 		// params 안에는 targetMonth (예: "2026-06") 값이 들어있어야 함
@@ -771,6 +797,7 @@ public class SuperAppService {
 	}
 
 	// 4. 연간 챔피언
+	@Cacheable(value = "hallOfFame", key = "'yearly:' + #params.get('targetYear')", unless = "#result == null")
 	public Map<String, Object> getYearlyChampions(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 		// params 안에는 targetYear (예: "2026") 값이 들어있어야 함
@@ -780,6 +807,7 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	@Cacheable(value = "dailyLeaderboard", key = "'dailyLeaderboard:' + #params.toString()", unless = "#result == null")
 	public Map<String, Object> getDailyLeaderboard(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 
@@ -1439,6 +1467,7 @@ public class SuperAppService {
 	}
 
 	// 🌟 [신규] 랭킹 메뉴용 내 누적 수익 조회
+	@Cacheable(value = "myRevenue", key = "'myRevenue:' + #params.get('starId')", unless = "#result == null")
 	public Map<String, Object> getMyRankingRevenue(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {

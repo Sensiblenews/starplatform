@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans 
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/cache 
+                           http://www.springframework.org/schema/cache/spring-cache.xsd">
+
+    <!-- @Cacheable, @CacheEvict 등 캐시 어노테이션 활성화 -->
+    <cache:annotation-driven cache-manager="cacheManager" />
+
+    <!-- 1. Jedis Pool Config 설정 -->
+    <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <property name="maxTotal" value="30" />
+        <property name="maxIdle" value="10" />
+        <property name="minIdle" value="2" />
+        <property name="testOnBorrow" value="true" />
+    </bean>
+
+    <!-- 2. Jedis Connection Factory 설정 -->
+    <bean id="jedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+        <property name="hostName" value="#{config['redis.host']}" />
+        <property name="port" value="#{config['redis.port']}" />
+        <!-- Redis는 loopback(127.0.0.1) 전용이라 비밀번호를 사용하지 않는다.
+             비밀번호를 걸 경우 주석을 해제하되, 빈 문자열은 null로 변환해야 한다
+             (Jedis는 null만 검사하고 빈 문자열이면 AUTH "" 를 전송해 접속이 실패함).
+        <property name="password"
+            value="#{T(org.springframework.util.StringUtils).hasText(config['redis.password']) ? config['redis.password'] : null}" /> -->
+        <property name="timeout" value="#{config['redis.timeout']}" />
+        <property name="poolConfig" ref="jedisPoolConfig" />
+        <property name="usePool" value="true" />
+    </bean>
+
+    <!-- 3. RedisTemplate 설정 -->
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="jedisConnectionFactory" />
+        <property name="keySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer" />
+        </property>
+        <property name="valueSerializer">
+            <bean class="org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer" />
+        </property>
+        <property name="hashKeySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer" />
+        </property>
+        <property name="hashValueSerializer">
+            <bean class="org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer" />
+        </property>
+    </bean>
+
+    <!-- 4. CacheManager 설정 (Spring 4.x 인터페이스 기반) -->
+    <bean id="cacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">
+        <constructor-arg ref="redisTemplate" />
+        <!-- 캐시 키에 캐시명을 prefix로 붙인다. 끄면 @Cacheable(key="'leaderboard:global'")이
+             SuperAppService의 ZINCRBY 대상 키와 정확히 충돌해 WRONGTYPE / 데이터 덮어쓰기가 발생한다. -->
+        <property name="usePrefix" value="true" />
+        <!-- 기본 TTL 600초 (10분) 설정 -->
+        <property name="defaultExpiration" value="600" />
+        <!-- 캐시 영역별 커스텀 TTL 설정 -->
+        <property name="expires">
+            <map>
+                <!-- 명예의 전당 캐시는 12시간 (43200초) 설정 -->
+                <entry key="hallOfFame" value="43200" />
+                <!-- 일간 랭킹 캐시는 10분 (600초) 설정 -->
+                <entry key="dailyLeaderboard" value="600" />
+            </map>
+        </property>
+    </bean>
+
+</beans>

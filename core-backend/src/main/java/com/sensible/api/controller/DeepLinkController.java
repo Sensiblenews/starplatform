@@ -4,8 +4,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,80 @@ public class DeepLinkController {
 		}
 
 		return "https://witch-hunting.com";
+	}
+
+	private String encodeUrlParams(String urlStr) {
+		if (urlStr == null) return null;
+		if (!urlStr.contains("api.dicebear.com")) return urlStr;
+		try {
+			int queryIdx = urlStr.indexOf("?");
+			if (queryIdx == -1) return urlStr;
+			
+			String baseUrlPart = urlStr.substring(0, queryIdx);
+			String queryString = urlStr.substring(queryIdx + 1);
+			
+			String[] pairs = queryString.split("&");
+			StringBuilder newQuery = new StringBuilder();
+			for (String pair : pairs) {
+				if (newQuery.length() > 0) {
+					newQuery.append("&");
+				}
+				int eqIdx = pair.indexOf("=");
+				if (eqIdx != -1) {
+					String key = pair.substring(0, eqIdx);
+					String val = pair.substring(eqIdx + 1);
+					newQuery.append(key).append("=").append(java.net.URLEncoder.encode(val, "UTF-8"));
+				} else {
+					newQuery.append(pair);
+				}
+			}
+			return baseUrlPart + "?" + newQuery.toString();
+		} catch (Exception e) {
+			return urlStr;
+		}
+	}
+
+	@RequestMapping(value = "/image/proxy", method = RequestMethod.GET)
+	public void imageProxy(@RequestParam("url") String targetUrl, HttpServletResponse response) {
+		if (targetUrl == null || !targetUrl.contains("api.dicebear.com")) {
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
+		
+		java.io.InputStream in = null;
+		java.io.OutputStream out = null;
+		java.net.HttpURLConnection conn = null;
+		try {
+			java.net.URL url = new java.net.URL(targetUrl);
+			conn = (java.net.HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			conn.setConnectTimeout(5000);
+			conn.setReadTimeout(5000);
+			conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+			
+			int responseCode = conn.getResponseCode();
+			if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+				response.setContentType(conn.getContentType());
+				response.setContentLength(conn.getContentLength());
+				
+				in = conn.getInputStream();
+				out = response.getOutputStream();
+				byte[] buffer = new byte[4096];
+				int bytesRead;
+				while ((bytesRead = in.read(buffer)) != -1) {
+					out.write(buffer, 0, bytesRead);
+				}
+				out.flush();
+			} else {
+				response.setStatus(responseCode);
+			}
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		} finally {
+			if (in != null) { try { in.close(); } catch (Exception e) {} }
+			if (out != null) { try { out.close(); } catch (Exception e) {} }
+			if (conn != null) { conn.disconnect(); }
+		}
 	}
 
 	// 🌟 앱에서 공유하기로 생성되는 링크 주소들을 모두 이곳으로 연결
@@ -73,8 +150,33 @@ public class DeepLinkController {
 					    if (imageUrl.startsWith("http://witch-hunting.com")) {
 					        imageUrl = imageUrl.replace("http://", "https://");
 					    }
-					    // 🌟 [추가] 트위터의 강력한 이미지 수집 실패 캐시를 파괴하기 위한 타임스탬프 쿼리스트링 삽입
-					    imageUrl = imageUrl + "?t=" + System.currentTimeMillis();
+					    // 🌟 [추가] DiceBear SVG 아바타는 크롤러(카톡/페이스북/슬랙 등)가 지원하지 않으므로 PNG로 변환 및 페이스북 크기 조건(200x200 이상) 충족
+					    if (imageUrl.contains("api.dicebear.com") && imageUrl.contains("/svg")) {
+					        imageUrl = imageUrl.replace("/svg", "/png");
+					        if (!imageUrl.contains("size=")) {
+					            imageUrl = imageUrl + (imageUrl.contains("?") ? "&" : "?") + "size=256";
+					        }
+					        // 🌟 [추가] 투명 배경 PNG 렌더링 버그 방지를 위해 불투명 배경색(흰색) 지정
+					        if (!imageUrl.contains("backgroundColor=")) {
+					            imageUrl = imageUrl + "&backgroundColor=ffffff";
+					        }
+					    }
+					    // 🌟 [추가] DiceBear URL 내 한글 seed 파라미터 등을 퍼센트 인코딩 처리 (페이스북 등 크롤러 호환)
+					    imageUrl = encodeUrlParams(imageUrl);
+					    // 🌟 [추가] Dicebear 이미지는 동일 도메인(Proxy)을 통해 제공하여 모바일 크롤러 차단 우회
+					    if (imageUrl.contains("api.dicebear.com")) {
+					        try {
+					            imageUrl = baseUrl + request.getContextPath() + "/image/proxy?url=" + java.net.URLEncoder.encode(imageUrl, "UTF-8");
+					        } catch (Exception e) {
+					            // ignore
+					        }
+					    }
+					    // 🌟 [추가] 트위터의 강력한 이미지 수집 실패 캐시를 파괴하기 위한 타임스탬프 쿼리스트링 삽입 (파라미터 중복 방어)
+					    if (imageUrl.contains("?")) {
+					        imageUrl = imageUrl + "&t=" + System.currentTimeMillis();
+					    } else {
+					        imageUrl = imageUrl + "?t=" + System.currentTimeMillis();
+					    }
 					}
 
 					// JSP로 데이터 넘겨주기 (X/트위터 UI가 카드 설명란을 노출하지 않는 이슈 대응하여 제목에 랭크 직접 표기)
@@ -131,8 +233,12 @@ public class DeepLinkController {
 						if (targetUrl.startsWith("http://witch-hunting.com")) {
 							targetUrl = targetUrl.replace("http://", "https://");
 						}
-						// 🌟 [추가] 캐시 버스팅을 위한 타임스탬프 쿼리스트링 삽입
-						targetUrl = targetUrl + "?t=" + System.currentTimeMillis();
+						// 🌟 [추가] 캐시 버스팅을 위한 타임스탬프 쿼리스트링 삽입 (파라미터 중복 방어)
+						if (targetUrl.contains("?")) {
+							targetUrl = targetUrl + "&t=" + System.currentTimeMillis();
+						} else {
+							targetUrl = targetUrl + "?t=" + System.currentTimeMillis();
+						}
 						imageUrl = targetUrl;
 					}
 

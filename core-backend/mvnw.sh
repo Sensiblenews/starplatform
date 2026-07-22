@@ -19,12 +19,39 @@
 
 set -e
 
-# ── JDK 8 경로 설정 ──
-JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+# ── JDK 8 경로 탐지 (JAVA8_HOME > macOS java_home > JVM 디렉터리 스캔) ──
+# 주의: macOS의 `java_home -v 1.8`은 JDK 8이 없으면 상위 버전을 반환하므로
+#       반드시 javac 실제 버전으로 재검증해야 한다.
+is_jdk8() {
+  [ -n "$1" ] && [ -x "$1/bin/javac" ] && \
+    "$1/bin/javac" -version 2>&1 | grep -q '^javac 1\.8\.'
+}
 
-if [ ! -d "$JAVA_HOME" ]; then
-  echo "❌ JDK 8을 찾을 수 없습니다: $JAVA_HOME"
-  echo "   설치: sudo apt install openjdk-8-jdk"
+JAVA_HOME=""
+for candidate in \
+  "${JAVA8_HOME:-}" \
+  "$([ -x /usr/libexec/java_home ] && /usr/libexec/java_home -v 1.8 2>/dev/null || true)" \
+  /Library/Java/JavaVirtualMachines/*8*/Contents/Home \
+  /usr/lib/jvm/java-8-*
+do
+  if is_jdk8 "$candidate"; then
+    JAVA_HOME="$candidate"
+    break
+  fi
+done
+
+if [ -z "$JAVA_HOME" ]; then
+  echo "❌ JDK 8을 찾을 수 없습니다."
+  echo "   macOS : brew install --cask zulu@8"
+  echo "   Ubuntu: sudo apt install openjdk-8-jdk"
+  echo "   또는 직접 지정: JAVA8_HOME=/path/to/jdk8 ./mvnw.sh $*"
+  exit 1
+fi
+
+if ! command -v mvn >/dev/null; then
+  echo "❌ Maven을 찾을 수 없습니다."
+  echo "   macOS : brew install maven"
+  echo "   Ubuntu: sudo apt install maven"
   exit 1
 fi
 

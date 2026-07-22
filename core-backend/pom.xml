@@ -492,6 +492,24 @@
 			<artifactId>spring-context-support</artifactId>
 			<version>${org.springframework-version}</version>
 		</dependency>
+
+		<!-- Redis Java Client (Jedis) -->
+		<dependency>
+			<groupId>redis.clients</groupId>
+			<artifactId>jedis</artifactId>
+			<version>2.9.0</version>
+		</dependency>
+
+		<!-- Spring Data Redis (Spring 4.1.x 호환 버전) -->
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-redis</artifactId>
+			<!-- ⚠ 본 프로젝트의 Spring 은 4.1.1 이므로 1.6.x(Gosling) 로 고정한다. 올리지 말 것.
+			     1.8.x : RedisCache 가 Spring 4.2+ 의 cache.support.NullValue 참조 → NoClassDefFoundError
+			     1.7.x : RedisTemplate 이 Spring 4.2.1+ 의 DeserializingConverter(ClassLoader) 호출 → NoSuchMethodError
+			     둘 다 기동 즉시 컨텍스트 로딩이 실패한다. Spring 을 4.2+ 로 올린 뒤에나 상향 가능. -->
+			<version>1.6.6.RELEASE</version>
+		</dependency>
 	</dependencies>
 
 	<build>
