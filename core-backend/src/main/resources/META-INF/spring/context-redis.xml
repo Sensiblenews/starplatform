@@ -64,6 +64,8 @@
                 <entry key="hallOfFame" value="43200" />
                 <!-- 일간 랭킹 캐시는 10분 (600초) 설정 -->
                 <entry key="dailyLeaderboard" value="600" />
+                <!-- 로비는 1~2시간 모멘텀 기반 랭킹이라 짧게 2분 (120초). country별로 키 분리됨 -->
+                <entry key="lobby" value="120" />
             </map>
         </property>
     </bean>
