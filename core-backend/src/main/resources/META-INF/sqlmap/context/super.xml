@@ -467,4 +467,12 @@
         WHERE PRS_ID LIKE 'star_%' 
           AND (PRS_PWD IS NULL OR PRS_PWD = '' OR PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(''))))))
     </update>
+
+    <update id="updateStarPassword" parameterType="map">
+        UPDATE WH_PRESS
+        SET PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{PRS_PWD}))))),
+            PRS_UPDATE_DATE = CURRENT_TIMESTAMP
+        WHERE PRS_ID = #{PRS_ID}
+          AND PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+    </update>
 </mapper>

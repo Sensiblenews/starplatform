@@ -124,6 +124,7 @@
                             <th>즐겨찾기 수</th>
                             <th>등록일</th>
                             <th class="text-center">상태 (활동/정지)</th>
+                            <th class="text-center">비밀번호</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -155,11 +156,17 @@
                                         </label>
                                     </div>
                                 </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            onclick="resetPassword('${star.PRS_ID}', '${star.PRS_NAME}')">
+                                        <i class="fas fa-key me-1"></i>비밀번호 초기화
+                                    </button>
+                                </td>
                             </tr>
                         </c:forEach>
                         
                         <c:if test="${empty starList}">
-                            <tr><td colspan="7" class="text-center py-5 text-muted">등록된 스타가 없습니다.</td></tr>
+                            <tr><td colspan="8" class="text-center py-5 text-muted">등록된 스타가 없습니다.</td></tr>
                         </c:if>
                     </tbody>
                 </table>
@@ -391,6 +398,27 @@
         });
     }
     
+    // 스타 비밀번호 초기화 (123으로 재설정)
+    function resetPassword(starId, starName) {
+        if(!confirm(starName + ' 님의 비밀번호를 "123"으로 초기화하시겠습니까?')) return;
+
+        $.ajax({
+            url: '/super/star/resetPwd.do',
+            type: 'POST',
+            data: { PRS_ID: starId },
+            success: function(res) {
+                if(res.status === 'success') {
+                    alert(starName + ' 님의 비밀번호가 "123"으로 초기화되었습니다.');
+                } else {
+                    alert('초기화 실패: ' + res.msg);
+                }
+            },
+            error: function() {
+                alert('서버 통신 오류');
+            }
+        });
+    }
+
     function togglePopular(starId, country, checkbox) {
         // 체크하면 Y, 해제하면 N
         const targetStatus = checkbox.checked ? 'Y' : 'N';
