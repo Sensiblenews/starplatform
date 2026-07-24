@@ -66,6 +66,17 @@
             color: #ff4b5c;
         }
 
+        .top-open {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #fff;
+            background: #ff4b5c;
+            border: none;
+            border-radius: 16px;
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
         .container {
             max-width: 480px;
             margin: 0 auto;
@@ -182,6 +193,11 @@
             color: white;
         }
 
+        .btn-secondary {
+            background-color: #eee;
+            color: #555;
+        }
+
         .footer {
             text-align: center;
             font-size: 0.75rem;
@@ -198,6 +214,7 @@
 <body>
     <div class="top-bar">
         <span class="brand">StarPlatform</span>
+        <button class="top-open" onclick="openApp()">Open in App</button>
     </div>
 
     <div class="container">
@@ -231,7 +248,8 @@
         </div>
 
         <div class="btn-group">
-            <button class="btn btn-primary" onclick="goStore()">Download App</button>
+            <button class="btn btn-primary" onclick="openApp()">Open in App</button>
+            <button class="btn btn-secondary" onclick="goStore()">Download App</button>
         </div>
 
         <div class="footer">
@@ -275,6 +293,22 @@
         var aosPackage = "kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
 
         var schemeUrl = "witchhunting://" + path + search;
+        // 안드로이드 intent://: 앱이 없으면 크롬이 알아서 플레이스토어로 보냄
+        var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage + ";end";
+
+        function openApp() {
+            if (isAOS) {
+                location.href = androidIntent;
+            } else {
+                // iOS: 커스텀 스킴 시도 후, 화면 전환이 없으면(앱 미설치) 스토어로 이동
+                location.href = schemeUrl;
+                setTimeout(function () {
+                    if (!document.hidden) {
+                        goStore();
+                    }
+                }, 2500);
+            }
+        }
 
         function goStore() {
             if (isAOS) {
