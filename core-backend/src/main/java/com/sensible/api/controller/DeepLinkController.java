@@ -37,6 +37,27 @@ public class DeepLinkController {
 		return "https://witch-hunting.com";
 	}
 
+	// HTML 특수문자 이스케이프 (JSP에 미리보기 텍스트를 출력하기 전 서버에서 처리)
+	private String escapeHtml(String s) {
+		if (s == null) return "";
+		return s.replace("&", "&amp;")
+				.replace("<", "&lt;")
+				.replace(">", "&gt;")
+				.replace("\"", "&quot;")
+				.replace("'", "&#39;");
+	}
+
+	// 본문을 코드포인트 기준 절반만 남기고 자름 (웹 랜딩 미리보기용 — 전체 본문은 앱에서만 제공)
+	// CSS 숨김이 아니라 서버에서 잘라 내려보내는 것이 요구사항
+	private String cutBodyHalf(String body) {
+		if (body == null) return "";
+		String trimmed = body.trim();
+		if (trimmed.isEmpty()) return "";
+		int total = trimmed.codePointCount(0, trimmed.length());
+		int endIndex = trimmed.offsetByCodePoints(0, Math.max(1, total / 2));
+		return trimmed.substring(0, endIndex);
+	}
+
 	private String encodeUrlParams(String urlStr) {
 		if (urlStr == null) return null;
 		if (!urlStr.contains("api.dicebear.com")) return urlStr;
@@ -122,6 +143,9 @@ public class DeepLinkController {
 		String userAgent = request.getHeader("User-Agent");
 		boolean isFacebookBot = userAgent != null && userAgent.toLowerCase().contains("facebookexternalhit");
 
+		// 기본은 기존 트램폴린 유지, 콘텐츠 조회에 성공하면 웹 랜딩(미리보기 + 광고)으로 전환
+		String view = "/common/deeplink_redirect";
+
 		try {
 			// 🌟 1. 스타 페이지 공유 링크인 경우
 			if (uri.contains("/star/")) {
@@ -186,8 +210,17 @@ public class DeepLinkController {
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					
 					// 🌟 원본 데이터 대신 절대경로 및 캐시버스팅이 조립된 imageUrl 변수를 사용합니다.
-					model.addAttribute("ogImage", imageUrl); 
+					model.addAttribute("ogImage", imageUrl);
 					model.addAttribute("ogUrl", baseUrl + uri);
+
+					// 🌟 웹 랜딩 미리보기 데이터 (앱 미설치 유저용)
+					Object starNameObj = starInfo.get("name");
+					model.addAttribute("landingType", "star");
+					model.addAttribute("previewTitle", escapeHtml(starNameObj != null ? starNameObj.toString() : "StarPlatform"));
+					model.addAttribute("previewMeta",
+							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
+					model.addAttribute("previewImage", imageUrl != null ? imageUrl : "");
+					view = "/common/content_landing";
 				}
 			}
 			// 🌟 2. 피드(게시글) 공유 링크인 경우
@@ -206,9 +239,10 @@ public class DeepLinkController {
 					List<Map<String, Object>> medias = (List<Map<String, Object>>) response.get("medias");
 
 					String starName = (String) content.get("PRS_NAME"); // 작성자 이름
-					String body = (String) content.get("CON_BODY"); // 글 본문
+					String fullBody = (String) content.get("CON_BODY"); // 글 본문 원문 (랜딩 미리보기 컷 용도)
 
-					// 💡 글 내용이 너무 길면 미리보기 카드가 깨질 수 있으므로 적당히 자름
+					// 💡 OG 설명용: 글 내용이 너무 길면 미리보기 카드가 깨질 수 있으므로 적당히 자름
+					String body = fullBody;
 					if (body != null && body.length() > 50) {
 						body = body.substring(0, 50) + "...";
 					}
@@ -246,15 +280,21 @@ public class DeepLinkController {
 					model.addAttribute("ogDesc", body != null ? body : "Check out the latest updates.");
 					model.addAttribute("ogImage", imageUrl);
 					model.addAttribute("ogUrl", baseUrl + uri);
+
+					// 🌟 웹 랜딩 미리보기 데이터: 본문은 서버에서 절반만 잘라 내려줌 (전체 본문은 앱 전용)
+					model.addAttribute("landingType", "post");
+					model.addAttribute("previewTitle",
+							escapeHtml(starName != null ? starName + "'s Post" : "StarPlatform Post"));
+					model.addAttribute("previewBody", escapeHtml(cutBodyHalf(fullBody)));
+					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
+					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
+					view = "/common/content_landing";
 				}
 			}
 			// 🌟 3. 그 외 알 수 없는 링크일 경우 기본값
 			else {
 				model.addAttribute("ogTitle", "StarPlatform SuperApp");
-				String defaultTitle = "StarPlatform SuperApp";
-				if (isFacebookBot) {
-					defaultTitle += " | Everyone Can Earn";
-				}
+				
 				model.addAttribute("ogDesc", "Everyone Can Earn");
 				
 				// 🌟 [추가] 기본 이미지에도 HTTPS 대응 및 캐시 버스팅 적용
@@ -271,8 +311,8 @@ public class DeepLinkController {
 			e.printStackTrace();
 		}
 
-		// 🌟 4. 화면에 그릴 내용은 없고 스크립트만 있는 jsp 파일로 연결 (데이터 포함)
-		return "/common/deeplink_redirect";
+		// 🌟 4. 콘텐츠 조회 성공 시 웹 랜딩(content_landing), 실패·미지원 링크는 기존 트램폴린(deeplink_redirect)
+		return view;
 	}
 	
 	@RequestMapping(value = "/")
