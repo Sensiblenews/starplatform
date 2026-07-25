@@ -5,6 +5,7 @@ export interface NativeBridgePlugin {
   updateAdPosition(options: { value: number; direction: string }): Promise<void>;
   setShow(options: { show: boolean; page: string }): Promise<void>;
   setViewportHeight(options: { height: number }): Promise<void>;
+  getInstallReferrer(): Promise<{ referrer: string }>;
 }
 
 const NativeBridge = registerPlugin<NativeBridgePlugin>('NativeBridge');
