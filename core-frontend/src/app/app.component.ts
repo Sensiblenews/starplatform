@@ -63,7 +63,8 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
     if (Capacitor.isNativePlatform()) {
       console.log('initializing..');
-      this.registerDeepLink();
+      // 딥링크 처리(entry 판정)가 끝난 뒤에 restoreLastRoute가 실행되도록 대기
+      await this.registerDeepLink();
       this.setupBackButtonExit();
       await this.limitTextZoom();
 
@@ -381,21 +382,22 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
   }
 
   async registerDeepLink() {
-    // 1. 앱이 완전히 종료된 상태에서 딥링크로 켜졌을 때 (콜드 스타트 - 추가됨)
+    // 1. 앱이 백그라운드에 있거나 콜드 스타트 직후 이벤트가 도착할 때 (iOS는 didFinishLaunching
+    //    직후 open-url 이벤트가 오므로, 유실을 막기 위해 리스너를 가장 먼저 등록한다)
+    App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
+      console.log('🔗 딥링크 이벤트 감지됨:', event.url);
+      this.handleDeepLinkUrl(event.url);
+    });
+
+    // 2. 앱이 완전히 종료된 상태에서 딥링크로 켜졌을 때 (콜드 스타트 - 추가됨)
     const launchUrl = await App.getLaunchUrl();
     if (launchUrl && launchUrl.url) {
       console.log('🚀 콜드 스타트 딥링크 감지됨:', launchUrl.url);
       this.handleDeepLinkUrl(launchUrl.url);
     } else {
-      // 1-1. 딥링크 없이 켜진 경우: 설치 직후 첫 실행이면 웹 랜딩에서 보던 페이지로 복원 (안드로이드 전용)
+      // 2-1. 딥링크 없이 켜진 경우: 설치 직후 첫 실행이면 웹 랜딩에서 보던 페이지로 복원 (안드로이드 전용)
       this.checkDeferredDeepLink();
     }
-
-    // 2. 앱이 백그라운드에 있을 때 딥링크로 켜졌을 때 (기존 로직)
-    App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
-      console.log('🔗 백그라운드 딥링크 감지됨:', event.url);
-      this.handleDeepLinkUrl(event.url);
-    });
   }
 
   // 웹 랜딩 → 스토어 설치 경로로 들어온 유저를 원래 보던 콘텐츠로 이동 (설치 후 최초 1회)
