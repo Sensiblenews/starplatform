@@ -898,6 +898,36 @@ public class SuperAdminController {
     }
 
     /**
+     * [API] 특정 스타 비밀번호 초기화 (123으로 재설정)
+     */
+    @RequestMapping(value = "/super/star/resetPwd.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetStarPwd(HttpServletRequest request,
+                                            @RequestParam("PRS_ID") String prsId) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null) {
+            result.put("status", "fail");
+            result.put("msg", "로그인 필요");
+            return result;
+        }
+        try {
+            int updated = superAdminService.resetStarPassword(prsId);
+            if (updated > 0) {
+                result.put("status", "success");
+            } else {
+                result.put("status", "fail");
+                result.put("msg", "대상 스타를 찾을 수 없습니다.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
      * [화면] 시스템 관리 패널 (SM 전용)
      */
     @RequestMapping(value = "/super/system/panel.do")

@@ -37,6 +37,8 @@ platforms:
                   - CFBundleURLSchemes:
                       - kakao$KAKAO_NATIVE_KEY
                       - fb$FACEBOOK_APP_ID
+                      # 웹 랜딩 "Open in App" 버튼이 사용하는 딥링크 커스텀 스킴
+                      - witchhunting
 
               - KAKAO_APP_KEY: $KAKAO_NATIVE_KEY
               - FacebookAppID: $FACEBOOK_APP_ID

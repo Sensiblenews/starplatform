@@ -389,4 +389,12 @@ public class SuperAdminService {
     public int resetEmptyPasswords() throws Exception {
         return dao.update("super.updateEmptyPasswords");
     }
+
+    // 🌟 [신규] 특정 스타 1명의 비밀번호를 123으로 초기화
+    public int resetStarPassword(String prsId) throws Exception {
+        Map<String, Object> params = new HashMap<>();
+        params.put("PRS_ID", prsId);
+        params.put("PRS_PWD", "123");
+        return dao.update("super.updateStarPassword", params);
+    }
 }
