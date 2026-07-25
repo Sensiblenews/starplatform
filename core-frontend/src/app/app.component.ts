@@ -386,6 +386,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     if (launchUrl && launchUrl.url) {
       console.log('🚀 콜드 스타트 딥링크 감지됨:', launchUrl.url);
       this.handleDeepLinkUrl(launchUrl.url);
+    } else {
+      // 1-1. 딥링크 없이 켜진 경우: 설치 직후 첫 실행이면 웹 랜딩에서 보던 페이지로 복원 (안드로이드 전용)
+      this.checkDeferredDeepLink();
     }
 
     // 2. 앱이 백그라운드에 있을 때 딥링크로 켜졌을 때 (기존 로직)
@@ -393,6 +396,32 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       console.log('🔗 백그라운드 딥링크 감지됨:', event.url);
       this.handleDeepLinkUrl(event.url);
     });
+  }
+
+  // 웹 랜딩 → 스토어 설치 경로로 들어온 유저를 원래 보던 콘텐츠로 이동 (설치 후 최초 1회)
+  private async checkDeferredDeepLink(): Promise<void> {
+    if (Capacitor.getPlatform() !== 'android') {
+      return;
+    }
+
+    try {
+      const checked = await this.storage.get('deferredDeepLinkChecked');
+      if (checked === 'true') {
+        return;
+      }
+      await this.storage.set('deferredDeepLinkChecked', 'true');
+
+      const { referrer } = await NativeBridge.getInstallReferrer();
+      const targetRoute = new URLSearchParams(referrer).get('target_route');
+
+      // 오가닉 설치(utm 계열 리퍼러)는 target_route가 없으므로 아무것도 하지 않음
+      if (targetRoute && targetRoute.startsWith('/')) {
+        console.log('🔗 설치 리퍼러 딥링크 감지됨:', targetRoute);
+        this.handleDeepLinkUrl(`https://witch-hunting.com${targetRoute}`);
+      }
+    } catch (e) {
+      console.log('설치 리퍼러 조회 건너뜀:', e);
+    }
   }
 
   // 기존에 appUrlOpen 안에 있던 파싱 및 라우팅 로직을 별도 함수로 분리

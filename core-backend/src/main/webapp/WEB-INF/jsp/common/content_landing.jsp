@@ -214,7 +214,6 @@
 <body>
     <div class="top-bar">
         <span class="brand">StarPlatform</span>
-        <button class="top-open" onclick="openApp()">Open in App</button>
     </div>
 
     <div class="container">
@@ -293,8 +292,12 @@
         var aosPackage = "kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
 
         var schemeUrl = "witchhunting://" + path + search;
-        // 안드로이드 intent://: 앱이 없으면 크롬이 알아서 플레이스토어로 보냄
-        var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage + ";end";
+        // 🌟 디퍼드 딥링크: 스토어 설치 경로에 현재 페이지 경로를 리퍼러로 실어 보냄
+        // (앱 설치 후 첫 실행 시 Play Install Referrer로 읽어 원래 페이지로 이동)
+        var referrerParam = encodeURIComponent('target_route=/' + path);
+        // 안드로이드 intent://: 앱이 없으면 크롬이 알아서 플레이스토어로 보냄 (market_referrer 동반 전달)
+        var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage
+            + ";S.market_referrer=" + referrerParam + ";end";
 
         function openApp() {
             if (isAOS) {
@@ -312,7 +315,8 @@
 
         function goStore() {
             if (isAOS) {
-                location.href = "https://play.google.com/store/apps/details?id=" + aosPackage;
+                location.href = "https://play.google.com/store/apps/details?id=" + aosPackage
+                    + "&referrer=" + referrerParam;
             } else {
                 location.href = "https://apps.apple.com/kr/app/id1188195403";
             }
