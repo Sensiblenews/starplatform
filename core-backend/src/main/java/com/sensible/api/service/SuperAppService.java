@@ -1229,6 +1229,27 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 🌟 [신규] 푸시 알림 수신 설정(PUSH_YN) 조회 — 프로필 팝오버 토글 초기값용
+	 */
+	public Map<String, Object> getPushSetting(String starId) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			Object pushYn = dao.selectOne("superapp.selectPushYn", starId);
+			if (pushYn == null) {
+				result.put("result", "FAIL");
+				result.put("msg", "Star not found.");
+			} else {
+				result.put("result", "OK");
+				result.put("pushYn", pushYn);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("result", "FAIL");
+		}
+		return result;
+	}
+
+	/**
 	 * 🌟 [신규] 푸시 알림 수신 상태(PUSH_YN) 토글
 	 */
 	public Map<String, Object> togglePushSetting(Map<String, Object> params) {

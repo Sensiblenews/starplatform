@@ -1210,6 +1210,13 @@
 		WHERE PRS_ID = #{starId}
 	</update>
 
+	<!-- [신규] 프로필 팝오버 초기값 조회: 푸시 수신 설정만 반환 (FCM 토큰은 클라이언트에 노출하지 않는다) -->
+	<select id="selectPushYn" parameterType="string" resultType="string">
+		SELECT IFNULL(PUSH_YN, 'Y')
+		FROM WH_PRESS
+		WHERE PRS_ID = #{starId}
+	</select>
+
 	<!-- [참고용] 나중에 백그라운드 푸시를 쏠 때 유저의 토큰과 상태를 가져오는 쿼리 -->
 	<select id="selectPushTargetInfo" parameterType="string" resultType="map">
 		SELECT 

@@ -253,8 +253,10 @@ export class LobbyPage implements OnInit, OnDestroy {
         await PushNotifications.register();
 
         // 🔴 [Critical Fix] registration 이벤트 미발생 대비:
-        // 이미 캐싱된 토큰이 있으면 직접 서버에 전송 (1초 대기 후 체크)
-        setTimeout(() => {
+        // 이미 캐싱된 토큰이 있으면 직접 서버에 전송.
+        // 2회(1.5초·4초) 전송하는 이유: 로그아웃 시 fcmToken:'' 초기화 요청이 지연 도착해
+        // 재로그인 직후 올린 토큰을 덮어쓰는 레이스가 있어, 두 번째 전송으로 복구한다 (동일 값 UPDATE라 부작용 없음)
+        const sendCachedToken = () => {
           const cachedToken = localStorage.getItem('fcmToken');
           if (cachedToken && targetStarId) {
             console.log('🌟 Sending cached FCM token to server for starId:', targetStarId);
@@ -266,7 +268,9 @@ export class LobbyPage implements OnInit, OnDestroy {
               error: (err: any) => console.error('❌ FCM token send failed:', err)
             });
           }
-        }, 1500);
+        };
+        setTimeout(sendCachedToken, 1500);
+        setTimeout(sendCachedToken, 4000);
       }
     }
   }

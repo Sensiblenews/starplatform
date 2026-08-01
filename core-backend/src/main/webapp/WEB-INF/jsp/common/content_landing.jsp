@@ -263,6 +263,9 @@
         var isKakaoTalk = ua.indexOf('kakaotalk') > -1;
         // 페이스북/인스타그램 인앱 브라우저: 자동 앱 실행이 차단되므로 버튼 클릭 유도만 함
         var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1 || ua.indexOf('instagram') > -1;
+        // 트위터(X) 인앱 브라우저: 자동 스킴 실행이 미설치 iOS에서 "Cannot open page" 얼럿을 띄우므로 제외.
+        // 신버전 iOS 트위터는 UA를 노출하지 않아 감지 불가하지만, 버튼 클릭(사용자 제스처) 경로는 정상 동작한다.
+        var isTwitterApp = ua.indexOf('twitterandroid') > -1 || ua.indexOf('twitter for iphone') > -1;
 
         // 모던 iOS/iPadOS 사파리 데스크톱 모드 대응을 포함한 iOS 판정식 (기존 트램폴린과 동일)
         var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -330,7 +333,7 @@
         //   iOS: 커스텀 스킴 1회 시도 후 실패해도 추가 이동 없음.
         // - load 이벤트를 기다리면 광고·이미지 로딩만큼 앱 실행이 늦어지므로 즉시 실행한다.
         (function () {
-            if (isFacebookApp) return;              // 페북/인스타: 자동 실행 차단 환경
+            if (isFacebookApp || isTwitterApp) return; // 페북/인스타/트위터: 자동 실행 차단·오동작 환경 (버튼 클릭으로 유도)
             if (isIOS && isKakaoTalk) return;       // iOS 카카오톡: 위의 사파리 강제 전환이 처리
 
             var alreadyTried = false;
@@ -348,6 +351,46 @@
             } else if (isIOS) {
                 location.href = schemeUrl;
             }
+        })();
+
+        // 🌟 방문 카운트: 서버 발급 토큰 + 2.5초 실체류 검증
+        // - 토큰은 서버가 렌더링 시 발급(크롤러에겐 미발급)하며, 서버가 발급 경과시간으로 체류 하한을 재검증한다.
+        // - 백그라운드 탭은 다시 보일 때 1회만 재시도. localStorage 불가(시크릿 모드 등)면 카운트하지 않는다.
+        (function () {
+            var token = '${visitToken}';
+            if (!token) return;
+
+            var visitorId;
+            try {
+                visitorId = localStorage.getItem('sp_visitor_id');
+                if (!visitorId) {
+                    visitorId = (window.crypto && crypto.randomUUID)
+                        ? crypto.randomUUID()
+                        : 'a' + Date.now().toString(16) + '-' + Math.random().toString(16).slice(2, 10);
+                    localStorage.setItem('sp_visitor_id', visitorId);
+                }
+            } catch (e) { return; }
+
+            var sent = false;
+            function send() {
+                if (sent) return;
+                if (document.hidden) {
+                    document.addEventListener('visibilitychange', function h() {
+                        document.removeEventListener('visibilitychange', h);
+                        setTimeout(send, 300);
+                    });
+                    return;
+                }
+                sent = true;
+                fetch('${pageContext.request.contextPath}/api/super/landing/visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, visitorId: visitorId }),
+                    keepalive: true
+                }).catch(function () { });
+            }
+            // 서버 하한 2500ms + 여유 100ms
+            setTimeout(send, 2600);
         })();
     </script>
 </body>

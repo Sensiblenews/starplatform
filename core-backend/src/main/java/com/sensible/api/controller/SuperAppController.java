@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.sensible.api.service.LandingVisitService;
 import com.sensible.api.service.SuperAppService;
 import com.sensible.common.domain.CommandMap;
 
@@ -28,6 +29,9 @@ public class SuperAppController {
 
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
+
+	@Resource(name = "landingVisitService")
+	private LandingVisitService landingVisitService;
 
 	@RequestMapping(value = "/api/super/policy.do")
 	public String privacyPolicy(HttpServletRequest request) {
@@ -144,11 +148,27 @@ public class SuperAppController {
 		return superAppService.pollMyVisitors(params);
 	}
 
+	// 🌟 [신규] 웹 랜딩 방문 카운트 API — 서버 발급 HMAC 토큰(2.5초 체류 하한 포함) 검증 후 WH_AD_LOG에 IMPRESSION 기록
+	@RequestMapping(value = "/api/super/landing/visit", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> recordLandingVisit(@RequestBody Map<String, Object> params,
+			HttpServletRequest request) {
+		return landingVisitService.recordVisit(params, request);
+	}
+
 	// 🌟 [신규] FCM 기기 토큰 저장/삭제 API
 	@RequestMapping(value = "/api/super/star/push/token", method = RequestMethod.POST)
 	@ResponseBody
 	public Map<String, Object> updateFcmToken(@RequestBody Map<String, Object> params) {
 		return superAppService.updateFcmToken(params);
+	}
+
+	// 🌟 [신규] 푸시 알림 수신 설정 조회 API — 프로필 팝오버가 서버 값으로 토글을 초기화할 때 사용
+	// 주의: 사용자별 데이터이므로 Cloudflare 캐시 규칙에 추가하지 말 것 (docs/ads-txt-runbook.md 참고)
+	@RequestMapping(value = "/api/super/star/push/status", method = RequestMethod.GET)
+	@ResponseBody
+	public Map<String, Object> getPushSetting(@RequestParam("starId") String starId) {
+		return superAppService.getPushSetting(starId);
 	}
 
 	// 🌟 [신규] 프로필 팝업 메뉴의 푸시 알림 ON/OFF 설정 API

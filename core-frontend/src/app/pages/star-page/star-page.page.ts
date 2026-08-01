@@ -341,7 +341,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       await Haptics.impact({ style: ImpactStyle.Light });
     } catch (e) { }
 
-    const baseUrl = 'https://witch-hunting.com/witch';
+    const baseUrl = 'https://witch-hunting.com';
     const link = type === 'star' ? `${baseUrl}/star/${id}` : `${baseUrl}/post/${id}`;
 
     try {

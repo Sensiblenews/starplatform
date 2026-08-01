@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.sensible.admin.service.SuperAdminService;
+import com.sensible.api.service.LandingVisitService;
 import com.sensible.api.service.SuperAppService;
 
 @Controller
@@ -20,6 +22,13 @@ public class DeepLinkController {
 
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
+
+	@Resource(name = "landingVisitService")
+	private LandingVisitService landingVisitService;
+
+	// 약관/개인정보처리방침 DB 렌더링용 (getPolicyList 재사용)
+	@Resource(name = "superAdminService")
+	private SuperAdminService superAdminService;
 
 	private String getBaseUrl(HttpServletRequest request) {
 		String serverName = request.getServerName();
@@ -133,7 +142,9 @@ public class DeepLinkController {
 	}
 
 	// 🌟 앱에서 공유하기로 생성되는 링크 주소들을 모두 이곳으로 연결
-	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}" })
+	// "/witch/..." 매핑은 하위호환용: ROOT 컨텍스트 단독 배포에서도 기존에 공유된 /witch/... 링크가 404가 되지 않게 한다
+	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}",
+			"/witch/post/{id}", "/witch/star/{id}", "/witch/feed-detail/{id}" })
 	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request, Model model) {
 		System.out.println("DeepLink Triggered");
 
@@ -220,6 +231,12 @@ public class DeepLinkController {
 					model.addAttribute("previewMeta",
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					model.addAttribute("previewImage", imageUrl != null ? imageUrl : "");
+
+					// 🌟 방문 카운트 토큰: 실제 브라우저에게만 발급 (크롤러는 OG만 수집하고 카운트 제외)
+					// 경로 변수 id가 곧 starId이므로 그대로 바인딩한다
+					if (!LandingVisitService.isCrawler(userAgent)) {
+						model.addAttribute("visitToken", landingVisitService.issueToken(id));
+					}
 					view = "/common/content_landing";
 				}
 			}
@@ -288,6 +305,14 @@ public class DeepLinkController {
 					model.addAttribute("previewBody", escapeHtml(cutBodyHalf(fullBody)));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
+
+					// 🌟 방문 카운트 토큰: 스타 피드만 작성자 스타에게 귀속해 발급.
+					// 관리자 공지(FEED_TYPE='ADMIN')는 PRS_ID 자리에 ADMIN_ID가 담겨 있어 스타 귀속이 불가하므로 카운트 제외
+					Object feedPrsId = content.get("PRS_ID");
+					if ("STAR".equals(content.get("FEED_TYPE")) && feedPrsId != null
+							&& !LandingVisitService.isCrawler(userAgent)) {
+						model.addAttribute("visitToken", landingVisitService.issueToken(String.valueOf(feedPrsId)));
+					}
 					view = "/common/content_landing";
 				}
 			}
@@ -369,13 +394,49 @@ public class DeepLinkController {
 	
 	// 🌟 2. 개인정보 처리방침 페이지 매핑
     @RequestMapping(value = "/privacy")
-    public String privacyPolicy() {
-        return "/common/privacy-policy"; // (/WEB-INF/jsp/landing/privacy.jsp)
+    public String privacyPolicy(Model model) {
+        return renderPolicy(model, true);
     }
 
     // 🌟 3. 이용약관 페이지 매핑
     @RequestMapping(value = "/terms")
-    public String termsOfService() {
-        return "/common/terms"; // (/WEB-INF/jsp/landing/terms.jsp)
+    public String termsOfService(Model model) {
+        return renderPolicy(model, false);
+    }
+
+    // 약관/개인정보처리방침을 DB(WH_CONTENT, CON_TYPE=7)에서 렌더링한다.
+    // 글로벌 어드민 '약관 수정' 탭에서 저장하면 앱(/app/policyDetail)과 이 웹 화면에 동시 반영된다.
+    // DB 조회 실패·해당 행 없음이면 기존 하드코딩 JSP로 폴백해 항상 무언가는 보여준다.
+    private String renderPolicy(Model model, boolean isPrivacy) {
+        String fallbackView = isPrivacy ? "/common/privacy-policy" : "/common/terms";
+        try {
+            List<Map<String, Object>> policies = superAdminService.getPolicyList();
+            if (policies == null || policies.isEmpty()) {
+                return fallbackView;
+            }
+
+            Map<String, Object> matched = null;
+            for (Map<String, Object> row : policies) {
+                String title = row.get("CON_TITLE") != null ? row.get("CON_TITLE").toString() : "";
+                String lower = title.toLowerCase();
+                boolean looksPrivacy = lower.contains("privacy") || title.contains("개인정보");
+                if (looksPrivacy == isPrivacy) {
+                    matched = row;
+                    break;
+                }
+            }
+            if (matched == null || matched.get("CON_BODY") == null
+                    || matched.get("CON_BODY").toString().trim().isEmpty()) {
+                return fallbackView;
+            }
+
+            model.addAttribute("policyTitle", escapeHtml(String.valueOf(matched.get("CON_TITLE"))));
+            model.addAttribute("policyBody", matched.get("CON_BODY"));
+            model.addAttribute("policyUpdated", matched.get("CON_UDATE"));
+            return "/common/policy_view";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return fallbackView;
+        }
     }
 }
