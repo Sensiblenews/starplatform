@@ -59,6 +59,60 @@ public class DeepLinkControllerJsonLdTest {
 		assertEquals("", cutPlain(null, 150));
 	}
 
+	private String toAbsoluteUrl(String url, String baseUrl) throws Exception {
+		Method m = DeepLinkController.class.getDeclaredMethod("toAbsoluteUrl", String.class, String.class);
+		m.setAccessible(true);
+		return (String) m.invoke(controller, url, baseUrl);
+	}
+
+	@Test
+	public void toAbsoluteUrl_상대경로만_baseUrl을_붙인다() throws Exception {
+		String base = "https://witch-hunting.com";
+		assertEquals("https://witch-hunting.com/img/a.jpg", toAbsoluteUrl("/img/a.jpg", base));
+		assertEquals("https://witch-hunting.com/img/a.jpg", toAbsoluteUrl("img/a.jpg", base));
+		assertEquals("https://cdn.example.com/a.jpg", toAbsoluteUrl("https://cdn.example.com/a.jpg", base));
+		assertEquals("http://cdn.example.com/a.jpg", toAbsoluteUrl("http://cdn.example.com/a.jpg", base));
+		assertEquals("", toAbsoluteUrl(null, base));
+		assertEquals("", toAbsoluteUrl("  ", base));
+	}
+
+	@SuppressWarnings("unchecked")
+	private String buildSitemapXml(String baseUrl, Object stars, Object posts) throws Exception {
+		Method m = DeepLinkController.class.getDeclaredMethod("buildSitemapXml",
+				String.class, java.util.List.class, java.util.List.class);
+		m.setAccessible(true);
+		return (String) m.invoke(controller, baseUrl, stars, posts);
+	}
+
+	@Test
+	public void buildSitemapXml_루트_스타_포스트_URL을_나열한다() throws Exception {
+		java.util.List<java.util.Map<String, Object>> stars = new java.util.ArrayList<>();
+		java.util.Map<String, Object> star = new java.util.HashMap<>();
+		star.put("PRS_ID", "SP-100");
+		stars.add(star);
+
+		java.util.List<java.util.Map<String, Object>> posts = new java.util.ArrayList<>();
+		java.util.Map<String, Object> post = new java.util.HashMap<>();
+		post.put("CON_ID", 7);
+		post.put("CREATED_DATE", "2026-08-03 12:00:00.0");
+		posts.add(post);
+
+		String xml = buildSitemapXml("https://witch-hunting.com", stars, posts);
+		assertTrue(xml.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/star/SP-100</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/post/7</loc><lastmod>2026-08-03</lastmod>"));
+		assertTrue(xml.trim().endsWith("</urlset>"));
+	}
+
+	@Test
+	public void buildSitemapXml_목록이_비거나_null이어도_루트는_포함한다() throws Exception {
+		String xml = buildSitemapXml("https://witch-hunting.com", null, new java.util.ArrayList<>());
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
+		assertFalse(xml.contains("/star/"));
+		assertFalse(xml.contains("/post/"));
+	}
+
 	@Test
 	public void cutPlain_서로게이트_쌍을_코드포인트_기준으로_자른다() throws Exception {
 		// 이모지(서로게이트 쌍)가 중간에서 잘려 깨진 문자가 생기면 안 됨
