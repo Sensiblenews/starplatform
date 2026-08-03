@@ -69,6 +69,39 @@ public class DeepLinkController {
 		return escapeHtml(trimmed.substring(0, endIndex)) + "...";
 	}
 
+	// JSON-LD description용: 본문 앞부분을 코드포인트 기준으로 잘라 반환 (이스케이프는 escapeJson에서 별도 수행)
+	private String cutPlain(String s, int maxCodePoints) {
+		if (s == null) return "";
+		String trimmed = s.trim();
+		int total = trimmed.codePointCount(0, trimmed.length());
+		if (total <= maxCodePoints) return trimmed;
+		return trimmed.substring(0, trimmed.offsetByCodePoints(0, maxCodePoints)) + "...";
+	}
+
+	// JSON 문자열 이스케이프. '/'를 '\/'로 바꿔 본문에 '</script>'가 있어도 script 태그가 조기 종료되지 않게 한다
+	private String escapeJson(String s) {
+		if (s == null) return "";
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			switch (c) {
+				case '"': sb.append("\\\""); break;
+				case '\\': sb.append("\\\\"); break;
+				case '/': sb.append("\\/"); break;
+				case '\n': sb.append("\\n"); break;
+				case '\r': sb.append("\\r"); break;
+				case '\t': sb.append("\\t"); break;
+				default:
+					if (c < 0x20) {
+						sb.append(String.format("\\u%04x", (int) c));
+					} else {
+						sb.append(c);
+					}
+			}
+		}
+		return sb.toString();
+	}
+
 	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 2건) 모델 구성.
 	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
 	private void addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
@@ -254,6 +287,24 @@ public class DeepLinkController {
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					model.addAttribute("previewImage", imageUrl != null ? imageUrl : "");
 
+					// 🌟 canonical: 레거시(/witch/star/..)·중복 경로가 모두 대표 URL 하나로 수렴하게 한다
+					String canonicalUrl = baseUrl + "/star/" + id;
+					model.addAttribute("canonicalUrl", canonicalUrl);
+
+					// 🌟 JSON-LD(ProfilePage) 서버 렌더링: Googlebot이 소스보기만으로 읽을 수 있어야 함
+					String starNameRaw = starNameObj != null ? starNameObj.toString() : "StarPlatform";
+					StringBuilder ld = new StringBuilder();
+					ld.append("{\"@context\":\"https://schema.org\",\"@type\":\"ProfilePage\"");
+					ld.append(",\"mainEntity\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(starNameRaw)).append("\"");
+					if (imageUrl != null && !imageUrl.isEmpty()) {
+						ld.append(",\"image\":\"").append(escapeJson(imageUrl)).append("\"");
+					}
+					ld.append("}");
+					ld.append(",\"description\":\"").append(escapeJson(
+							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"))).append("\"");
+					ld.append(",\"url\":\"").append(escapeJson(canonicalUrl)).append("\"}");
+					model.addAttribute("jsonLd", ld.toString());
+
 					// 🌟 방문 카운트 토큰: 실제 브라우저에게만 발급 (크롤러는 OG만 수집하고 카운트 제외)
 					// 경로 변수 id가 곧 starId이므로 그대로 바인딩한다
 					if (!LandingVisitService.isCrawler(userAgent)) {
@@ -330,6 +381,32 @@ public class DeepLinkController {
 					model.addAttribute("previewBody", escapeHtml(fullBody != null ? fullBody.trim() : ""));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
+
+					// 🌟 canonical: /feed-detail/·/witch/post/ 등 중복 경로가 대표 URL(/post/{id}) 하나로 수렴하게 한다
+					String canonicalUrl = baseUrl + "/post/" + id;
+					model.addAttribute("canonicalUrl", canonicalUrl);
+
+					// 🌟 JSON-LD(BlogPosting) 서버 렌더링: Googlebot이 소스보기만으로 읽을 수 있어야 함
+					String createdDate = content.get("CREATED_DATE") != null ? String.valueOf(content.get("CREATED_DATE")) : "";
+					String datePublished = createdDate.length() >= 10 ? createdDate.substring(0, 10) : "";
+					StringBuilder ld = new StringBuilder();
+					ld.append("{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"");
+					ld.append(",\"headline\":\"").append(escapeJson(
+							starName != null ? starName + "'s Post" : "StarPlatform Post")).append("\"");
+					if (!datePublished.isEmpty()) {
+						ld.append(",\"datePublished\":\"").append(escapeJson(datePublished)).append("\"");
+					}
+					ld.append(",\"author\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(
+							starName != null ? starName : "StarPlatform")).append("\"}");
+					if (medias != null && !medias.isEmpty()) {
+						ld.append(",\"image\":[\"").append(escapeJson(imageUrl)).append("\"]");
+					}
+					ld.append(",\"description\":\"").append(escapeJson(cutPlain(fullBody, 150))).append("\"");
+					ld.append(",\"publisher\":{\"@type\":\"Organization\",\"name\":\"StarPlatform\"")
+							.append(",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"")
+							.append(escapeJson(baseUrl + "/resources/img/icon.png")).append("\"}}");
+					ld.append(",\"mainEntityOfPage\":\"").append(escapeJson(canonicalUrl)).append("\"}");
+					model.addAttribute("jsonLd", ld.toString());
 
 					// 🌟 방문 카운트 토큰: 스타 피드만 작성자 스타에게 귀속해 발급.
 					// 관리자 공지(FEED_TYPE='ADMIN')는 PRS_ID 자리에 ADMIN_ID가 담겨 있어 스타 귀속이 불가하므로 카운트 제외

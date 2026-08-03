@@ -15,6 +15,17 @@
     <meta name="apple-itunes-app" content="app-id=1188195403">
     <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
 
+    <!-- 검색 색인 허용 + 대표 URL 명시 (AdSense/SEO 대응) -->
+    <meta name="robots" content="index, follow">
+    <c:if test="${not empty canonicalUrl}">
+        <link rel="canonical" href="${canonicalUrl}">
+    </c:if>
+
+    <!-- JSON-LD 구조화 데이터: 컨트롤러에서 JSON 이스케이프까지 마친 문자열을 서버 렌더링으로 출력 -->
+    <c:if test="${not empty jsonLd}">
+        <script type="application/ld+json">${jsonLd}</script>
+    </c:if>
+
     <!-- Twitter Card Meta Tags (X 공유 최적화) -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@StarPlatform">
@@ -162,6 +173,43 @@
             word-break: break-word;
         }
 
+        /* FAQ: 페이지 고유 콘텐츠 보강 + h2/h3 계층 제공 (AdSense·SEO 대응) */
+        .faq-section {
+            margin-top: 24px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .faq-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0 0 12px;
+        }
+
+        .faq-item {
+            margin-bottom: 12px;
+        }
+
+        .faq-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .faq-q {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #222;
+            margin: 0 0 4px;
+        }
+
+        .faq-a {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #666;
+            margin: 0;
+        }
+
         /* 광고 영역: 높이를 미리 확보해 레이아웃 밀림(CLS) 방지 */
         .ad-wrap {
             margin: 24px 0;
@@ -232,8 +280,9 @@
 
     <div class="container">
         <div class="card">
-            <!-- previewImage가 비어 있으면 히어로 이미지 생략 -->
-            ${not empty previewImage ? '<img class="hero" src="'.concat(previewImage).concat('" alt="">') : ''}
+            <!-- previewImage가 비어 있으면 히어로 이미지 생략.
+                 LCP 이미지이므로 lazy 없이 fetchpriority=high, width/height로 공간을 예약해 CLS 방지 -->
+            ${not empty previewImage ? '<img class="hero" src="'.concat(previewImage).concat('" alt="').concat(previewTitle).concat('" fetchpriority="high" width="480" height="300">') : ''}
 
             <div class="card-body">
                 <h1 class="title">${previewTitle}</h1>
@@ -260,6 +309,26 @@
                 </c:forEach>
             </div>
         </c:if>
+
+        <!-- FAQ: 광고 위·본문 아래 배치. 광고가 첫 화면에 노출되지 않게 밀어주는 역할도 겸함 -->
+        <section class="faq-section">
+            <h2 class="faq-title">FAQ</h2>
+            <div class="faq-item">
+                <h3 class="faq-q">Can I read this content without installing the app?</h3>
+                <p class="faq-a">Yes. The full content of this page is available right here on the web.
+                    Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
+            </div>
+            <div class="faq-item">
+                <h3 class="faq-q">What is StarPlatform?</h3>
+                <p class="faq-a">StarPlatform is a fan community platform where stars share their latest posts and
+                    fans follow their favorite stars, join conversations, and support them.</p>
+            </div>
+            <div class="faq-item">
+                <h3 class="faq-q">How can I follow this star and get updates?</h3>
+                <p class="faq-a">Open this page in the StarPlatform app and tap Follow.
+                    You will get a notification whenever a new post is shared.</p>
+            </div>
+        </section>
 
         <!-- 광고 (AdSense) -->
         <div class="ad-wrap" id="adWrap">
@@ -300,17 +369,30 @@
             }, 300);
         }
 
-        // 광고 로드 실패(차단 포함) 시 빈 회색 박스가 남지 않도록 영역을 접음
-        try {
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (e) { }
-        setTimeout(function () {
-            var ins = document.querySelector('ins.adsbygoogle');
-            if (!ins || ins.getAttribute('data-ad-status') !== 'filled') {
-                var wrap = document.getElementById('adWrap');
-                if (wrap) wrap.style.display = 'none';
-            }
-        }, 4000);
+        // 콘텐츠가 짧은 페이지는 광고 미노출 (AdSense 정책: 콘텐츠 대비 광고 과다·첫 화면 광고 방지)
+        // 높이는 본문 카드 + 관련 게시물만 합산한다. FAQ는 모든 페이지 공통 문구라 고유 콘텐츠로 치지 않음.
+        // 히어로 이미지는 width/height 속성으로 공간이 예약되므로 로드 전에 측정해도 높이가 반영된다.
+        var adWrap = document.getElementById('adWrap');
+        var contentHeight = 0;
+        var cardEl = document.querySelector('.card');
+        var relatedEl = document.querySelector('.related-section');
+        if (cardEl) contentHeight += cardEl.offsetHeight;
+        if (relatedEl) contentHeight += relatedEl.offsetHeight;
+
+        if (contentHeight < 600) {
+            if (adWrap) adWrap.style.display = 'none';
+        } else {
+            // 광고 로드 실패(차단 포함) 시 빈 회색 박스가 남지 않도록 영역을 접음
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) { }
+            setTimeout(function () {
+                var ins = document.querySelector('ins.adsbygoogle');
+                if (!ins || ins.getAttribute('data-ad-status') !== 'filled') {
+                    if (adWrap) adWrap.style.display = 'none';
+                }
+            }, 4000);
+        }
 
         var path = window.location.pathname.replace(/^\//, '');
         var search = window.location.search;
