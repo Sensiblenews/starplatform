@@ -786,6 +786,75 @@ public class SuperAdminController {
     }
 
     /**
+     * 🌟 [화면] 약관/개인정보처리방침 수정 (SM 전용)
+     */
+    @RequestMapping(value = "/super/policy/edit.do")
+    public String policyEditForm(HttpServletRequest request) {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+        return "super/policy_form";
+    }
+
+    /**
+     * 🌟 [API] 약관 목록 조회 (SM 전용)
+     */
+    @RequestMapping(value = "/super/policy/list.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> getPolicyList(HttpServletRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            result.put("status", "success");
+            result.put("list", superAdminService.getPolicyList());
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "약관 목록 조회에 실패했습니다.");
+        }
+        return result;
+    }
+
+    /**
+     * 🌟 [API] 약관 본문 저장 (SM 전용)
+     */
+    @RequestMapping(value = "/super/policy/save.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> savePolicyContent(HttpServletRequest request, @RequestBody Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            Object conId = params.get("CON_ID");
+            Object body = params.get("CON_BODY");
+            if (conId == null || body == null || String.valueOf(body).trim().isEmpty()) {
+                result.put("status", "fail");
+                result.put("msg", "본문이 비어 있습니다.");
+                return result;
+            }
+            superAdminService.savePolicyContent(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "약관 저장에 실패했습니다.");
+        }
+        return result;
+    }
+
+    /**
      * [화면] 스타 일괄 등록 폼 (SM 전용)
      */
     @RequestMapping(value = "/super/star/bulk-create.do")

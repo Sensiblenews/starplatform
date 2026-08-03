@@ -50,6 +50,12 @@
                     <i class="fas fa-server me-2"></i> 시스템 관리
                 </a>
             </li>
+            <!-- 🌟 약관/개인정보처리방침 수정 (좌측 탭 맨 하단 배치 — 클라이언트 요청) -->
+            <li class="nav-item mb-2">
+                <a href="/super/policy/edit.do" class="nav-link <c:if test="${activeMenu eq 'policy'}">active</c:if>" style="color: #a5d6a7;">
+                    <i class="fas fa-file-contract me-2"></i> 약관 수정
+                </a>
+            </li>
         </c:if>
         
         <li class="nav-item mt-auto">

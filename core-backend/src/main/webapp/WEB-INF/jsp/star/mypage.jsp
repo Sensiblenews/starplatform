@@ -1,5 +1,8 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%-- 컨텍스트 패스 하드코딩 금지: ROOT/witch 어느 컨텍스트로 배포돼도 동작해야 한다 --%>
+<c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<c:set var="defaultAvatar" value="${ctx}/resources/img/avatar.svg"/>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -89,7 +92,7 @@
 <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container">
         <span class="navbar-brand mb-0 h1">🌟 Creator Studio</span>
-        <a href="/witch/super/logout.do" class="btn btn-outline-light btn-sm">Logout</a>
+        <a href="${ctx}/super/logout.do" class="btn btn-outline-light btn-sm">Logout</a>
     </div>
 </nav>
 
@@ -100,9 +103,9 @@
                 <form id="profileForm" enctype="multipart/form-data">
           
                     <div class="mb-3 position-relative">
-                        <img src="${myInfo.STORED_FILE_NM != null ? myInfo.STORED_FILE_NM : '/witch/resources/img/avatar.svg'}" 
-                             class="profile-img mb-3" id="previewImg" 
-                             onerror="this.src='/witch/resources/img/avatar.svg'">
+                        <img src="${myInfo.STORED_FILE_NM != null ? myInfo.STORED_FILE_NM : defaultAvatar}"
+                             class="profile-img mb-3" id="previewImg"
+                             onerror="this.src='${defaultAvatar}'">
                         <br>
                         <label class="btn btn-sm btn-outline-primary mt-2">
                             <i class="fas fa-camera"></i> Change Photo
@@ -309,7 +312,7 @@
         e.preventDefault();
         var formData = new FormData(this);
         $.ajax({
-            url: '/witch/star/updateProfile.do',
+            url: '${ctx}/star/updateProfile.do',
             type: 'POST',
             data: formData,
             contentType: false, processData: false,
@@ -324,7 +327,7 @@
     function deletePhoto(conId) {
         if(!confirm('Are you sure you want to delete?')) return;
         $.ajax({
-            url: '/witch/star/deleteGallery.do',
+            url: '${ctx}/star/deleteGallery.do',
             type: 'POST',
             data: {CON_ID: conId},
             success: function(res) {
@@ -479,7 +482,7 @@
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Uploading...');
 
         $.ajax({
-            url: '/witch/star/writeFeed.do',
+            url: '${ctx}/star/writeFeed.do',
             type: 'POST',
             data: formData,
             contentType: false, processData: false,
@@ -513,7 +516,7 @@
         $('#viewDate').text('');
 
         $.ajax({
-            url: '/witch/star/getFeedDetail.do',
+            url: '${ctx}/star/getFeedDetail.do',
             type: 'GET',
             data: { CON_ID: conId },
             success: function(res) {
@@ -567,7 +570,7 @@
     function loadAdminComments(conId) {
         $('.admin-comment-section').remove();
         
-        $.post('/witch/api/super/comment/list', { 
+        $.post('${ctx}/api/super/comment/list', {
         	targetType: 'FEED', 
         	targetId: conId,
         	prsId: '${myInfo.PRS_ID}'
@@ -605,7 +608,7 @@
     function loadStarComments() {
         $('#starCommentBody').empty();
 
-        $.post('/witch/api/super/comment/list', { 
+        $.post('${ctx}/api/super/comment/list', {
             targetType: 'STAR', 
             targetId: '${myInfo.PRS_ID}',
             prsId: '${myInfo.PRS_ID}'
@@ -637,7 +640,7 @@
     function blindComment(cmtId, type) {
 	    if(!confirm('Are you sure you want to delete (blind) this comment?')) return;
 	    
-	    $.post('/witch/star/manageComment.do', { action: 'BLIND', cmtId: cmtId }, function(res) {
+	    $.post('${ctx}/star/manageComment.do', { action: 'BLIND', cmtId: cmtId }, function(res) {
 	        if(res.status === 'success') {
 	            alert(res.msg);
 	            
@@ -656,7 +659,7 @@
     function blockUser(deviceId, nickname) {
         if(!confirm('Are you sure you want to permanently block [' + nickname + ']?\nThis device (ID: ' + deviceId + ') will no longer be able to write comments.')) return;
         
-        $.post('/witch/star/manageComment.do', { action: 'BLOCK', targetDeviceId: deviceId, reason: 'Repeated malicious comments' }, function(res) {
+        $.post('${ctx}/star/manageComment.do', { action: 'BLOCK', targetDeviceId: deviceId, reason: 'Repeated malicious comments' }, function(res) {
             alert(res.msg);
         });
     }

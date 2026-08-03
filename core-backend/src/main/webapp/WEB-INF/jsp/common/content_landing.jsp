@@ -1,4 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <% String scheme=request.getScheme(); String serverName=request.getServerName(); int
     serverPort=request.getServerPort(); String portStr="" ; if (("http".equals(scheme) && serverPort !=80) ||
     ("https".equals(scheme) && serverPort !=443)) { portStr=":" + serverPort; } String fallbackBaseUrl="" ; if
@@ -13,6 +14,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-itunes-app" content="app-id=1188195403">
     <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
+
+    <!-- 검색 색인 허용 + 대표 URL 명시 (AdSense/SEO 대응) -->
+    <meta name="robots" content="index, follow">
+    <c:if test="${not empty canonicalUrl}">
+        <link rel="canonical" href="${canonicalUrl}">
+    </c:if>
+
+    <!-- JSON-LD 구조화 데이터: 컨트롤러에서 JSON 이스케이프까지 마친 문자열을 서버 렌더링으로 출력 -->
+    <c:if test="${not empty jsonLd}">
+        <script type="application/ld+json">${jsonLd}</script>
+    </c:if>
 
     <!-- Twitter Card Meta Tags (X 공유 최적화) -->
     <meta name="twitter:card" content="summary_large_image">
@@ -121,31 +133,81 @@
             margin: 0;
         }
 
-        /* 미리보기 하단 페이드아웃: 본문이 이어진다는 시각적 신호 */
-        .fade {
-            height: 56px;
-            margin-top: -56px;
-            position: relative;
-            background: linear-gradient(rgba(255, 255, 255, 0), #fff);
+        /* 관련 콘텐츠 카드: 페이지당 콘텐츠량·내부 링크 확보 (AdSense Thin Content 대응) */
+        .related-section {
+            margin-top: 20px;
         }
 
-        .lock-card {
-            text-align: center;
-            padding: 20px 16px;
-            border-top: 1px dashed #ddd;
-            background: #fffdf5;
-        }
-
-        .lock-card p {
-            margin: 4px 0;
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .lock-card .lock-title {
-            font-size: 1rem;
+        .related-heading {
+            font-size: 0.95rem;
             font-weight: 700;
             color: #333;
+            margin: 0 0 10px 4px;
+        }
+
+        .related-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 12px;
+            margin-bottom: 10px;
+            text-decoration: none;
+        }
+
+        .related-thumb {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .related-snippet {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #444;
+            margin: 0;
+            word-break: break-word;
+        }
+
+        /* FAQ: 페이지 고유 콘텐츠 보강 + h2/h3 계층 제공 (AdSense·SEO 대응) */
+        .faq-section {
+            margin-top: 24px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .faq-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0 0 12px;
+        }
+
+        .faq-item {
+            margin-bottom: 12px;
+        }
+
+        .faq-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .faq-q {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #222;
+            margin: 0 0 4px;
+        }
+
+        .faq-a {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #666;
+            margin: 0;
         }
 
         /* 광고 영역: 높이를 미리 확보해 레이아웃 밀림(CLS) 방지 */
@@ -218,26 +280,55 @@
 
     <div class="container">
         <div class="card">
-            <!-- previewImage가 비어 있으면 히어로 이미지 생략 -->
-            ${not empty previewImage ? '<img class="hero" src="'.concat(previewImage).concat('" alt="">') : ''}
+            <!-- previewImage가 비어 있으면 히어로 이미지 생략.
+                 LCP 이미지이므로 lazy 없이 fetchpriority=high, width/height로 공간을 예약해 CLS 방지 -->
+            ${not empty previewImage ? '<img class="hero" src="'.concat(previewImage).concat('" alt="').concat(previewTitle).concat('" fetchpriority="high" width="480" height="300">') : ''}
 
             <div class="card-body">
                 <h1 class="title">${previewTitle}</h1>
 
-                <!-- 스타 랜딩: 랭크/방문자 요약, 포스트 랜딩: 서버에서 절반만 잘라 온 본문 -->
+                <!-- 스타 랜딩: 랭크/방문자 요약, 포스트 랜딩: 본문 전문
+                     (AdSense '콘텐츠 없는 화면 광고' 정책 판정에 따라 50% 컷·프리뷰 잠금 제거 — 클라이언트 확정) -->
                 ${not empty previewMeta ? '<p class="meta">'.concat(previewMeta).concat('</p>') : ''}
-                ${not empty previewBody ? '<p class="body-text">'.concat(previewBody).concat('</p><div class="fade"></div>') : ''}
-            </div>
-
-            <div class="lock-card">
-                <p class="lock-title">&#128274; This is a preview</p>
-                <p>
-                    ${landingType == 'post'
-                        ? 'Continue in the app to read the full post.'
-                        : 'Open the app to see all updates and follow this star.'}
-                </p>
+                ${not empty previewBody ? '<p class="body-text">'.concat(previewBody).concat('</p>') : ''}
             </div>
         </div>
+
+        <!-- 관련 콘텐츠: 이 스타의 다른 최근 게시물 (내부 링크) -->
+        <c:if test="${not empty relatedPosts}">
+            <div class="related-section">
+                <p class="related-heading">More posts</p>
+                <c:forEach var="rp" items="${relatedPosts}">
+                    <a class="related-card" href="${pageContext.request.contextPath}/post/${rp.conId}">
+                        <c:if test="${not empty rp.image}">
+                            <img class="related-thumb" src="${rp.image}" alt="" loading="lazy"
+                                onerror="this.style.display='none'">
+                        </c:if>
+                        <p class="related-snippet">${rp.snippet}</p>
+                    </a>
+                </c:forEach>
+            </div>
+        </c:if>
+
+        <!-- FAQ: 광고 위·본문 아래 배치. 광고가 첫 화면에 노출되지 않게 밀어주는 역할도 겸함 -->
+        <section class="faq-section">
+            <h2 class="faq-title">FAQ</h2>
+            <div class="faq-item">
+                <h3 class="faq-q">Can I read this content without installing the app?</h3>
+                <p class="faq-a">Yes. The full content of this page is available right here on the web.
+                    Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
+            </div>
+            <div class="faq-item">
+                <h3 class="faq-q">What is StarPlatform?</h3>
+                <p class="faq-a">StarPlatform is a fan community platform where stars share their latest posts and
+                    fans follow their favorite stars, join conversations, and support them.</p>
+            </div>
+            <div class="faq-item">
+                <h3 class="faq-q">How can I follow this star and get updates?</h3>
+                <p class="faq-a">Open this page in the StarPlatform app and tap Follow.
+                    You will get a notification whenever a new post is shared.</p>
+            </div>
+        </section>
 
         <!-- 광고 (AdSense) -->
         <div class="ad-wrap" id="adWrap">
@@ -263,6 +354,9 @@
         var isKakaoTalk = ua.indexOf('kakaotalk') > -1;
         // 페이스북/인스타그램 인앱 브라우저: 자동 앱 실행이 차단되므로 버튼 클릭 유도만 함
         var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1 || ua.indexOf('instagram') > -1;
+        // 트위터(X) 인앱 브라우저: 자동 스킴 실행이 미설치 iOS에서 "Cannot open page" 얼럿을 띄우므로 제외.
+        // 신버전 iOS 트위터는 UA를 노출하지 않아 감지 불가하지만, 버튼 클릭(사용자 제스처) 경로는 정상 동작한다.
+        var isTwitterApp = ua.indexOf('twitterandroid') > -1 || ua.indexOf('twitter for iphone') > -1;
 
         // 모던 iOS/iPadOS 사파리 데스크톱 모드 대응을 포함한 iOS 판정식 (기존 트램폴린과 동일)
         var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -275,17 +369,30 @@
             }, 300);
         }
 
-        // 광고 로드 실패(차단 포함) 시 빈 회색 박스가 남지 않도록 영역을 접음
-        try {
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (e) { }
-        setTimeout(function () {
-            var ins = document.querySelector('ins.adsbygoogle');
-            if (!ins || ins.getAttribute('data-ad-status') !== 'filled') {
-                var wrap = document.getElementById('adWrap');
-                if (wrap) wrap.style.display = 'none';
-            }
-        }, 4000);
+        // 콘텐츠가 짧은 페이지는 광고 미노출 (AdSense 정책: 콘텐츠 대비 광고 과다·첫 화면 광고 방지)
+        // 높이는 본문 카드 + 관련 게시물만 합산한다. FAQ는 모든 페이지 공통 문구라 고유 콘텐츠로 치지 않음.
+        // 히어로 이미지는 width/height 속성으로 공간이 예약되므로 로드 전에 측정해도 높이가 반영된다.
+        var adWrap = document.getElementById('adWrap');
+        var contentHeight = 0;
+        var cardEl = document.querySelector('.card');
+        var relatedEl = document.querySelector('.related-section');
+        if (cardEl) contentHeight += cardEl.offsetHeight;
+        if (relatedEl) contentHeight += relatedEl.offsetHeight;
+
+        if (contentHeight < 600) {
+            if (adWrap) adWrap.style.display = 'none';
+        } else {
+            // 광고 로드 실패(차단 포함) 시 빈 회색 박스가 남지 않도록 영역을 접음
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) { }
+            setTimeout(function () {
+                var ins = document.querySelector('ins.adsbygoogle');
+                if (!ins || ins.getAttribute('data-ad-status') !== 'filled') {
+                    if (adWrap) adWrap.style.display = 'none';
+                }
+            }, 4000);
+        }
 
         var path = window.location.pathname.replace(/^\//, '');
         var search = window.location.search;
@@ -330,7 +437,7 @@
         //   iOS: 커스텀 스킴 1회 시도 후 실패해도 추가 이동 없음.
         // - load 이벤트를 기다리면 광고·이미지 로딩만큼 앱 실행이 늦어지므로 즉시 실행한다.
         (function () {
-            if (isFacebookApp) return;              // 페북/인스타: 자동 실행 차단 환경
+            if (isFacebookApp || isTwitterApp) return; // 페북/인스타/트위터: 자동 실행 차단·오동작 환경 (버튼 클릭으로 유도)
             if (isIOS && isKakaoTalk) return;       // iOS 카카오톡: 위의 사파리 강제 전환이 처리
 
             var alreadyTried = false;
@@ -348,6 +455,46 @@
             } else if (isIOS) {
                 location.href = schemeUrl;
             }
+        })();
+
+        // 🌟 방문 카운트: 서버 발급 토큰 + 2.5초 실체류 검증
+        // - 토큰은 서버가 렌더링 시 발급(크롤러에겐 미발급)하며, 서버가 발급 경과시간으로 체류 하한을 재검증한다.
+        // - 백그라운드 탭은 다시 보일 때 1회만 재시도. localStorage 불가(시크릿 모드 등)면 카운트하지 않는다.
+        (function () {
+            var token = '${visitToken}';
+            if (!token) return;
+
+            var visitorId;
+            try {
+                visitorId = localStorage.getItem('sp_visitor_id');
+                if (!visitorId) {
+                    visitorId = (window.crypto && crypto.randomUUID)
+                        ? crypto.randomUUID()
+                        : 'a' + Date.now().toString(16) + '-' + Math.random().toString(16).slice(2, 10);
+                    localStorage.setItem('sp_visitor_id', visitorId);
+                }
+            } catch (e) { return; }
+
+            var sent = false;
+            function send() {
+                if (sent) return;
+                if (document.hidden) {
+                    document.addEventListener('visibilitychange', function h() {
+                        document.removeEventListener('visibilitychange', h);
+                        setTimeout(send, 300);
+                    });
+                    return;
+                }
+                sent = true;
+                fetch('${pageContext.request.contextPath}/api/super/landing/visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, visitorId: visitorId }),
+                    keepalive: true
+                }).catch(function () { });
+            }
+            // 서버 하한 2500ms + 여유 100ms
+            setTimeout(send, 2600);
         })();
     </script>
 </body>

@@ -361,6 +361,16 @@ public class SuperAdminService {
         dao.insert("superapp.insertOrUpdatePromotion", params);
     }
     
+    // 🌟 [신규] 약관/개인정보처리방침(CON_TYPE=7) 목록 조회
+    public List<Map<String, Object>> getPolicyList() throws Exception {
+        return dao.selectList("super.selectPolicyList");
+    }
+
+    // 🌟 [신규] 약관 본문 저장 (CON_TYPE=7 가드는 매퍼에서 처리)
+    public void savePolicyContent(Map<String, Object> params) throws Exception {
+        dao.update("super.updatePolicyContent", params);
+    }
+
     // 🌟 [신규] 스타 일괄 등록 처리
     public Map<String, Object> insertStarBulk(List<String> names, String pwd, String country) throws Exception {
         int successCount = 0;

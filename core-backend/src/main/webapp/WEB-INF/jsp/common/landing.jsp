@@ -84,8 +84,8 @@
   <footer>
     <p>© 2026 StarPlatform. All rights reserved.</p>
     <div>
-      <a href="/witch/privacy">Privacy Policy</a> |
-      <a href="/witch/terms">Terms of Service</a>
+      <a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a> |
+      <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>
     </div>
   </footer>
 </div>

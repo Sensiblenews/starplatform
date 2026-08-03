@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.sensible.admin.service.SuperAdminService;
+import com.sensible.api.service.LandingVisitService;
 import com.sensible.api.service.SuperAppService;
 
 @Controller
@@ -20,6 +22,13 @@ public class DeepLinkController {
 
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
+
+	@Resource(name = "landingVisitService")
+	private LandingVisitService landingVisitService;
+
+	// 약관/개인정보처리방침 DB 렌더링용 (getPolicyList 재사용)
+	@Resource(name = "superAdminService")
+	private SuperAdminService superAdminService;
 
 	private String getBaseUrl(HttpServletRequest request) {
 		String serverName = request.getServerName();
@@ -47,15 +56,70 @@ public class DeepLinkController {
 				.replace("'", "&#39;");
 	}
 
-	// 본문을 코드포인트 기준 절반만 남기고 자름 (웹 랜딩 미리보기용 — 전체 본문은 앱에서만 제공)
-	// CSS 숨김이 아니라 서버에서 잘라 내려보내는 것이 요구사항
-	private String cutBodyHalf(String body) {
+	// 관련 콘텐츠 카드용 요약: 본문 앞부분만 코드포인트 기준으로 잘라 이스케이프해 반환
+	private String snippet(String body, int maxCodePoints) {
 		if (body == null) return "";
 		String trimmed = body.trim();
 		if (trimmed.isEmpty()) return "";
 		int total = trimmed.codePointCount(0, trimmed.length());
-		int endIndex = trimmed.offsetByCodePoints(0, Math.max(1, total / 2));
-		return trimmed.substring(0, endIndex);
+		if (total <= maxCodePoints) {
+			return escapeHtml(trimmed);
+		}
+		int endIndex = trimmed.offsetByCodePoints(0, maxCodePoints);
+		return escapeHtml(trimmed.substring(0, endIndex)) + "...";
+	}
+
+	// JSON-LD description용: 본문 앞부분을 코드포인트 기준으로 잘라 반환 (이스케이프는 escapeJson에서 별도 수행)
+	private String cutPlain(String s, int maxCodePoints) {
+		if (s == null) return "";
+		String trimmed = s.trim();
+		int total = trimmed.codePointCount(0, trimmed.length());
+		if (total <= maxCodePoints) return trimmed;
+		return trimmed.substring(0, trimmed.offsetByCodePoints(0, maxCodePoints)) + "...";
+	}
+
+	// JSON 문자열 이스케이프. '/'를 '\/'로 바꿔 본문에 '</script>'가 있어도 script 태그가 조기 종료되지 않게 한다
+	private String escapeJson(String s) {
+		if (s == null) return "";
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			switch (c) {
+				case '"': sb.append("\\\""); break;
+				case '\\': sb.append("\\\\"); break;
+				case '/': sb.append("\\/"); break;
+				case '\n': sb.append("\\n"); break;
+				case '\r': sb.append("\\r"); break;
+				case '\t': sb.append("\\t"); break;
+				default:
+					if (c < 0x20) {
+						sb.append(String.format("\\u%04x", (int) c));
+					} else {
+						sb.append(c);
+					}
+			}
+		}
+		return sb.toString();
+	}
+
+	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 2건) 모델 구성.
+	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
+	private void addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
+		List<Map<String, Object>> posts = superAppService.getRecentStarPosts(starId, excludeConId);
+		List<Map<String, Object>> cards = new java.util.ArrayList<>();
+		for (Map<String, Object> post : posts) {
+			Map<String, Object> card = new HashMap<>();
+			card.put("conId", post.get("CON_ID"));
+			card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
+
+			String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
+			if (image != null && image.startsWith("/")) {
+				image = baseUrl + image;
+			}
+			card.put("image", image != null ? image : "");
+			cards.add(card);
+		}
+		model.addAttribute("relatedPosts", cards);
 	}
 
 	private String encodeUrlParams(String urlStr) {
@@ -133,7 +197,9 @@ public class DeepLinkController {
 	}
 
 	// 🌟 앱에서 공유하기로 생성되는 링크 주소들을 모두 이곳으로 연결
-	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}" })
+	// "/witch/..." 매핑은 하위호환용: ROOT 컨텍스트 단독 배포에서도 기존에 공유된 /witch/... 링크가 404가 되지 않게 한다
+	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}",
+			"/witch/post/{id}", "/witch/star/{id}", "/witch/feed-detail/{id}" })
 	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request, Model model) {
 		System.out.println("DeepLink Triggered");
 
@@ -220,6 +286,32 @@ public class DeepLinkController {
 					model.addAttribute("previewMeta",
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					model.addAttribute("previewImage", imageUrl != null ? imageUrl : "");
+
+					// 🌟 canonical: 레거시(/witch/star/..)·중복 경로가 모두 대표 URL 하나로 수렴하게 한다
+					String canonicalUrl = baseUrl + "/star/" + id;
+					model.addAttribute("canonicalUrl", canonicalUrl);
+
+					// 🌟 JSON-LD(ProfilePage) 서버 렌더링: Googlebot이 소스보기만으로 읽을 수 있어야 함
+					String starNameRaw = starNameObj != null ? starNameObj.toString() : "StarPlatform";
+					StringBuilder ld = new StringBuilder();
+					ld.append("{\"@context\":\"https://schema.org\",\"@type\":\"ProfilePage\"");
+					ld.append(",\"mainEntity\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(starNameRaw)).append("\"");
+					if (imageUrl != null && !imageUrl.isEmpty()) {
+						ld.append(",\"image\":\"").append(escapeJson(imageUrl)).append("\"");
+					}
+					ld.append("}");
+					ld.append(",\"description\":\"").append(escapeJson(
+							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"))).append("\"");
+					ld.append(",\"url\":\"").append(escapeJson(canonicalUrl)).append("\"}");
+					model.addAttribute("jsonLd", ld.toString());
+
+					// 🌟 방문 카운트 토큰: 실제 브라우저에게만 발급 (크롤러는 OG만 수집하고 카운트 제외)
+					// 경로 변수 id가 곧 starId이므로 그대로 바인딩한다
+					if (!LandingVisitService.isCrawler(userAgent)) {
+						model.addAttribute("visitToken", landingVisitService.issueToken(id));
+					}
+					// 🌟 관련 콘텐츠 카드: 이 스타의 최근 게시물 2건 (AdSense Thin Content 대응)
+					addRelatedPosts(model, id, null, baseUrl);
 					view = "/common/content_landing";
 				}
 			}
@@ -281,13 +373,51 @@ public class DeepLinkController {
 					model.addAttribute("ogImage", imageUrl);
 					model.addAttribute("ogUrl", baseUrl + uri);
 
-					// 🌟 웹 랜딩 미리보기 데이터: 본문은 서버에서 절반만 잘라 내려줌 (전체 본문은 앱 전용)
+					// 🌟 웹 랜딩 본문: 전체 노출 (AdSense '콘텐츠 없는 화면 광고' 정책 위반 판정에 따라
+					// 기존 50% 컷 + 프리뷰 잠금을 제거하고 전문을 내려준다 — 클라이언트 확정)
 					model.addAttribute("landingType", "post");
 					model.addAttribute("previewTitle",
 							escapeHtml(starName != null ? starName + "'s Post" : "StarPlatform Post"));
-					model.addAttribute("previewBody", escapeHtml(cutBodyHalf(fullBody)));
+					model.addAttribute("previewBody", escapeHtml(fullBody != null ? fullBody.trim() : ""));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
+
+					// 🌟 canonical: /feed-detail/·/witch/post/ 등 중복 경로가 대표 URL(/post/{id}) 하나로 수렴하게 한다
+					String canonicalUrl = baseUrl + "/post/" + id;
+					model.addAttribute("canonicalUrl", canonicalUrl);
+
+					// 🌟 JSON-LD(BlogPosting) 서버 렌더링: Googlebot이 소스보기만으로 읽을 수 있어야 함
+					String createdDate = content.get("CREATED_DATE") != null ? String.valueOf(content.get("CREATED_DATE")) : "";
+					String datePublished = createdDate.length() >= 10 ? createdDate.substring(0, 10) : "";
+					StringBuilder ld = new StringBuilder();
+					ld.append("{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"");
+					ld.append(",\"headline\":\"").append(escapeJson(
+							starName != null ? starName + "'s Post" : "StarPlatform Post")).append("\"");
+					if (!datePublished.isEmpty()) {
+						ld.append(",\"datePublished\":\"").append(escapeJson(datePublished)).append("\"");
+					}
+					ld.append(",\"author\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(
+							starName != null ? starName : "StarPlatform")).append("\"}");
+					if (medias != null && !medias.isEmpty()) {
+						ld.append(",\"image\":[\"").append(escapeJson(imageUrl)).append("\"]");
+					}
+					ld.append(",\"description\":\"").append(escapeJson(cutPlain(fullBody, 150))).append("\"");
+					ld.append(",\"publisher\":{\"@type\":\"Organization\",\"name\":\"StarPlatform\"")
+							.append(",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"")
+							.append(escapeJson(baseUrl + "/resources/img/icon.png")).append("\"}}");
+					ld.append(",\"mainEntityOfPage\":\"").append(escapeJson(canonicalUrl)).append("\"}");
+					model.addAttribute("jsonLd", ld.toString());
+
+					// 🌟 방문 카운트 토큰: 스타 피드만 작성자 스타에게 귀속해 발급.
+					// 관리자 공지(FEED_TYPE='ADMIN')는 PRS_ID 자리에 ADMIN_ID가 담겨 있어 스타 귀속이 불가하므로 카운트 제외
+					Object feedPrsId = content.get("PRS_ID");
+					if ("STAR".equals(content.get("FEED_TYPE")) && feedPrsId != null) {
+						if (!LandingVisitService.isCrawler(userAgent)) {
+							model.addAttribute("visitToken", landingVisitService.issueToken(String.valueOf(feedPrsId)));
+						}
+						// 🌟 관련 콘텐츠 카드: 같은 스타의 다른 게시물 2건 (현재 글 제외)
+						addRelatedPosts(model, String.valueOf(feedPrsId), String.valueOf(content.get("CON_ID")), baseUrl);
+					}
 					view = "/common/content_landing";
 				}
 			}
@@ -369,13 +499,49 @@ public class DeepLinkController {
 	
 	// 🌟 2. 개인정보 처리방침 페이지 매핑
     @RequestMapping(value = "/privacy")
-    public String privacyPolicy() {
-        return "/common/privacy-policy"; // (/WEB-INF/jsp/landing/privacy.jsp)
+    public String privacyPolicy(Model model) {
+        return renderPolicy(model, true);
     }
 
     // 🌟 3. 이용약관 페이지 매핑
     @RequestMapping(value = "/terms")
-    public String termsOfService() {
-        return "/common/terms"; // (/WEB-INF/jsp/landing/terms.jsp)
+    public String termsOfService(Model model) {
+        return renderPolicy(model, false);
+    }
+
+    // 약관/개인정보처리방침을 DB(WH_CONTENT, CON_TYPE=7)에서 렌더링한다.
+    // 글로벌 어드민 '약관 수정' 탭에서 저장하면 앱(/app/policyDetail)과 이 웹 화면에 동시 반영된다.
+    // DB 조회 실패·해당 행 없음이면 기존 하드코딩 JSP로 폴백해 항상 무언가는 보여준다.
+    private String renderPolicy(Model model, boolean isPrivacy) {
+        String fallbackView = isPrivacy ? "/common/privacy-policy" : "/common/terms";
+        try {
+            List<Map<String, Object>> policies = superAdminService.getPolicyList();
+            if (policies == null || policies.isEmpty()) {
+                return fallbackView;
+            }
+
+            Map<String, Object> matched = null;
+            for (Map<String, Object> row : policies) {
+                String title = row.get("CON_TITLE") != null ? row.get("CON_TITLE").toString() : "";
+                String lower = title.toLowerCase();
+                boolean looksPrivacy = lower.contains("privacy") || title.contains("개인정보");
+                if (looksPrivacy == isPrivacy) {
+                    matched = row;
+                    break;
+                }
+            }
+            if (matched == null || matched.get("CON_BODY") == null
+                    || matched.get("CON_BODY").toString().trim().isEmpty()) {
+                return fallbackView;
+            }
+
+            model.addAttribute("policyTitle", escapeHtml(String.valueOf(matched.get("CON_TITLE"))));
+            model.addAttribute("policyBody", matched.get("CON_BODY"));
+            model.addAttribute("policyUpdated", matched.get("CON_UDATE"));
+            return "/common/policy_view";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return fallbackView;
+        }
     }
 }

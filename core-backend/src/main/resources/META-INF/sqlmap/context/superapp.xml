@@ -444,6 +444,24 @@
 		ORDER BY IS_PINNED DESC, CREATED_DATE DESC
 	</select>
 
+	<!-- [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 (현재 글 제외, 2건) -->
+	<select id="selectRecentStarPosts" parameterType="map" resultType="map">
+		SELECT
+			M.CON_ID,
+			M.CON_BODY,
+			M.CREATED_DATE,
+			D.THUMB_URL,
+			D.MEDIA_URL
+		FROM WH_STAR_CONTENT M
+		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		WHERE M.PRS_ID = #{starId}
+		<if test="excludeConId != null and excludeConId != ''">
+			AND M.CON_ID != #{excludeConId}
+		</if>
+		ORDER BY M.CREATED_DATE DESC
+		LIMIT 2
+	</select>
+
 	<select id="selectContentDetail" parameterType="map" resultType="map">
 		SELECT
 			A.CON_ID,
@@ -1209,6 +1227,13 @@
 		SET PUSH_YN = #{pushYn}
 		WHERE PRS_ID = #{starId}
 	</update>
+
+	<!-- [신규] 프로필 팝오버 초기값 조회: 푸시 수신 설정만 반환 (FCM 토큰은 클라이언트에 노출하지 않는다) -->
+	<select id="selectPushYn" parameterType="string" resultType="string">
+		SELECT IFNULL(PUSH_YN, 'Y')
+		FROM WH_PRESS
+		WHERE PRS_ID = #{starId}
+	</select>
 
 	<!-- [참고용] 나중에 백그라운드 푸시를 쏠 때 유저의 토큰과 상태를 가져오는 쿼리 -->
 	<select id="selectPushTargetInfo" parameterType="string" resultType="map">

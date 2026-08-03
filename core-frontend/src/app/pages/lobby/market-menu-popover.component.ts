@@ -38,11 +38,11 @@ import { Browser } from '@capacitor/browser';
         </ion-item> -->
       </ng-container>
 
-      <ion-item button (click)="openExternal('https://witch-hunting.com/witch/privacy')">
+      <ion-item button (click)="openExternal('https://witch-hunting.com/privacy')">
         <ion-icon name="shield-checkmark-outline" slot="start" color="medium"></ion-icon>
         <ion-label class="fw-bold text-dark" style="font-size: 15px;">Privacy Policy</ion-label>
       </ion-item>
-      <ion-item button (click)="openExternal('https://witch-hunting.com/witch/terms')">
+      <ion-item button (click)="openExternal('https://witch-hunting.com/terms')">
         <ion-icon name="document-outline" slot="start" color="medium"></ion-icon>
         <ion-label class="fw-bold text-dark" style="font-size: 15px;">Terms of Service</ion-label>
       </ion-item>

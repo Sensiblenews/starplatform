@@ -1229,6 +1229,43 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 🌟 [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 조회 (현재 글 제외, 최대 2건)
+	 */
+	public List<Map<String, Object>> getRecentStarPosts(String starId, String excludeConId) {
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("starId", starId);
+			params.put("excludeConId", excludeConId);
+			return dao.selectList("superapp.selectRecentStarPosts", params);
+		} catch (Exception e) {
+			// 관련 카드는 부가 요소이므로 조회 실패 시 랜딩 렌더링을 막지 않는다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 🌟 [신규] 푸시 알림 수신 설정(PUSH_YN) 조회 — 프로필 팝오버 토글 초기값용
+	 */
+	public Map<String, Object> getPushSetting(String starId) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			Object pushYn = dao.selectOne("superapp.selectPushYn", starId);
+			if (pushYn == null) {
+				result.put("result", "FAIL");
+				result.put("msg", "Star not found.");
+			} else {
+				result.put("result", "OK");
+				result.put("pushYn", pushYn);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("result", "FAIL");
+		}
+		return result;
+	}
+
+	/**
 	 * 🌟 [신규] 푸시 알림 수신 상태(PUSH_YN) 토글
 	 */
 	public Map<String, Object> togglePushSetting(Map<String, Object> params) {
