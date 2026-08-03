@@ -1,4 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <% String scheme=request.getScheme(); String serverName=request.getServerName(); int
     serverPort=request.getServerPort(); String portStr="" ; if (("http".equals(scheme) && serverPort !=80) ||
     ("https".equals(scheme) && serverPort !=443)) { portStr=":" + serverPort; } String fallbackBaseUrl="" ; if
@@ -121,31 +122,44 @@
             margin: 0;
         }
 
-        /* 미리보기 하단 페이드아웃: 본문이 이어진다는 시각적 신호 */
-        .fade {
-            height: 56px;
-            margin-top: -56px;
-            position: relative;
-            background: linear-gradient(rgba(255, 255, 255, 0), #fff);
+        /* 관련 콘텐츠 카드: 페이지당 콘텐츠량·내부 링크 확보 (AdSense Thin Content 대응) */
+        .related-section {
+            margin-top: 20px;
         }
 
-        .lock-card {
-            text-align: center;
-            padding: 20px 16px;
-            border-top: 1px dashed #ddd;
-            background: #fffdf5;
-        }
-
-        .lock-card p {
-            margin: 4px 0;
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .lock-card .lock-title {
-            font-size: 1rem;
+        .related-heading {
+            font-size: 0.95rem;
             font-weight: 700;
             color: #333;
+            margin: 0 0 10px 4px;
+        }
+
+        .related-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 12px;
+            margin-bottom: 10px;
+            text-decoration: none;
+        }
+
+        .related-thumb {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .related-snippet {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #444;
+            margin: 0;
+            word-break: break-word;
         }
 
         /* 광고 영역: 높이를 미리 확보해 레이아웃 밀림(CLS) 방지 */
@@ -224,20 +238,28 @@
             <div class="card-body">
                 <h1 class="title">${previewTitle}</h1>
 
-                <!-- 스타 랜딩: 랭크/방문자 요약, 포스트 랜딩: 서버에서 절반만 잘라 온 본문 -->
+                <!-- 스타 랜딩: 랭크/방문자 요약, 포스트 랜딩: 본문 전문
+                     (AdSense '콘텐츠 없는 화면 광고' 정책 판정에 따라 50% 컷·프리뷰 잠금 제거 — 클라이언트 확정) -->
                 ${not empty previewMeta ? '<p class="meta">'.concat(previewMeta).concat('</p>') : ''}
-                ${not empty previewBody ? '<p class="body-text">'.concat(previewBody).concat('</p><div class="fade"></div>') : ''}
-            </div>
-
-            <div class="lock-card">
-                <p class="lock-title">&#128274; This is a preview</p>
-                <p>
-                    ${landingType == 'post'
-                        ? 'Continue in the app to read the full post.'
-                        : 'Open the app to see all updates and follow this star.'}
-                </p>
+                ${not empty previewBody ? '<p class="body-text">'.concat(previewBody).concat('</p>') : ''}
             </div>
         </div>
+
+        <!-- 관련 콘텐츠: 이 스타의 다른 최근 게시물 (내부 링크) -->
+        <c:if test="${not empty relatedPosts}">
+            <div class="related-section">
+                <p class="related-heading">More posts</p>
+                <c:forEach var="rp" items="${relatedPosts}">
+                    <a class="related-card" href="${pageContext.request.contextPath}/post/${rp.conId}">
+                        <c:if test="${not empty rp.image}">
+                            <img class="related-thumb" src="${rp.image}" alt="" loading="lazy"
+                                onerror="this.style.display='none'">
+                        </c:if>
+                        <p class="related-snippet">${rp.snippet}</p>
+                    </a>
+                </c:forEach>
+            </div>
+        </c:if>
 
         <!-- 광고 (AdSense) -->
         <div class="ad-wrap" id="adWrap">

@@ -56,15 +56,37 @@ public class DeepLinkController {
 				.replace("'", "&#39;");
 	}
 
-	// 본문을 코드포인트 기준 절반만 남기고 자름 (웹 랜딩 미리보기용 — 전체 본문은 앱에서만 제공)
-	// CSS 숨김이 아니라 서버에서 잘라 내려보내는 것이 요구사항
-	private String cutBodyHalf(String body) {
+	// 관련 콘텐츠 카드용 요약: 본문 앞부분만 코드포인트 기준으로 잘라 이스케이프해 반환
+	private String snippet(String body, int maxCodePoints) {
 		if (body == null) return "";
 		String trimmed = body.trim();
 		if (trimmed.isEmpty()) return "";
 		int total = trimmed.codePointCount(0, trimmed.length());
-		int endIndex = trimmed.offsetByCodePoints(0, Math.max(1, total / 2));
-		return trimmed.substring(0, endIndex);
+		if (total <= maxCodePoints) {
+			return escapeHtml(trimmed);
+		}
+		int endIndex = trimmed.offsetByCodePoints(0, maxCodePoints);
+		return escapeHtml(trimmed.substring(0, endIndex)) + "...";
+	}
+
+	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 2건) 모델 구성.
+	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
+	private void addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
+		List<Map<String, Object>> posts = superAppService.getRecentStarPosts(starId, excludeConId);
+		List<Map<String, Object>> cards = new java.util.ArrayList<>();
+		for (Map<String, Object> post : posts) {
+			Map<String, Object> card = new HashMap<>();
+			card.put("conId", post.get("CON_ID"));
+			card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
+
+			String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
+			if (image != null && image.startsWith("/")) {
+				image = baseUrl + image;
+			}
+			card.put("image", image != null ? image : "");
+			cards.add(card);
+		}
+		model.addAttribute("relatedPosts", cards);
 	}
 
 	private String encodeUrlParams(String urlStr) {
@@ -237,6 +259,8 @@ public class DeepLinkController {
 					if (!LandingVisitService.isCrawler(userAgent)) {
 						model.addAttribute("visitToken", landingVisitService.issueToken(id));
 					}
+					// 🌟 관련 콘텐츠 카드: 이 스타의 최근 게시물 2건 (AdSense Thin Content 대응)
+					addRelatedPosts(model, id, null, baseUrl);
 					view = "/common/content_landing";
 				}
 			}
@@ -298,20 +322,24 @@ public class DeepLinkController {
 					model.addAttribute("ogImage", imageUrl);
 					model.addAttribute("ogUrl", baseUrl + uri);
 
-					// 🌟 웹 랜딩 미리보기 데이터: 본문은 서버에서 절반만 잘라 내려줌 (전체 본문은 앱 전용)
+					// 🌟 웹 랜딩 본문: 전체 노출 (AdSense '콘텐츠 없는 화면 광고' 정책 위반 판정에 따라
+					// 기존 50% 컷 + 프리뷰 잠금을 제거하고 전문을 내려준다 — 클라이언트 확정)
 					model.addAttribute("landingType", "post");
 					model.addAttribute("previewTitle",
 							escapeHtml(starName != null ? starName + "'s Post" : "StarPlatform Post"));
-					model.addAttribute("previewBody", escapeHtml(cutBodyHalf(fullBody)));
+					model.addAttribute("previewBody", escapeHtml(fullBody != null ? fullBody.trim() : ""));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
 
 					// 🌟 방문 카운트 토큰: 스타 피드만 작성자 스타에게 귀속해 발급.
 					// 관리자 공지(FEED_TYPE='ADMIN')는 PRS_ID 자리에 ADMIN_ID가 담겨 있어 스타 귀속이 불가하므로 카운트 제외
 					Object feedPrsId = content.get("PRS_ID");
-					if ("STAR".equals(content.get("FEED_TYPE")) && feedPrsId != null
-							&& !LandingVisitService.isCrawler(userAgent)) {
-						model.addAttribute("visitToken", landingVisitService.issueToken(String.valueOf(feedPrsId)));
+					if ("STAR".equals(content.get("FEED_TYPE")) && feedPrsId != null) {
+						if (!LandingVisitService.isCrawler(userAgent)) {
+							model.addAttribute("visitToken", landingVisitService.issueToken(String.valueOf(feedPrsId)));
+						}
+						// 🌟 관련 콘텐츠 카드: 같은 스타의 다른 게시물 2건 (현재 글 제외)
+						addRelatedPosts(model, String.valueOf(feedPrsId), String.valueOf(content.get("CON_ID")), baseUrl);
 					}
 					view = "/common/content_landing";
 				}

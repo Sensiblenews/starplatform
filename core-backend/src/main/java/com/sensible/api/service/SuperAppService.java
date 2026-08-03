@@ -1229,6 +1229,22 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 🌟 [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 조회 (현재 글 제외, 최대 2건)
+	 */
+	public List<Map<String, Object>> getRecentStarPosts(String starId, String excludeConId) {
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("starId", starId);
+			params.put("excludeConId", excludeConId);
+			return dao.selectList("superapp.selectRecentStarPosts", params);
+		} catch (Exception e) {
+			// 관련 카드는 부가 요소이므로 조회 실패 시 랜딩 렌더링을 막지 않는다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
 	 * 🌟 [신규] 푸시 알림 수신 설정(PUSH_YN) 조회 — 프로필 팝오버 토글 초기값용
 	 */
 	public Map<String, Object> getPushSetting(String starId) {
