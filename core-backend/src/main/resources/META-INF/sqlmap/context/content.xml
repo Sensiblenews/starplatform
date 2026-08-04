@@ -89,6 +89,7 @@
 			FROM
 			    WH_CONTENT
 			WHERE CON_TYPE = 7
+			ORDER BY CON_ID
 			LIMIT ${index}, 1
 		]]>
 	</select>

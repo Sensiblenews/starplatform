@@ -444,6 +444,56 @@
 		ORDER BY IS_PINNED DESC, CREATED_DATE DESC
 	</select>
 
+	<!-- [신규] 루트 허브 페이지용: 전체 스타의 최근 게시물 (내부 링크·콘텐츠 발견 경로 확보) -->
+	<select id="selectHomeRecentPosts" parameterType="map" resultType="map">
+		SELECT
+			M.CON_ID,
+			M.CON_BODY,
+			M.CREATED_DATE,
+			P.PRS_NAME,
+			D.THUMB_URL,
+			D.MEDIA_URL
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		ORDER BY M.CREATED_DATE DESC
+		LIMIT 8
+	</select>
+
+	<!-- [신규] 루트 허브 페이지용: 팔로워순 상위 스타 목록 -->
+	<select id="selectHomeTopStars" parameterType="map" resultType="map">
+		SELECT
+			P.PRS_ID,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		ORDER BY FOLLOWER_CNT DESC, P.PRS_NAME ASC
+		LIMIT 10
+	</select>
+
+	<!-- [신규] sitemap.xml용: 게시물이 1건 이상 있는 활성 스타만 포함.
+	     활성 스타 대부분(1.4만+)이 게시물 없는 빈 페이지라, 전부 넣으면 검색엔진에 대량 빈약 콘텐츠로 비친다.
+	     (사이트맵 파일당 URL 5만 개 제한 대비 상한 유지) -->
+	<select id="selectSitemapStars" parameterType="map" resultType="map">
+		SELECT P.PRS_ID
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		  AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID)
+		ORDER BY P.PRS_ID
+		LIMIT 10000
+	</select>
+
+	<!-- [신규] sitemap.xml용: 활성 스타의 게시물 전체 (CREATED_DATE는 lastmod 표기용) -->
+	<select id="selectSitemapPosts" parameterType="map" resultType="map">
+		SELECT M.CON_ID, M.CREATED_DATE
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		ORDER BY M.CON_ID
+		LIMIT 39000
+	</select>
+
 	<!-- [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 (현재 글 제외, 2건) -->
 	<select id="selectRecentStarPosts" parameterType="map" resultType="map">
 		SELECT

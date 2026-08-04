@@ -1245,6 +1245,56 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 🌟 [신규] 루트 허브 페이지용: 전체 스타의 최근 게시물 조회 (최대 8건)
+	 */
+	public List<Map<String, Object>> getHomeRecentPosts() {
+		try {
+			return dao.selectList("superapp.selectHomeRecentPosts", new HashMap<>());
+		} catch (Exception e) {
+			// 허브 카드 조회가 실패해도 허브 페이지 골격은 렌더링돼야 한다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 🌟 [신규] 루트 허브 페이지용: 팔로워순 상위 스타 조회 (최대 10명)
+	 */
+	public List<Map<String, Object>> getHomeTopStars() {
+		try {
+			return dao.selectList("superapp.selectHomeTopStars", new HashMap<>());
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 🌟 [신규] sitemap.xml용: 활성 스타 ID 목록 조회
+	 */
+	public List<Map<String, Object>> getSitemapStars() {
+		try {
+			return dao.selectList("superapp.selectSitemapStars", new HashMap<>());
+		} catch (Exception e) {
+			// 조회 실패 시에도 사이트맵은 루트 URL만으로 응답한다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 🌟 [신규] sitemap.xml용: 활성 스타의 게시물 ID·작성일 목록 조회
+	 */
+	public List<Map<String, Object>> getSitemapPosts() {
+		try {
+			return dao.selectList("superapp.selectSitemapPosts", new HashMap<>());
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
 	 * 🌟 [신규] 푸시 알림 수신 설정(PUSH_YN) 조회 — 프로필 팝오버 토글 초기값용
 	 */
 	public Map<String, Object> getPushSetting(String starId) {

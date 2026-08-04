@@ -445,57 +445,107 @@ public class DeepLinkController {
 		return view;
 	}
 	
+	// 🌟 루트: 서브 라우트 없이 진입한 전원(크롤러 포함)에게 콘텐츠 허브를 서버 렌더링한다.
+	// UA별 분기(PC=마케팅, 봇·모바일=빈 트램폴린)는 클로킹 오해 소지가 있고
+	// AdSense 심사 크롤러가 빈 페이지를 보게 되는 원인이라 제거 — 클라이언트 확정.
+	// 앱 전환은 자동 실행 없이 Open in App 버튼 클릭으로만 시도한다.
 	@RequestMapping(value = "/")
-    public String rootTrampoline(HttpServletRequest request, Model model) {
-        
-        String userAgent = request.getHeader("User-Agent");
-        if (userAgent == null) userAgent = "";
-        userAgent = userAgent.toLowerCase();
-        
-        // 1. 모바일 기기(안드로이드, 아이폰, 아이패드)인지 확인
-        boolean isMobile = userAgent.contains("android") || userAgent.contains("iphone") || userAgent.contains("ipad");
-        
-        // 🌟 2. 카카오톡 등 미리보기 스크랩 봇인지 확인 추가
-     // 🌟 2. 카카오톡 등 미리보기 스크랩 봇인지 확인 (트위터/X 추가)
-        boolean isBot = userAgent.contains("bot") 
-                     || userAgent.contains("scrap") 
-                     || userAgent.contains("facebookexternalhit") 
-                     || userAgent.contains("kakao")
-                     || userAgent.contains("twitter")
-                     || userAgent.contains("xbot");
-        
-     // 🌟 [추가] 특정해서 페이스북 봇인지 확인
-        boolean isFacebookBot = userAgent.contains("facebookexternalhit");
+	public String rootHub(HttpServletRequest request, Model model) {
+		String baseUrl = getBaseUrl(request);
+		model.addAttribute("canonicalUrl", baseUrl + "/");
 
-        // 💻 3. 모바일도 아니고 봇도 아닌 찐 PC 환경인 경우 -> 사내 관리자 로그인 페이지로
-        if (!isMobile && !isBot) {
-            return "/common/landing";
-        }
+		try {
+			// 최근 포스트 카드: 크롤러가 광고·콘텐츠가 있는 /post/*를 발견하는 내부 링크 경로
+			List<Map<String, Object>> posts = superAppService.getHomeRecentPosts();
+			List<Map<String, Object>> postCards = new java.util.ArrayList<>();
+			for (Map<String, Object> post : posts) {
+				Map<String, Object> card = new HashMap<>();
+				card.put("conId", post.get("CON_ID"));
+				card.put("author", escapeHtml(String.valueOf(post.get("PRS_NAME"))));
+				card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
+				String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
+				card.put("image", toAbsoluteUrl(image, baseUrl));
+				postCards.add(card);
+			}
+			model.addAttribute("recentPosts", postCards);
 
-        // 📱 4. 모바일 환경이거나 미리보기 수집 봇인 경우 -> 브릿지 페이지로 연결 (OG태그 노출)
-        String uri = request.getRequestURI();
-        String baseUrl = getBaseUrl(request);
-        
-     // 🌟 페이스북 봇일 경우에만 제목 뒤에 문구 추가
-        String defaultTitle = "StarPlatform SuperApp";
-        if (isFacebookBot) {
-            defaultTitle += " | Everyone Can Earn";
-        }
-        
-        model.addAttribute("ogTitle", defaultTitle);
-        model.addAttribute("ogDesc", "Everyone Can Earn");
-        // 🌟 [추가] 기본 이미지에도 HTTPS 대응 및 캐시 버스팅 적용
-        String defaultIcon = baseUrl + "/resources/img/icon.png";
-        if (defaultIcon.startsWith("http://witch-hunting.com")) {
-            defaultIcon = defaultIcon.replace("http://", "https://");
-        }
-        defaultIcon = defaultIcon + "?t=" + System.currentTimeMillis();
-        
-        model.addAttribute("ogImage", defaultIcon);
-        model.addAttribute("ogUrl", baseUrl + uri);
-        
-        return "/common/deeplink_redirect"; 
-    }
+			// 인기 스타 카드: /star/* 내부 링크 경로
+			List<Map<String, Object>> stars = superAppService.getHomeTopStars();
+			List<Map<String, Object>> starCards = new java.util.ArrayList<>();
+			for (Map<String, Object> star : stars) {
+				Map<String, Object> card = new HashMap<>();
+				card.put("id", star.get("PRS_ID"));
+				card.put("name", escapeHtml(String.valueOf(star.get("PRS_NAME"))));
+				card.put("image", toAbsoluteUrl((String) star.get("STORED_FILE_NM"), baseUrl));
+				card.put("followerCnt", star.get("FOLLOWER_CNT"));
+				starCards.add(card);
+			}
+			model.addAttribute("topStars", starCards);
+		} catch (Exception e) {
+			// 목록 조회가 실패해도 허브 골격(히어로·소개·푸터)은 렌더링한다
+			e.printStackTrace();
+		}
+
+		return "/common/landing";
+	}
+
+	// 🌟 sitemap.xml 동적 생성: 실존하는 스타·포스트 URL을 나열한다.
+	// 기존 정적 파일은 존재하지 않는 /post/123을 담은 스텁이라 제거하고 이 매핑으로 교체 (mvc:resources 매핑도 제거)
+	@RequestMapping(value = "/sitemap.xml")
+	public void sitemap(HttpServletRequest request, HttpServletResponse response) throws Exception {
+		String baseUrl = getBaseUrl(request);
+		List<Map<String, Object>> stars = superAppService.getSitemapStars();
+		List<Map<String, Object>> posts = superAppService.getSitemapPosts();
+
+		response.setContentType("application/xml");
+		response.setCharacterEncoding("UTF-8");
+		// 콘텐츠 등록 주기를 고려한 1시간 캐시 (엣지 캐시 회복 주기는 ads.txt 매핑과 동일 기준)
+		response.setHeader("Cache-Control", "public, max-age=3600");
+		response.getWriter().write(buildSitemapXml(baseUrl, stars, posts));
+	}
+
+	// 사이트맵 XML 조립. lastmod는 CREATED_DATE 앞 10자리(yyyy-MM-dd)만 사용
+	private String buildSitemapXml(String baseUrl, List<Map<String, Object>> stars, List<Map<String, Object>> posts) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+		sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+		appendSitemapUrl(sb, baseUrl + "/", null);
+		if (stars != null) {
+			for (Map<String, Object> star : stars) {
+				Object id = star.get("PRS_ID");
+				if (id != null) {
+					appendSitemapUrl(sb, baseUrl + "/star/" + id, null);
+				}
+			}
+		}
+		if (posts != null) {
+			for (Map<String, Object> post : posts) {
+				Object id = post.get("CON_ID");
+				if (id == null) continue;
+				String created = post.get("CREATED_DATE") != null ? String.valueOf(post.get("CREATED_DATE")) : "";
+				String lastmod = created.length() >= 10 ? created.substring(0, 10) : null;
+				appendSitemapUrl(sb, baseUrl + "/post/" + id, lastmod);
+			}
+		}
+		sb.append("</urlset>\n");
+		return sb.toString();
+	}
+
+	private void appendSitemapUrl(StringBuilder sb, String loc, String lastmod) {
+		sb.append("  <url><loc>").append(escapeHtml(loc)).append("</loc>");
+		if (lastmod != null && !lastmod.isEmpty()) {
+			sb.append("<lastmod>").append(escapeHtml(lastmod)).append("</lastmod>");
+		}
+		sb.append("</url>\n");
+	}
+
+	// 상대 경로 이미지 URL을 절대 경로로 변환 (허브 카드용. null이면 빈 문자열)
+	private String toAbsoluteUrl(String url, String baseUrl) {
+		if (url == null || url.trim().isEmpty()) return "";
+		if (url.startsWith("http://") || url.startsWith("https://")) return url;
+		if (url.startsWith("/")) return baseUrl + url;
+		return baseUrl + "/" + url;
+	}
 	
 	// 🌟 2. 개인정보 처리방침 페이지 매핑
     @RequestMapping(value = "/privacy")
