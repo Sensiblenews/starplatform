@@ -371,6 +371,24 @@ public class SuperAdminService {
         dao.update("super.updatePolicyContent", params);
     }
 
+    // 🌟 [신규] 제목이 개인정보처리방침을 가리키는지 판정.
+    // 웹 /privacy·/terms(DeepLinkController.renderPolicy)가 같은 규칙으로 문서를 구분하므로 등록 시에도 이 규칙을 강제한다.
+    public static boolean isPrivacyTitle(String title) {
+        if (title == null) {
+            return false;
+        }
+        return title.toLowerCase().contains("privacy") || title.contains("개인정보");
+    }
+
+    // 🌟 [신규] 약관/개인정보처리방침 신규 등록. CON_ID는 WH_CONTENT 전체 기준으로 채번한다
+    public long createPolicyContent(Map<String, Object> params) throws Exception {
+        Map<String, Object> idMap = dao.selectOne("super.selectNextPolicyConId");
+        long conId = ((Number) idMap.get("CON_ID")).longValue();
+        params.put("CON_ID", conId);
+        dao.insert("super.insertPolicyContent", params);
+        return conId;
+    }
+
     // 🌟 [신규] 스타 일괄 등록 처리
     public Map<String, Object> insertStarBulk(List<String> names, String pwd, String country) throws Exception {
         int successCount = 0;

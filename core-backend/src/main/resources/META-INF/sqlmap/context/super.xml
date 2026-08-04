@@ -498,4 +498,20 @@
         WHERE CON_ID = #{CON_ID}
           AND CON_TYPE = 7
     </update>
+
+    <!-- 🌟 [신규] 약관 신규 등록용 CON_ID 채번.
+         content.contentNextConId는 빈 테이블에서 NULL을 반환하므로 IFNULL 가드를 둔다 -->
+    <select id="selectNextPolicyConId" resultType="hashmap">
+        SELECT IFNULL(MAX(CON_ID), 0) + 1 AS CON_ID
+        FROM WH_CONTENT
+    </select>
+
+    <!-- 🌟 [신규] 약관/개인정보처리방침 신규 등록.
+         CON_TYPE=7 고정, CON_CATEGORY=8·CON_USE_YN='1'·CON_PRIOT=CON_ID는 기존 /adm 앱설정 등록 폼과 동일 값 -->
+    <insert id="insertPolicyContent" parameterType="map">
+        INSERT INTO WH_CONTENT
+        (CON_ID, PRS_ID, APP_ID, CON_TYPE, CON_CATEGORY, CON_TITLE, CON_BODY, CON_USE_YN, CON_PRIOT)
+        VALUES
+        (#{CON_ID}, #{PRS_ID}, #{APP_ID}, 7, 8, #{CON_TITLE}, #{CON_BODY}, '1', #{CON_ID})
+    </insert>
 </mapper>

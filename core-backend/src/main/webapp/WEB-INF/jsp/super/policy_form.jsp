@@ -32,8 +32,9 @@
         </div>
         <div class="alert alert-info mx-auto" style="max-width: 1000px;">
             <i class="fas fa-info-circle"></i>
-            여기서 저장한 내용은 앱의 약관 화면과 웹(<code>/terms</code>, <code>/privacy</code>)에 즉시 반영됩니다.
+            여기서 등록·저장한 내용은 앱의 약관 화면과 웹(<code>/terms</code>, <code>/privacy</code>)에 즉시 반영됩니다.
             본문은 HTML 원문이며, 저장 전 <b>미리보기</b>로 렌더링 결과를 확인하세요.
+            앱 약관 화면은 <b>이용약관·개인정보처리방침 2건이 모두 등록</b>되어야 표시됩니다.
         </div>
 
         <div id="policyContainer">
@@ -57,6 +58,18 @@
     </div>
 
 <script>
+    // 웹 /terms·/privacy와 동일한 제목 구분 규칙 (서버 SuperAdminService.isPrivacyTitle과 일치해야 함)
+    function isPrivacyTitle(title) {
+        if (!title) return false;
+        return title.toLowerCase().indexOf('privacy') > -1 || title.indexOf('개인정보') > -1;
+    }
+
+    // 고정 2칸: 이용약관 먼저 등록해야 앱 약관 목록에서도 이용약관이 먼저 노출된다 (CON_ID 순 조회)
+    var KINDS = [
+        { key: 'terms', label: '이용약관', defaultTitle: 'Terms of Service' },
+        { key: 'privacy', label: '개인정보처리방침', defaultTitle: 'Privacy Policy' }
+    ];
+
     // 약관 목록 로드 후 카드 렌더링.
     // 본문에 HTML/따옴표가 포함되므로 문자열 템플릿 조립 대신 DOM API + value 할당으로 넣는다.
     function loadPolicies() {
@@ -65,12 +78,29 @@
             .then(function (data) {
                 var container = document.getElementById('policyContainer');
                 container.innerHTML = '';
-                if (data.status !== 'success' || !data.list || data.list.length === 0) {
+                if (data.status !== 'success') {
                     container.innerHTML = '<div class="alert alert-warning mx-auto" style="max-width:1000px;">'
-                        + '등록된 약관(CON_TYPE=7)이 없습니다. 앱 설정 콘텐츠에 약관을 먼저 등록해 주세요.</div>';
+                        + '약관 목록을 불러오지 못했습니다.</div>';
                     return;
                 }
-                data.list.forEach(function (row) { container.appendChild(buildCard(row)); });
+                var list = data.list || [];
+                var used = [];
+                KINDS.forEach(function (kind) {
+                    var row = null;
+                    for (var i = 0; i < list.length; i++) {
+                        if (used.indexOf(i) > -1) continue;
+                        if (isPrivacyTitle(list[i].CON_TITLE) === (kind.key === 'privacy')) {
+                            row = list[i];
+                            used.push(i);
+                            break;
+                        }
+                    }
+                    container.appendChild(row ? buildCard(kind, row) : buildCreateCard(kind));
+                });
+                // 구분 규칙에 매칭되지 않은 잔여 행도 노출한다 (중복 데이터 정리용)
+                list.forEach(function (row, i) {
+                    if (used.indexOf(i) === -1) container.appendChild(buildCard(null, row));
+                });
             })
             .catch(function (err) {
                 console.error(err);
@@ -78,7 +108,23 @@
             });
     }
 
-    function buildCard(row) {
+    // 제목이 구분 규칙에 맞는지 검사하고, 어긋나면 얼럿 후 false (서버에서도 같은 검증을 한다)
+    function validateTitleForKind(kind, title) {
+        if (!kind) return true;
+        var looksPrivacy = isPrivacyTitle(title);
+        if (kind.key === 'privacy' && !looksPrivacy) {
+            alert("개인정보처리방침 제목에는 'privacy' 또는 '개인정보'가 포함되어야 합니다.");
+            return false;
+        }
+        if (kind.key === 'terms' && looksPrivacy) {
+            alert("이용약관 제목에는 'privacy'·'개인정보'를 포함할 수 없습니다.");
+            return false;
+        }
+        return true;
+    }
+
+    // 카드 공통 뼈대: 헤더 라벨 + 제목/본문 입력 + 버튼 영역
+    function buildCardBase(headerText, headerRightText, title, body) {
         var card = document.createElement('div');
         card.className = 'form-card';
 
@@ -86,13 +132,13 @@
         header.className = 'd-flex justify-content-between align-items-center mb-3 border-bottom pb-2';
         var h5 = document.createElement('h5');
         h5.className = 'mb-0 fw-bold';
-        h5.textContent = 'CON_ID ' + row.CON_ID;
-        var updated = document.createElement('span');
-        updated.className = 'text-muted';
-        updated.style.fontSize = '13px';
-        updated.textContent = '최종 수정: ' + (row.CON_UDATE || '-');
+        h5.textContent = headerText;
+        var right = document.createElement('span');
+        right.className = 'text-muted';
+        right.style.fontSize = '13px';
+        right.textContent = headerRightText;
         header.appendChild(h5);
-        header.appendChild(updated);
+        header.appendChild(right);
 
         var titleLabel = document.createElement('label');
         titleLabel.className = 'form-label';
@@ -100,7 +146,7 @@
         var titleInput = document.createElement('input');
         titleInput.type = 'text';
         titleInput.className = 'form-control mb-3';
-        titleInput.value = row.CON_TITLE || '';
+        titleInput.value = title;
 
         var bodyLabel = document.createElement('label');
         bodyLabel.className = 'form-label';
@@ -108,7 +154,7 @@
         var bodyArea = document.createElement('textarea');
         bodyArea.className = 'form-control policy-body mb-3';
         bodyArea.rows = 22;
-        bodyArea.value = row.CON_BODY || '';
+        bodyArea.value = body;
 
         var btnRow = document.createElement('div');
         btnRow.className = 'd-flex justify-content-end gap-2';
@@ -118,15 +164,7 @@
         previewBtn.className = 'btn btn-outline-secondary';
         previewBtn.innerHTML = '<i class="fas fa-eye"></i> 미리보기';
         previewBtn.onclick = function () { openPreview(titleInput.value, bodyArea.value); };
-
-        var saveBtn = document.createElement('button');
-        saveBtn.type = 'button';
-        saveBtn.className = 'btn btn-primary px-4 fw-bold';
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장';
-        saveBtn.onclick = function () { savePolicy(row.CON_ID, titleInput.value, bodyArea.value, saveBtn); };
-
         btnRow.appendChild(previewBtn);
-        btnRow.appendChild(saveBtn);
 
         card.appendChild(header);
         card.appendChild(titleLabel);
@@ -134,7 +172,34 @@
         card.appendChild(bodyLabel);
         card.appendChild(bodyArea);
         card.appendChild(btnRow);
-        return card;
+        return { card: card, titleInput: titleInput, bodyArea: bodyArea, btnRow: btnRow };
+    }
+
+    // 기존 행 수정 카드. kind가 null이면 구분 미상 행(잔여 데이터)
+    function buildCard(kind, row) {
+        var headerText = (kind ? kind.label : '구분 미상') + ' · CON_ID ' + row.CON_ID;
+        var base = buildCardBase(headerText, '최종 수정: ' + (row.CON_UDATE || '-'), row.CON_TITLE || '', row.CON_BODY || '');
+
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn btn-primary px-4 fw-bold';
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장';
+        saveBtn.onclick = function () { savePolicy(kind, row.CON_ID, base.titleInput.value, base.bodyArea.value, saveBtn); };
+        base.btnRow.appendChild(saveBtn);
+        return base.card;
+    }
+
+    // 미등록 구분의 신규 등록 카드
+    function buildCreateCard(kind) {
+        var base = buildCardBase(kind.label + ' · 미등록', '등록하면 앱과 웹에 즉시 노출됩니다', kind.defaultTitle, '');
+
+        var createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.className = 'btn btn-success px-4 fw-bold';
+        createBtn.innerHTML = '<i class="fas fa-plus"></i> 등록';
+        createBtn.onclick = function () { createPolicy(kind, base.titleInput.value, base.bodyArea.value, createBtn); };
+        base.btnRow.appendChild(createBtn);
+        return base.card;
     }
 
     function openPreview(title, body) {
@@ -147,11 +212,12 @@
         new bootstrap.Modal(document.getElementById('previewModal')).show();
     }
 
-    function savePolicy(conId, title, body, btn) {
+    function savePolicy(kind, conId, title, body, btn) {
         if (!body || !body.trim()) {
             alert('본문이 비어 있습니다.');
             return;
         }
+        if (!validateTitleForKind(kind, title)) return;
         if (!confirm('저장하시겠습니까? 앱과 웹에 즉시 반영됩니다.')) return;
 
         btn.disabled = true;
@@ -168,6 +234,41 @@
                     loadPolicies();
                 } else {
                     alert('저장 실패: ' + (data.msg || '알 수 없는 오류'));
+                }
+            })
+            .catch(function (err) {
+                btn.disabled = false;
+                console.error(err);
+                alert('서버 통신 중 오류가 발생했습니다.');
+            });
+    }
+
+    function createPolicy(kind, title, body, btn) {
+        if (!title || !title.trim()) {
+            alert('제목을 입력해 주세요.');
+            return;
+        }
+        if (!body || !body.trim()) {
+            alert('본문이 비어 있습니다.');
+            return;
+        }
+        if (!validateTitleForKind(kind, title)) return;
+        if (!confirm(kind.label + '을(를) 등록하시겠습니까? 앱과 웹에 즉시 노출됩니다.')) return;
+
+        btn.disabled = true;
+        fetch('/super/policy/create.do', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ KIND: kind.key, CON_TITLE: title, CON_BODY: body })
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                if (data.status === 'success') {
+                    alert('등록되었습니다.');
+                    loadPolicies();
+                } else {
+                    alert('등록 실패: ' + (data.msg || '알 수 없는 오류'));
                 }
             })
             .catch(function (err) {

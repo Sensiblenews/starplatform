@@ -855,6 +855,68 @@ public class SuperAdminController {
     }
 
     /**
+     * 🌟 [API] 약관 신규 등록 (SM 전용)
+     * KIND=terms|privacy 구분을 받는다. 웹 /terms·/privacy가 제목의 privacy/개인정보 포함 여부로
+     * 문서를 구분하므로, 등록 시 제목 규칙과 같은 구분의 중복 등록을 서버에서 검증한다.
+     */
+    @RequestMapping(value = "/super/policy/create.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> createPolicyContent(HttpServletRequest request, @RequestBody Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            String kind = params.get("KIND") == null ? "" : String.valueOf(params.get("KIND"));
+            String title = params.get("CON_TITLE") == null ? "" : String.valueOf(params.get("CON_TITLE")).trim();
+            String body = params.get("CON_BODY") == null ? "" : String.valueOf(params.get("CON_BODY")).trim();
+
+            boolean isPrivacy = "privacy".equals(kind);
+            if (!isPrivacy && !"terms".equals(kind)) {
+                result.put("status", "fail");
+                result.put("msg", "약관 구분이 올바르지 않습니다.");
+                return result;
+            }
+            if (title.isEmpty() || body.isEmpty()) {
+                result.put("status", "fail");
+                result.put("msg", "제목과 본문을 입력해 주세요.");
+                return result;
+            }
+            if (isPrivacy != SuperAdminService.isPrivacyTitle(title)) {
+                result.put("status", "fail");
+                result.put("msg", isPrivacy
+                        ? "개인정보처리방침 제목에는 'privacy' 또는 '개인정보'가 포함되어야 합니다."
+                        : "이용약관 제목에는 'privacy'·'개인정보'를 포함할 수 없습니다.");
+                return result;
+            }
+            for (Map<String, Object> row : superAdminService.getPolicyList()) {
+                String rowTitle = row.get("CON_TITLE") == null ? "" : row.get("CON_TITLE").toString();
+                if (SuperAdminService.isPrivacyTitle(rowTitle) == isPrivacy) {
+                    result.put("status", "fail");
+                    result.put("msg", "이미 등록된 약관입니다. 기존 항목을 수정해 주세요.");
+                    return result;
+                }
+            }
+
+            Map<String, Object> insertMap = new HashMap<>();
+            insertMap.put("PRS_ID", user.getPRS_ID());
+            insertMap.put("APP_ID", user.getAPP_ID());
+            insertMap.put("CON_TITLE", title);
+            insertMap.put("CON_BODY", body);
+            superAdminService.createPolicyContent(insertMap);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "약관 등록에 실패했습니다.");
+        }
+        return result;
+    }
+
+    /**
      * [화면] 스타 일괄 등록 폼 (SM 전용)
      */
     @RequestMapping(value = "/super/star/bulk-create.do")
