@@ -54,6 +54,13 @@
     .star-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #1e293b; }
     .star-name { font-size: 13px; font-weight: 600; color: #e2e8f0; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .star-followers { font-size: 11px; color: #94a3b8; }
+    /* 공식 스토어 뱃지: 구글 뱃지는 원본 PNG에 자체 여백이 있어 애플보다 크게 잡아 시각 크기를 맞춘다 */
+    .store-section { padding: 30px 20px 0; text-align: center; }
+    .store-caption { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #94a3b8; margin-bottom: 10px; }
+    .store-badges { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
+    .store-badges img { display: block; }
+    .badge-google { height: 78px; }
+    .badge-apple { height: 54px; margin: 0 12px; }
     footer { margin-top: 60px; padding: 30px 0; border-top: 1px solid #334155; text-align: center; font-size: 14px; color: #94a3b8; }
     footer a { color: #94a3b8; margin: 0 10px; text-decoration: none; }
     footer a:hover { text-decoration: underline; }
@@ -129,6 +136,19 @@
         <h3>🏆 Ranking System</h3>
         <p>Compete globally with transparent ranking metrics.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- 공식 스토어 뱃지: 구글·애플 브랜드 가이드에 따라 공식 아트워크(공식 URL)를 그대로 사용한다 -->
+  <section class="store-section">
+    <p class="store-caption">Don't have the app?</p>
+    <div class="store-badges">
+      <a href="https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E" target="_blank" rel="noopener noreferrer">
+        <img class="badge-google" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" loading="lazy">
+      </a>
+      <a href="https://apps.apple.com/app/id1188195403" target="_blank" rel="noopener noreferrer">
+        <img class="badge-apple" src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us" alt="Download on the App Store" loading="lazy">
+      </a>
     </div>
   </section>
 
