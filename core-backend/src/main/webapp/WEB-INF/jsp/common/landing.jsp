@@ -81,7 +81,8 @@
 
     <div class="buttons">
       <a onclick="openApp()" class="btn btn-primary">Open in App</a>
-      <a href="https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Get it on Google Play</a>
+      <!-- OS별 스토어 분기: iOS에 Play 링크가 노출되던 버그 수정 (하드코딩 Google Play 버튼 제거) -->
+      <a onclick="goStore()" class="btn btn-secondary">Download App</a>
     </div>
   </section>
 
@@ -174,6 +175,20 @@
     } else {
       // iOS: 커스텀 스킴 1회 시도, 실패해도 추가 이동 없음
       window.location.href = "witchhunting://home";
+    }
+  }
+
+  // Download App 버튼: OS에 맞는 스토어로 이동. 데스크톱 등 판별 불가 환경은 하단 뱃지 섹션으로 스크롤
+  function goStore() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      window.location.href = "https://apps.apple.com/app/id1188195403";
+    } else if (ua.indexOf("android") > -1) {
+      window.location.href = "https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
+    } else {
+      var badges = document.querySelector(".store-badges");
+      if (badges) badges.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
 </script>
