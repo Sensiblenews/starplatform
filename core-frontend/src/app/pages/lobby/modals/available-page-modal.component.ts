@@ -68,6 +68,18 @@ import { FirebaseAuthService } from "src/app/services/oauth/firebase-auth.servic
         
         <p style="text-align: center; color: #666; margin-bottom: 20px;">This page is almost yours.</p>
 
+        <!-- 직군(카테고리) 선택 — VS 배틀필드 랭킹 분류에 사용. 기본값 STAR -->
+        <p style="font-weight: 700; color: #333; margin-bottom: 8px;">What kind of page is this?</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
+          <button *ngFor="let cat of categories" type="button"
+                  (click)="selectedCategory = cat.code"
+                  [style.background]="selectedCategory === cat.code ? '#1e88e5' : 'white'"
+                  [style.color]="selectedCategory === cat.code ? 'white' : '#555'"
+                  style="border: 1px solid #ddd; border-radius: 20px; padding: 8px 14px; font-size: 13px; font-weight: 600;">
+            {{ cat.emoji }} {{ cat.name }}
+          </button>
+        </div>
+
         <ion-button expand="block" color="dark" style="margin-bottom: 12px;" (click)="loginSocial('apple')">
           <ion-icon name="logo-apple" slot="start"></ion-icon> Continue with Apple
         </ion-button>
@@ -105,6 +117,17 @@ export class AvailablePageModalComponent {
   availablePages: any[] = [];
   selectedPage: any = null;
   claimEmail = '';
+
+  // 직군(카테고리) 목록 — VS 배틀필드 랭킹 분류. 서버 화이트리스트와 동일한 코드값
+  categories = [
+    { code: 'STAR', name: 'Star', emoji: '⭐' },
+    { code: 'CELEB', name: 'Celebrity', emoji: '👤' },
+    { code: 'BRAND', name: 'Brand', emoji: '🏢' },
+    { code: 'UNIV', name: 'University', emoji: '🎓' },
+    { code: 'CITY', name: 'City', emoji: '🌆' },
+    { code: 'MEDIA', name: 'Media', emoji: '📰' }
+  ];
+  selectedCategory = 'STAR';
 
   constructor(
     private modalCtrl: ModalController,
@@ -170,7 +193,8 @@ export class AvailablePageModalComponent {
           reqName: this.selectedPage.slug || this.selectedPage.name,
           country: this.selectedCountryCode,
           email: user.email,
-          uid: user.uid  // 🌟 [핵심] 백엔드 FIREBASE_UID 컬럼에 저장될 값
+          uid: user.uid,  // 🌟 [핵심] 백엔드 FIREBASE_UID 컬럼에 저장될 값
+          category: this.selectedCategory  // 직군 — WH_PRESS.STAR_CATEGORY에 저장
         }).subscribe((res: any) => {
           loading.dismiss();
           if (res.result === 'OK') {

@@ -1,0 +1,59 @@
+<div class="vs-carousel" *ngIf="cards && cards.length > 0"
+     (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
+
+  <ng-container *ngFor="let card of cards; let i = index; trackBy: trackByVsId">
+    <!-- *ngIf로 현재 카드만 렌더링 — 전환 시 DOM이 재생성되며 등장 애니메이션이 다시 실행된다 -->
+    <div class="vs-card" *ngIf="i === currentIndex">
+
+      <div class="vs-top-row">
+        <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        <span class="vs-type-label">{{ getTypeLabel(card) }}</span>
+        <span class="vs-index">{{ currentIndex + 1 }} / {{ cards.length }}</span>
+      </div>
+
+      <div class="vs-body">
+        <!-- 좌측: 1위 (탭 → 프로필) -->
+        <div class="vs-side left" (click)="goToProfile(card.left, $event)">
+          <div class="avatar-ring blue">
+            <img [src]="card.left.image" (error)="handleImageError($event)" loading="lazy" />
+          </div>
+          <div class="side-name">{{ card.left.name }}</div>
+          <div class="side-score">{{ formatScore(card.left.score) }} views</div>
+        </div>
+
+        <!-- 중앙: VS (탭 → 해당 카테고리 TOP100) -->
+        <div class="vs-center" (click)="onCenterClick(card)">
+          <div class="vs-logo">VS</div>
+          <div class="score-gap" *ngIf="card.right">
+            Gap {{ formatScore(getScoreGap(card)) }}
+          </div>
+        </div>
+
+        <!-- 우측: 2위 또는 도전자 대기 -->
+        <div class="vs-side right" *ngIf="card.right" (click)="goToProfile(card.right, $event)">
+          <div class="avatar-ring red">
+            <img [src]="card.right.image" (error)="handleImageError($event)" loading="lazy" />
+          </div>
+          <div class="side-name">{{ card.right.name }}</div>
+          <div class="side-score">{{ formatScore(card.right.score) }} views</div>
+        </div>
+        <div class="vs-side right waiting" *ngIf="!card.right">
+          <div class="avatar-ring gray">
+            <span class="question-mark">?</span>
+          </div>
+          <div class="side-name">Waiting for the next challenger</div>
+        </div>
+      </div>
+
+      <!-- 비율 게이지 (탭 → 해당 카테고리 TOP100) -->
+      <div class="vs-gauge" *ngIf="card.right" (click)="onCenterClick(card)">
+        <div class="gauge-left" [style.width.%]="getLeftRatio(card)">
+          {{ getLeftRatio(card) | number: '1.0-0' }}%
+        </div>
+        <div class="gauge-right" [style.width.%]="100 - getLeftRatio(card)">
+          {{ 100 - getLeftRatio(card) | number: '1.0-0' }}%
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
