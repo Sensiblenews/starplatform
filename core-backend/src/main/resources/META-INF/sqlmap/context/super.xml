@@ -514,4 +514,134 @@
         VALUES
         (#{CON_ID}, #{PRS_ID}, #{APP_ID}, 7, 8, #{CON_TITLE}, #{CON_BODY}, '1', #{CON_ID})
     </insert>
+
+    <!-- ==========================================
+         🌟 [신규] VS 배틀필드 관리 (WH_VS_CARD)
+         ========================================== -->
+
+    <!-- 관리 화면용 카드 목록. CUSTOM 카드는 좌/우 스타 이름을 조인해 표시 -->
+    <select id="selectVsCardAdminList" resultType="map">
+        SELECT
+            V.VS_ID,
+            V.CARD_KIND,
+            V.RANK_TYPE,
+            V.CATEGORY,
+            V.LEFT_PRS_ID,
+            V.RIGHT_PRS_ID,
+            V.TITLE,
+            V.IS_PINNED,
+            V.PIN_ORDER,
+            V.CREATED_DATE,
+            L.PRS_NAME AS LEFT_NAME,
+            R.PRS_NAME AS RIGHT_NAME
+        FROM WH_VS_CARD V
+        LEFT JOIN WH_PRESS L ON V.LEFT_PRS_ID = L.PRS_ID
+        LEFT JOIN WH_PRESS R ON V.RIGHT_PRS_ID = R.PRS_ID
+        WHERE V.USE_YN = 'Y'
+        ORDER BY V.IS_PINNED DESC, V.PIN_ORDER ASC, V.VS_ID ASC
+    </select>
+
+    <update id="updateVsPin" parameterType="map">
+        UPDATE WH_VS_CARD
+        SET IS_PINNED = #{isPinned}
+        WHERE VS_ID = #{vsId}
+          AND USE_YN = 'Y'
+    </update>
+
+    <!-- 드래그 정렬 저장: 화면이 넘긴 순서대로 카드별 PIN_ORDER를 갱신 -->
+    <update id="updateVsOrder" parameterType="map">
+        UPDATE WH_VS_CARD
+        SET PIN_ORDER = #{pinOrder}
+        WHERE VS_ID = #{vsId}
+          AND USE_YN = 'Y'
+    </update>
+
+    <insert id="insertVsCustom" parameterType="map">
+        INSERT INTO WH_VS_CARD (
+            CARD_KIND, LEFT_PRS_ID, RIGHT_PRS_ID, TITLE, IS_PINNED, PIN_ORDER, USE_YN, CREATED_DATE
+        ) VALUES (
+            'CUSTOM', #{leftPrsId}, #{rightPrsId}, #{title},
+            'Y',
+            IFNULL((SELECT MAX(W.PIN_ORDER) + 1 FROM WH_VS_CARD W WHERE W.USE_YN = 'Y'), 1),
+            'Y', NOW()
+        )
+    </insert>
+
+    <!-- 커스텀 카드 삭제(소프트). AUTO 카드는 삭제 불가 -->
+    <update id="deleteVsCustom" parameterType="map">
+        UPDATE WH_VS_CARD
+        SET USE_YN = 'N'
+        WHERE VS_ID = #{vsId}
+          AND CARD_KIND = 'CUSTOM'
+    </update>
+
+    <!-- 커스텀 VS 등록용 스타 검색 (키워드 상위 30명) -->
+    <select id="selectVsStarSearch" parameterType="map" resultType="map">
+        SELECT
+            PRS_ID,
+            PRS_NAME,
+            PRS_COUNTRY,
+            STAR_CATEGORY
+        FROM WH_PRESS
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+          AND PRS_USE_YN = 'Y' AND IS_STAR = 'Y'
+        <if test="searchKeyword != null and searchKeyword != ''">
+          AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        ORDER BY IFNULL(FOLLOWER_CNT, 0) DESC, PRS_NAME ASC
+        LIMIT 30
+    </select>
+
+    <!-- ==========================================
+         🌟 [신규] 스타 직군(카테고리) 수동 분류
+         ========================================== -->
+
+    <select id="selectStarCategoryList" parameterType="map" resultType="map">
+        SELECT
+            PRS_ID, PRS_NAME, PRS_COUNTRY, PRS_USE_YN,
+            IFNULL(STAR_CATEGORY, 'GENERAL') AS STAR_CATEGORY,
+            IFNULL(FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+            (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = A.PRS_ID AND ACTION = 'IMPRESSION') AS AD_VIEW_CNT
+        FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        <if test="filterCategory != null and filterCategory != ''">
+            AND IFNULL(STAR_CATEGORY, 'GENERAL') = #{filterCategory}
+        </if>
+        ORDER BY (IFNULL(STAR_CATEGORY, 'GENERAL') = 'GENERAL') DESC, FOLLOWER_CNT DESC, PRS_CREATE_DATE DESC
+        <if test="start != null and length != null">
+            LIMIT #{start}, #{length}
+        </if>
+    </select>
+
+    <select id="selectStarCategoryListCount" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+        FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        <if test="filterCategory != null and filterCategory != ''">
+            AND IFNULL(STAR_CATEGORY, 'GENERAL') = #{filterCategory}
+        </if>
+    </select>
+
+    <update id="updateStarCategory" parameterType="map">
+        UPDATE WH_PRESS
+        SET STAR_CATEGORY = #{category},
+            PRS_UPDATE_DATE = CURRENT_TIMESTAMP
+        WHERE PRS_ID = #{prsId}
+          AND PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+          AND PRS_COUNTRY = #{country}
+        </if>
+    </update>
 </mapper>

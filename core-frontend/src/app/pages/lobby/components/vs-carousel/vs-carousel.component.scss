@@ -1,0 +1,194 @@
+// VS 배틀필드 카드 — 다크 배경 + 좌 블루 / 우 레드 대비
+.vs-carousel {
+  margin: 10px 12px 4px;
+}
+
+.vs-card {
+  background: #0d1117;
+  border-radius: 16px;
+  padding: 12px 14px 14px;
+  color: #fff;
+  animation: vs-fade-in 0.4s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes vs-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.vs-top-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(229, 57, 53, 0.18);
+  color: #ff5252;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 10px;
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ff1744;
+    animation: vs-blink 1.2s infinite;
+  }
+}
+
+@keyframes vs-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.vs-type-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vs-index {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.vs-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vs-side {
+  flex: 0 0 40%;
+  text-align: center;
+  cursor: pointer;
+
+  .side-name {
+    font-size: 14px;
+    font-weight: 800;
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .side-score {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+  }
+
+  &.waiting .side-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: normal;
+  }
+}
+
+.avatar-ring {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  margin: 0 auto;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #263238;
+  }
+
+  &.blue { border: 2px solid #2979ff; }
+  &.red { border: 2px solid #ff1744; }
+  &.gray {
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+
+    .question-mark {
+      font-size: 24px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
+.vs-center {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+
+  .vs-logo {
+    font-size: 26px;
+    font-weight: 900;
+    font-style: italic;
+    background: linear-gradient(135deg, #40c4ff, #ff4081);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 14px rgba(255, 64, 129, 0.35);
+  }
+
+  .score-gap {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.65);
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+}
+
+.vs-gauge {
+  display: flex;
+  height: 22px;
+  border-radius: 11px;
+  overflow: hidden;
+  margin-top: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+
+  .gauge-left,
+  .gauge-right {
+    display: flex;
+    align-items: center;
+    transition: width 0.6s ease;
+  }
+
+  .gauge-left {
+    background: linear-gradient(90deg, #1565c0, #2979ff);
+    justify-content: flex-start;
+    padding-left: 10px;
+  }
+
+  .gauge-right {
+    background: linear-gradient(90deg, #ff1744, #b71c1c);
+    justify-content: flex-end;
+    padding-right: 10px;
+  }
+}

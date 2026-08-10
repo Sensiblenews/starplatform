@@ -809,6 +809,98 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	// ==========================================
+	// [신규] VS 배틀필드 (로비 VS 카드 + 카테고리 랭킹)
+	// ==========================================
+
+	// 스타 직군 입력값 화이트리스트 정규화 — 허용 외 값·null은 미분류(GENERAL).
+	// 가입(claim) 저장과 어드민 검증이 같은 규칙을 쓰도록 static으로 분리
+	public static String normalizeStarCategory(Object category) {
+		String value = category == null ? "" : String.valueOf(category);
+		return Constants.STAR_CATEGORIES.contains(value) ? value : Constants.STAR_CATEGORY_DEFAULT;
+	}
+
+	// VS 카드 목록: WH_VS_CARD 설정(고정/순서/커스텀)에 랭킹 TOP2를 채워 반환.
+	// 프론트가 3초 폴링하므로 Redis TTL 2초 캐시로 박자를 맞춘다 (context-redis.xml).
+	@Cacheable(value = "vsCards", key = "'cards'", unless = "#result == null")
+	public Map<String, Object> getVsCards() throws Exception {
+		Map<String, Object> resultMap = new HashMap<>();
+
+		List<Map<String, Object>> config = dao.selectList("superapp.selectVsCardList");
+
+		// 랭킹 TOP2는 rankType별 1회 조회 후 "rankType:category" → [1위, 2위] 맵으로 구성
+		Map<String, List<Map<String, Object>>> pairMap = new HashMap<>();
+		for (String rankType : new String[] { "GLOBAL", "DAILY" }) {
+			Map<String, Object> param = new HashMap<>();
+			param.put("rankType", rankType);
+			List<Map<String, Object>> rows = dao.selectList("superapp.selectVsTop2", param);
+			for (Map<String, Object> row : rows) {
+				String key = rankType + ":" + row.get("category");
+				List<Map<String, Object>> pair = pairMap.get(key);
+				if (pair == null) {
+					pair = new ArrayList<>();
+					pairMap.put(key, pair);
+				}
+				pair.add(row);
+			}
+		}
+
+		List<Map<String, Object>> cards = new ArrayList<>();
+		for (Map<String, Object> cfg : config) {
+			Map<String, Object> card = new HashMap<>();
+			card.put("vsId", cfg.get("vsId"));
+			card.put("isPinned", "Y".equals(cfg.get("isPinned")));
+
+			if ("CUSTOM".equals(cfg.get("cardKind"))) {
+				Map<String, Object> left = dao.selectOne("superapp.selectVsStarWithScore", cfg.get("leftPrsId"));
+				Map<String, Object> right = dao.selectOne("superapp.selectVsStarWithScore", cfg.get("rightPrsId"));
+				// 한쪽이라도 비활성/삭제된 스타면 카드 자체를 노출하지 않는다
+				if (left == null || right == null) {
+					continue;
+				}
+				card.put("type", "CUSTOM");
+				card.put("category", "GLOBAL"); // 중앙 클릭 시 전체 랭킹으로 이동
+				card.put("title", cfg.get("title"));
+				card.put("left", left);
+				card.put("right", right);
+			} else {
+				String key = cfg.get("rankType") + ":" + cfg.get("category");
+				List<Map<String, Object>> pair = pairMap.get(key);
+				// 해당 카테고리에 스타가 한 명도 없으면 카드 제외
+				if (pair == null || pair.isEmpty()) {
+					continue;
+				}
+				card.put("type", cfg.get("rankType"));
+				card.put("category", cfg.get("category"));
+				card.put("left", pair.get(0));
+				// 2위가 없으면 right=null — 프론트가 "도전자 대기 중" 문구로 처리
+				card.put("right", pair.size() > 1 ? pair.get(1) : null);
+			}
+			cards.add(card);
+		}
+
+		resultMap.put("result", "OK");
+		resultMap.put("nextUpdateSec", 3); // 프론트 폴링 주기 안내값
+		resultMap.put("cards", cards);
+		return resultMap;
+	}
+
+	// 카테고리 탭 TOP100. rankType/category는 컨트롤러에서 화이트리스트 정규화 후 전달된다
+	// (캐시 키가 파라미터 기반이므로 임의 값 유입 시 키 오염 방지 목적)
+	@Cacheable(value = "categoryLeaderboard",
+			key = "#params['rankType'] + ':' + #params['category']", unless = "#result == null")
+	public Map<String, Object> getCategoryLeaderboard(Map<String, Object> params) throws Exception {
+		Map<String, Object> resultMap = new HashMap<>();
+
+		List<Map<String, Object>> list = dao.selectList("superapp.selectCategoryLeaderboard", params);
+
+		resultMap.put("result", "OK");
+		resultMap.put("rankType", params.get("rankType"));
+		resultMap.put("category", params.get("category"));
+		resultMap.put("list", list);
+		return resultMap;
+	}
+
 	@Cacheable(value = "dailyLeaderboard", key = "'dailyLeaderboard:' + #params.toString()", unless = "#result == null")
 	public Map<String, Object> getDailyLeaderboard(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
@@ -878,6 +970,9 @@ public class SuperAppService {
 	public Map<String, Object> claimSocialPage(Map<String, Object> params) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
+			// 0. 가입 시 선택한 직군 화이트리스트 검증 — 허용 외 값·미전달(구버전 앱)은 미분류(GENERAL)
+			params.put("category", normalizeStarCategory(params.get("category")));
+
 			// 1. 1인 1페이지 방어 검사 (이전에 만든 checkEmailDuplicate 재활용)
 			int emailCount = dao.selectOne("superapp.checkEmailDuplicate", params.get("email"));
 			if (emailCount > 0) {

@@ -17,6 +17,7 @@ import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
+import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { Device } from '@capacitor/device';
 
 @Component({
@@ -100,6 +101,27 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   rankingStars: any[] = [];
 
+  // ==========================================
+  // 🌟 [신규] VS 배틀필드 (상단 캐러셀 + 카테고리 탭 + TOP100)
+  // ==========================================
+  @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
+  vsCards: VsCard[] = [];
+  private vsPollIntervalId: any;
+
+  vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
+  vsCategory = 'GLOBAL';
+  vsCategoryChips = [
+    { code: 'GLOBAL', label: '🌐 All' },
+    { code: 'STAR', label: '⭐ Star' },
+    { code: 'CELEB', label: '👤 Celeb' },
+    { code: 'BRAND', label: '🏢 Brand' },
+    { code: 'UNIV', label: '🎓 Univ' },
+    { code: 'CITY', label: '🌆 City' },
+    { code: 'MEDIA', label: '📰 Media' }
+  ];
+  categoryTop100: any[] = [];
+  isLoadingTop100 = false;
+
   constructor(
     private router: Router,
     private http: HttpService,
@@ -125,6 +147,11 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     this.loadLobbyData();
     this.startPolling();
+
+    // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
+    this.loadVsCards();
+    this.loadCategoryTop100();
+
     this.searchSub = this.searchInput$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -191,6 +218,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopPolling();
     this.stopAutoSlide();
     this.stopAutoShuffle();
+    this.stopVsPolling();
     if (this.searchSub) this.searchSub.unsubscribe();
     if (this.observer) this.observer.disconnect();
   }
@@ -212,6 +240,10 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startAutoSlide();
     this.startAutoShuffle();
 
+    // 🌟 VS 배틀필드: 폴링·자동 순환 재개 (백그라운드 트래픽/배터리 보호)
+    this.startVsPolling();
+    if (this.vsCarousel) this.vsCarousel.startAutoPlay();
+
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, (processNextHandler) => {
       if (this.isShowingFavorites) {
         this.isShowingFavorites = false;
@@ -231,6 +263,10 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 화면에서 나가면 타이머 정지
     this.stopAutoSlide();
     this.stopAutoShuffle();
+
+    // 🌟 VS 배틀필드: 폴링·자동 순환 정지
+    this.stopVsPolling();
+    if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
 
     if (this.backButtonSub) {
       this.backButtonSub.unsubscribe();
@@ -404,6 +440,75 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   onDailyDateChanged() {
     this.loadDailyRanking();
+  }
+
+  // ==========================================
+  // 🌟 [신규] VS 배틀필드 데이터
+  // ==========================================
+
+  loadVsCards() {
+    this.http.get('/api/super/lobby/vs-cards').subscribe((res: any) => {
+      if (res.result === 'OK') {
+        this.vsCards = res.cards || [];
+      }
+    });
+  }
+
+  // 3초 폴링 — 서버 Redis 캐시 TTL 2초와 박자를 맞춰 항상 최신 데이터를 받는다
+  startVsPolling() {
+    this.stopVsPolling();
+    this.vsPollIntervalId = setInterval(() => this.loadVsCards(), 3000);
+  }
+
+  stopVsPolling() {
+    if (this.vsPollIntervalId) {
+      clearInterval(this.vsPollIntervalId);
+      this.vsPollIntervalId = null;
+    }
+  }
+
+  setVsRankMode(mode: 'GLOBAL' | 'DAILY') {
+    if (this.vsRankMode === mode) return;
+    this.vsRankMode = mode;
+    this.loadCategoryTop100();
+  }
+
+  setVsCategory(code: string) {
+    if (this.vsCategory === code) return;
+    this.vsCategory = code;
+    this.loadCategoryTop100();
+  }
+
+  // TOP100은 탭 변경 시에만 요청 (성능 최적화 — 폴링 대상 아님)
+  loadCategoryTop100() {
+    this.isLoadingTop100 = true;
+    this.http.get(`/api/super/leaderboard/category?rankType=${this.vsRankMode}&category=${this.vsCategory}`)
+      .subscribe({
+        next: (res: any) => {
+          this.isLoadingTop100 = false;
+          if (res.result === 'OK') {
+            this.categoryTop100 = (res.list || []).map(this.initStarData);
+          }
+        },
+        error: () => { this.isLoadingTop100 = false; }
+      });
+  }
+
+  // VS 카드 중앙 클릭 → 해당 랭킹 탭으로 전환 후 TOP100 섹션으로 스크롤
+  onVsCenterSelect(card: VsCard) {
+    this.vsRankMode = card.type === 'DAILY' ? 'DAILY' : 'GLOBAL';
+    this.vsCategory = card.category || 'GLOBAL';
+    this.loadCategoryTop100();
+    setTimeout(() => {
+      const section = document.getElementById('vsTop100Section');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+
+  // 카테고리 칩 선택 시 Today's TOP도 함께 필터링 (All이면 원본 그대로)
+  get filteredPopularStars(): any[] {
+    if (this.vsCategory === 'GLOBAL') return this.popularStars;
+    return this.popularStars.filter(s => s.starCategory === this.vsCategory);
   }
 
   private initStarData = (star: any) => {

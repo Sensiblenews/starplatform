@@ -13,6 +13,7 @@ import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
+import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 
 @NgModule({
   imports: [
@@ -32,6 +33,7 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
     RevenueRankingModalComponent,
     DailyRankingModalComponent,
     HallOfFameModalComponent,
+    VsCarouselComponent,
   ],
 })
 export class LobbyPageModule {}

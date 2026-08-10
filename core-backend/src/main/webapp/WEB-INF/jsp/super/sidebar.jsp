@@ -25,8 +25,18 @@
         <li class="nav-item mb-2">
             <a href="/super/star/create.do" class="nav-link <c:if test="${activeMenu eq 'star_create'}">active</c:if>"><i class="fas fa-user-plus me-2"></i> 스타 등록</a>
         </li>
-        
+        <!-- 🌟 VS 배틀필드: 스타 직군 분류 (SM 전체 / LC 자국) -->
+        <li class="nav-item mb-2">
+            <a href="/super/star/category.do" class="nav-link <c:if test="${activeMenu eq 'star_category'}">active</c:if>"><i class="fas fa-tags me-2"></i> 스타 직군 분류</a>
+        </li>
+
         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
+            <!-- 🌟 VS 배틀필드 카드 관리 (전 국가 공통 노출이므로 SM 전용) -->
+            <li class="nav-item mb-2">
+                <a href="/super/vs/list.do" class="nav-link <c:if test="${activeMenu eq 'vs_list'}">active</c:if>" style="color: #f48fb1;">
+                    <i class="fas fa-bolt me-2"></i> VS 배틀필드
+                </a>
+            </li>
             <!-- 🌟 최고 권한 전용: 스타 일괄 등록 메뉴 추가 -->
             <li class="nav-item mb-2">
                 <a href="/super/star/bulk-create.do" class="nav-link <c:if test="${activeMenu eq 'star_bulk'}">active</c:if>"><i class="fas fa-file-import me-2"></i> 스타 일괄 등록</a>

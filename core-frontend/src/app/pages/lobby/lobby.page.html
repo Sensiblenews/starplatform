@@ -331,14 +331,35 @@
 
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
+    <!-- 🌟 VS 배틀필드 카드 (검색창 아래 / Today's TOP 위, 5초 자동 순환) -->
+    <app-vs-carousel [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
+
+    <!-- 🌟 랭킹 탭: 세그먼트(Global/Daily King) + 카테고리 칩 (스크롤 시 상단 고정) -->
+    <div class="vs-tab-bar">
+      <div class="vs-segment">
+        <button type="button" [class.active]="vsRankMode === 'GLOBAL'" (click)="setVsRankMode('GLOBAL')">Global Ranking</button>
+        <button type="button" [class.active]="vsRankMode === 'DAILY'" (click)="setVsRankMode('DAILY')">Daily King</button>
+      </div>
+      <div class="vs-chip-row">
+        <button type="button" *ngFor="let chip of vsCategoryChips" class="vs-chip"
+                [class.active]="vsCategory === chip.code" (click)="setVsCategory(chip.code)">
+          {{ chip.label }}
+        </button>
+      </div>
+    </div>
+
     <div class="section-container">
       <div class="section-header">
         <ion-icon name="star" class="title-icon orange"></ion-icon>
         <ion-label>Today's TOP</ion-label>
       </div>
 
+      <div *ngIf="filteredPopularStars.length === 0" class="no-result-msg">
+        No stars in this category yet.
+      </div>
+
       <div class="horizontal-scroll-wrapper" #topScroll>
-        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
+        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of filteredPopularStars"
           (click)="goToStarPage(star.id)">
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
 
@@ -391,6 +412,40 @@
         </ion-item>
       </ion-list>
     </div>
+
+    <!-- 🌟 카테고리 TOP 100 리스트 (탭 변경 시에만 갱신) -->
+    <div class="section-container" id="vsTop100Section">
+      <div class="section-header">
+        <ion-icon name="trophy" class="title-icon orange"></ion-icon>
+        <ion-label>TOP 100 — {{ vsRankMode === 'DAILY' ? 'Daily King' : 'Global Ranking' }}</ion-label>
+      </div>
+
+      <div *ngIf="isLoadingTop100" class="no-result-msg">Loading...</div>
+
+      <ion-list lines="none" *ngIf="!isLoadingTop100">
+        <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
+          class="star-list-item">
+          <div slot="start" class="vs-rank-no" [class.top3]="i < 3">{{ i + 1 }}</div>
+          <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
+              loading="lazy" /></ion-avatar>
+          <ion-label class="info-container">
+            <h2 class="star-name">{{ star.name }}</h2>
+            <div class="stats-row">
+              <div style="display: flex; align-items: center; gap: 2px;">
+                👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                ⭐ <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+              </div>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+      <div *ngIf="!isLoadingTop100 && categoryTop100.length === 0" class="no-result-msg">
+        No stars in this category yet.
+      </div>
+    </div>
+
     <div class="section-container" *ngIf="newCreators && newCreators.length > 0">
       <div class="section-header">
         <ion-label>🌱 New Creators — First Posts</ion-label>
