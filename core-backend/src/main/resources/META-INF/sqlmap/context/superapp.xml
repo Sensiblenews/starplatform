@@ -4,15 +4,16 @@
 <mapper namespace="superapp">
 
 	<select id="selectPopularStars" resultType="hashmap">
-	    SELECT 
-	        T.id, T.name, T.image, T.status, 
+	    SELECT
+	        T.id, T.name, T.image, T.status, T.starCategory,
 	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS
 	    FROM (
-	        SELECT 
+	        SELECT
 	            P.PRS_ID as id,
 	            P.PRS_NAME as name,
 	            P.STORED_FILE_NM as image,
 	            P.STATUS_MSG as status,
+	            P.STAR_CATEGORY as starCategory,
 	            ROW_NUMBER() OVER (ORDER BY 
 	                (
 	                    IFNULL(V.cnt, 0) * 1 + 
@@ -77,11 +78,12 @@
 
 	    UNION ALL
 
-	    SELECT 
+	    SELECT
 	        P.PRS_ID as id,
 	        P.PRS_NAME as name,
 	        P.STORED_FILE_NM as image,
 	        P.STATUS_MSG as status,
+	        P.STAR_CATEGORY as starCategory,
 	        P.POPULAR_ORDER,
 	        T_RANK.GLOBAL_RANK,
 	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
@@ -1154,11 +1156,12 @@
 	</select>
 
 	<update id="claimSocialPage" parameterType="map">
-        UPDATE WH_PRESS 
+        UPDATE WH_PRESS
         SET OWNER_EMAIL = #{email},
         	FIREBASE_UID = #{uid},
-            PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('SOCIAL_OAUTH_USER'))))) -- 임시 비밀번호 처리
-        WHERE PRS_NAME = #{reqName} 
+            PRS_PWD = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('SOCIAL_OAUTH_USER'))))), -- 임시 비밀번호 처리
+            STAR_CATEGORY = #{category} -- 가입 시 선택한 직군 (서비스에서 화이트리스트 검증 후 전달)
+        WHERE PRS_NAME = #{reqName}
           AND PRS_COUNTRY = #{country}
           AND OWNER_EMAIL IS NULL
 	</update>
@@ -1589,5 +1592,149 @@
 	    -- 대표님 아이디어: 컨텐츠가 딱 1개인 사람만!
 	    HAVING COUNT(C.CON_ID) = 1
 	    LIMIT 40
+	</select>
+
+	<!-- ==========================================
+	     [신규] VS 배틀필드 (로비 VS 카드 + 카테고리 랭킹)
+	     점수 = WH_AD_LOG의 IMPRESSION(광고 노출) 카운트
+	     ========================================== -->
+
+	<!-- VS 카드 설정 목록 (고정 우선 → PIN_ORDER → 등록순) -->
+	<select id="selectVsCardList" resultType="map">
+	    SELECT
+	        VS_ID as vsId,
+	        CARD_KIND as cardKind,
+	        RANK_TYPE as rankType,
+	        CATEGORY as category,
+	        LEFT_PRS_ID as leftPrsId,
+	        RIGHT_PRS_ID as rightPrsId,
+	        TITLE as title,
+	        IS_PINNED as isPinned,
+	        PIN_ORDER as pinOrder
+	    FROM WH_VS_CARD
+	    WHERE USE_YN = 'Y'
+	    ORDER BY IS_PINNED DESC, PIN_ORDER ASC, VS_ID ASC
+	</select>
+
+	<!-- AUTO 카드 데이터 소스: 카테고리별 랭킹 TOP 2
+	     rankType: GLOBAL(누적 노출) | DAILY(오늘 노출)
+	     category='GLOBAL' 행은 전체 랭킹이며 미분류(GENERAL)는 후순위 정렬.
+	     카테고리 파트는 미분류를 제외한 6개 직군만 대상 -->
+	<select id="selectVsTop2" parameterType="map" resultType="map">
+	    SELECT G.category, G.id, G.name, G.image, G.starCategory, G.score, G.rn
+	    FROM (
+	        SELECT
+	            'GLOBAL' as category,
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STAR_CATEGORY as starCategory,
+	            IFNULL(A.viewCount, 0) as score,
+	            ROW_NUMBER() OVER (
+	                ORDER BY
+	                    (P.STAR_CATEGORY = 'GENERAL') ASC,
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) as rn
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            <if test="rankType == 'DAILY'">
+	              AND CREATED_DATE >= CURDATE()
+	            </if>
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ) G
+	    WHERE G.rn &lt;= 2
+
+	    UNION ALL
+
+	    SELECT C.category, C.id, C.name, C.image, C.starCategory, C.score, C.rn
+	    FROM (
+	        SELECT
+	            P.STAR_CATEGORY as category,
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STAR_CATEGORY as starCategory,
+	            IFNULL(A.viewCount, 0) as score,
+	            ROW_NUMBER() OVER (
+	                PARTITION BY P.STAR_CATEGORY
+	                ORDER BY
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) as rn
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            <if test="rankType == 'DAILY'">
+	              AND CREATED_DATE >= CURDATE()
+	            </if>
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	          AND P.STAR_CATEGORY != 'GENERAL'
+	    ) C
+	    WHERE C.rn &lt;= 2
+	</select>
+
+	<!-- CUSTOM 카드 한쪽 스타 정보 + 누적 노출 점수 -->
+	<select id="selectVsStarWithScore" parameterType="string" resultType="map">
+	    SELECT
+	        P.PRS_ID as id,
+	        P.PRS_NAME as name,
+	        P.STORED_FILE_NM as image,
+	        P.STAR_CATEGORY as starCategory,
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') as score
+	    FROM WH_PRESS P
+	    WHERE P.PRS_ID = #{prsId}
+	      AND P.PRS_USE_YN = 'Y'
+	      AND P.IS_STAR = 'Y'
+	</select>
+
+	<!-- 카테고리별 TOP 100 (로비 탭 리스트)
+	     category='GLOBAL'이면 전체 대상 + 미분류(GENERAL) 후순위 -->
+	<select id="selectCategoryLeaderboard" parameterType="map" resultType="map">
+	    SELECT * FROM (
+	        SELECT
+	            P.PRS_ID as id,
+	            P.PRS_NAME as name,
+	            P.STORED_FILE_NM as image,
+	            P.STAR_CATEGORY as starCategory,
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCount,
+	            ROW_NUMBER() OVER (
+	                ORDER BY
+	                <if test="category == null or category == '' or category == 'GLOBAL'">
+	                    (P.STAR_CATEGORY = 'GENERAL') ASC,
+	                </if>
+	                    IFNULL(A.viewCount, 0) DESC,
+	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
+	                    P.PRS_ID ASC
+	            ) AS GLOBAL_RANK
+	        FROM WH_PRESS P
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            <if test="rankType == 'DAILY'">
+	              AND CREATED_DATE >= CURDATE()
+	            </if>
+	            GROUP BY PRS_ID
+	        ) A ON P.PRS_ID = A.PRS_ID
+	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	        <if test="category != null and category != '' and category != 'GLOBAL'">
+	          AND P.STAR_CATEGORY = #{category}
+	        </if>
+	    ) T
+	    ORDER BY T.GLOBAL_RANK ASC
+	    LIMIT 100
 	</select>
 </mapper>

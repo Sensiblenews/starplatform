@@ -1308,4 +1308,240 @@ public class SuperAdminController {
 
         return result;
     }
+
+    // ==========================================
+    // 🌟 [신규] VS 배틀필드 관리 (SM 전용 — 카드는 전 국가 공통 노출)
+    // ==========================================
+
+    /**
+     * [화면] VS 카드 목록 (AUTO 14종 + 커스텀)
+     */
+    @RequestMapping(value = "/super/vs/list.do")
+    public String vsCardList(HttpServletRequest request, Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+
+        model.addAttribute("vsList", superAdminService.getVsCardList());
+        model.addAttribute("activeMenu", "vs_list");
+        return "super/vs_list";
+    }
+
+    /**
+     * [API] VS 카드 고정(Pin) 토글
+     */
+    @RequestMapping(value = "/super/vs/pin.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> toggleVsPin(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.toggleVsPin(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [API] VS 카드 순서 저장 (드래그 결과 — 카드 ID 배열 순서대로 PIN_ORDER 재부여)
+     */
+    @RequestMapping(value = "/super/vs/order.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveVsOrder(HttpServletRequest request, @RequestBody Map<String, Object> payload) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object> vsIds = (List<Object>) payload.get("vsIds");
+            if (vsIds == null || vsIds.isEmpty()) {
+                throw new Exception("저장할 순서 정보가 없습니다.");
+            }
+            superAdminService.saveVsOrder(vsIds);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [API] 커스텀 VS(특별전) 등록
+     */
+    @RequestMapping(value = "/super/vs/custom/insert.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> insertVsCustom(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.insertVsCustom(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [API] 커스텀 VS 삭제 (AUTO 카드는 매퍼에서 CARD_KIND='CUSTOM' 조건으로 방어)
+     */
+    @RequestMapping(value = "/super/vs/custom/delete.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deleteVsCustom(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.deleteVsCustom(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [API] 커스텀 VS 등록용 스타 검색
+     */
+    @RequestMapping(value = "/super/vs/starSearch.do")
+    @ResponseBody
+    public Map<String, Object> searchVsStars(HttpServletRequest request,
+            @RequestParam(value = "searchKeyword", required = false, defaultValue = "") String searchKeyword) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            if ("GET".equalsIgnoreCase(request.getMethod())) {
+                searchKeyword = decodeGetParameter(searchKeyword);
+            }
+            Map<String, Object> params = new HashMap<>();
+            params.put("searchKeyword", searchKeyword.trim());
+            result.put("status", "success");
+            result.put("list", superAdminService.searchVsStars(params));
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    // ==========================================
+    // 🌟 [신규] 스타 직군(카테고리) 수동 분류 (SM 전체 / LC 자국)
+    // ==========================================
+
+    /**
+     * [화면] 스타 카테고리 분류 목록
+     */
+    @RequestMapping(value = "/super/star/category.do")
+    public String starCategoryList(HttpServletRequest request,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(value = "searchKeyword", required = false, defaultValue = "") String searchKeyword,
+            @RequestParam(value = "filterCategory", required = false, defaultValue = "") String filterCategory,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            searchKeyword = decodeGetParameter(searchKeyword);
+        }
+
+        String filterCountry = getFilterCountry(user);
+
+        int length = 30;
+        int start = (page - 1) * length;
+        if (start < 0) start = 0;
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("country", filterCountry);
+        params.put("searchKeyword", searchKeyword.trim());
+        params.put("filterCategory", filterCategory.trim());
+        params.put("start", start);
+        params.put("length", length);
+
+        int totalCount = superAdminService.getStarCategoryListCount(params);
+        List<Map<String, Object>> starList = superAdminService.getStarCategoryList(params);
+
+        int totalPages = (int) Math.ceil((double) totalCount / length);
+        if (totalPages == 0) totalPages = 1;
+
+        int startPage = Math.max(1, page - 4);
+        int endPage = Math.min(totalPages, startPage + 9);
+        if (endPage - startPage < 9) {
+            startPage = Math.max(1, endPage - 9);
+        }
+
+        model.addAttribute("starList", starList);
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
+        model.addAttribute("searchKeyword", searchKeyword);
+        model.addAttribute("filterCategory", filterCategory);
+        model.addAttribute("activeMenu", "star_category");
+        return "super/star_category";
+    }
+
+    /**
+     * [API] 스타 카테고리 저장 (LC는 자국 스타만 — 매퍼의 country 조건으로 방어)
+     */
+    @RequestMapping(value = "/super/star/updateCategory.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateStarCategory(HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null) {
+            result.put("status", "fail");
+            result.put("msg", "로그인 필요");
+            return result;
+        }
+        try {
+            params.put("country", getFilterCountry(user));
+            superAdminService.updateStarCategory(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
 }

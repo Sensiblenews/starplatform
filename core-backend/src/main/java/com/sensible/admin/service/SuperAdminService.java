@@ -425,4 +425,69 @@ public class SuperAdminService {
         params.put("PRS_PWD", "123");
         return dao.update("super.updateStarPassword", params);
     }
+
+    // ==========================================
+    // 🌟 [신규] VS 배틀필드 관리
+    // ==========================================
+
+    public List<Map<String, Object>> getVsCardList() throws Exception {
+        return dao.selectList("super.selectVsCardAdminList");
+    }
+
+    public void toggleVsPin(Map<String, Object> params) throws Exception {
+        dao.update("super.updateVsPin", params);
+    }
+
+    // 드래그 정렬 저장: 화면이 넘긴 카드 ID 순서대로 PIN_ORDER를 1부터 재부여
+    public void saveVsOrder(List<Object> vsIds) throws Exception {
+        int order = 1;
+        for (Object vsId : vsIds) {
+            Map<String, Object> param = new HashMap<>();
+            param.put("vsId", vsId);
+            param.put("pinOrder", order++);
+            dao.update("super.updateVsOrder", param);
+        }
+    }
+
+    public void insertVsCustom(Map<String, Object> params) throws Exception {
+        String left = String.valueOf(params.get("leftPrsId"));
+        String right = String.valueOf(params.get("rightPrsId"));
+        if (left.isEmpty() || right.isEmpty() || "null".equals(left) || "null".equals(right)) {
+            throw new Exception("좌/우 스타를 모두 선택해주세요.");
+        }
+        if (left.equals(right)) {
+            throw new Exception("같은 스타끼리는 대결을 만들 수 없습니다.");
+        }
+        dao.insert("super.insertVsCustom", params);
+    }
+
+    public void deleteVsCustom(Map<String, Object> params) throws Exception {
+        dao.update("super.deleteVsCustom", params);
+    }
+
+    public List<Map<String, Object>> searchVsStars(Map<String, Object> params) throws Exception {
+        return dao.selectList("super.selectVsStarSearch", params);
+    }
+
+    // ==========================================
+    // 🌟 [신규] 스타 직군(카테고리) 수동 분류
+    // ==========================================
+
+    public List<Map<String, Object>> getStarCategoryList(Map<String, Object> params) throws Exception {
+        return dao.selectList("super.selectStarCategoryList", params);
+    }
+
+    public int getStarCategoryListCount(Map<String, Object> params) throws Exception {
+        return dao.selectOne("super.selectStarCategoryListCount", params);
+    }
+
+    // 카테고리 화이트리스트 검증 후 저장. country는 LC 권한 스코프 방어용 (SM이면 null)
+    public void updateStarCategory(Map<String, Object> params) throws Exception {
+        String category = String.valueOf(params.get("category"));
+        if (!com.sensible.common.Constants.STAR_CATEGORIES.contains(category)
+                && !com.sensible.common.Constants.STAR_CATEGORY_DEFAULT.equals(category)) {
+            throw new Exception("허용되지 않은 카테고리 값입니다: " + category);
+        }
+        dao.update("super.updateStarCategory", params);
+    }
 }

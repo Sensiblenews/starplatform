@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.sensible.api.service.LandingVisitService;
 import com.sensible.api.service.SuperAppService;
+import com.sensible.common.Constants;
 import com.sensible.common.domain.CommandMap;
 
 @Controller
@@ -258,6 +259,29 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> getLeaderboard() throws Exception {
 		return superAppService.getLeaderboard();
+	}
+
+	// 🌟 [신규] VS 배틀필드 카드 목록 (로비 상단 캐러셀). 프론트 3초 폴링 / Redis 2초 캐시
+	@RequestMapping(value = "/api/super/lobby/vs-cards", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getVsCards() throws Exception {
+		return superAppService.getVsCards();
+	}
+
+	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)
+	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|UNIV|CITY|MEDIA
+	@RequestMapping(value = "/api/super/leaderboard/category", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getCategoryLeaderboard(CommandMap commandMap) throws Exception {
+		Map<String, Object> params = commandMap.getMap();
+		// Redis 캐시 키가 파라미터 기반이므로 허용값 외에는 기본값으로 정규화 (키 오염 방지)
+		params.put("rankType", "DAILY".equals(params.get("rankType")) ? "DAILY" : "GLOBAL");
+		String category = String.valueOf(params.get("category"));
+		if (!"GLOBAL".equals(category) && !Constants.STAR_CATEGORIES.contains(category)) {
+			category = "GLOBAL";
+		}
+		params.put("category", category);
+		return superAppService.getCategoryLeaderboard(params);
 	}
 
 	// [Redis 캐시/읽기 전용] GET 전환. POST는 구버전 앱 호환용 (이전 완료 후 제거)

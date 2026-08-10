@@ -66,6 +66,10 @@
                 <entry key="dailyLeaderboard" value="600" />
                 <!-- 로비는 1~2시간 모멘텀 기반 랭킹이라 짧게 2분 (120초). country별로 키 분리됨 -->
                 <entry key="lobby" value="120" />
+                <!-- VS 카드: 프론트 3초 폴링과 박자를 맞추기 위해 TTL 2초 (캐시 TTL < 폴링 주기) -->
+                <entry key="vsCards" value="2" />
+                <!-- 카테고리 탭 TOP100: 탭 전환 시에만 요청되므로 1분 -->
+                <entry key="categoryLeaderboard" value="60" />
             </map>
         </property>
     </bean>
