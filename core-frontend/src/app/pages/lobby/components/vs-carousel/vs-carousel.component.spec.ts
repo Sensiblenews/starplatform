@@ -33,6 +33,19 @@ describe('VsCarouselComponent', () => {
     component.stopAutoPlay();
   });
 
+  describe('getScoreUnit (점수 단위 표기)', () => {
+    it('DAILY 카드는 views로 표기한다', () => {
+      const card = { ...makeCard(1, 1), type: 'DAILY' as const };
+      expect(component.getScoreUnit(card)).toBe('views');
+    });
+
+    it('GLOBAL·CUSTOM 카드는 종합점수라 pts로 표기한다', () => {
+      expect(component.getScoreUnit(makeCard(1, 1))).toBe('pts');
+      const custom = { ...makeCard(1, 1), type: 'CUSTOM' as const };
+      expect(component.getScoreUnit(custom)).toBe('pts');
+    });
+  });
+
   describe('getLeftRatio (비율 게이지 예외 처리)', () => {
     it('둘 다 0점이면 50:50으로 나눈다 (0 나눗셈 방지)', () => {
       expect(component.getLeftRatio(makeCard(0, 0))).toBe(50);

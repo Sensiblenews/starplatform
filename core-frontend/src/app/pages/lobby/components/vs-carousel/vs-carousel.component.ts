@@ -127,6 +127,11 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     return String(n);
   }
 
+  // 점수 단위: DAILY는 오늘 노출 수(views), GLOBAL·CUSTOM은 종합점수(pts)
+  getScoreUnit(card: VsCard): string {
+    return card && card.type === 'DAILY' ? 'views' : 'pts';
+  }
+
   // ===== 클릭 동선 =====
   goToProfile(side: VsCardSide | null, event: Event) {
     event.stopPropagation();
