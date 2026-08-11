@@ -18,7 +18,7 @@
             <img [src]="card.left.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
-          <div class="side-score">{{ formatScore(card.left.score) }} views</div>
+          <div class="side-score">{{ formatScore(card.left.score) }} {{ getScoreUnit(card) }}</div>
         </div>
 
         <!-- 중앙: VS (탭 → 해당 카테고리 TOP100) -->
@@ -35,7 +35,7 @@
             <img [src]="card.right.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
-          <div class="side-score">{{ formatScore(card.right.score) }} views</div>
+          <div class="side-score">{{ formatScore(card.right.score) }} {{ getScoreUnit(card) }}</div>
         </div>
         <div class="vs-side right waiting" *ngIf="!card.right">
           <div class="avatar-ring gray">

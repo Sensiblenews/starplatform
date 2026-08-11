@@ -505,12 +505,6 @@ export class LobbyPage implements OnInit, OnDestroy {
     }, 100);
   }
 
-  // 카테고리 칩 선택 시 Today's TOP도 함께 필터링 (All이면 원본 그대로)
-  get filteredPopularStars(): any[] {
-    if (this.vsCategory === 'GLOBAL') return this.popularStars;
-    return this.popularStars.filter(s => s.starCategory === this.vsCategory);
-  }
-
   private initStarData = (star: any) => {
     const favIds = JSON.parse(localStorage.getItem('favorite_stars') || '[]');
     const isFav = favIds.includes(String(star.id));

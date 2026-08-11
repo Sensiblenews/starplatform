@@ -260,7 +260,7 @@
           <ion-label class="info-container">
             <h2 class="star-name">{{ star.name }}</h2>
             <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌍 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.displayViewCount) }}
+              🌍 Global Rank #{{ star.globalRank }} / 👁️ {{ formatNumber(star.displayViewCount) }}
             </div>
           </ion-label>
         </ion-item>
@@ -348,18 +348,47 @@
       </div>
     </div>
 
+    <!-- 🌟 카테고리 TOP 100 리스트 (탭 바로 아래 — 탭 변경 시에만 갱신) -->
+    <div class="section-container" id="vsTop100Section">
+      <div class="section-header">
+        <ion-icon name="trophy" class="title-icon orange"></ion-icon>
+        <ion-label>TOP 100 — {{ vsRankMode === 'DAILY' ? 'Daily King' : 'Global Ranking' }}</ion-label>
+      </div>
+
+      <div *ngIf="isLoadingTop100" class="no-result-msg">Loading...</div>
+
+      <ion-list lines="none" *ngIf="!isLoadingTop100">
+        <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
+          class="star-list-item">
+          <div slot="start" class="vs-rank-no" [class.top3]="i < 3">{{ i + 1 }}</div>
+          <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
+              loading="lazy" /></ion-avatar>
+          <ion-label class="info-container">
+            <h2 class="star-name">{{ star.name }}</h2>
+            <div class="stats-row">
+              <div style="display: flex; align-items: center; gap: 2px;">
+                👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                ⭐ <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+              </div>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+      <div *ngIf="!isLoadingTop100 && categoryTop100.length === 0" class="no-result-msg">
+        No stars in this category yet.
+      </div>
+    </div>
+
     <div class="section-container">
       <div class="section-header">
         <ion-icon name="star" class="title-icon orange"></ion-icon>
         <ion-label>Today's TOP</ion-label>
       </div>
 
-      <div *ngIf="filteredPopularStars.length === 0" class="no-result-msg">
-        No stars in this category yet.
-      </div>
-
       <div class="horizontal-scroll-wrapper" #topScroll>
-        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of filteredPopularStars"
+        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
           (click)="goToStarPage(star.id)">
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
 
@@ -411,39 +440,6 @@
           </ion-label>
         </ion-item>
       </ion-list>
-    </div>
-
-    <!-- 🌟 카테고리 TOP 100 리스트 (탭 변경 시에만 갱신) -->
-    <div class="section-container" id="vsTop100Section">
-      <div class="section-header">
-        <ion-icon name="trophy" class="title-icon orange"></ion-icon>
-        <ion-label>TOP 100 — {{ vsRankMode === 'DAILY' ? 'Daily King' : 'Global Ranking' }}</ion-label>
-      </div>
-
-      <div *ngIf="isLoadingTop100" class="no-result-msg">Loading...</div>
-
-      <ion-list lines="none" *ngIf="!isLoadingTop100">
-        <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
-          class="star-list-item">
-          <div slot="start" class="vs-rank-no" [class.top3]="i < 3">{{ i + 1 }}</div>
-          <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
-              loading="lazy" /></ion-avatar>
-          <ion-label class="info-container">
-            <h2 class="star-name">{{ star.name }}</h2>
-            <div class="stats-row">
-              <div style="display: flex; align-items: center; gap: 2px;">
-                👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 2px;">
-                ⭐ <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
-              </div>
-            </div>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-      <div *ngIf="!isLoadingTop100 && categoryTop100.length === 0" class="no-result-msg">
-        No stars in this category yet.
-      </div>
     </div>
 
     <div class="section-container" *ngIf="newCreators && newCreators.length > 0">
