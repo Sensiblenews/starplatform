@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:navigationBarColor">@color/my_background_color</item>
+    </style>
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+      <item name="windowSplashScreenBackground">@color/splash_background_color</item>
+
+      <!-- 2. 가운데 로고 아이콘 지정 (필수, @drawable/splash_logo 형태로 준비된 아이콘 연결) -->
+      <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+
+      <!-- 3. 스플래시가 끝나고 넘어갈 원래 앱 테마 지정 (중요) -->
+      <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:background">@android:color/transparent</item>
+<!--        <item name="android:navigationBarColor">@android:color/white</item>-->
+
+      <!-- 배경색을 흰색으로 -->
+      <item name="android:windowBackground">@color/light</item>
+      <item name="android:statusBarColor">@color/light</item>
+      <item name="android:navigationBarColor">@color/light</item>
+
+      <!-- 기본 Material 컴포넌트 색상 설정 -->
+      <item name="colorPrimary">@color/colorPrimary</item>
+      <item name="colorPrimaryDark">@color/light</item>
+      <item name="colorAccent">@color/colorAccent</item>
+      <item name="android:windowLightStatusBar">true</item>
+      <item name="android:windowLightNavigationBar">true</item>
+
+      <!-- 라이트 모드 강제 -->
+      <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+
+      <item name="android:navigationBarColor">@color/my_background_color</item>
+    </style>
+</resources>
