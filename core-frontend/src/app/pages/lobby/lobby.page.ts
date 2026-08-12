@@ -19,6 +19,8 @@ import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-moda
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { Device } from '@capacitor/device';
+import { App } from '@capacitor/app';
+import { PluginListenerHandle } from '@capacitor/core';
 
 @Component({
   selector: 'app-lobby',
@@ -88,6 +90,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   private lastCheckTime: string = '';
   private observer: IntersectionObserver;
 
+  // 🌟 앱 백그라운드 전환 시 폴링 완전 정지용 (2-23차)
+  private appStateListener: PluginListenerHandle | null = null;
+  private isViewActive = false;
+
   // 🌟 [신규] 상단 슬롯머신(슬라이드) 제어 변수
   @ViewChild('topScroll') topScroll: ElementRef;
   slideOpts = {
@@ -149,6 +155,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     this.loadLobbyData();
     this.startPolling();
+    this.setupAppStateListener();
 
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
@@ -221,6 +228,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoSlide();
     this.stopAutoShuffle();
     this.stopVsPolling();
+    this.removeAppStateListener();
     if (this.searchSub) this.searchSub.unsubscribe();
     if (this.observer) this.observer.disconnect();
   }
@@ -238,6 +246,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   ionViewDidEnter() {
+    this.isViewActive = true;
+
     // 🌟 화면에 보일 때만 타이머 가동 (성능 최적화)
     this.startAutoSlide();
     this.startAutoShuffle();
@@ -262,6 +272,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   ionViewWillLeave() {
+    this.isViewActive = false;
+
     // 🌟 화면에서 나가면 타이머 정지
     this.stopAutoSlide();
     this.stopAutoShuffle();
@@ -901,6 +913,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   startPolling() {
+    this.stopPolling(); // 백그라운드 복귀 재시작 시 인터벌 중복 방지
+
     this.http.post('/api/super/lobby/poll', { lastCheckTime: '' }).subscribe((res: any) => {
       if (res.result === 'OK') this.lastCheckTime = res.currentTime;
     });
@@ -917,7 +931,47 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   stopPolling() {
-    if (this.pollingIntervalId) clearInterval(this.pollingIntervalId);
+    if (this.pollingIntervalId) {
+      clearInterval(this.pollingIntervalId);
+      this.pollingIntervalId = null;
+    }
+  }
+
+  // ==========================================
+  // 🌟 [2-23차] 앱 백그라운드 전환 시 폴링 완전 정지
+  // ==========================================
+
+  // 백그라운드: 모든 네트워크 폴링·타이머 정지 / 복귀: 즉시 1회 갱신 후 재개.
+  // 페이지 이탈 정지(ionViewWillLeave)와 별개의 이중 안전장치이며,
+  // 복귀 시 화면 밖(isViewActive=false)이면 로비 화면 전용 폴링은 재개하지 않는다.
+  private async setupAppStateListener() {
+    await this.removeAppStateListener(); // 리스너 중복 등록 방지
+
+    this.appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        this.startPolling(); // 즉시 1회 호출 후 30초 간격 재개
+        if (this.isViewActive) {
+          this.startAutoSlide();
+          this.startAutoShuffle();
+          this.loadVsCards(); // VS 카드 즉시 갱신 (폴링 첫 틱은 3초 뒤)
+          this.startVsPolling();
+          if (this.vsCarousel) this.vsCarousel.startAutoPlay();
+        }
+      } else {
+        this.stopPolling();
+        this.stopAutoSlide();
+        this.stopAutoShuffle();
+        this.stopVsPolling();
+        if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
+      }
+    });
+  }
+
+  private async removeAppStateListener() {
+    if (this.appStateListener) {
+      await this.appStateListener.remove();
+      this.appStateListener = null;
+    }
   }
 
   distributePolledViews(polledData: any[]) {
