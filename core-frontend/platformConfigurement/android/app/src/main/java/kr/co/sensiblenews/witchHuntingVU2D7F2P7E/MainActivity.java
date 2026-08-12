@@ -136,6 +136,14 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
           adContainer.removeAllViews();
           adContainer.addView(wrappingView);
+
+          // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
+          if (webView != null) {
+            webView.evaluateJavascript(
+              "window.dispatchEvent(new CustomEvent('ad_loaded'));",
+              null
+            );
+          }
         });
       })
       .withAdListener(new AdListener() {

@@ -8,13 +8,17 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   public let pluginMethods: [CAPPluginMethod] = [
     CAPPluginMethod(name: "updateAdPosition", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "setShow", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "setSlotPosition", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "setViewportHeight", returnType: CAPPluginReturnPromise)
   ]
-  
+
   // 현재 적용 중인 위치
   private var fixedPositionY1: CGFloat = 0
   private var fixedPositionY2: CGFloat = 0
   private var fixedPositionY3: CGFloat = 0
+
+  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPosition)로 제어
+  private var lobbyMode = false
   
   // [신규] load()에서 계산한 스타 페이지 전용 위치 백업
   private var starPosY1: CGFloat = 0
@@ -92,42 +96,85 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
       
       if show {
         // [핵심] 페이지에 따른 fixedPosition 분기 처리
-        if page.contains("star") {
+        if page == "lobby" {
+            // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기
+            self.lobbyMode = true
+            c1?.isHidden = true
+            c1?.transform = CGAffineTransform(translationX: 0, y: 100000)
+            c2?.isHidden = true
+            c3?.isHidden = true
+
+            if let mainVC = self.bridge?.viewController as? MainViewController {
+              mainVC.loadLobbyAd()
+            }
+            call.resolve([:])
+            return
+        } else if page.contains("star") {
             // 스타 페이지: 미리 계산해둔 3개의 피드 슬롯 위치 복구
+            self.lobbyMode = false
+            (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = self.starPosY1
             self.fixedPositionY2 = self.starPosY2
             self.fixedPositionY3 = self.starPosY3
-            
+
             c1?.isHidden = false
             c2?.isHidden = false
             c3?.isHidden = false
         } else {
             // 일반 탭/로비 페이지: 상단에 고정 (예: 128pt)
+            self.lobbyMode = false
+            (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = 128.0
-            
+
             // 일반 페이지는 광고 1개만 필요하므로 숨김
             c1?.isHidden = false
             c2?.isHidden = true
             c3?.isHidden = true
         }
-        
+
         self.reinitializePosition()
-        
+
       } else {
+        self.lobbyMode = false
         c1?.isHidden = true
         c2?.isHidden = true
         c3?.isHidden = true
       }
-      
+
       call.resolve([:])
     }
   }
   
+  // 로비 슬롯 위치 갱신 — 웹이 플레이스홀더의 뷰포트 기준 좌표(css px = pt)를 직접 보낸다.
+  // wrapper 상단을 hideAbove(sticky 탭 바 하단)에 맞춰, 광고가 탭 바 밑으로
+  // 스크롤될 때 잘려 나가듯 자연스럽게 클리핑되게 한다 (전체 숨김으로 인한 빈 구멍 방지)
+  @objc func setSlotPosition(_ call: CAPPluginCall) {
+    let y = call.getDouble("y")
+    let hideAbove = call.getDouble("hideAbove") ?? 0
+
+    DispatchQueue.main.async {
+      defer { call.resolve([:]) }
+      guard self.lobbyMode, let y = y, let c1 = self.getAdContainer1() else {
+        return
+      }
+      // 웹뷰는 화면 최상단(풀스크린)에서 시작하므로 y·hideAbove는 화면 기준 pt와 동일
+      if let mainVC = self.bridge?.viewController as? MainViewController {
+        mainVC.setWrapperTopOffset(fromScreenTop: CGFloat(hideAbove))
+      }
+      c1.isHidden = false
+      c1.transform = CGAffineTransform(translationX: 0, y: CGFloat(y - hideAbove))
+    }
+  }
+
   @objc func setViewportHeight(_ call: CAPPluginCall) {
     call.resolve([:])
   }
-  
+
   func updateAd(scrollOffset: Double) {
+    // 로비 모드에서는 위치를 setSlotPosition이 전담한다 (스타 페이지 수식 오염 방지)
+    if lobbyMode {
+      return
+    }
     let scrollY = CGFloat(scrollOffset)
         
     // 3개 모두 스크롤 위치 반영

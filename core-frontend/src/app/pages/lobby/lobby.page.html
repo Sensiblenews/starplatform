@@ -39,7 +39,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onLobbyScroll()">
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content pullingIcon="chevron-down-circle-outline" pullingText="Pull to refresh"
       refreshingSpinner="circles" refreshingText="Loading creators..."></ion-refresher-content>
@@ -402,6 +402,10 @@
         No stars in this category yet.
       </div>
     </div>
+
+    <!-- 🌟 네이티브 광고 슬롯 (2-24차) — 네이티브 오버레이가 얹힐 자리.
+         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="isAdSlotFilled"></div>
 
     <div class="section-container">
       <div class="section-header">

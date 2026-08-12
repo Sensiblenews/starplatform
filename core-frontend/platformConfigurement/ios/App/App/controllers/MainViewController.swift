@@ -15,7 +15,13 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
    var adLoader3: AdLoader! // 삭제
   
   var adHeight: Int!
-  
+
+  // 로비 모드: 슬롯 1개, 광고 높이 315pt(웹 플레이스홀더·Android와 통일)
+  var lobbyAdMode = false
+
+  // wrapper 상단 제약 — 로비 모드에서 sticky 탭 바 하단으로 동적 조정 (클리핑 경계)
+  var adWrapperTopConstraint: NSLayoutConstraint!
+
   private var initialScrollOffset: CGPoint = .zero
   
   private func makeLoader() -> AdLoader {
@@ -77,15 +83,18 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
     adWrapper.addSubview(adContainer3)
     
     self.view.addSubview(adWrapper)
-    
+
     adWrapper.translatesAutoresizingMaskIntoConstraints = false
     adContainer1.translatesAutoresizingMaskIntoConstraints = false
-    
+
+    // 로비 모드에서 sticky 탭 바 하단으로 동적 조정할 수 있도록 상단 제약을 보관
+    adWrapperTopConstraint = adWrapper.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 43) // Ionic Header 높이 고려
+
     NSLayoutConstraint.activate([
       // Wrapper 위치 (헤더 아래 43pt 지점부터 시작)
       adWrapper.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
       adWrapper.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-      adWrapper.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 43), // Ionic Header 높이 고려
+      adWrapperTopConstraint,
       adWrapper.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
       
       // Container 제약조건
@@ -109,29 +118,54 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
   }
   
   func loadNativeAd() {
+    lobbyAdMode = false
+
     // 기존 뷰 제거
     for subview in adContainer1.subviews {
       subview.removeFromSuperview()
     }
-    
+
     for subview in adContainer2.subviews {
       subview.removeFromSuperview()
     }
-    
+
     for subview in adContainer3.subviews {
       subview.removeFromSuperview()
     }
-    
+
     adLoader1 = makeLoader()
     adLoader1.load(Request())
-    
+
     adLoader2 = makeLoader()
     adLoader2.load(Request())
-    
+
     adLoader3 = makeLoader()
     adLoader3.load(Request())
   }
-  
+
+  // 로비 모드 로드 — 슬롯 1개만 사용
+  func loadLobbyAd() {
+    lobbyAdMode = true
+
+    for subview in adContainer1.subviews {
+      subview.removeFromSuperview()
+    }
+
+    adLoader1 = makeLoader()
+    adLoader1.load(Request())
+  }
+
+  // 로비 모드: wrapper 상단을 화면 기준 y(pt)로 이동 — 광고가 sticky 탭 바 밑에서 클리핑되는 경계
+  func setWrapperTopOffset(fromScreenTop y: CGFloat) {
+    let safeTop = self.view.safeAreaInsets.top
+    adWrapperTopConstraint.constant = max(0, y - safeTop)
+  }
+
+  // 스타 페이지 등 기존 모드 복귀 시 원래 경계(헤더 아래 43pt)로 복원
+  func resetWrapperTopOffset() {
+    adWrapperTopConstraint.constant = 43
+  }
+
   // 광고 로드 성공
   func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
     // [수정] 무조건 adContainer에 부착
@@ -141,6 +175,12 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
         attach(nativeAd, into: adContainer2, delegate: self)
     } else if adLoader == adLoader3 {
         attach(nativeAd, into: adContainer3, delegate: self)
+    }
+
+    // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
+    let js = "window.dispatchEvent(new CustomEvent('ad_loaded'));"
+    DispatchQueue.main.async {
+        self.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
     }
   }
   
@@ -175,9 +215,8 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
     let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleButtonPan))
     v.adCallToAction.addGestureRecognizer(panGesture)
     
-    // [수정] 안드로이드와 높이 비율(315dp 근사치) 맞춤
-    // 315dp는 대략 screenWidth * 0.8 + 여백 정도입니다. 기존 adHeight 로직 유지.
-    let adViewHeight: CGFloat = CGFloat(adHeight)
+    // 로비 모드는 웹 플레이스홀더(315px)·Android(315dp)와 높이 통일, 스타 페이지는 기존 adHeight 유지
+    let adViewHeight: CGFloat = lobbyAdMode ? 315.0 : CGFloat(adHeight)
     let horizontalMargin: CGFloat = 8.0
     
     target.addSubview(v)

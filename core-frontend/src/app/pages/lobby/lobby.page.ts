@@ -21,6 +21,8 @@ import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carouse
 import { Device } from '@capacitor/device';
 import { App } from '@capacitor/app';
 import { PluginListenerHandle } from '@capacitor/core';
+import NativeBridge from '../../plugins/native-bridge';
+import { AdProtectionService } from '../../services/ad-protection.service';
 
 @Component({
   selector: 'app-lobby',
@@ -93,6 +95,23 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 🌟 앱 백그라운드 전환 시 폴링 완전 정지용 (2-23차)
   private appStateListener: PluginListenerHandle | null = null;
   private isViewActive = false;
+  private appForeground = true;
+
+  // 🌟 네이티브 광고 슬롯 (2-24차) — 위치는 웹이 측정해 네이티브로 전송
+  @ViewChild('lobbyAdSlot') lobbyAdSlot: ElementRef;
+  isAdSlotFilled = false;
+  private isLobbyAdActive = false;
+  private onNativeAdLoaded = () => this.ngZone.run(() => {
+    if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
+    this.isAdSlotFilled = true;
+    // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
+    setTimeout(() => this.sendAdSlotPosition(), 50);
+  });
+  private onNativeAdClicked = () => this.ngZone.run(async () => {
+    if (!this.isLobbyAdActive) return; // star-page 클릭은 star-page가 처리
+    await this.adProtection.lockAd('lobby');
+    this.hideLobbyAd();
+  });
 
   // 🌟 [신규] 상단 슬롯머신(슬라이드) 제어 변수
   @ViewChild('topScroll') topScroll: ElementRef;
@@ -140,6 +159,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     private actionSheetCtrl: ActionSheetController, // 🌟 추가
     private firebaseAuth: FirebaseAuthService,
     private writeModalService: WriteModalService,
+    private adProtection: AdProtectionService,
+    private ngZone: NgZone,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -157,6 +178,10 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startPolling();
     this.setupAppStateListener();
 
+    // 🌟 네이티브 광고 이벤트 수신 (로드 성공 → 슬롯 펼침 / 클릭 → 24시간 잠금)
+    window.addEventListener('ad_loaded', this.onNativeAdLoaded);
+    window.addEventListener('ad_click_detected', this.onNativeAdClicked);
+
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
     this.loadCategoryTop100();
@@ -173,12 +198,14 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.contentResults = [];
           this.allStars = this.allStarsOriginal.slice(0, 32);
           this.setupMotionObserver();
+          this.updateLobbyAd();
           return of(null);
         }
 
         this.isSearching = true;
         this.isShowingFavorites = false;
         this.isShowingRanking = false;
+        this.updateLobbyAd();
 
         const starSearch$ = this.http.post('/api/super/star/search', {
           query,
@@ -229,6 +256,9 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoShuffle();
     this.stopVsPolling();
     this.removeAppStateListener();
+    window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
+    window.removeEventListener('ad_click_detected', this.onNativeAdClicked);
+    if (this.isLobbyAdActive) this.hideLobbyAd();
     if (this.searchSub) this.searchSub.unsubscribe();
     if (this.observer) this.observer.disconnect();
   }
@@ -256,15 +286,21 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
 
+    // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
+    this.updateLobbyAd();
+
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, (processNextHandler) => {
       if (this.isShowingFavorites) {
         this.isShowingFavorites = false;
+        this.updateLobbyAd();
       } else if (this.isShowingRanking) {
         this.isShowingRanking = false;
+        this.updateLobbyAd();
       } else if (this.isSearching) {
         this.isSearching = false;
         this.searchResults = [];
         this.contentResults = [];
+        this.updateLobbyAd();
       } else {
         processNextHandler();
       }
@@ -273,6 +309,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   ionViewWillLeave() {
     this.isViewActive = false;
+
+    // 🌟 네이티브 광고 슬롯 숨김 (star-page 등 다음 화면이 자체 제어)
+    this.updateLobbyAd();
 
     // 🌟 화면에서 나가면 타이머 정지
     this.stopAutoSlide();
@@ -503,6 +542,8 @@ export class LobbyPage implements OnInit, OnDestroy {
           if (res.result === 'OK') {
             this.categoryTop100 = (res.list || []).map(this.initStarData);
           }
+          // 리스트 길이 변화로 슬롯이 밀리므로 렌더 후 위치 재전송
+          setTimeout(() => this.sendAdSlotPosition());
         },
         error: () => { this.isLoadingTop100 = false; }
       });
@@ -552,6 +593,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.activeFavoriteTab = 'M';
       this.loadFavoriteStars();
     }
+    this.updateLobbyAd();
   }
 
   toggleRankingList() {
@@ -566,6 +608,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.activeRankingTab = null;
       this.showHallOfFameInline = false;
     }
+    this.updateLobbyAd();
   }
 
   // 🌟 [신규] 누적 수익 API 호출
@@ -746,6 +789,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.isSearching = false;
     this.allStars = this.allStarsOriginal.slice(0, 32);
     this.setupMotionObserver();
+    this.updateLobbyAd();
   }
 
   getStarImage(imageUrl: string | null): string {
@@ -938,6 +982,50 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
+  // 🌟 [2-24차] 네이티브 광고 슬롯 (TOP100 아래)
+  // ==========================================
+
+  // 노출 조건: 네이티브 앱 && 로비 화면 활성 && 섹션 목록 표시 중 && 포그라운드
+  private canShowLobbyAd(): boolean {
+    return this.platform.is('capacitor') && this.isViewActive && this.appForeground
+      && !this.isSearching && !this.isShowingFavorites && !this.isShowingRanking;
+  }
+
+  // 조건 변화 시마다 호출 — 필요할 때만 setShow를 보내 불필요한 광고 재로드를 막는다
+  async updateLobbyAd() {
+    if (!this.platform.is('capacitor')) return;
+
+    const shouldShow = this.canShowLobbyAd() && await this.adProtection.shouldShowAd('lobby');
+    if (shouldShow && !this.isLobbyAdActive) {
+      this.isLobbyAdActive = true;
+      this.isAdSlotFilled = false;
+      NativeBridge.setShow({ show: true, page: 'lobby' }).catch(() => { });
+    } else if (!shouldShow && this.isLobbyAdActive) {
+      this.hideLobbyAd();
+    }
+  }
+
+  private hideLobbyAd() {
+    this.isLobbyAdActive = false;
+    this.isAdSlotFilled = false;
+    NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
+  }
+
+  // 플레이스홀더의 뷰포트 좌표와 sticky 탭 바 하단을 네이티브로 전송
+  sendAdSlotPosition() {
+    if (!this.isLobbyAdActive || !this.isAdSlotFilled || !this.lobbyAdSlot) return;
+
+    const slotTop = this.lobbyAdSlot.nativeElement.getBoundingClientRect().top;
+    const tabBar = document.querySelector('.vs-tab-bar');
+    const hideAbove = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
+    NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
+  }
+
+  onLobbyScroll() {
+    this.sendAdSlotPosition();
+  }
+
+  // ==========================================
   // 🌟 [2-23차] 앱 백그라운드 전환 시 폴링 완전 정지
   // ==========================================
 
@@ -948,6 +1036,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     await this.removeAppStateListener(); // 리스너 중복 등록 방지
 
     this.appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
+      this.appForeground = isActive;
+
       if (isActive) {
         this.startPolling(); // 즉시 1회 호출 후 30초 간격 재개
         if (this.isViewActive) {
@@ -957,12 +1047,14 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startVsPolling();
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
         }
+        this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
       } else {
         this.stopPolling();
         this.stopAutoSlide();
         this.stopAutoShuffle();
         this.stopVsPolling();
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
+        this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
       }
     });
   }

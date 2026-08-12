@@ -28,6 +28,9 @@ public class NativeBridge extends Plugin {
   private boolean ad2Triggered = false;
   private boolean ad3Triggered = false;
 
+  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPosition)로 제어한다
+  private boolean lobbyMode = false;
+
 
 
   @Override
@@ -80,6 +83,7 @@ public class NativeBridge extends Plugin {
   public void setShow(@NonNull PluginCall call) {
     getActivity().runOnUiThread(() -> {
       Boolean bool = call.getBoolean("show");
+      String page = call.getString("page");
       FrameLayout adWrapper = getActivity().findViewById(R.id.ad_wrapper);
 
       if (adContainer1 == null || adContainer2 == null) {
@@ -89,30 +93,72 @@ public class NativeBridge extends Plugin {
       }
 
       if (Boolean.TRUE.equals(bool)) {
-//        DisplayMetrics metrics = getActivity().getResources().getDisplayMetrics();
-
-//        // [핵심] 스타 페이지용 위치 설정 (172dp)
-//        if ("star".equals(page)) {
-//          // 44(헤더) + 128(프로필) = 172
-//          int targetY = 128;
-//          initialPositionY1 = (int) (targetY * metrics.density);
-//        } else {
-//          // 리스트 등 다른 페이지일 경우의 로직 (필요 없다면 0 처리)
-//          initialPositionY1 = (int) (128 * metrics.density);
-//        }
-        adContainer1.setVisibility(View.VISIBLE);
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) adWrapper.getLayoutParams();
         params.topMargin = (int) getActivity().getResources().getDimension(R.dimen.ad_top_margin) + getStatusBarHeight(getContext());
         adWrapper.setLayoutParams(params);
-        adContainer2.setVisibility(View.VISIBLE);
-        adContainer3.setVisibility(View.VISIBLE);
-        reinitializePosition();
+
+        if ("lobby".equals(page)) {
+          // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기
+          lobbyMode = true;
+          adContainer1.setVisibility(View.INVISIBLE);
+          adContainer1.setTranslationY(100000f);
+          adContainer2.setVisibility(View.GONE);
+          adContainer3.setVisibility(View.GONE);
+          ad1Triggered = false;
+
+          MainActivity activity = (MainActivity) getActivity();
+          activity.loadNativeAd(adContainer1, R.id.ad_container_1);
+        } else {
+          // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로
+          lobbyMode = false;
+          adContainer1.setVisibility(View.VISIBLE);
+          adContainer2.setVisibility(View.VISIBLE);
+          adContainer3.setVisibility(View.VISIBLE);
+          reinitializePosition();
+        }
       } else {
+        lobbyMode = false;
         adContainer1.setVisibility(View.GONE);
         adContainer2.setVisibility(View.GONE);
         adContainer3.setVisibility(View.GONE);
       }
     });
+  }
+
+  // 로비 슬롯 위치 갱신 — 웹이 플레이스홀더의 뷰포트 기준 좌표(css px)를 직접 보낸다.
+  // wrapper 상단을 hideAbove(sticky 탭 바 하단)에 맞춰, 광고가 탭 바 밑으로
+  // 스크롤될 때 잘려 나가듯 자연스럽게 클리핑되게 한다 (전체 숨김으로 인한 빈 구멍 방지)
+  @PluginMethod()
+  public void setSlotPosition(@NonNull PluginCall call) {
+    call.setKeepAlive(false);
+    Double y = call.getDouble("y");
+    Double hideAbove = call.getDouble("hideAbove");
+    if (y == null) {
+      call.resolve();
+      return;
+    }
+    final float yCss = y.floatValue();
+    final float hideCss = hideAbove != null ? hideAbove.floatValue() : 0f;
+
+    getActivity().runOnUiThread(() -> {
+      if (!lobbyMode || adContainer1 == null) {
+        return;
+      }
+      float density = getActivity().getResources().getDisplayMetrics().density;
+
+      // 웹뷰는 상태바 아래에서 시작하므로 css px→물리 px 변환에 상태바 높이를 더하면 화면 좌표가 된다
+      FrameLayout adWrapper = getActivity().findViewById(R.id.ad_wrapper);
+      int targetTop = (int) (hideCss * density) + getStatusBarHeight(getContext());
+      FrameLayout.LayoutParams wp = (FrameLayout.LayoutParams) adWrapper.getLayoutParams();
+      if (Math.abs(wp.topMargin - targetTop) > 1) {
+        wp.topMargin = targetTop;
+        adWrapper.setLayoutParams(wp);
+      }
+
+      adContainer1.setVisibility(View.VISIBLE);
+      adContainer1.setTranslationY((yCss - hideCss) * density);
+    });
+    call.resolve();
   }
 
   // 웹 랜딩 → 스토어 설치 경로로 전달된 리퍼러 문자열 조회 (디퍼드 딥링크용)
@@ -155,6 +201,10 @@ public class NativeBridge extends Plugin {
   }
 
   private void updateAd(Double scrollOffset) {
+    // 로비 모드에서는 위치를 setSlotPosition이 전담한다 (스타 페이지 수식 오염 방지)
+    if (lobbyMode) {
+      return;
+    }
 
     if (adContainer1 != null  && adContainer2 != null && adContainer3 != null) {
       float density = getActivity().getResources().getDisplayMetrics().density;

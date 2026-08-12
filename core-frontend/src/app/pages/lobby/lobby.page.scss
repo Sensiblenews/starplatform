@@ -732,6 +732,17 @@
   }
 }
 
+// 네이티브 광고 슬롯 — 기본 접힘, 광고 로드 성공 시에만 펼침 (실제 광고 뷰는 네이티브 오버레이)
+.lobby-ad-slot {
+  height: 0;
+  overflow: hidden;
+
+  &.filled {
+    height: 315px;
+    margin: 8px 0;
+  }
+}
+
 .vs-rank-no {
   width: 26px;
   text-align: center;
