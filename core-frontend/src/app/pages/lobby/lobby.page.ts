@@ -1,7 +1,7 @@
 import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, ModalController, PopoverController, AlertController, ActionSheetController } from '@ionic/angular';
+import { Platform, ModalController, PopoverController, AlertController, ActionSheetController, IonSearchbar } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
@@ -45,9 +45,11 @@ export class LobbyPage implements OnInit, OnDestroy {
   searchResults: any[] = [];
   contentResults: any[] = [];
   isSearching: boolean = false;
+  isSearchMode: boolean = false;
   searchQuery: string = '';
   private searchInput$ = new Subject<string>();
   private searchSub: Subscription;
+  @ViewChild('lobbySearchbar') lobbySearchbar: IonSearchbar;
 
   isShowingFavorites: boolean = false;
   favoriteStars: any[] = [];
@@ -713,6 +715,25 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   filterStars(event: any) {
     this.searchInput$.next(event?.detail?.value ?? '');
+  }
+
+  // 🌟 상단 바 검색 아이콘 토글 — 닫을 때 검색 상태를 초기화해 섹션 목록으로 복귀
+  toggleSearchMode() {
+    this.isSearchMode = !this.isSearchMode;
+
+    if (this.isSearchMode) {
+      setTimeout(() => this.lobbySearchbar?.setFocus(), 150);
+      return;
+    }
+
+    // switchMap이 진행 중인 검색을 취소하도록 빈 값을 흘려보내고, 상태는 즉시 직접 리셋
+    this.searchInput$.next('');
+    this.searchQuery = '';
+    this.searchResults = [];
+    this.contentResults = [];
+    this.isSearching = false;
+    this.allStars = this.allStarsOriginal.slice(0, 32);
+    this.setupMotionObserver();
   }
 
   getStarImage(imageUrl: string | null): string {
