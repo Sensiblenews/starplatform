@@ -395,9 +395,13 @@
           <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
               loading="lazy" /></ion-avatar>
           <ion-label class="info-container">
+            <!-- 세로 3단: 이름 / Global Rank / 조회수 (클라이언트 요청) -->
             <h2 class="star-name">{{ star.name }}</h2>
             <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌍 Global Rank #{{ star.globalRank }} / 👁️ {{ formatNumber(star.viewCount) }}
+              🌍 Global Rank #{{ star.globalRank }}
+            </div>
+            <div class="view-count">
+              👁️ {{ formatNumber(star.viewCount) }}
             </div>
           </ion-label>
         </ion-item>
