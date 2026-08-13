@@ -137,14 +137,16 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
+  // 8개 직군 — 표기는 클라이언트 확정안(대문자·이모지), 내부 코드는 서버 화이트리스트와 동일
   vsCategoryChips = [
-    { code: 'GLOBAL', label: '🌐 All' },
-    { code: 'STAR', label: '⭐ Star' },
-    { code: 'CELEB', label: '👤 Celeb' },
-    { code: 'BRAND', label: '🏢 Brand' },
-    { code: 'UNIV', label: '🎓 Univ' },
-    { code: 'CITY', label: '🌆 City' },
-    { code: 'MEDIA', label: '📰 Media' }
+    { code: 'GLOBAL', label: '🌍 ALL' },
+    { code: 'STAR', label: '⭐ STAR' },
+    { code: 'CELEB', label: '👤 CELEB' },
+    { code: 'BRAND', label: '🏢 BRAND' },
+    { code: 'ORG', label: '🏛 ORG' },
+    { code: 'UNIV', label: '🎓 UNIV' },
+    { code: 'CITY', label: '🌆 CITY' },
+    { code: 'MEDIA', label: '📰 MEDIA' }
   ];
   categoryTop100: any[] = [];
   isLoadingTop100 = false;

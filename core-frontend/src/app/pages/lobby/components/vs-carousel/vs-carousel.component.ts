@@ -60,6 +60,7 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     STAR: '⭐ Star',
     CELEB: '👤 Celeb',
     BRAND: '🏢 Brand',
+    ORG: '🏛 Org',
     UNIV: '🎓 Univ',
     CITY: '🌆 City',
     MEDIA: '📰 Media'

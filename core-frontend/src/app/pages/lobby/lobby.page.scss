@@ -701,27 +701,22 @@
   }
 
   .vs-chip-row {
-    // 가로 스크롤 없이 2단 그리드: 1행 All/Star/Celeb(3개), 2행 Brand/Univ/City/Media(4개)
+    // 가로 스크롤 없이 2단 그리드: 8개 직군을 4개씩 두 줄로
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
 
     .vs-chip {
-      grid-column: span 3;
       border: 1px solid #dee2e6;
       background: #fff;
       border-radius: 20px;
-      padding: 6px 8px;
+      padding: 6px 4px;
       font-size: 12px;
       font-weight: 700;
       color: #495057;
       white-space: nowrap;
       text-align: center;
       font-family: inherit;
-
-      &:nth-child(-n + 3) {
-        grid-column: span 4;
-      }
 
       &.active {
         background: #e53935;

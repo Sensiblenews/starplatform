@@ -15,6 +15,7 @@ public class SuperAppServiceCategoryTest {
 		assertEquals("STAR", SuperAppService.normalizeStarCategory("STAR"));
 		assertEquals("CELEB", SuperAppService.normalizeStarCategory("CELEB"));
 		assertEquals("BRAND", SuperAppService.normalizeStarCategory("BRAND"));
+		assertEquals("ORG", SuperAppService.normalizeStarCategory("ORG"));
 		assertEquals("UNIV", SuperAppService.normalizeStarCategory("UNIV"));
 		assertEquals("CITY", SuperAppService.normalizeStarCategory("CITY"));
 		assertEquals("MEDIA", SuperAppService.normalizeStarCategory("MEDIA"));

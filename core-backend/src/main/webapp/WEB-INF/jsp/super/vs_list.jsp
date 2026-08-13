@@ -171,7 +171,7 @@
 
     <script>
         // 카테고리 코드 → 한글 라벨 (JSP EL과 백틱 충돌을 피하려고 문자열 연결 사용)
-        var CAT_LABELS = { GLOBAL: '🌐 전체', STAR: '⭐ 스타', CELEB: '👤 셀럽', BRAND: '🏢 기업', UNIV: '🎓 대학', CITY: '🌆 도시', MEDIA: '📰 언론' };
+        var CAT_LABELS = { GLOBAL: '🌐 전체', STAR: '⭐ 스타', CELEB: '👤 셀럽', BRAND: '🏢 기업', ORG: '🏛 단체', UNIV: '🎓 대학', CITY: '🌆 도시', MEDIA: '📰 언론' };
         $('.cat-label').each(function() {
             var cat = $(this).data('cat');
             $(this).text(CAT_LABELS[cat] || cat);
