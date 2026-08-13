@@ -507,7 +507,13 @@ export class LobbyPage implements OnInit, OnDestroy {
   loadVsCards() {
     this.http.get('/api/super/lobby/vs-cards').subscribe((res: any) => {
       if (res.result === 'OK') {
+        const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
+
+        // 캐러셀 최초 등장(0 → 46vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
+        if (!hadCards && this.vsCards.length > 0) {
+          setTimeout(() => this.sendAdSlotPosition());
+        }
       }
     });
   }
