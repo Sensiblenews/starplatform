@@ -450,6 +450,9 @@ export class LobbyPage implements OnInit, OnDestroy {
           if (this.isShowingFavorites) {
             this.loadFavoriteStars();
           }
+
+          // Today's TOP 렌더로 광고 슬롯이 밀리므로 위치 재전송
+          setTimeout(() => this.sendAdSlotPosition());
         }
         if (event) event.target.complete();
       },
@@ -1011,13 +1014,14 @@ export class LobbyPage implements OnInit, OnDestroy {
     NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
   }
 
-  // 플레이스홀더의 뷰포트 좌표와 sticky 탭 바 하단을 네이티브로 전송
+  // 플레이스홀더의 뷰포트 좌표와 클리핑 경계를 네이티브로 전송.
+  // 슬롯이 랭킹 탭 바보다 위에 있으므로 경계는 헤더 하단 — 광고가 헤더 밑으로 잘려 들어간다
   sendAdSlotPosition() {
     if (!this.isLobbyAdActive || !this.isAdSlotFilled || !this.lobbyAdSlot) return;
 
     const slotTop = this.lobbyAdSlot.nativeElement.getBoundingClientRect().top;
-    const tabBar = document.querySelector('.vs-tab-bar');
-    const hideAbove = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
+    const header = document.querySelector('ion-header');
+    const hideAbove = header ? header.getBoundingClientRect().bottom : 0;
     NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
   }
 

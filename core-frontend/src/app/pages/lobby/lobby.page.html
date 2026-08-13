@@ -361,6 +361,10 @@
       </div>
     </div>
 
+    <!-- 🌟 네이티브 광고 슬롯 (2-24차) — Today's TOP과 Global Ranking 사이. 네이티브 오버레이가 얹힐 자리.
+         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="isAdSlotFilled"></div>
+
     <!-- 🌟 랭킹 탭: 세그먼트(Global/Daily King) + 카테고리 칩 (스크롤 시 상단 고정) -->
     <div class="vs-tab-bar">
       <div class="vs-segment">
@@ -402,10 +406,6 @@
         No stars in this category yet.
       </div>
     </div>
-
-    <!-- 🌟 네이티브 광고 슬롯 (2-24차) — 네이티브 오버레이가 얹힐 자리.
-         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="isAdSlotFilled"></div>
 
     <div class="section-container">
       <div class="section-header">
