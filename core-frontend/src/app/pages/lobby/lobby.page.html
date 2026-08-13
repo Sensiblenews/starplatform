@@ -263,9 +263,13 @@
             <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
           </ion-avatar>
           <ion-label class="info-container">
+            <!-- 세로 3단: 이름 / Global Rank / 조회수 (로비 TOP 100과 동일 형식) -->
             <h2 class="star-name">{{ star.name }}</h2>
             <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌍 Global Rank #{{ star.globalRank }} / 👁️ {{ formatNumber(star.displayViewCount) }}
+              🌍 Global Rank #{{ star.globalRank }}
+            </div>
+            <div class="view-count">
+              👁️ {{ formatNumber(star.displayViewCount) }}
             </div>
           </ion-label>
         </ion-item>
