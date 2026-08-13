@@ -6,7 +6,7 @@
 	<select id="selectPopularStars" resultType="hashmap">
 	    SELECT
 	        T.id, T.name, T.image, T.status, T.starCategory,
-	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS
+	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS, T.viewCount
 	    FROM (
 	        SELECT
 	            P.PRS_ID as id,
@@ -14,7 +14,8 @@
 	            P.STORED_FILE_NM as image,
 	            P.STATUS_MSG as status,
 	            P.STAR_CATEGORY as starCategory,
-	            ROW_NUMBER() OVER (ORDER BY 
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            ROW_NUMBER() OVER (ORDER BY
 	                (
 	                    IFNULL(V.cnt, 0) * 1 + 
 	                    IFNULL(L.cnt, 0) * 3 + 
@@ -86,8 +87,15 @@
 	        P.STAR_CATEGORY as starCategory,
 	        P.POPULAR_ORDER,
 	        T_RANK.GLOBAL_RANK,
-	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS,
+	        IFNULL(A.viewCount, 0) as viewCount
 	    FROM WH_PRESS P
+	    LEFT JOIN (
+	        SELECT PRS_ID, COUNT(*) as viewCount
+	        FROM WH_AD_LOG
+	        WHERE ACTION = 'IMPRESSION'
+	        GROUP BY PRS_ID
+	    ) A ON P.PRS_ID = A.PRS_ID
 	    LEFT JOIN (
 	        SELECT 
 	            P2.PRS_ID,

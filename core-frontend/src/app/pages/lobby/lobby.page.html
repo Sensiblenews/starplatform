@@ -60,7 +60,7 @@
           <h2 class="star-name">{{ star.name }}</h2>
 
           <div *ngIf="star.globalRank > 0" class="global-rank">
-            🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+            🌍 Global Rank #{{ star.globalRank }}
           </div>
 
           <div class="stats-row">
@@ -356,9 +356,13 @@
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
 
           <div class="star-info" style="margin-top: 4px;">
+            <!-- 세로 3단: 이름 / 랭크 / 조회수 (리스트 행과 동일한 배치) -->
             <div class="name" style="font-size: 13px; font-weight: bold;">{{ star.name }}</div>
             <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
-              🌎 #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+              🌍 #{{ star.globalRank }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; margin-top: 1px;">
+              👁️ {{ formatNumber(star.viewCount) }}
             </div>
           </div>
         </div>
@@ -430,7 +434,7 @@
             <h2 class="star-name">{{ star.name }}</h2>
 
             <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+              🌍 Global Rank #{{ star.globalRank }}
             </div>
 
             <div class="stats-row">
@@ -469,7 +473,7 @@
             <h2 class="star-name">{{ star.name }}</h2>
 
             <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌎 Global Rank #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+              🌍 Global Rank #{{ star.globalRank }}
             </div>
 
             <div class="stats-row">
