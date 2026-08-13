@@ -383,7 +383,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           el.scrollBy({ left: 120, behavior: 'smooth' });
         }
       }
-    }, 4000);
+    }, 5000); // 클라이언트 요청으로 4초 → 5초 (시선 쏠림 완화)
   }
 
   stopAutoSlide() {

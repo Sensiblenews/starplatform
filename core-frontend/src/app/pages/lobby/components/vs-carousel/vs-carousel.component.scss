@@ -92,11 +92,24 @@
     text-overflow: ellipsis;
   }
 
+  // 이름과 총점 사이 지표 3종 (👁️ 노출 / ❤️ 좋아요 ⭐ 팔로워)
+  .side-stats {
+    margin-top: 3px;
+
+    .stat-line {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+  }
+
   .side-score {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.6);
-    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #ffd54f;
+    margin-top: 3px;
   }
 
   &.waiting .side-name {
