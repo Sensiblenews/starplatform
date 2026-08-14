@@ -146,7 +146,12 @@
 .avatar-ring {
   // 클라이언트 요청으로 2배 확대 (58 → 116)
   width: 116px;
-  height: 116px;
+  // 화면 크기 확대(Display size) 기기에서는 40% 컬럼이 116px보다 좁아지는데,
+  // 고정폭이 컬럼을 넘치면 margin:auto가 0이 되어 오른쪽으로만 삐져나온다(우측 치우침의 원인).
+  // 컬럼 폭을 상한으로 두고 aspect-ratio로 정원을 유지한다
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   margin: 0 auto;
   padding: 3px;
@@ -177,6 +182,7 @@
 
 .vs-center {
   flex: 1;
+  min-width: 0; // 큰 글꼴에서 Gap 텍스트(nowrap)가 좌우 컬럼을 밀어내지 않게
   text-align: center;
   cursor: pointer;
   align-self: center; // 좌우가 상단 정렬이어도 VS 로고는 세로 중앙 유지
