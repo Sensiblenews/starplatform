@@ -87,16 +87,24 @@
 
 .vs-side {
   flex: 0 0 40%;
+  // 플렉스 아이템 기본값(min-width: auto)이면 긴 이름이 40% 폭을 밀어내 중앙 VS·반대편을 침범한다
+  min-width: 0;
   text-align: center;
   cursor: pointer;
 
   .side-name {
-    font-size: 17px;
+    font-size: 14px;
     font-weight: 800;
     margin-top: 10px;
-    white-space: nowrap;
+    // 단어 단위 줄바꿈 (한글은 어절 유지, 공백 없는 초장문 토큰만 강제 분할)
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    // 이름이 아무리 길어도 2줄까지만 — 카드 높이가 들쭉날쭉해지는 것 방지
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   // 이름과 총점 사이 지표 3종 (👁️ 노출 / ❤️ 좋아요 ⭐ 팔로워)
@@ -124,6 +132,8 @@
     font-weight: 600;
     color: rgba(255, 255, 255, 0.55);
     white-space: normal;
+    // 도전자 대기 문구는 3줄까지 (이름용 2줄 클램프를 그대로 쓰면 잘림)
+    -webkit-line-clamp: 3;
   }
 }
 
