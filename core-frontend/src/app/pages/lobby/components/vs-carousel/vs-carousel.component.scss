@@ -80,7 +80,9 @@
 
 .vs-body {
   display: flex;
-  align-items: center;
+  // 상단 기준 정렬 — center로 두면 이름 줄 수가 다를 때 컬럼마다 따로 중앙 정렬되어
+  // 좌우 아바타·지표·pts가 서로 다른 높이로 어긋난다
+  align-items: flex-start;
   justify-content: space-between;
   flex: 1; // 카드 확대분을 본문이 차지해 아바타·지표가 세로 중앙에 오게
 }
@@ -96,6 +98,10 @@
     font-size: 14px;
     font-weight: 800;
     margin-top: 10px;
+    // 2줄 높이를 항상 확보 — 이름이 1줄이든 2줄이든 아래 지표·pts가 같은 높이에 온다
+    // (14px × 1.25 × 2줄 = 35px. 대기 문구는 폰트가 작아 3줄도 이 안에 근접)
+    line-height: 1.25;
+    min-height: 35px;
     // 단어 단위 줄바꿈 (한글은 어절 유지, 공백 없는 초장문 토큰만 강제 분할)
     white-space: normal;
     word-break: keep-all;
@@ -173,6 +179,7 @@
   flex: 1;
   text-align: center;
   cursor: pointer;
+  align-self: center; // 좌우가 상단 정렬이어도 VS 로고는 세로 중앙 유지
 
   .vs-logo {
     font-size: 34px;
