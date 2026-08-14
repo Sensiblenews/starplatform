@@ -150,8 +150,11 @@
   // 고정폭이 컬럼을 넘치면 margin:auto가 0이 되어 오른쪽으로만 삐져나온다(우측 치우침의 원인).
   // 컬럼 폭을 상한으로 두고 aspect-ratio로 정원을 유지한다
   max-width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
+  height: 116px; // aspect-ratio 미지원(iOS 14) 폴백 — 좁은 화면에선 약간 타원이지만 치우침은 없음
+  @supports (aspect-ratio: 1) {
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
   border-radius: 50%;
   margin: 0 auto;
   padding: 3px;
