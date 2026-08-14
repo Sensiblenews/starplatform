@@ -45,9 +45,10 @@
     <meta property="og:url" content="${ogUrl}">
     <meta property="og:type" content="website">
 
-    <!-- Google AdSense (CMP 지역 팝업은 AdSense Privacy & Messaging 설정으로 자동 처리됨) -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9109251900558498"
-        crossorigin="anonymous"></script>
+    <%-- [AdSense 승인 대기] 심사 신호를 깨끗하게 유지하기 위해 광고 스크립트를 임시 제거함.
+         승인 메일 수신 후 아래 3곳을 함께 복원할 것 (이 파일 내 동일 표식 검색):
+           ① head 광고 스크립트(여기)  ② FAQ 아래 ins 슬롯  ③ 하단 광고 게이트 스크립트
+         복원 코드는 git 이력 참조 — JSP 주석이라 HTML 출력에는 노출되지 않는다. --%>
 
     <style>
         * {
@@ -330,12 +331,7 @@
             </div>
         </section>
 
-        <!-- 광고 (AdSense) -->
-        <div class="ad-wrap" id="adWrap">
-            <span class="ad-label">Advertisement</span>
-            <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9109251900558498"
-                data-ad-slot="3314400335" data-ad-format="auto" data-full-width-responsive="true"></ins>
-        </div>
+        <%-- [AdSense 승인 대기] ② 광고 슬롯 임시 제거 — 승인 후 복원 (표식: AdSense 승인 대기) --%>
 
         <div class="btn-group">
             <button class="btn btn-primary" onclick="openApp()">Open in App</button>
@@ -369,30 +365,8 @@
             }, 300);
         }
 
-        // 콘텐츠가 짧은 페이지는 광고 미노출 (AdSense 정책: 콘텐츠 대비 광고 과다·첫 화면 광고 방지)
-        // 높이는 본문 카드 + 관련 게시물만 합산한다. FAQ는 모든 페이지 공통 문구라 고유 콘텐츠로 치지 않음.
-        // 히어로 이미지는 width/height 속성으로 공간이 예약되므로 로드 전에 측정해도 높이가 반영된다.
-        var adWrap = document.getElementById('adWrap');
-        var contentHeight = 0;
-        var cardEl = document.querySelector('.card');
-        var relatedEl = document.querySelector('.related-section');
-        if (cardEl) contentHeight += cardEl.offsetHeight;
-        if (relatedEl) contentHeight += relatedEl.offsetHeight;
-
-        if (contentHeight < 600) {
-            if (adWrap) adWrap.style.display = 'none';
-        } else {
-            // 광고 로드 실패(차단 포함) 시 빈 회색 박스가 남지 않도록 영역을 접음
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) { }
-            setTimeout(function () {
-                var ins = document.querySelector('ins.adsbygoogle');
-                if (!ins || ins.getAttribute('data-ad-status') !== 'filled') {
-                    if (adWrap) adWrap.style.display = 'none';
-                }
-            }, 4000);
-        }
+        <%-- [AdSense 승인 대기] ③ 광고 게이트 스크립트(콘텐츠 높이 600px 미만 미노출 + no-fill 접힘) 임시 제거.
+             승인 후 복원 시 게이트 로직도 함께 되살릴 것 — 짧은 페이지 광고 과다는 재차 정책 위반이 된다. --%>
 
         var path = window.location.pathname.replace(/^\//, '');
         var search = window.location.search;
