@@ -16,6 +16,11 @@
 .section-container {
   padding-top: 12px;
 
+  // VS 카드와 Today's TOP 사이 여백
+  &.today-top-section {
+    margin-top: 8px;
+  }
+
   .section-header {
     display: flex;
     align-items: center;
@@ -696,30 +701,27 @@
   }
 
   .vs-chip-row {
-    display: flex;
+    // 가로 스크롤 없이 2단 그리드: 1행 All/Star/Celeb(3개), 2행 Brand/Univ/City/Media(4개)
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
     gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    // 우측 끝 그라데이션 페이드로 가로 스크롤 가능함을 암시
-    -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
-    mask-image: linear-gradient(90deg, #000 92%, transparent);
-    padding-bottom: 2px;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
 
     .vs-chip {
-      flex: 0 0 auto;
+      grid-column: span 3;
       border: 1px solid #dee2e6;
       background: #fff;
       border-radius: 20px;
-      padding: 6px 12px;
+      padding: 6px 8px;
       font-size: 12px;
       font-weight: 700;
       color: #495057;
       white-space: nowrap;
+      text-align: center;
       font-family: inherit;
+
+      &:nth-child(-n + 3) {
+        grid-column: span 4;
+      }
 
       &.active {
         background: #e53935;

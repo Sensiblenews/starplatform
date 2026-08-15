@@ -1719,7 +1719,8 @@
 	<!-- 카테고리별 TOP 100 (로비 탭 리스트)
 	     rankType GLOBAL: 종합점수(노출×1 + 좋아요×3 + 팔로워×5) — 트로피 G 랭킹(selectLeaderboard)과 순위 일치
 	     rankType DAILY : 오늘 노출 수
-	     미분류(GENERAL)는 동점일 때만 후순위(tiebreak) -->
+	     GLOBAL_RANK는 전체 스타 대상 랭크(윈도우를 카테고리 필터 전에 계산) — 직군 탭에서 번호가 건너뛰는 게 정상.
+	     미분류(GENERAL)는 동점일 때만 후순위(tiebreak). 탭에 따라 같은 스타의 랭크가 달라지지 않도록 무조건 적용 -->
 	<select id="selectCategoryLeaderboard" parameterType="map" resultType="map">
 	    SELECT * FROM (
 	        SELECT
@@ -1737,9 +1738,7 @@
 	                    </choose> DESC,
 	                    IFNULL(A.viewCount, 0) DESC,
 	                    IFNULL(P.FOLLOWER_CNT, 0) DESC,
-	                <if test="category == null or category == '' or category == 'GLOBAL'">
 	                    (P.STAR_CATEGORY = 'GENERAL') ASC,
-	                </if>
 	                    P.PRS_ID ASC
 	            ) AS GLOBAL_RANK
 	        FROM WH_PRESS P
@@ -1753,10 +1752,10 @@
 	            GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
-	        <if test="category != null and category != '' and category != 'GLOBAL'">
-	          AND P.STAR_CATEGORY = #{category}
-	        </if>
 	    ) T
+	    <if test="category != null and category != '' and category != 'GLOBAL'">
+	    WHERE T.starCategory = #{category}
+	    </if>
 	    ORDER BY T.GLOBAL_RANK ASC
 	    LIMIT 100
 	</select>

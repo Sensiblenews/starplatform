@@ -7,6 +7,10 @@
     </ion-title>
 
     <ion-buttons slot="end">
+      <ion-button (click)="toggleSearchMode()">
+        <ion-icon [name]="isSearchMode ? 'search' : 'search-outline'" style="color: white; font-size: 24px;"></ion-icon>
+      </ion-button>
+
       <ion-button (click)="openMarketMenu($event)">
         <ion-icon name="add-circle-outline" style="color: white; font-size: 26px;"></ion-icon>
       </ion-button>
@@ -27,9 +31,10 @@
     </ion-buttons>
   </ion-toolbar>
 
-  <ion-toolbar>
-    <ion-searchbar placeholder="Search creators or content" [(ngModel)]="searchQuery" (ionInput)="filterStars($event)"
-      [debounce]="250" animated="true" clearInput="true">
+  <!-- 검색 아이콘 클릭 시에만 노출 -->
+  <ion-toolbar *ngIf="isSearchMode">
+    <ion-searchbar #lobbySearchbar placeholder="Search creators or content" [(ngModel)]="searchQuery"
+      (ionInput)="filterStars($event)" [debounce]="250" animated="true" clearInput="true">
     </ion-searchbar>
   </ion-toolbar>
 </ion-header>
@@ -331,8 +336,30 @@
 
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
-    <!-- 🌟 VS 배틀필드 카드 (검색창 아래 / Today's TOP 위, 5초 자동 순환) -->
+    <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
     <app-vs-carousel [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
+
+    <!-- 🌟 Today's TOP (VS 카드 바로 아래 — 가로 스크롤) -->
+    <div class="section-container today-top-section">
+      <div class="section-header">
+        <ion-icon name="star" class="title-icon orange"></ion-icon>
+        <ion-label>Today's TOP</ion-label>
+      </div>
+
+      <div class="horizontal-scroll-wrapper" #topScroll>
+        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
+          (click)="goToStarPage(star.id)">
+          <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
+
+          <div class="star-info" style="margin-top: 4px;">
+            <div class="name" style="font-size: 13px; font-weight: bold;">{{ star.name }}</div>
+            <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
+              🌎 #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 🌟 랭킹 탭: 세그먼트(Global/Daily King) + 카테고리 칩 (스크롤 시 상단 고정) -->
     <div class="vs-tab-bar">
@@ -365,40 +392,14 @@
               loading="lazy" /></ion-avatar>
           <ion-label class="info-container">
             <h2 class="star-name">{{ star.name }}</h2>
-            <div class="stats-row">
-              <div style="display: flex; align-items: center; gap: 2px;">
-                👁️ <span style="font-weight: 600;">{{ formatNumber(star.viewCount) }}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 2px;">
-                ⭐ <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
-              </div>
+            <div *ngIf="star.globalRank > 0" class="global-rank">
+              🌍 Global Rank #{{ star.globalRank }} / 👁️ {{ formatNumber(star.viewCount) }}
             </div>
           </ion-label>
         </ion-item>
       </ion-list>
       <div *ngIf="!isLoadingTop100 && categoryTop100.length === 0" class="no-result-msg">
         No stars in this category yet.
-      </div>
-    </div>
-
-    <div class="section-container">
-      <div class="section-header">
-        <ion-icon name="star" class="title-icon orange"></ion-icon>
-        <ion-label>Today's TOP</ion-label>
-      </div>
-
-      <div class="horizontal-scroll-wrapper" #topScroll>
-        <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
-          (click)="goToStarPage(star.id)">
-          <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
-
-          <div class="star-info" style="margin-top: 4px;">
-            <div class="name" style="font-size: 13px; font-weight: bold;">{{ star.name }}</div>
-            <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
-              🌎 #{{ star.globalRank }} / {{ formatNumber(star.totalStars) }}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
