@@ -10,6 +10,9 @@
   <meta name="description" content="StarPlatform - Follow your favorite stars, read their latest posts, and earn through global automated advertising." />
   <meta name="robots" content="index, follow" />
 
+  <%-- 애드센스 소유권 확인용 메타 태그 — 광고 코드가 아니므로 심사 중에도 유지 (구글 공식 확인 수단) --%>
+  <meta name="google-adsense-account" content="ca-pub-9109251900558498" />
+
   <meta property="og:title" content="StarPlatform" />
   <meta property="og:description" content="Create your page. Grow your audience. Earn globally." />
   <meta property="og:image" content="https://witch-hunting.com/resources/img/icon.png" />
