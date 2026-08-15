@@ -1324,7 +1324,7 @@ public class SuperAppService {
 	}
 
 	/**
-	 * 🌟 [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 조회 (현재 글 제외, 최대 2건)
+	 * 🌟 [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 조회 (현재 글 제외, 최대 20건)
 	 */
 	public List<Map<String, Object>> getRecentStarPosts(String starId, String excludeConId) {
 		try {

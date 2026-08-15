@@ -48,7 +48,12 @@
     <%-- [AdSense 승인 대기] 심사 신호를 깨끗하게 유지하기 위해 광고 스크립트를 임시 제거함.
          승인 메일 수신 후 아래 3곳을 함께 복원할 것 (이 파일 내 동일 표식 검색):
            ① head 광고 스크립트(여기)  ② FAQ 아래 ins 슬롯  ③ 하단 광고 게이트 스크립트
-         복원 코드는 git 이력 참조 — JSP 주석이라 HTML 출력에는 노출되지 않는다. --%>
+         복원 코드는 git 이력 참조 — JSP 주석이라 HTML 출력에는 노출되지 않는다.
+         복원 시 클라이언트 권장안 반영: ins에 style="display:block;min-height:250px" 적용
+         (레이아웃 흔들림 방지). 위치는 기존과 동일하게 FAQ 아래·하단 버튼 위. --%>
+
+    <%-- 애드센스 소유권 확인용 메타 태그 — 광고 코드가 아니므로 심사 중에도 유지 (구글 공식 확인 수단) --%>
+    <meta name="google-adsense-account" content="ca-pub-9109251900558498">
 
     <style>
         * {
@@ -403,33 +408,9 @@
             }
         }
 
-        // 🌟 설치 유저 자동 앱 실행 (1회만 시도)
-        // - 인앱 브라우저(카카오톡/트위터 등)에서는 OS의 App Link / Universal Link가 발동하지 않으므로
-        //   랜딩 진입 시 스크립트로 앱 실행을 시도한다.
-        // - 미설치 유저는 스토어로 보내지 않고 랜딩에 남긴다 (콘텐츠 + 광고 노출이 요구사항).
-        //   안드로이드: intent://의 fallback URL을 현재 랜딩으로 지정해 미설치 시 랜딩으로 복귀.
-        //   iOS: 커스텀 스킴 1회 시도 후 실패해도 추가 이동 없음.
-        // - load 이벤트를 기다리면 광고·이미지 로딩만큼 앱 실행이 늦어지므로 즉시 실행한다.
-        (function () {
-            if (isFacebookApp || isTwitterApp) return; // 페북/인스타/트위터: 자동 실행 차단·오동작 환경 (버튼 클릭으로 유도)
-            if (isIOS && isKakaoTalk) return;       // iOS 카카오톡: 위의 사파리 강제 전환이 처리
-
-            var alreadyTried = false;
-            try {
-                alreadyTried = sessionStorage.getItem('sp_auto_open_tried') === '1';
-                sessionStorage.setItem('sp_auto_open_tried', '1');
-            } catch (e) { }
-            if (alreadyTried) return;               // 미설치 폴백으로 재진입한 경우 반복 시도 방지
-
-            if (isAOS) {
-                var fallback = encodeURIComponent(window.location.href);
-                location.href = "intent://" + path + search
-                    + "#Intent;scheme=witchhunting;package=" + aosPackage
-                    + ";S.browser_fallback_url=" + fallback + ";end";
-            } else if (isIOS) {
-                location.href = schemeUrl;
-            }
-        })();
+        // [AdSense 심사 대응] 진입 즉시 앱을 자동 실행하던 로직 제거 —
+        // "이동용 중간 페이지"가 아닌 완결된 콘텐츠 페이지임을 강조하기 위해
+        // 앱/스토어 이동은 최하단 버튼 클릭(사용자 제스처)으로만 발생한다.
 
         // 🌟 방문 카운트: 서버 발급 토큰 + 2.5초 실체류 검증
         // - 토큰은 서버가 렌더링 시 발급(크롤러에겐 미발급)하며, 서버가 발급 경과시간으로 체류 하한을 재검증한다.

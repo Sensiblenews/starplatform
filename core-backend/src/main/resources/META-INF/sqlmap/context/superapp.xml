@@ -496,7 +496,8 @@
 		LIMIT 39000
 	</select>
 
-	<!-- [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 (현재 글 제외, 2건) -->
+	<!-- [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 (현재 글 제외, 20건)
+	     AdSense 심사 대비 페이지당 고유 콘텐츠 확충 요청으로 2건 → 20건 확대 -->
 	<select id="selectRecentStarPosts" parameterType="map" resultType="map">
 		SELECT
 			M.CON_ID,
@@ -511,7 +512,7 @@
 			AND M.CON_ID != #{excludeConId}
 		</if>
 		ORDER BY M.CREATED_DATE DESC
-		LIMIT 2
+		LIMIT 20
 	</select>
 
 	<select id="selectContentDetail" parameterType="map" resultType="map">

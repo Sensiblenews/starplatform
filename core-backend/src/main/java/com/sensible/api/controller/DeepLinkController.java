@@ -102,7 +102,7 @@ public class DeepLinkController {
 		return sb.toString();
 	}
 
-	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 2건) 모델 구성.
+	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 최대 20건) 모델 구성.
 	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
 	private void addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
 		List<Map<String, Object>> posts = superAppService.getRecentStarPosts(starId, excludeConId);
