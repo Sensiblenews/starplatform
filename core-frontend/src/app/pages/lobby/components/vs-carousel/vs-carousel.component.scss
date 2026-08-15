@@ -6,10 +6,16 @@
 .vs-card {
   background: #0d1117;
   border-radius: 16px;
-  padding: 12px 14px 14px;
+  padding: 16px 16px 18px;
   color: #fff;
   animation: vs-fade-in 0.4s ease;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+
+  // 화면 세로의 절반 수준으로 확대 (클라이언트 요청 — 기존 약 1/3).
+  // 세로 플렉스로 본문을 가운데 채우고 게이지를 하단에 붙인다
+  min-height: 46vh;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes vs-fade-in {
@@ -74,45 +80,84 @@
 
 .vs-body {
   display: flex;
-  align-items: center;
+  // 상단 기준 정렬 — center로 두면 이름 줄 수가 다를 때 컬럼마다 따로 중앙 정렬되어
+  // 좌우 아바타·지표·pts가 서로 다른 높이로 어긋난다
+  align-items: flex-start;
   justify-content: space-between;
+  flex: 1; // 카드 확대분을 본문이 차지해 아바타·지표가 세로 중앙에 오게
 }
 
 .vs-side {
   flex: 0 0 40%;
+  // 플렉스 아이템 기본값(min-width: auto)이면 긴 이름이 40% 폭을 밀어내 중앙 VS·반대편을 침범한다
+  min-width: 0;
   text-align: center;
   cursor: pointer;
 
   .side-name {
     font-size: 14px;
     font-weight: 800;
-    margin-top: 6px;
-    white-space: nowrap;
+    margin-top: 10px;
+    // 2줄 높이를 항상 확보 — 이름이 1줄이든 2줄이든 아래 지표·pts가 같은 높이에 온다
+    // (14px × 1.25 × 2줄 = 35px. 대기 문구는 폰트가 작아 3줄도 이 안에 근접)
+    line-height: 1.25;
+    min-height: 35px;
+    // 단어 단위 줄바꿈 (한글은 어절 유지, 공백 없는 초장문 토큰만 강제 분할)
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    // 이름이 아무리 길어도 2줄까지만 — 카드 높이가 들쭉날쭉해지는 것 방지
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  // 이름과 총점 사이 지표 3종 (👁️ 노출 / ❤️ 좋아요 ⭐ 팔로워)
+  .side-stats {
+    margin-top: 6px;
+
+    .stat-line {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.6;
+      white-space: nowrap;
+    }
   }
 
   .side-score {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.6);
-    margin-top: 2px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffd54f;
+    margin-top: 6px;
   }
 
   &.waiting .side-name {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.55);
     white-space: normal;
+    // 도전자 대기 문구는 3줄까지 (이름용 2줄 클램프를 그대로 쓰면 잘림)
+    -webkit-line-clamp: 3;
   }
 }
 
 .avatar-ring {
-  width: 58px;
-  height: 58px;
+  // 클라이언트 요청으로 2배 확대 (58 → 116)
+  width: 116px;
+  // 화면 크기 확대(Display size) 기기에서는 40% 컬럼이 116px보다 좁아지는데,
+  // 고정폭이 컬럼을 넘치면 margin:auto가 0이 되어 오른쪽으로만 삐져나온다(우측 치우침의 원인).
+  // 컬럼 폭을 상한으로 두고 aspect-ratio로 정원을 유지한다
+  max-width: 100%;
+  height: 116px; // aspect-ratio 미지원(iOS 14) 폴백 — 좁은 화면에선 약간 타원이지만 치우침은 없음
+  @supports (aspect-ratio: 1) {
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
   border-radius: 50%;
   margin: 0 auto;
-  padding: 2px;
+  padding: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,13 +170,13 @@
     background: #263238;
   }
 
-  &.blue { border: 2px solid #2979ff; }
-  &.red { border: 2px solid #ff1744; }
+  &.blue { border: 3px solid #2979ff; }
+  &.red { border: 3px solid #ff1744; }
   &.gray {
-    border: 2px dashed rgba(255, 255, 255, 0.35);
+    border: 3px dashed rgba(255, 255, 255, 0.35);
 
     .question-mark {
-      font-size: 24px;
+      font-size: 44px;
       font-weight: 800;
       color: rgba(255, 255, 255, 0.5);
     }
@@ -140,11 +185,13 @@
 
 .vs-center {
   flex: 1;
+  min-width: 0; // 큰 글꼴에서 Gap 텍스트(nowrap)가 좌우 컬럼을 밀어내지 않게
   text-align: center;
   cursor: pointer;
+  align-self: center; // 좌우가 상단 정렬이어도 VS 로고는 세로 중앙 유지
 
   .vs-logo {
-    font-size: 26px;
+    font-size: 34px;
     font-weight: 900;
     font-style: italic;
     background: linear-gradient(135deg, #40c4ff, #ff4081);
@@ -155,23 +202,24 @@
   }
 
   .score-gap {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.65);
-    margin-top: 2px;
+    margin-top: 3px;
     white-space: nowrap;
   }
 }
 
 .vs-gauge {
   display: flex;
-  height: 22px;
-  border-radius: 11px;
+  height: 26px;
+  border-radius: 13px;
   overflow: hidden;
-  margin-top: 12px;
-  font-size: 11px;
+  margin-top: 14px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  flex-shrink: 0; // 카드 세로 확장 시에도 게이지 높이 고정
 
   .gauge-left,
   .gauge-right {

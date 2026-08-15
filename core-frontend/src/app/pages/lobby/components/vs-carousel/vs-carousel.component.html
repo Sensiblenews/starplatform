@@ -18,6 +18,10 @@
             <img [src]="card.left.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
+          <div class="side-stats">
+            <div class="stat-line">👁️ {{ formatScore(card.left.viewCount || 0) }}</div>
+            <div class="stat-line">❤️ {{ formatScore(card.left.likeCnt || 0) }} ⭐ {{ formatScore(card.left.followerCnt || 0) }}</div>
+          </div>
           <div class="side-score">{{ formatScore(card.left.score) }} {{ getScoreUnit(card) }}</div>
         </div>
 
@@ -35,6 +39,10 @@
             <img [src]="card.right.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
+          <div class="side-stats">
+            <div class="stat-line">👁️ {{ formatScore(card.right.viewCount || 0) }}</div>
+            <div class="stat-line">❤️ {{ formatScore(card.right.likeCnt || 0) }} ⭐ {{ formatScore(card.right.followerCnt || 0) }}</div>
+          </div>
           <div class="side-score">{{ formatScore(card.right.score) }} {{ getScoreUnit(card) }}</div>
         </div>
         <div class="vs-side right waiting" *ngIf="!card.right">

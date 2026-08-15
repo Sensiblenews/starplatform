@@ -123,6 +123,7 @@ export class AvailablePageModalComponent {
     { code: 'STAR', name: 'Star', emoji: '⭐' },
     { code: 'CELEB', name: 'Celebrity', emoji: '👤' },
     { code: 'BRAND', name: 'Brand', emoji: '🏢' },
+    { code: 'ORG', name: 'Organization', emoji: '🏛' },
     { code: 'UNIV', name: 'University', emoji: '🎓' },
     { code: 'CITY', name: 'City', emoji: '🌆' },
     { code: 'MEDIA', name: 'Media', emoji: '📰' }

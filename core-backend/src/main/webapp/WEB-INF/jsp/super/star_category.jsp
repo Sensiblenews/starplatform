@@ -58,6 +58,7 @@
                         <option value="STAR" <c:if test="${filterCategory eq 'STAR'}">selected</c:if>>⭐ 스타</option>
                         <option value="CELEB" <c:if test="${filterCategory eq 'CELEB'}">selected</c:if>>👤 셀럽</option>
                         <option value="BRAND" <c:if test="${filterCategory eq 'BRAND'}">selected</c:if>>🏢 기업</option>
+                        <option value="ORG" <c:if test="${filterCategory eq 'ORG'}">selected</c:if>>🏛 단체</option>
                         <option value="UNIV" <c:if test="${filterCategory eq 'UNIV'}">selected</c:if>>🎓 대학</option>
                         <option value="CITY" <c:if test="${filterCategory eq 'CITY'}">selected</c:if>>🌆 도시</option>
                         <option value="MEDIA" <c:if test="${filterCategory eq 'MEDIA'}">selected</c:if>>📰 언론</option>
@@ -108,6 +109,7 @@
                                         <option value="STAR" <c:if test="${star.STAR_CATEGORY eq 'STAR'}">selected</c:if>>⭐ 스타</option>
                                         <option value="CELEB" <c:if test="${star.STAR_CATEGORY eq 'CELEB'}">selected</c:if>>👤 셀럽</option>
                                         <option value="BRAND" <c:if test="${star.STAR_CATEGORY eq 'BRAND'}">selected</c:if>>🏢 기업</option>
+                                        <option value="ORG" <c:if test="${star.STAR_CATEGORY eq 'ORG'}">selected</c:if>>🏛 단체</option>
                                         <option value="UNIV" <c:if test="${star.STAR_CATEGORY eq 'UNIV'}">selected</c:if>>🎓 대학</option>
                                         <option value="CITY" <c:if test="${star.STAR_CATEGORY eq 'CITY'}">selected</c:if>>🌆 도시</option>
                                         <option value="MEDIA" <c:if test="${star.STAR_CATEGORY eq 'MEDIA'}">selected</c:if>>📰 언론</option>

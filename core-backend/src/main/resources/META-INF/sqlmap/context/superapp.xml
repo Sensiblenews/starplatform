@@ -6,7 +6,7 @@
 	<select id="selectPopularStars" resultType="hashmap">
 	    SELECT
 	        T.id, T.name, T.image, T.status, T.starCategory,
-	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS
+	        T.POPULAR_ORDER, T.GLOBAL_RANK, T.TOTAL_STARS, T.viewCount
 	    FROM (
 	        SELECT
 	            P.PRS_ID as id,
@@ -14,7 +14,8 @@
 	            P.STORED_FILE_NM as image,
 	            P.STATUS_MSG as status,
 	            P.STAR_CATEGORY as starCategory,
-	            ROW_NUMBER() OVER (ORDER BY 
+	            IFNULL(A.viewCount, 0) as viewCount,
+	            ROW_NUMBER() OVER (ORDER BY
 	                (
 	                    IFNULL(V.cnt, 0) * 1 + 
 	                    IFNULL(L.cnt, 0) * 3 + 
@@ -86,8 +87,15 @@
 	        P.STAR_CATEGORY as starCategory,
 	        P.POPULAR_ORDER,
 	        T_RANK.GLOBAL_RANK,
-	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS
+	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS,
+	        IFNULL(A.viewCount, 0) as viewCount
 	    FROM WH_PRESS P
+	    LEFT JOIN (
+	        SELECT PRS_ID, COUNT(*) as viewCount
+	        FROM WH_AD_LOG
+	        WHERE ACTION = 'IMPRESSION'
+	        GROUP BY PRS_ID
+	    ) A ON P.PRS_ID = A.PRS_ID
 	    LEFT JOIN (
 	        SELECT 
 	            P2.PRS_ID,
@@ -1620,9 +1628,11 @@
 	<!-- AUTO 카드 데이터 소스: 카테고리별 랭킹 TOP 2
 	     rankType GLOBAL: 종합점수(노출×1 + 좋아요×3 + 팔로워×5) — 트로피 G 랭킹과 동일 기준
 	     rankType DAILY : 오늘 노출 수
-	     미분류(GENERAL)는 동점일 때만 후순위(tiebreak). 카테고리 파트는 미분류 제외 6개 직군만 대상 -->
+	     표시용 지표 3종(viewCount/likeCnt/followerCnt)은 카드 종류와 무관하게 누적 기준 —
+	     DAILY는 A(오늘)로 점수를 매기므로 누적 노출용 조인 T를 따로 붙인다.
+	     미분류(GENERAL)는 동점일 때만 후순위(tiebreak). 카테고리 파트는 미분류 제외 직군만 대상 -->
 	<select id="selectVsTop2" parameterType="map" resultType="map">
-	    SELECT G.category, G.id, G.name, G.image, G.starCategory, G.score, G.rn
+	    SELECT G.category, G.id, G.name, G.image, G.starCategory, G.score, G.viewCount, G.likeCnt, G.followerCnt, G.rn
 	    FROM (
 	        SELECT
 	            'GLOBAL' as category,
@@ -1634,6 +1644,12 @@
 	                <when test="rankType == 'DAILY'">IFNULL(A.viewCount, 0)</when>
 	                <otherwise>IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5</otherwise>
 	            </choose> as score,
+	            <choose>
+	                <when test="rankType == 'DAILY'">IFNULL(T.viewCount, 0)</when>
+	                <otherwise>IFNULL(A.viewCount, 0)</otherwise>
+	            </choose> as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as likeCnt,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCnt,
 	            ROW_NUMBER() OVER (
 	                ORDER BY
 	                    <choose>
@@ -1655,13 +1671,21 @@
 	            </if>
 	            GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
+	        <if test="rankType == 'DAILY'">
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) T ON P.PRS_ID = T.PRS_ID
+	        </if>
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 	    ) G
 	    WHERE G.rn &lt;= 2
 
 	    UNION ALL
 
-	    SELECT C.category, C.id, C.name, C.image, C.starCategory, C.score, C.rn
+	    SELECT C.category, C.id, C.name, C.image, C.starCategory, C.score, C.viewCount, C.likeCnt, C.followerCnt, C.rn
 	    FROM (
 	        SELECT
 	            P.STAR_CATEGORY as category,
@@ -1673,6 +1697,12 @@
 	                <when test="rankType == 'DAILY'">IFNULL(A.viewCount, 0)</when>
 	                <otherwise>IFNULL(A.viewCount, 0) * 1 + IFNULL(P.LIKE_CNT, 0) * 3 + IFNULL(P.FOLLOWER_CNT, 0) * 5</otherwise>
 	            </choose> as score,
+	            <choose>
+	                <when test="rankType == 'DAILY'">IFNULL(T.viewCount, 0)</when>
+	                <otherwise>IFNULL(A.viewCount, 0)</otherwise>
+	            </choose> as viewCount,
+	            IFNULL(P.LIKE_CNT, 0) as likeCnt,
+	            IFNULL(P.FOLLOWER_CNT, 0) as followerCnt,
 	            ROW_NUMBER() OVER (
 	                PARTITION BY P.STAR_CATEGORY
 	                ORDER BY
@@ -1694,19 +1724,31 @@
 	            </if>
 	            GROUP BY PRS_ID
 	        ) A ON P.PRS_ID = A.PRS_ID
+	        <if test="rankType == 'DAILY'">
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) T ON P.PRS_ID = T.PRS_ID
+	        </if>
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 	          AND P.STAR_CATEGORY != 'GENERAL'
 	    ) C
 	    WHERE C.rn &lt;= 2
 	</select>
 
-	<!-- CUSTOM 카드 한쪽 스타 정보 + 종합점수(노출×1 + 좋아요×3 + 팔로워×5, G 랭킹과 동일 기준) -->
+	<!-- CUSTOM 카드 한쪽 스타 정보 + 종합점수(노출×1 + 좋아요×3 + 팔로워×5, G 랭킹과 동일 기준)
+	     표시용 지표 3종(viewCount/likeCnt/followerCnt) 포함 -->
 	<select id="selectVsStarWithScore" parameterType="string" resultType="map">
 	    SELECT
 	        P.PRS_ID as id,
 	        P.PRS_NAME as name,
 	        P.STORED_FILE_NM as image,
 	        P.STAR_CATEGORY as starCategory,
+	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') as viewCount,
+	        IFNULL(P.LIKE_CNT, 0) as likeCnt,
+	        IFNULL(P.FOLLOWER_CNT, 0) as followerCnt,
 	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') * 1
 	            + IFNULL(P.LIKE_CNT, 0) * 3
 	            + IFNULL(P.FOLLOWER_CNT, 0) * 5 as score

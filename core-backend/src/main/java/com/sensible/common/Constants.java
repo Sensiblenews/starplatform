@@ -24,7 +24,7 @@ public class Constants {
 
 	/*스타 직군(카테고리) — VS 배틀필드 랭킹 분류. GENERAL은 미분류(후순위 노출)*/
 	public static final java.util.List<String> STAR_CATEGORIES =
-			java.util.Collections.unmodifiableList(java.util.Arrays.asList("STAR", "CELEB", "BRAND", "UNIV", "CITY", "MEDIA"));
+			java.util.Collections.unmodifiableList(java.util.Arrays.asList("STAR", "CELEB", "BRAND", "ORG", "UNIV", "CITY", "MEDIA"));
 	public static final String STAR_CATEGORY_DEFAULT = "GENERAL";
 	
 	

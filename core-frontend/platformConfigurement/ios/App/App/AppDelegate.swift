@@ -3,7 +3,10 @@ import Capacitor
 import KakaoSDKCommon
 import KakaoSDKUser
 import KakaoSDKAuth
+import Firebase
+import GoogleMobileAds
 import FBSDKCoreKit
+import FirebaseAuth
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -12,19 +15,52 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        MobileAds.shared.start(completionHandler: nil)
         
         // initialize FB
         FBSDKCoreKit.ApplicationDelegate.shared.application(
             application,
             didFinishLaunchingWithOptions: launchOptions
         )
+        FBSDKCoreKit.Settings.shared.appID = "1283614445756373"
         // initialize FB END
 
         // Initialize Kakao
         let key = Bundle.main.infoDictionary?["KAKAO_APP_KEY"] as? String
         KakaoSDK.initSDK(appKey: key!)
         // Initialize Kakao END
+        
+        // initialize Firebase
+        FirebaseApp.configure()
+        // initialize Firebase END
+        
+        // web inspector settings
+        #if DEBUG
+          if #available(macOS 13.3, iOS 16.4, tvOS 16.4, *) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                      if let vc = self.window?.rootViewController as? CAPBridgeViewController {
+                          vc.bridge?.webView?.isInspectable = true;
+                      }
+                }
+          }
+        #endif
+        
         return true
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+         Messaging.messaging().apnsToken = deviceToken
+         Messaging.messaging().token(completion: { (token, error) in
+           if let error = error {
+               NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+           } else if let token = token {
+               NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)
+           }
+         })
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -54,6 +90,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // but if you want the App API to support tracking app url opens, make sure to keep this call
         
         // Need for Login with KakaoTalk
+      
+      if Auth.auth().canHandle(url) {
+        return true
+      }
+      
         if (AuthApi.isKakaoTalkLoginUrl(url)) {
             return AuthController.handleOpenUrl(url: url)
         }

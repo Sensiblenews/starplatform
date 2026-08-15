@@ -270,7 +270,7 @@ public class SuperAppController {
 	}
 
 	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)
-	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|UNIV|CITY|MEDIA
+	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|ORG|UNIV|CITY|MEDIA
 	@RequestMapping(value = "/api/super/leaderboard/category", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
 	public Map<String, Object> getCategoryLeaderboard(CommandMap commandMap) throws Exception {
