@@ -64,7 +64,8 @@ public class SuperAppController {
 	public Map<String, Object> recordAdLog(CommandMap commandMap) throws Exception {
 		// 파라미터: MEM_ID(시청자), PRS_ID(스타), AD_TYPE(광고종류)
 		logger.info("Ad Log Record: " + commandMap.getMap());
-		return superAppService.insertAdLog(commandMap.getMap());
+		// 앱 진입점은 IMPRESSION 1초 연타 가드를 거친다 (2-23차)
+		return superAppService.insertAdLogFromApp(commandMap.getMap());
 	}
 
 	// 4. 피드 상세 조회 (게시글 + 미디어 리스트)

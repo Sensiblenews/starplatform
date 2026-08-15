@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Resource;
 
@@ -88,6 +89,35 @@ public class SuperAppService {
 			resultMap.put("result", "FAIL");
 		}
 		return resultMap;
+	}
+
+	/**
+	 * 앱(/api/ad/log) 전용 광고 로그 진입점 — IMPRESSION 1초 연타를 서버에서 차단한다.
+	 * 클라이언트 60초 쿨다운(localStorage)은 조작 가능하므로 신뢰 경계 백업 역할.
+	 * 거부 시에도 200 + IGNORED로 응답해 공격자에게 판정 신호를 주지 않는다(랜딩 방문과 동일 정책).
+	 * 웹 랜딩 경로(LandingVisitService)는 자체 가드를 거쳐 insertAdLog를 직접 호출하므로 이중 차단되지 않는다.
+	 */
+	public Map<String, Object> insertAdLogFromApp(Map<String, Object> map) throws Exception {
+		String action = (String) map.get("ACTION");
+		Object memId = map.get("MEM_ID");
+		Object prsId = map.get("PRS_ID");
+
+		if ("IMPRESSION".equals(action) && memId != null && prsId != null) {
+			try {
+				String burstKey = "adlog:burst:" + memId + ":" + prsId;
+				Boolean burstFirst = redisTemplate.opsForValue().setIfAbsent(burstKey, "1");
+				if (Boolean.FALSE.equals(burstFirst)) {
+					Map<String, Object> resultMap = new HashMap<>();
+					resultMap.put("result", "IGNORED");
+					return resultMap;
+				}
+				redisTemplate.expire(burstKey, 1, TimeUnit.SECONDS);
+			} catch (Exception e) {
+				// Redis 장애 시 fail-open — 기존 정책과 동일하게 카운트를 진행
+				System.out.println("Ad log burst guard skipped (fail-open): " + e.getMessage());
+			}
+		}
+		return insertAdLog(map);
 	}
 
 	public Map<String, Object> insertAdLog(Map<String, Object> map) throws Exception {
