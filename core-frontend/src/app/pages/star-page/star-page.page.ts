@@ -146,6 +146,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.removeClickListener();
+    this.stopPolling();
     if (this.paramSub) {
       this.paramSub.unsubscribe();
     }
@@ -163,6 +164,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🤖 봇 진입 감지 - 배너 광고를 노출하지 않습니다.');
       return;
     }
+
+    // 🌟 방문자 수 실시간 폴링 시작 (화면에 보일 때만 가동, ionViewWillLeave에서 정지)
+    this.startPolling();
 
     if (this.platform.is('capacitor')) {
       let canShow = await this.adProtection.shouldShowAd(this.starId);
@@ -587,6 +591,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   startPolling() {
+    // 재진입 시 중복 인터벌 방지
+    this.stopPolling();
+
     this.http.post('/api/super/lobby/poll', { lastCheckTime: '', starId: this.starId }).subscribe((res: any) => {
       if (res.result === 'OK') this.lastCheckTime = res.currentTime;
     });
@@ -614,6 +621,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   stopPolling() {
     if (this.pollingIntervalId) {
       clearInterval(this.pollingIntervalId);
+      this.pollingIntervalId = null;
     }
   }
 
