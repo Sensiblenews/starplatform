@@ -14,13 +14,15 @@
       <div class="vs-body">
         <!-- 좌측: 1위 (탭 → 프로필) -->
         <div class="vs-side left" (click)="goToProfile(card.left, $event)">
-          <div class="avatar-ring blue">
+          <div class="avatar-ring blue" [class.animate]="isMotionActive">
             <img [src]="card.left.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
+          <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
           <div class="side-stats">
             <div class="stat-line">👁️ {{ formatScore(card.left.viewCount || 0) }}</div>
-            <div class="stat-line">❤️ {{ formatScore(card.left.likeCnt || 0) }} ⭐ {{ formatScore(card.left.followerCnt || 0) }}</div>
+            <div class="stat-line">❤️ {{ formatScore(card.left.likeCnt || 0) }}</div>
+            <div class="stat-line">⭐ {{ formatScore(card.left.followerCnt || 0) }}</div>
           </div>
           <div class="side-score">{{ formatScore(card.left.score) }} {{ getScoreUnit(card) }}</div>
         </div>
@@ -35,13 +37,15 @@
 
         <!-- 우측: 2위 또는 도전자 대기 -->
         <div class="vs-side right" *ngIf="card.right" (click)="goToProfile(card.right, $event)">
-          <div class="avatar-ring red">
+          <div class="avatar-ring red" [class.animate]="isMotionActive">
             <img [src]="card.right.image" (error)="handleImageError($event)" loading="lazy" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
+          <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
           <div class="side-stats">
             <div class="stat-line">👁️ {{ formatScore(card.right.viewCount || 0) }}</div>
-            <div class="stat-line">❤️ {{ formatScore(card.right.likeCnt || 0) }} ⭐ {{ formatScore(card.right.followerCnt || 0) }}</div>
+            <div class="stat-line">❤️ {{ formatScore(card.right.likeCnt || 0) }}</div>
+            <div class="stat-line">⭐ {{ formatScore(card.right.followerCnt || 0) }}</div>
           </div>
           <div class="side-score">{{ formatScore(card.right.score) }} {{ getScoreUnit(card) }}</div>
         </div>

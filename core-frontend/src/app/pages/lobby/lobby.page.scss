@@ -19,6 +19,16 @@
   // VS 카드와 Today's TOP 사이 여백
   &.today-top-section {
     margin-top: 8px;
+
+    // 클라이언트 요청: 다른 섹션 제목보다 한 단계 작고 연하게
+    .section-header {
+      font-size: 0.95rem;
+
+      // ion-label은 Ionic이 자체 color를 주므로 부모 color만으로는 연해지지 않는다
+      ion-label {
+        color: rgba(0, 0, 0, 0.55);
+      }
+    }
   }
 
   .section-header {
@@ -55,14 +65,24 @@
   }
 
   .star-card-mini {
-    min-width: 110px;
+    // 고정 110px이면 화면이 좁은 안드로이드(360dp)에서 3장(354px)이 가용폭(328px)을 넘겨
+    // 세 번째 카드가 잘린다. 가용폭에서 gap 2개를 뺀 1/3로 잡아 기기 폭과 무관하게 3장을 맞춘다
+    flex: 0 0 calc((100% - 24px) / 3);
+    min-width: 0;
+    // 태블릿처럼 넓은 화면에서 카드가 과하게 커지지 않도록 상한만 둔다
+    max-width: 150px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     overflow: hidden;
 
     .avatar-box {
-      height: 110px;
+      // 폭이 가변이 되었으므로 높이도 따라가야 사진이 눌리지 않는다
+      height: 110px; // aspect-ratio 미지원(iOS 14) 폴백
+      @supports (aspect-ratio: 1) {
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
       background-color: #f0f0f0; // 레거시 배경색 참고
 
       img {

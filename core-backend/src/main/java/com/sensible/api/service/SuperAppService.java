@@ -39,10 +39,10 @@ public class SuperAppService {
 	@Autowired
 	private FirebaseService firebaseService;
 
-	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 120초, context-redis.xml).
+	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 60초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
 	// usePrefix=true가 캐시명("lobby")을 접두어로 붙이므로 키에는 country만 둔다 → Redis 키: lobby:KR
-	// 주의: popularStars의 Collections.shuffle는 캐시된 순서로 고정된다(TTL 동안 동일 순서).
+	// 주의: Today's TOP은 방문자 수 내림차순 그대로 내려보낸다(2-25차 — 셔플 제거).
 	@Cacheable(value = "lobby",
 			key = "T(org.springframework.util.StringUtils).hasText(#map['country']) ? #map['country'] : 'KR'",
 			unless = "#result == null")
@@ -54,12 +54,9 @@ public class SuperAppService {
 			map.put("country", "KR");
 		}
 
-		// 인기 스타 (가로)
+		// Today's TOP (가로) — 최근 24시간 방문자 수가 많은 순서.
+		// 셔플하면 "방문자 많은 페이지가 먼저 나온다"는 규칙이 깨지므로 매퍼 정렬을 그대로 쓴다
 		List<Map<String, Object>> popularStars = dao.selectList("superapp.selectPopularStars", map);
-		if (popularStars != null && !popularStars.isEmpty()) {
-			popularStars = new ArrayList<>(popularStars);
-			java.util.Collections.shuffle(popularStars);
-		}
 		// 전체 스타 (세로)
 		List<Map<String, Object>> allStars = dao.selectList("superapp.selectAllStars", map);
 		

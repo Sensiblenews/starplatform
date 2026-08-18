@@ -168,6 +168,13 @@
     border-radius: 50%;
     object-fit: cover;
     background: #263238;
+    transform-origin: center center;
+  }
+
+  // 로비 Today's TOP과 동일한 숨쉬기 모션. 카드가 5초마다 재생성되므로
+  // 로비의 IntersectionObserver로는 옵저버가 유실된다 — 컴포넌트 자체 클래스로 제어한다
+  &.animate img {
+    animation: vsBreathingMotion 1.5s infinite ease-in-out;
   }
 
   &.blue { border: 3px solid #2979ff; }
@@ -239,4 +246,11 @@
     justify-content: flex-end;
     padding-right: 10px;
   }
+}
+
+// Today's TOP의 breathingMotion과 같은 규격 (로비 scss는 컴포넌트 스코프라 여기까지 닿지 않는다)
+@keyframes vsBreathingMotion {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 }

@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  네이티브 광고 카드. 컨테이너 높이가 315dp로 고정(MainActivity)이라 내부가 그 안에서 끝나야 한다.
+  기존 구조는 배지 → 미디어(180dp 고정) → 헤드라인 → 하단 바를 위에서 아래로 이어 붙인 형태여서,
+  시스템 글자 크기를 키우면 헤드라인·CTA 행이 커진 만큼 하단 바가 315dp 밖으로 밀려 엉켰다.
+  하단 바를 부모 아래에 고정하고 미디어가 남는 높이를 차지하게 바꿔 어떤 글자 크기에서도 안 밀린다.
+  광고 카드 안의 글자는 dp로 둔다 — 고정 높이 크리에이티브라 sp로 두면 배율에 따라 레이아웃이 무너진다(iOS와 동일).
+-->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
   xmlns:tools="http://schemas.android.com/tools"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  android:maxHeight="290dp"
   android:paddingStart="8dp"
   android:paddingEnd="8dp"
   android:background="@android:color/white"
@@ -17,7 +23,9 @@
     android:layout_height="match_parent"
     android:focusable="false"
     android:clickable="false">
+
     <androidx.appcompat.widget.AppCompatImageView
+      android:id="@+id/ad_badge"
       android:layout_width="29dp"
       android:layout_height="21dp"
       android:src="@drawable/ad_badge"
@@ -27,15 +35,21 @@
       android:focusable="false"
       android:clickable="false"/>
 
+    <!-- 남는 세로 공간을 미디어가 흡수한다. fitCenter라 폭이 늘어도 비율은 유지 -->
     <ImageView
       android:id="@+id/ad_media"
-      android:layout_width="320dp"
-      android:layout_height="180dp"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
       android:layout_marginTop="25dp"
+      android:adjustViewBounds="true"
+      android:scaleType="fitCenter"
       android:contentDescription="메인이미지"
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
+      android:layout_marginBottom="6dp"
+      app:layout_constraintBottom_toTopOf="@+id/ad_headline"
+      app:layout_constraintHeight_min="90dp"
       android:focusable="false"
       android:clickable="false" />
 
@@ -43,71 +57,92 @@
       android:id="@+id/ad_headline"
       android:layout_width="0dp"
       android:layout_height="wrap_content"
-      android:layout_marginTop="6dp"
+      android:layout_marginBottom="2dp"
       android:background="@drawable/border_top_bottom"
       android:ellipsize="end"
       android:maxLines="1"
       android:padding="8dp"
       android:text="광고 제목이 여기에 표시됩니다"
       android:textColor="@android:color/black"
-      android:textSize="15sp"
+      android:textSize="15dp"
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintHorizontal_bias="0.0"
-      app:layout_constraintHorizontal_weight="1"
       app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toBottomOf="@+id/ad_media"
+      app:layout_constraintBottom_toTopOf="@+id/ad_bottom_bar"
       android:focusable="false"
-      android:clickable="false"/>
+      android:clickable="false"
+      tools:ignore="SpUsage"/>
 
-    <ImageView
-      android:id="@+id/ad_icon"
-      android:layout_width="24dp"
-      android:layout_height="24dp"
-      android:layout_marginTop="8dp"
-      android:layout_marginStart="8dp"
-      android:contentDescription="미디어"
-      app:layout_constraintTop_toBottomOf="@+id/ad_headline"
-      app:layout_constraintStart_toStartOf="parent"
-      android:focusable="false"
-      android:clickable="false"/>
-
-
-    <TextView
-      android:id="@+id/ad_advertiser"
+    <!-- 아이콘·광고주·CTA를 한 덩어리로 묶어 부모 하단에 고정. 아이콘이 GONE이어도 행이 무너지지 않는다 -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+      android:id="@+id/ad_bottom_bar"
       android:layout_width="0dp"
       android:layout_height="wrap_content"
-      android:layout_marginStart="8dp"
-      android:layout_marginEnd="8dp"
-      android:text="광고주" android:textSize="13sp"
-      android:textColor="@android:color/black"
-      android:maxLines="1"
-      android:ellipsize="end"
-      app:layout_constraintTop_toTopOf="@+id/ad_icon"
-      app:layout_constraintBottom_toBottomOf="@+id/ad_icon"
-      app:layout_constraintStart_toEndOf="@+id/ad_icon"
-      app:layout_constraintEnd_toStartOf="@+id/ad_call_to_action"
+      android:layout_marginTop="8dp"
+      android:minHeight="40dp"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintBottom_toBottomOf="parent"
       android:focusable="false"
-      android:clickable="false"/>
+      android:clickable="false">
 
+      <ImageView
+        android:id="@+id/ad_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="8dp"
+        android:contentDescription="미디어"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:focusable="false"
+        android:clickable="false"/>
 
-    <com.google.android.gms.ads.nativead.NativeAdView
-      android:id="@+id/ad_call_to_action"
-      android:layout_width="120dp"
-      android:layout_height="wrap_content"
-      app:layout_constraintTop_toTopOf="@+id/ad_icon"
-      app:layout_constraintBottom_toBottomOf="@+id/ad_icon"
-      app:layout_constraintEnd_toEndOf="parent">
-      <Button
-        android:id="@+id/ad_call_to_action_button"
-        android:layout_width="match_parent"
+      <TextView
+        android:id="@+id/ad_advertiser"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:minHeight="40dp"
-        android:text="자세히 보기" android:textSize="14sp"
-        android:textColor="#2196F3" android:background="@android:color/transparent" android:paddingStart="8dp"
-        android:paddingEnd="8dp"
+        android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        />
-    </com.google.android.gms.ads.nativead.NativeAdView>
+        android:text="광고주"
+        android:textSize="13dp"
+        android:textColor="@android:color/black"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/ad_icon"
+        app:layout_constraintEnd_toStartOf="@+id/ad_call_to_action"
+        app:layout_goneMarginStart="0dp"
+        android:focusable="false"
+        android:clickable="false"
+        tools:ignore="SpUsage"/>
+
+      <com.google.android.gms.ads.nativead.NativeAdView
+        android:id="@+id/ad_call_to_action"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <Button
+          android:id="@+id/ad_call_to_action_button"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:minHeight="40dp"
+          android:maxLines="1"
+          android:ellipsize="end"
+          android:text="자세히 보기"
+          android:textSize="14dp"
+          android:textColor="#2196F3"
+          android:background="@android:color/transparent"
+          android:paddingStart="8dp"
+          android:paddingEnd="8dp"
+          android:layout_marginEnd="8dp"
+          tools:ignore="SpUsage"/>
+      </com.google.android.gms.ads.nativead.NativeAdView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
   </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

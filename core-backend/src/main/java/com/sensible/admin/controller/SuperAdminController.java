@@ -849,7 +849,8 @@ public class SuperAdminController {
         } catch (Exception e) {
             e.printStackTrace();
             result.put("status", "fail");
-            result.put("msg", "약관 저장에 실패했습니다.");
+            // 원인 불명의 "저장 실패"로 뭉개지 않도록 실제 사유를 그대로 노출한다 (SM 전용 화면)
+            result.put("msg", e.getMessage() != null ? e.getMessage() : "약관 저장에 실패했습니다.");
         }
         return result;
     }
@@ -1345,6 +1346,30 @@ public class SuperAdminController {
         }
         try {
             superAdminService.toggleVsPin(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * [API] VS 카드 노출/비노출 토글 (기본 매치 16장·커스텀 매치 공통)
+     */
+    @RequestMapping(value = "/super/vs/visible.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> toggleVsVisible(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.toggleVsVisible(params);
             result.put("status", "success");
         } catch (Exception e) {
             e.printStackTrace();

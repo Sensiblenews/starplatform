@@ -25,7 +25,8 @@
           style="color: #ffca28; font-size: 24px;"></ion-icon>
       </ion-button>
 
-      <ion-button *ngIf="isStar || isAdmin" (click)="openProfileMenu($event)" title="My Page">
+      <!-- 아이콘 탭 = 내 페이지 바로 진입 (중간 메뉴 제거). 관리자는 스타 페이지가 없어 노출하지 않는다 -->
+      <ion-button *ngIf="isStar" (click)="goToMyStarPage()" title="My Page">
         👤
       </ion-button>
     </ion-buttons>
@@ -398,7 +399,7 @@
 
       <ion-list lines="none" *ngIf="!isLoadingTop100">
         <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
-          class="star-list-item">
+          class="star-list-item motion-card">
           <div slot="start" class="vs-rank-no" [class.top3]="i < 3">{{ i + 1 }}</div>
           <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
               loading="lazy" /></ion-avatar>

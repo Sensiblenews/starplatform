@@ -586,7 +586,9 @@ public class DeepLinkController {
             }
 
             model.addAttribute("policyTitle", escapeHtml(String.valueOf(matched.get("CON_TITLE"))));
-            model.addAttribute("policyBody", matched.get("CON_BODY"));
+            // 평문으로 붙여넣은 본문은 줄바꿈·들여쓰기를 살려 내보낸다 (HTML 본문은 그대로 통과)
+            model.addAttribute("policyBody",
+                    SuperAdminService.renderPolicyBody(String.valueOf(matched.get("CON_BODY"))));
             model.addAttribute("policyUpdated", matched.get("CON_UDATE"));
             return "/common/policy_view";
         } catch (Exception e) {

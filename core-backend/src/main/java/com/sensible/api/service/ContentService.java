@@ -977,6 +977,13 @@ public class ContentService {
 
 		mMap.put("isSuccess", 1);
 		cMap.put("CON_EXPD", 0);
+
+		// 앱 약관 화면은 본문을 HTML로 렌더링한다. 평문으로 붙여넣은 약관의 줄바꿈·들여쓰기가
+		// 그대로 사라지므로 웹(/terms·/privacy)과 같은 규칙으로 정규화해 내려보낸다
+		if (cMap.get("CON_BODY") != null) {
+			cMap.put("CON_BODY",
+					com.sensible.admin.service.SuperAdminService.renderPolicyBody(String.valueOf(cMap.get("CON_BODY"))));
+		}
 		
 //		if (hMap == null || hMap.get("MEM_ID") == null) {
 //			dao.insert("content.insertContentHistory", map);

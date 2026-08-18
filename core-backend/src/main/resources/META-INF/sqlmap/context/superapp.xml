@@ -15,15 +15,10 @@
 	            P.STATUS_MSG as status,
 	            P.STAR_CATEGORY as starCategory,
 	            IFNULL(A.viewCount, 0) as viewCount,
+	            -- 자동 11명 선정 기준: 최근 24시간 방문자 수 100% (클라이언트 확정, 2-25차).
+	            -- 좋아요·댓글·공유·팔로우·신규글 가중치는 이 기준에서 제외한다
 	            ROW_NUMBER() OVER (ORDER BY
-	                (
-	                    IFNULL(V.cnt, 0) * 1 + 
-	                    IFNULL(L.cnt, 0) * 3 + 
-	                    IFNULL(C.cnt, 0) * 5 + 
-	                    IFNULL(S.cnt, 0) * 8 + 
-	                    IFNULL(F.cnt, 0) * 10 + 
-	                    IF(IFNULL(N.newContent, 0) > 0, 100, 0)
-	                ) DESC,
+	                IFNULL(V.cnt, 0) DESC,
 	                P.PRS_ID ASC
 	            ) AS POPULAR_ORDER,
 	            ROW_NUMBER() OVER (
@@ -47,31 +42,9 @@
 	        ) A ON P.PRS_ID = A.PRS_ID
 	        LEFT JOIN (
 	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
-	            WHERE ACTION = 'IMPRESSION' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
+	            WHERE ACTION = 'IMPRESSION' AND CREATED_DATE >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+	            GROUP BY PRS_ID
 	        ) V ON P.PRS_ID = V.PRS_ID
-	        LEFT JOIN (
-	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_LIKE_LOG 
-	            WHERE ACTION = 'LIKE' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
-	        ) L ON P.PRS_ID = L.PRS_ID
-	        LEFT JOIN (
-	            SELECT COALESCE(wsc.PRS_ID, wgc.TARGET_ID) as PRS_ID, COUNT(*) as cnt 
-	            FROM WH_GUEST_COMMENT wgc 
-	            LEFT JOIN WH_STAR_CONTENT wsc ON wgc.TARGET_TYPE != 'STAR' AND wgc.TARGET_ID = wsc.CON_ID 
-	            WHERE wgc.STATUS = 'NORMAL' AND DATE(wgc.CREATED_AT) = CURDATE()
-	            GROUP BY COALESCE(wsc.PRS_ID, wgc.TARGET_ID)
-	        ) C ON P.PRS_ID = C.PRS_ID
-	        LEFT JOIN (
-	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_AD_LOG 
-	            WHERE ACTION = 'SHARE' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
-	        ) S ON P.PRS_ID = S.PRS_ID
-	        LEFT JOIN (
-	            SELECT PRS_ID, COUNT(*) as cnt FROM WH_FOLLOWER_LOG 
-	            WHERE ACTION = 'FOLLOW' AND DATE(CREATED_DATE) = CURDATE() GROUP BY PRS_ID
-	        ) F ON P.PRS_ID = F.PRS_ID
-	        LEFT JOIN (
-	            SELECT PRS_ID, COUNT(*) as newContent FROM WH_STAR_CONTENT 
-	            WHERE CREATED_DATE >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY PRS_ID
-	        ) N ON P.PRS_ID = N.PRS_ID
 	        WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 	          AND (P.POPULAR_ORDER IS NULL OR P.POPULAR_ORDER NOT BETWEEN 12 AND 16)
 	    ) T
@@ -1622,6 +1595,7 @@
 	        PIN_ORDER as pinOrder
 	    FROM WH_VS_CARD
 	    WHERE USE_YN = 'Y'
+	      AND VISIBLE_YN = 'Y'
 	    ORDER BY IS_PINNED DESC, PIN_ORDER ASC, VS_ID ASC
 	</select>
 

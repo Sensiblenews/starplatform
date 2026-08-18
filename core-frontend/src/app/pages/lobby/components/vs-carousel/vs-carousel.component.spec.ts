@@ -33,6 +33,20 @@ describe('VsCarouselComponent', () => {
     component.stopAutoPlay();
   });
 
+  describe('아바타 모션 (자동 순환과 함께 on/off)', () => {
+    it('startAutoPlay는 모션을 켠다', () => {
+      component.stopAutoPlay();
+      component.startAutoPlay();
+      expect(component.isMotionActive).toBeTrue();
+    });
+
+    it('stopAutoPlay는 모션도 함께 멈춘다 (화면 이탈 시 배터리 낭비 방지)', () => {
+      component.startAutoPlay();
+      component.stopAutoPlay();
+      expect(component.isMotionActive).toBeFalse();
+    });
+  });
+
   describe('getScoreUnit (점수 단위 표기)', () => {
     it('DAILY 카드는 views로 표기한다', () => {
       const card = { ...makeCard(1, 1), type: 'DAILY' as const };

@@ -8,7 +8,6 @@ import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { WriteModalService } from '../../services/write-modal.service';
-import { ProfileMenuPopoverComponent } from './profile-menu-popover.component';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
 import { FirebaseAuthService } from 'src/app/services/oauth/firebase-auth.service';
@@ -552,6 +551,8 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.isLoadingTop100 = false;
           if (res.result === 'OK') {
             this.categoryTop100 = (res.list || []).map(this.initStarData);
+            // 탭을 바꾸면 행 DOM이 통째로 교체되므로 아바타 모션 옵저버를 다시 붙인다
+            this.setupMotionObserver();
           }
           // 리스트 길이 변화로 슬롯이 밀리므로 렌더 후 위치 재전송
           setTimeout(() => this.sendAdSlotPosition());
@@ -834,7 +835,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   async openMarketMenu(ev: any) {
     const popover = await this.popoverCtrl.create({
       component: MarketMenuPopoverComponent,
-      componentProps: { isLoggedIn: this.isAdmin || this.isStar },
+      componentProps: { isLoggedIn: this.isAdmin || this.isStar, isAdmin: this.isAdmin },
       event: ev,
       alignment: 'end',
       side: 'bottom',
@@ -850,6 +851,9 @@ export class LobbyPage implements OnInit, OnDestroy {
       else if (data.action === 'login_star') this.openCreatorLogin();
       else if (data.action === 'login_admin') this.showLogin('ADMIN');
       else if (data.action === 'creator_studio') this.showLogin('STAR');
+      // 사람 아이콘 팝오버에서 이곳으로 옮겨온 항목
+      else if (data.action === 'messages') this.openMessageModal();
+      else if (data.action === 'logout') this.logout();
     }
   }
 
@@ -1313,36 +1317,6 @@ export class LobbyPage implements OnInit, OnDestroy {
 
       // 내 스타페이지로 라우팅
       this.router.navigate(['/star', this.starId]);
-    }
-  }
-
-  // 🌟 [신규 추가] 사람 아이콘 클릭 시 팝업 메뉴 띄우기
-  async openProfileMenu(ev: any) {
-    const popover = await this.popoverCtrl.create({
-      component: ProfileMenuPopoverComponent,
-      componentProps: { isAdmin: this.isAdmin },
-      event: ev, // 클릭한 버튼 밑에 예쁘게 뜨도록 이벤트 전달
-      alignment: 'end',
-      side: 'bottom',
-      translucent: true
-    });
-
-    await popover.present();
-
-    // 메뉴에서 뭔가를 클릭하고 창이 닫혔을 때의 처리
-    const { data } = await popover.onDidDismiss();
-    if (data) {
-      if (data.action === 'mypage') {
-        this.goToMyStarPage();
-      }
-      // 🌟 [신규] 메시지 액션 처리
-      else if (data.action === 'messages') {
-        this.openMessageModal();
-      }
-      // 🌟 [신규] 로그아웃 액션 처리
-      else if (data.action === 'logout') {
-        this.logout();
-      }
     }
   }
 

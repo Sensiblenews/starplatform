@@ -56,6 +56,9 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
 
   currentIndex = 0;
 
+  // 아바타 숨쉬기 모션 on/off. 로비가 화면을 떠날 때 자동 순환과 함께 멈춘다
+  isMotionActive = true;
+
   private rotateIntervalId: any = null;
   private touchStartX = 0;
 
@@ -83,10 +86,12 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
   // 로비 페이지가 ionViewDidEnter/ionViewWillLeave에서 호출해 백그라운드 낭비를 막는다
   startAutoPlay() {
     this.stopAutoPlay();
+    this.isMotionActive = true;
     this.rotateIntervalId = setInterval(() => this.next(), VsCarouselComponent.ROTATE_MS);
   }
 
   stopAutoPlay() {
+    this.isMotionActive = false;
     if (this.rotateIntervalId) {
       clearInterval(this.rotateIntervalId);
       this.rotateIntervalId = null;

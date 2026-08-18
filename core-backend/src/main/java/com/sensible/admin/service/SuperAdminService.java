@@ -12,6 +12,12 @@ import com.sensible.common.dao.DefaultDAO;
 @Service("superAdminService")
 public class SuperAdminService {
 
+    // 본문이 HTML인지 판정할 때 쓰는 블록/인라인 태그 목록. 평문 붙여넣기와 구분하는 용도다
+    private static final java.util.regex.Pattern HTML_TAG_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "<\\s*(p|div|br|h[1-6]|ul|ol|li|table|tr|td|span|strong|b|em|i|section|article|a)\\b[^>]*>",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
     @Resource(name="DefaultDAO")
     private DefaultDAO dao;
 
@@ -367,8 +373,57 @@ public class SuperAdminService {
     }
 
     // 🌟 [신규] 약관 본문 저장 (CON_TYPE=7 가드는 매퍼에서 처리)
+    // 저장 결과 행 수를 검사한다. CON_TYPE=7 가드에 걸리거나 CON_ID가 없으면 0행이 갱신되는데,
+    // 예전에는 그 경우에도 화면이 "저장되었습니다"를 띄워 수정이 안 되는 원인을 찾기 어려웠다
     public void savePolicyContent(Map<String, Object> params) throws Exception {
-        dao.update("super.updatePolicyContent", params);
+        int updated = dao.update("super.updatePolicyContent", params);
+        if (updated < 1) {
+            throw new Exception("해당 약관 항목을 찾을 수 없어 저장하지 못했습니다. (CON_ID "
+                    + params.get("CON_ID") + ")");
+        }
+    }
+
+    // 약관 본문 출력용 정규화.
+    // 어드민 본문 필드는 HTML 원문을 전제로 하지만, 실제로는 문서에서 복사한 평문을
+    // 그대로 붙여넣는 경우가 많다. 평문을 HTML로 내보내면 브라우저가 공백·줄바꿈을 접어버려
+    // 어드민 화면에서는 줄이 나뉘어 보이는데 앱·웹에서는 한 덩어리로 붙어 나온다.
+    // 태그가 없는 본문만 줄바꿈과 들여쓰기를 살려 변환하고, HTML 본문은 손대지 않는다.
+    public static String renderPolicyBody(String body) {
+        if (body == null || body.trim().isEmpty()) {
+            return "";
+        }
+        if (HTML_TAG_PATTERN.matcher(body).find()) {
+            return body;
+        }
+
+        String escaped = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        String[] lines = escaped.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1);
+        StringBuilder sb = new StringBuilder(escaped.length() + (lines.length * 4));
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                sb.append("<br>");
+            }
+            sb.append(keepLeadingSpaces(lines[i]));
+        }
+        return sb.toString();
+    }
+
+    // 줄 앞 공백·탭은 HTML에서 하나로 접히므로 &nbsp;로 바꿔 들여쓰기를 유지한다
+    private static String keepLeadingSpaces(String line) {
+        int i = 0;
+        StringBuilder indent = new StringBuilder();
+        while (i < line.length()) {
+            char c = line.charAt(i);
+            if (c == ' ') {
+                indent.append("&nbsp;");
+            } else if (c == '\t') {
+                indent.append("&nbsp;&nbsp;&nbsp;&nbsp;");
+            } else {
+                break;
+            }
+            i++;
+        }
+        return indent.length() == 0 ? line : indent + line.substring(i);
     }
 
     // 🌟 [신규] 제목이 개인정보처리방침을 가리키는지 판정.
@@ -436,6 +491,13 @@ public class SuperAdminService {
 
     public void toggleVsPin(Map<String, Object> params) throws Exception {
         dao.update("super.updateVsPin", params);
+    }
+
+    // 노출/비노출 토글. 커스텀 삭제(USE_YN)와 별개 컬럼이라 숨겼다가 되살릴 수 있다
+    public void toggleVsVisible(Map<String, Object> params) throws Exception {
+        String visibleYn = "N".equals(String.valueOf(params.get("visibleYn"))) ? "N" : "Y";
+        params.put("visibleYn", visibleYn);
+        dao.update("super.updateVsVisible", params);
     }
 
     // 드래그 정렬 저장: 화면이 넘긴 카드 ID 순서대로 PIN_ORDER를 1부터 재부여
