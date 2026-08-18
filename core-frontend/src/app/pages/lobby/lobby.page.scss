@@ -7,7 +7,9 @@
     display: flex;
     align-items: center;
     font-weight: 800;
-    font-size: 0.9rem;
+    // px 고정: iOS Dynamic Type은 루트 폰트만 키워 rem이 따라 커지므로,
+    // 로고가 글자 크기 설정과 무관하게 항상 같은 크기로 보이게 한다 (0.9rem ≈ 14.4px)
+    font-size: 14px;
     cursor: pointer;
     // gap: 8px; (별을 지웠으므로 간격은 빼도 무방합니다)
   }
