@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Resource;
 
@@ -38,10 +39,10 @@ public class SuperAppService {
 	@Autowired
 	private FirebaseService firebaseService;
 
-	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 120초, context-redis.xml).
+	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 60초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
 	// usePrefix=true가 캐시명("lobby")을 접두어로 붙이므로 키에는 country만 둔다 → Redis 키: lobby:KR
-	// 주의: popularStars의 Collections.shuffle는 캐시된 순서로 고정된다(TTL 동안 동일 순서).
+	// 주의: Today's TOP은 방문자 수 내림차순 그대로 내려보낸다(2-25차 — 셔플 제거).
 	@Cacheable(value = "lobby",
 			key = "T(org.springframework.util.StringUtils).hasText(#map['country']) ? #map['country'] : 'KR'",
 			unless = "#result == null")
@@ -53,12 +54,9 @@ public class SuperAppService {
 			map.put("country", "KR");
 		}
 
-		// 인기 스타 (가로)
+		// Today's TOP (가로) — 최근 24시간 방문자 수가 많은 순서.
+		// 셔플하면 "방문자 많은 페이지가 먼저 나온다"는 규칙이 깨지므로 매퍼 정렬을 그대로 쓴다
 		List<Map<String, Object>> popularStars = dao.selectList("superapp.selectPopularStars", map);
-		if (popularStars != null && !popularStars.isEmpty()) {
-			popularStars = new ArrayList<>(popularStars);
-			java.util.Collections.shuffle(popularStars);
-		}
 		// 전체 스타 (세로)
 		List<Map<String, Object>> allStars = dao.selectList("superapp.selectAllStars", map);
 		
@@ -88,6 +86,35 @@ public class SuperAppService {
 			resultMap.put("result", "FAIL");
 		}
 		return resultMap;
+	}
+
+	/**
+	 * 앱(/api/ad/log) 전용 광고 로그 진입점 — IMPRESSION 1초 연타를 서버에서 차단한다.
+	 * 클라이언트 60초 쿨다운(localStorage)은 조작 가능하므로 신뢰 경계 백업 역할.
+	 * 거부 시에도 200 + IGNORED로 응답해 공격자에게 판정 신호를 주지 않는다(랜딩 방문과 동일 정책).
+	 * 웹 랜딩 경로(LandingVisitService)는 자체 가드를 거쳐 insertAdLog를 직접 호출하므로 이중 차단되지 않는다.
+	 */
+	public Map<String, Object> insertAdLogFromApp(Map<String, Object> map) throws Exception {
+		String action = (String) map.get("ACTION");
+		Object memId = map.get("MEM_ID");
+		Object prsId = map.get("PRS_ID");
+
+		if ("IMPRESSION".equals(action) && memId != null && prsId != null) {
+			try {
+				String burstKey = "adlog:burst:" + memId + ":" + prsId;
+				Boolean burstFirst = redisTemplate.opsForValue().setIfAbsent(burstKey, "1");
+				if (Boolean.FALSE.equals(burstFirst)) {
+					Map<String, Object> resultMap = new HashMap<>();
+					resultMap.put("result", "IGNORED");
+					return resultMap;
+				}
+				redisTemplate.expire(burstKey, 1, TimeUnit.SECONDS);
+			} catch (Exception e) {
+				// Redis 장애 시 fail-open — 기존 정책과 동일하게 카운트를 진행
+				System.out.println("Ad log burst guard skipped (fail-open): " + e.getMessage());
+			}
+		}
+		return insertAdLog(map);
 	}
 
 	public Map<String, Object> insertAdLog(Map<String, Object> map) throws Exception {

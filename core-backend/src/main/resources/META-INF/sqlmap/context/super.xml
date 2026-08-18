@@ -531,6 +531,7 @@
             V.TITLE,
             V.IS_PINNED,
             V.PIN_ORDER,
+            V.VISIBLE_YN,
             V.CREATED_DATE,
             L.PRS_NAME AS LEFT_NAME,
             R.PRS_NAME AS RIGHT_NAME
@@ -540,6 +541,14 @@
         WHERE V.USE_YN = 'Y'
         ORDER BY V.IS_PINNED DESC, V.PIN_ORDER ASC, V.VS_ID ASC
     </select>
+
+    <!-- 노출/비노출 토글. USE_YN(커스텀 소프트 삭제)과 역할을 분리해 '숨김'과 '삭제'를 구분한다 -->
+    <update id="updateVsVisible" parameterType="map">
+        UPDATE WH_VS_CARD
+        SET VISIBLE_YN = #{visibleYn}
+        WHERE VS_ID = #{vsId}
+          AND USE_YN = 'Y'
+    </update>
 
     <update id="updateVsPin" parameterType="map">
         UPDATE WH_VS_CARD

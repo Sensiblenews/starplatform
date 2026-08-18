@@ -8,6 +8,10 @@ export interface VsCardSide {
   image: string;
   starCategory?: string;
   score: number;
+  // 표시용 지표 3종 — 카드 종류와 무관하게 누적 기준 (G 점수 구성요소)
+  viewCount?: number;
+  likeCnt?: number;
+  followerCnt?: number;
 }
 
 // VS 카드 1장. right가 null이면 도전자 대기 상태
@@ -29,7 +33,7 @@ export interface VsCard {
 export class VsCarouselComponent implements OnInit, OnDestroy {
 
   // 5초 자동 순환 (요청서 확정값)
-  private static readonly ROTATE_MS = 5000;
+  private static readonly ROTATE_MS = 3500; // 클라이언트 요청으로 5초 → 3.5초
   // 스와이프로 인정할 최소 가로 이동량(px)
   private static readonly SWIPE_THRESHOLD = 40;
 
@@ -52,6 +56,9 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
 
   currentIndex = 0;
 
+  // 아바타 숨쉬기 모션 on/off. 로비가 화면을 떠날 때 자동 순환과 함께 멈춘다
+  isMotionActive = true;
+
   private rotateIntervalId: any = null;
   private touchStartX = 0;
 
@@ -60,6 +67,7 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     STAR: '⭐ Star',
     CELEB: '👤 Celeb',
     BRAND: '🏢 Brand',
+    ORG: '🏛 Org',
     UNIV: '🎓 Univ',
     CITY: '🌆 City',
     MEDIA: '📰 Media'
@@ -78,10 +86,12 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
   // 로비 페이지가 ionViewDidEnter/ionViewWillLeave에서 호출해 백그라운드 낭비를 막는다
   startAutoPlay() {
     this.stopAutoPlay();
+    this.isMotionActive = true;
     this.rotateIntervalId = setInterval(() => this.next(), VsCarouselComponent.ROTATE_MS);
   }
 
   stopAutoPlay() {
+    this.isMotionActive = false;
     if (this.rotateIntervalId) {
       clearInterval(this.rotateIntervalId);
       this.rotateIntervalId = null;

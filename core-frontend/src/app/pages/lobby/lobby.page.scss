@@ -7,7 +7,9 @@
     display: flex;
     align-items: center;
     font-weight: 800;
-    font-size: 0.9rem;
+    // px 고정: iOS Dynamic Type은 루트 폰트만 키워 rem이 따라 커지므로,
+    // 로고가 글자 크기 설정과 무관하게 항상 같은 크기로 보이게 한다 (0.9rem ≈ 14.4px)
+    font-size: 14px;
     cursor: pointer;
     // gap: 8px; (별을 지웠으므로 간격은 빼도 무방합니다)
   }
@@ -19,6 +21,16 @@
   // VS 카드와 Today's TOP 사이 여백
   &.today-top-section {
     margin-top: 8px;
+
+    // 클라이언트 요청: 다른 섹션 제목보다 한 단계 작고 연하게
+    .section-header {
+      font-size: 0.95rem;
+
+      // ion-label은 Ionic이 자체 color를 주므로 부모 color만으로는 연해지지 않는다
+      ion-label {
+        color: rgba(0, 0, 0, 0.55);
+      }
+    }
   }
 
   .section-header {
@@ -55,14 +67,24 @@
   }
 
   .star-card-mini {
-    min-width: 110px;
+    // 고정 110px이면 화면이 좁은 안드로이드(360dp)에서 3장(354px)이 가용폭(328px)을 넘겨
+    // 세 번째 카드가 잘린다. 가용폭에서 gap 2개를 뺀 1/3로 잡아 기기 폭과 무관하게 3장을 맞춘다
+    flex: 0 0 calc((100% - 24px) / 3);
+    min-width: 0;
+    // 태블릿처럼 넓은 화면에서 카드가 과하게 커지지 않도록 상한만 둔다
+    max-width: 150px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     overflow: hidden;
 
     .avatar-box {
-      height: 110px;
+      // 폭이 가변이 되었으므로 높이도 따라가야 사진이 눌리지 않는다
+      height: 110px; // aspect-ratio 미지원(iOS 14) 폴백
+      @supports (aspect-ratio: 1) {
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
       background-color: #f0f0f0; // 레거시 배경색 참고
 
       img {
@@ -136,6 +158,13 @@
     .global-rank {
       font-size: 0.75rem;
       color: #777;
+    }
+
+    // TOP100 3단 배열의 3번째 줄 (조회수)
+    .view-count {
+      font-size: 0.75rem;
+      color: #777;
+      margin-top: 1px;
     }
 
     .stats-row {
@@ -701,17 +730,16 @@
   }
 
   .vs-chip-row {
-    // 가로 스크롤 없이 2단 그리드: 1행 All/Star/Celeb(3개), 2행 Brand/Univ/City/Media(4개)
+    // 가로 스크롤 없이 2단 그리드: 8개 직군을 4개씩 두 줄로
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
 
     .vs-chip {
-      grid-column: span 3;
       border: 1px solid #dee2e6;
       background: #fff;
       border-radius: 20px;
-      padding: 6px 8px;
+      padding: 6px 4px;
       font-size: 12px;
       font-weight: 700;
       color: #495057;
@@ -719,16 +747,23 @@
       text-align: center;
       font-family: inherit;
 
-      &:nth-child(-n + 3) {
-        grid-column: span 4;
-      }
-
       &.active {
         background: #e53935;
         border-color: #e53935;
         color: #fff;
       }
     }
+  }
+}
+
+// 네이티브 광고 슬롯 — 기본 접힘, 광고 로드 성공 시에만 펼침 (실제 광고 뷰는 네이티브 오버레이)
+.lobby-ad-slot {
+  height: 0;
+  overflow: hidden;
+
+  &.filled {
+    height: 315px;
+    margin: 8px 0;
   }
 }
 

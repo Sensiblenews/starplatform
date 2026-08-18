@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  tools:context=".MainActivity">
+
+  <WebView
+    android:id="@+id/app_webview"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
+
+  <FrameLayout
+    android:id="@+id/ad_wrapper"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="true"
+    android:clipToPadding="true"
+    android:clickable="false"
+    android:focusable="false"
+    android:orientation="vertical">
+    <FrameLayout
+      android:id="@+id/ad_container_1"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true"/>
+    <FrameLayout
+      android:id="@+id/ad_container_2"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true" />
+    <FrameLayout
+      android:id="@+id/ad_container_3"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true" />
+  </FrameLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <dimen name="ad_top_margin">44dp</dimen>
+  <dimen name="ad_top_margin_2">44dp</dimen>
+  <dimen name="ad_bot_margin">0dp</dimen>
+</resources>

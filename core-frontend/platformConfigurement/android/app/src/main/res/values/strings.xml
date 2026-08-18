@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="app_name">Star Platform</string>
+  <string name="title_activity_main">Star Platform</string>
+  <string name="package_name">kr.co.sensiblenews.witchHuntingVU2D7F2P7E</string>
+  <string name="custom_url_scheme">kr.co.sensiblenews.witchHuntingVU2D7F2P7E</string>
+  <string name="ad">AD</string>
+  <string name="ad_description">광고 이미지</string>
+  <string name="ad_headline">광고 헤드라인</string>
+  <string name="ad_cta">행동하기</string>
+  <string name="ad_body">광고 내용</string>
+  <string name="server_client_id">1094374921494-j8drr5uml8ujvdfad1ikojique03ghnk.apps.googleusercontent.com</string>
+  <string name="default_web_client_id">1094374921494-j8drr5uml8ujvdfad1ikojique03ghnk.apps.googleusercontent.com</string>
+</resources>

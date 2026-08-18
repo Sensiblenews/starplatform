@@ -8,7 +8,6 @@ import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { WriteModalService } from '../../services/write-modal.service';
-import { ProfileMenuPopoverComponent } from './profile-menu-popover.component';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
 import { FirebaseAuthService } from 'src/app/services/oauth/firebase-auth.service';
@@ -19,6 +18,10 @@ import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-moda
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { Device } from '@capacitor/device';
+import { App } from '@capacitor/app';
+import { PluginListenerHandle } from '@capacitor/core';
+import NativeBridge from '../../plugins/native-bridge';
+import { AdProtectionService } from '../../services/ad-protection.service';
 
 @Component({
   selector: 'app-lobby',
@@ -88,6 +91,27 @@ export class LobbyPage implements OnInit, OnDestroy {
   private lastCheckTime: string = '';
   private observer: IntersectionObserver;
 
+  // 🌟 앱 백그라운드 전환 시 폴링 완전 정지용 (2-23차)
+  private appStateListener: PluginListenerHandle | null = null;
+  private isViewActive = false;
+  private appForeground = true;
+
+  // 🌟 네이티브 광고 슬롯 (2-24차) — 위치는 웹이 측정해 네이티브로 전송
+  @ViewChild('lobbyAdSlot') lobbyAdSlot: ElementRef;
+  isAdSlotFilled = false;
+  private isLobbyAdActive = false;
+  private onNativeAdLoaded = () => this.ngZone.run(() => {
+    if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
+    this.isAdSlotFilled = true;
+    // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
+    setTimeout(() => this.sendAdSlotPosition(), 50);
+  });
+  private onNativeAdClicked = () => this.ngZone.run(async () => {
+    if (!this.isLobbyAdActive) return; // star-page 클릭은 star-page가 처리
+    await this.adProtection.lockAd('lobby');
+    this.hideLobbyAd();
+  });
+
   // 🌟 [신규] 상단 슬롯머신(슬라이드) 제어 변수
   @ViewChild('topScroll') topScroll: ElementRef;
   slideOpts = {
@@ -112,14 +136,16 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
+  // 8개 직군 — 표기는 클라이언트 확정안(대문자·이모지), 내부 코드는 서버 화이트리스트와 동일
   vsCategoryChips = [
-    { code: 'GLOBAL', label: '🌐 All' },
-    { code: 'STAR', label: '⭐ Star' },
-    { code: 'CELEB', label: '👤 Celeb' },
-    { code: 'BRAND', label: '🏢 Brand' },
-    { code: 'UNIV', label: '🎓 Univ' },
-    { code: 'CITY', label: '🌆 City' },
-    { code: 'MEDIA', label: '📰 Media' }
+    { code: 'GLOBAL', label: '🌍 ALL' },
+    { code: 'STAR', label: '⭐ STAR' },
+    { code: 'CELEB', label: '👤 CELEB' },
+    { code: 'BRAND', label: '🏢 BRAND' },
+    { code: 'ORG', label: '🏛 ORG' },
+    { code: 'UNIV', label: '🎓 UNIV' },
+    { code: 'CITY', label: '🌆 CITY' },
+    { code: 'MEDIA', label: '📰 MEDIA' }
   ];
   categoryTop100: any[] = [];
   isLoadingTop100 = false;
@@ -134,6 +160,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     private actionSheetCtrl: ActionSheetController, // 🌟 추가
     private firebaseAuth: FirebaseAuthService,
     private writeModalService: WriteModalService,
+    private adProtection: AdProtectionService,
+    private ngZone: NgZone,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -149,6 +177,11 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     this.loadLobbyData();
     this.startPolling();
+    this.setupAppStateListener();
+
+    // 🌟 네이티브 광고 이벤트 수신 (로드 성공 → 슬롯 펼침 / 클릭 → 24시간 잠금)
+    window.addEventListener('ad_loaded', this.onNativeAdLoaded);
+    window.addEventListener('ad_click_detected', this.onNativeAdClicked);
 
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
@@ -166,12 +199,14 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.contentResults = [];
           this.allStars = this.allStarsOriginal.slice(0, 32);
           this.setupMotionObserver();
+          this.updateLobbyAd();
           return of(null);
         }
 
         this.isSearching = true;
         this.isShowingFavorites = false;
         this.isShowingRanking = false;
+        this.updateLobbyAd();
 
         const starSearch$ = this.http.post('/api/super/star/search', {
           query,
@@ -221,6 +256,10 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoSlide();
     this.stopAutoShuffle();
     this.stopVsPolling();
+    this.removeAppStateListener();
+    window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
+    window.removeEventListener('ad_click_detected', this.onNativeAdClicked);
+    if (this.isLobbyAdActive) this.hideLobbyAd();
     if (this.searchSub) this.searchSub.unsubscribe();
     if (this.observer) this.observer.disconnect();
   }
@@ -238,6 +277,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   ionViewDidEnter() {
+    this.isViewActive = true;
+
     // 🌟 화면에 보일 때만 타이머 가동 (성능 최적화)
     this.startAutoSlide();
     this.startAutoShuffle();
@@ -246,15 +287,21 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
 
+    // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
+    this.updateLobbyAd();
+
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, (processNextHandler) => {
       if (this.isShowingFavorites) {
         this.isShowingFavorites = false;
+        this.updateLobbyAd();
       } else if (this.isShowingRanking) {
         this.isShowingRanking = false;
+        this.updateLobbyAd();
       } else if (this.isSearching) {
         this.isSearching = false;
         this.searchResults = [];
         this.contentResults = [];
+        this.updateLobbyAd();
       } else {
         processNextHandler();
       }
@@ -262,6 +309,11 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   ionViewWillLeave() {
+    this.isViewActive = false;
+
+    // 🌟 네이티브 광고 슬롯 숨김 (star-page 등 다음 화면이 자체 제어)
+    this.updateLobbyAd();
+
     // 🌟 화면에서 나가면 타이머 정지
     this.stopAutoSlide();
     this.stopAutoShuffle();
@@ -330,7 +382,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           el.scrollBy({ left: 120, behavior: 'smooth' });
         }
       }
-    }, 4000);
+    }, 5000); // 클라이언트 요청으로 4초 → 5초 (시선 쏠림 완화)
   }
 
   stopAutoSlide() {
@@ -399,6 +451,9 @@ export class LobbyPage implements OnInit, OnDestroy {
           if (this.isShowingFavorites) {
             this.loadFavoriteStars();
           }
+
+          // Today's TOP 렌더로 광고 슬롯이 밀리므로 위치 재전송
+          setTimeout(() => this.sendAdSlotPosition());
         }
         if (event) event.target.complete();
       },
@@ -451,7 +506,13 @@ export class LobbyPage implements OnInit, OnDestroy {
   loadVsCards() {
     this.http.get('/api/super/lobby/vs-cards').subscribe((res: any) => {
       if (res.result === 'OK') {
+        const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
+
+        // 캐러셀 최초 등장(0 → 46vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
+        if (!hadCards && this.vsCards.length > 0) {
+          setTimeout(() => this.sendAdSlotPosition());
+        }
       }
     });
   }
@@ -490,7 +551,11 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.isLoadingTop100 = false;
           if (res.result === 'OK') {
             this.categoryTop100 = (res.list || []).map(this.initStarData);
+            // 탭을 바꾸면 행 DOM이 통째로 교체되므로 아바타 모션 옵저버를 다시 붙인다
+            this.setupMotionObserver();
           }
+          // 리스트 길이 변화로 슬롯이 밀리므로 렌더 후 위치 재전송
+          setTimeout(() => this.sendAdSlotPosition());
         },
         error: () => { this.isLoadingTop100 = false; }
       });
@@ -540,6 +605,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.activeFavoriteTab = 'M';
       this.loadFavoriteStars();
     }
+    this.updateLobbyAd();
   }
 
   toggleRankingList() {
@@ -554,6 +620,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.activeRankingTab = null;
       this.showHallOfFameInline = false;
     }
+    this.updateLobbyAd();
   }
 
   // 🌟 [신규] 누적 수익 API 호출
@@ -734,6 +801,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.isSearching = false;
     this.allStars = this.allStarsOriginal.slice(0, 32);
     this.setupMotionObserver();
+    this.updateLobbyAd();
   }
 
   getStarImage(imageUrl: string | null): string {
@@ -767,7 +835,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   async openMarketMenu(ev: any) {
     const popover = await this.popoverCtrl.create({
       component: MarketMenuPopoverComponent,
-      componentProps: { isLoggedIn: this.isAdmin || this.isStar },
+      componentProps: { isLoggedIn: this.isAdmin || this.isStar, isAdmin: this.isAdmin },
       event: ev,
       alignment: 'end',
       side: 'bottom',
@@ -783,6 +851,9 @@ export class LobbyPage implements OnInit, OnDestroy {
       else if (data.action === 'login_star') this.openCreatorLogin();
       else if (data.action === 'login_admin') this.showLogin('ADMIN');
       else if (data.action === 'creator_studio') this.showLogin('STAR');
+      // 사람 아이콘 팝오버에서 이곳으로 옮겨온 항목
+      else if (data.action === 'messages') this.openMessageModal();
+      else if (data.action === 'logout') this.logout();
     }
   }
 
@@ -901,6 +972,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   startPolling() {
+    this.stopPolling(); // 백그라운드 복귀 재시작 시 인터벌 중복 방지
+
     this.http.post('/api/super/lobby/poll', { lastCheckTime: '' }).subscribe((res: any) => {
       if (res.result === 'OK') this.lastCheckTime = res.currentTime;
     });
@@ -917,7 +990,96 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   stopPolling() {
-    if (this.pollingIntervalId) clearInterval(this.pollingIntervalId);
+    if (this.pollingIntervalId) {
+      clearInterval(this.pollingIntervalId);
+      this.pollingIntervalId = null;
+    }
+  }
+
+  // ==========================================
+  // 🌟 [2-24차] 네이티브 광고 슬롯 (TOP100 아래)
+  // ==========================================
+
+  // 노출 조건: 네이티브 앱 && 로비 화면 활성 && 섹션 목록 표시 중 && 포그라운드
+  private canShowLobbyAd(): boolean {
+    return this.platform.is('capacitor') && this.isViewActive && this.appForeground
+      && !this.isSearching && !this.isShowingFavorites && !this.isShowingRanking;
+  }
+
+  // 조건 변화 시마다 호출 — 필요할 때만 setShow를 보내 불필요한 광고 재로드를 막는다
+  async updateLobbyAd() {
+    if (!this.platform.is('capacitor')) return;
+
+    const shouldShow = this.canShowLobbyAd() && await this.adProtection.shouldShowAd('lobby');
+    if (shouldShow && !this.isLobbyAdActive) {
+      this.isLobbyAdActive = true;
+      this.isAdSlotFilled = false;
+      NativeBridge.setShow({ show: true, page: 'lobby' }).catch(() => { });
+    } else if (!shouldShow && this.isLobbyAdActive) {
+      this.hideLobbyAd();
+    }
+  }
+
+  private hideLobbyAd() {
+    this.isLobbyAdActive = false;
+    this.isAdSlotFilled = false;
+    NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
+  }
+
+  // 플레이스홀더의 뷰포트 좌표와 클리핑 경계를 네이티브로 전송.
+  // 슬롯이 랭킹 탭 바보다 위에 있으므로 경계는 헤더 하단 — 광고가 헤더 밑으로 잘려 들어간다
+  sendAdSlotPosition() {
+    if (!this.isLobbyAdActive || !this.isAdSlotFilled || !this.lobbyAdSlot) return;
+
+    const slotTop = this.lobbyAdSlot.nativeElement.getBoundingClientRect().top;
+    const header = document.querySelector('ion-header');
+    const hideAbove = header ? header.getBoundingClientRect().bottom : 0;
+    NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
+  }
+
+  onLobbyScroll() {
+    this.sendAdSlotPosition();
+  }
+
+  // ==========================================
+  // 🌟 [2-23차] 앱 백그라운드 전환 시 폴링 완전 정지
+  // ==========================================
+
+  // 백그라운드: 모든 네트워크 폴링·타이머 정지 / 복귀: 즉시 1회 갱신 후 재개.
+  // 페이지 이탈 정지(ionViewWillLeave)와 별개의 이중 안전장치이며,
+  // 복귀 시 화면 밖(isViewActive=false)이면 로비 화면 전용 폴링은 재개하지 않는다.
+  private async setupAppStateListener() {
+    await this.removeAppStateListener(); // 리스너 중복 등록 방지
+
+    this.appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
+      this.appForeground = isActive;
+
+      if (isActive) {
+        this.startPolling(); // 즉시 1회 호출 후 30초 간격 재개
+        if (this.isViewActive) {
+          this.startAutoSlide();
+          this.startAutoShuffle();
+          this.loadVsCards(); // VS 카드 즉시 갱신 (폴링 첫 틱은 3초 뒤)
+          this.startVsPolling();
+          if (this.vsCarousel) this.vsCarousel.startAutoPlay();
+        }
+        this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
+      } else {
+        this.stopPolling();
+        this.stopAutoSlide();
+        this.stopAutoShuffle();
+        this.stopVsPolling();
+        if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
+        this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
+      }
+    });
+  }
+
+  private async removeAppStateListener() {
+    if (this.appStateListener) {
+      await this.appStateListener.remove();
+      this.appStateListener = null;
+    }
   }
 
   distributePolledViews(polledData: any[]) {
@@ -1155,36 +1317,6 @@ export class LobbyPage implements OnInit, OnDestroy {
 
       // 내 스타페이지로 라우팅
       this.router.navigate(['/star', this.starId]);
-    }
-  }
-
-  // 🌟 [신규 추가] 사람 아이콘 클릭 시 팝업 메뉴 띄우기
-  async openProfileMenu(ev: any) {
-    const popover = await this.popoverCtrl.create({
-      component: ProfileMenuPopoverComponent,
-      componentProps: { isAdmin: this.isAdmin },
-      event: ev, // 클릭한 버튼 밑에 예쁘게 뜨도록 이벤트 전달
-      alignment: 'end',
-      side: 'bottom',
-      translucent: true
-    });
-
-    await popover.present();
-
-    // 메뉴에서 뭔가를 클릭하고 창이 닫혔을 때의 처리
-    const { data } = await popover.onDidDismiss();
-    if (data) {
-      if (data.action === 'mypage') {
-        this.goToMyStarPage();
-      }
-      // 🌟 [신규] 메시지 액션 처리
-      else if (data.action === 'messages') {
-        this.openMessageModal();
-      }
-      // 🌟 [신규] 로그아웃 액션 처리
-      else if (data.action === 'logout') {
-        this.logout();
-      }
     }
   }
 

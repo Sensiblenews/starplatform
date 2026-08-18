@@ -116,23 +116,18 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // await this.AgreePush();
     }
 
-    this.router.events.subscribe(event => {
-      if (event instanceof NavigationEnd) {
-        NativeBridge.setShow({
-          show: adRoutes.some(route => this.router.url.includes(route)),
-          page: event.url
-        });
-      }
-    });
-
-    this.router.events.subscribe(async (event) => { // async 추가
+    // 라우팅에 따른 광고 표시 제어 (이전에 동일 구독이 2개 등록되어 setShow가 중복 호출되던 것을 단일화)
+    this.router.events.subscribe(async (event) => {
       if (event instanceof NavigationEnd) {
         const currentUrl = event.urlAfterRedirects || event.url;
 
-        NativeBridge.setShow({
-          show: adRoutes.some(route => currentUrl.includes(route)),
-          page: currentUrl
-        });
+        // 로비는 자체 조건(검색/뷰 모드/포그라운드)으로 광고를 직접 제어하므로 전역에서 건드리지 않는다
+        if (!this.isLobbyUrl(currentUrl)) {
+          NativeBridge.setShow({
+            show: adRoutes.some(route => currentUrl.includes(route)),
+            page: currentUrl
+          });
+        }
 
         // 로비나 기본 경로일 때는 저장된 기록을 초기화하고, 그 외의 페이지는 저장
         if (currentUrl === '/lobby' || currentUrl === '/') {
@@ -153,12 +148,19 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // this.checkTermsAndShowPopup();
       setTimeout(() => {
         console.log(this.router.url);
-        NativeBridge.setShow({
-          show: adRoutes.some(route => this.router.url.includes(route)),
-          page: this.router.url,
-        });
+        if (!this.isLobbyUrl(this.router.url)) {
+          NativeBridge.setShow({
+            show: adRoutes.some(route => this.router.url.includes(route)),
+            page: this.router.url,
+          });
+        }
       }, 300);
     }
+  }
+
+  // 로비(루트 포함)는 광고 제어를 로비 페이지가 전담한다
+  private isLobbyUrl(url: string): boolean {
+    return url === '/' || url.includes('lobby');
   }
 
   ngOnDestroy(): void {

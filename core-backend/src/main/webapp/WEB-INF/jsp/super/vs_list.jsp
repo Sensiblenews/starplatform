@@ -23,6 +23,10 @@
         #vsTableBody tr { cursor: grab; }
         #vsTableBody tr.dragging { opacity: 0.4; }
         .drag-handle { color: #adb5bd; cursor: grab; }
+        .order-input { text-align: center; }
+        /* 비노출 카드는 목록에서 한눈에 구분되게 흐리게 */
+        #vsTableBody tr.row-hidden { background: #f8f9fa; }
+        #vsTableBody tr.row-hidden td:not(:last-child) { opacity: 0.55; }
 
         @media (max-width: 768px) {
             .sidebar { width: 100%; height: auto; position: relative; padding-bottom: 10px; }
@@ -43,7 +47,8 @@
                 <h4 class="fw-bold mb-1"><i class="fas fa-bolt text-danger me-2"></i>VS 배틀필드 관리</h4>
                 <div class="text-secondary small">
                     로비 VS 카드의 노출 순서·고정·특별전을 관리합니다.
-                    행을 드래그해 순서를 바꾼 뒤 <b>순서 저장</b>을 눌러주세요. (고정 카드가 항상 먼저 노출됩니다)
+                    행을 드래그하거나 <b>노출순서</b> 칸에 숫자를 입력한 뒤 <b>순서 저장</b>을 눌러주세요.
+                    (고정 카드가 항상 먼저 노출됩니다. 비노출 카드는 앱에 나오지 않습니다)
                 </div>
             </div>
             <div>
@@ -62,16 +67,23 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width:40px;"></th>
+                            <th style="width:110px;" class="text-center">노출순서</th>
                             <th>종류</th>
                             <th>매치업</th>
                             <th class="text-center">고정 (Pin)</th>
+                            <th class="text-center">노출</th>
                             <th class="text-center">삭제</th>
                         </tr>
                     </thead>
                     <tbody id="vsTableBody">
                         <c:forEach var="vs" items="${vsList}">
-                            <tr draggable="true" data-vs-id="${vs.VS_ID}">
+                            <tr draggable="true" data-vs-id="${vs.VS_ID}"
+                                class="${vs.VISIBLE_YN eq 'N' ? 'row-hidden' : ''}">
                                 <td><i class="fas fa-grip-vertical drag-handle"></i></td>
+                                <td class="text-center">
+                                    <input type="number" class="form-control form-control-sm order-input"
+                                           min="1" step="1" value="0">
+                                </td>
                                 <td>
                                     <c:choose>
                                         <c:when test="${vs.CARD_KIND eq 'CUSTOM'}">
@@ -111,6 +123,20 @@
                                         <c:otherwise>
                                             <button class="btn btn-sm btn-outline-secondary" onclick="togglePin('${vs.VS_ID}', 'Y')">
                                                 <i class="fas fa-thumbtack me-1"></i>고정
+                                            </button>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td class="text-center">
+                                    <c:choose>
+                                        <c:when test="${vs.VISIBLE_YN eq 'N'}">
+                                            <button class="btn btn-sm btn-secondary" onclick="toggleVisible('${vs.VS_ID}', 'Y')">
+                                                <i class="fas fa-eye-slash me-1"></i>비노출
+                                            </button>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <button class="btn btn-sm btn-outline-success" onclick="toggleVisible('${vs.VS_ID}', 'N')">
+                                                <i class="fas fa-eye me-1"></i>노출중
                                             </button>
                                         </c:otherwise>
                                     </c:choose>
@@ -171,10 +197,31 @@
 
     <script>
         // 카테고리 코드 → 한글 라벨 (JSP EL과 백틱 충돌을 피하려고 문자열 연결 사용)
-        var CAT_LABELS = { GLOBAL: '🌐 전체', STAR: '⭐ 스타', CELEB: '👤 셀럽', BRAND: '🏢 기업', UNIV: '🎓 대학', CITY: '🌆 도시', MEDIA: '📰 언론' };
+        var CAT_LABELS = { GLOBAL: '🌐 전체', STAR: '⭐ 스타', CELEB: '👤 셀럽', BRAND: '🏢 기업', ORG: '🏛 단체', UNIV: '🎓 대학', CITY: '🌆 도시', MEDIA: '📰 언론' };
         $('.cat-label').each(function() {
             var cat = $(this).data('cat');
             $(this).text(CAT_LABELS[cat] || cat);
+        });
+
+        // ===== 노출순서 =====
+        // 화면의 행 순서대로 1..N을 입력칸에 다시 써 넣는다 (드래그 직후·최초 로드)
+        function renumberOrderInputs() {
+            $('#vsTableBody tr').each(function(idx) {
+                $(this).find('.order-input').val(idx + 1);
+            });
+        }
+        renumberOrderInputs();
+
+        // 숫자를 직접 고치면 그 값 기준으로 행을 재배치해 화면과 저장값을 일치시킨다
+        $('#vsTableBody').on('change', '.order-input', function() {
+            var rows = $('#vsTableBody tr').get();
+            rows.sort(function(a, b) {
+                var av = parseInt($(a).find('.order-input').val(), 10) || 0;
+                var bv = parseInt($(b).find('.order-input').val(), 10) || 0;
+                return av - bv;
+            });
+            $('#vsTableBody').append(rows);
+            renumberOrderInputs();
         });
 
         // ===== 드래그 정렬 =====
@@ -185,6 +232,7 @@
         }).on('dragend', function() {
             $(this).removeClass('dragging');
             draggingRow = null;
+            renumberOrderInputs();
         }).on('dragover', function(e) {
             e.preventDefault();
             if (!draggingRow || draggingRow === this) return;
@@ -216,6 +264,17 @@
                     }
                 },
                 error: function() { alert('서버 오류가 발생했습니다.'); }
+            });
+        }
+
+        // ===== 노출/비노출 토글 =====
+        function toggleVisible(vsId, target) {
+            $.post('/super/vs/visible.do', { vsId: vsId, visibleYn: target }, function(res) {
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('변경 실패: ' + (res.msg || ''));
+                }
             });
         }
 

@@ -29,9 +29,13 @@ import com.sensible.common.util.ClientIpUtil;
  * 검증 구조:
  *  - 토큰: 랜딩 렌더링 시 서버가 PRS_ID를 바인딩한 HMAC 토큰을 발급하고,
  *    제출 시 서명·발급 경과시간(2.5초 이상 ~ 30분 이내)을 검증한다.
- *  - Redis: 토큰 1회성(nonce), IP 분당 rate limit, 방문자 24시간 중복을 차단한다.
+ *  - Redis: 토큰 1회성(nonce), IP 분당 rate limit, 방문자 1초 연타 차단,
+ *    1시간 중복 차단, 하루 최대 인정 횟수(24회)를 적용한다.
  *    Redis 장애 시에는 기존 insertAdLog의 Redis 실패 무시 정책과 동일하게 fail-open으로
  *    카운트를 진행한다(서명·시간 검증은 Redis와 무관하게 유지되는 최소 방어선).
+ *
+ * 재방문 정책(2-23차): 랭킹 활력을 위해 중복 차단을 24시간에서 1시간으로 완화하되,
+ * 매시간 자동 재방문 어뷰징은 하루 24회 상한으로 막는다.
  */
 @Service("landingVisitService")
 public class LandingVisitService {
@@ -63,6 +67,12 @@ public class LandingVisitService {
 
 	/** 동일 IP 분당 허용 요청 수 */
 	private static final long RATE_LIMIT_PER_MIN = 30L;
+
+	/** 동일 방문자 재방문 인정 주기(초) — 1시간 */
+	private static final long VISIT_DEDUP_SECONDS = 3600L;
+
+	/** 동일 방문자 하루 최대 인정 횟수 */
+	private static final long DAILY_VISIT_CAP = 24L;
 
 	/**
 	 * SNS 썸네일 크롤러·봇 판정 정규식.
@@ -155,7 +165,7 @@ public class LandingVisitService {
 			return ignored;
 		}
 
-		// 4~6. Redis 검증 (장애 시 fail-open)
+		// 4~8. Redis 검증 (장애 시 fail-open)
 		try {
 			// 4. 토큰 1회성: 동일 토큰 재제출 차단
 			Boolean firstUse = redisTemplate.opsForValue().setIfAbsent("landing:token:" + nonce, "1");
@@ -174,7 +184,15 @@ public class LandingVisitService {
 				return ignored;
 			}
 
-			// 6. 동일 방문자 24시간 중복 차단 (IP 병행 키는 쓰지 않는다 —
+			// 6. 동일 방문자 1초 연타 차단 (새로고침 도배·스크립트 버스트의 최전선 방어)
+			String burstKey = "landing:burst:" + prsId + ":" + visitorId;
+			Boolean burstFirst = redisTemplate.opsForValue().setIfAbsent(burstKey, "1");
+			if (Boolean.FALSE.equals(burstFirst)) {
+				return ignored;
+			}
+			redisTemplate.expire(burstKey, 1, TimeUnit.SECONDS);
+
+			// 7. 동일 방문자 1시간 중복 차단 (IP 병행 키는 쓰지 않는다 —
 			//    캐리어 NAT에서 서로 다른 방문자가 같은 IP로 잡혀 과소집계되는 위험이
 			//    localStorage 초기화 어뷰징 위험보다 크고, 상한은 5번 rate limit이 담당)
 			Boolean firstVisit = redisTemplate.opsForValue()
@@ -182,12 +200,23 @@ public class LandingVisitService {
 			if (Boolean.FALSE.equals(firstVisit)) {
 				return ignored;
 			}
-			redisTemplate.expire("landing:visit:" + prsId + ":" + visitorId, 24, TimeUnit.HOURS);
+			redisTemplate.expire("landing:visit:" + prsId + ":" + visitorId, VISIT_DEDUP_SECONDS, TimeUnit.SECONDS);
+
+			// 8. 하루 최대 인정 횟수 상한 — 매시간 정확히 재방문하는 자동화가
+			//    1시간 완화 정책을 악용해도 24시간 롤링 윈도 안에서 24회를 넘지 못한다
+			String capKey = "landing:cap:" + prsId + ":" + visitorId;
+			Long capCount = redisTemplate.opsForValue().increment(capKey, 1L);
+			if (capCount != null && capCount == 1L) {
+				redisTemplate.expire(capKey, 24, TimeUnit.HOURS);
+			}
+			if (capCount != null && capCount > DAILY_VISIT_CAP) {
+				return ignored;
+			}
 		} catch (Exception e) {
 			System.out.println("Landing visit Redis check skipped (fail-open): " + e.getMessage());
 		}
 
-		// 7. 기존 집계 경로 재사용 — 앱 방문자 수/어드민 광고 시청 수/스타 푸시/랭킹 ZSET에 동일 반영
+		// 9. 기존 집계 경로 재사용 — 앱 방문자 수/어드민 광고 시청 수/스타 푸시/랭킹 ZSET에 동일 반영
 		Map<String, Object> adLog = new HashMap<>();
 		adLog.put("MEM_ID", "WEB");
 		adLog.put("PRS_ID", prsId);
