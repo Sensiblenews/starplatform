@@ -372,14 +372,31 @@ export class LobbyPage implements OnInit, OnDestroy {
       if (this.topScroll && this.topScroll.nativeElement) {
         const el = this.topScroll.nativeElement;
 
+        // 카드 폭이 기기 폭에 따라 달라지므로(1/3 계산) 이동량을 고정값이 아니라
+        // 실제 카드 폭 + gap으로 산출한다. 고정 120px을 쓰면 좁은 기기는 매번 넘치고
+        // 넓은 기기는 모자라 오차가 누적되며 카드 경계와 어긋난다
+        const card = el.querySelector('.star-card-mini');
+        const gap = parseFloat(getComputedStyle(el).columnGap) || 12;
+        const step = card ? card.getBoundingClientRect().width + gap : 120;
+
+        // 첫 카드 앞 패딩(16px)이 gap(12px)보다 넓어 step 배수 위치로만 이동하면
+        // 이전 카드 오른쪽 4px이 왼쪽에 남는다. 이전 카드가 정확히 가려지는
+        // 시작점(첫 카드 왼쪽에서 gap만큼 앞)을 기준으로 칸을 계산한다
+        const base = card
+          ? card.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft - gap
+          : 0;
+
         // 스크롤이 맨 오른쪽 끝에 도달했는지 확인
         // (scrollWidth: 전체 가로 길이, clientWidth: 현재 화면에 보이는 길이, scrollLeft: 현재 스크롤 위치)
         if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 10) {
           // 끝에 도달하면 맨 처음으로 휙! 되돌아가기
           el.scrollTo({ left: 0, behavior: 'smooth' });
         } else {
-          // 아직 끝이 아니면 오른쪽으로 카드 한 칸(약 120px) 이동
-          el.scrollBy({ left: 120, behavior: 'smooth' });
+          // 현재 위치를 칸 단위로 반올림한 뒤 다음 칸으로 이동 —
+          // 수동 스와이프나 잔여 오차로 어긋나 있어도 매번 카드 경계로 재정렬된다.
+          // 서브픽셀 렌더링으로 이전 카드 경계가 실기기에서 비칠 수 있어 2px 여유를 더 간다
+          const currentSlot = Math.round((el.scrollLeft - base) / step);
+          el.scrollTo({ left: base + (currentSlot + 1) * step + 2, behavior: 'smooth' });
         }
       }
     }, 5000); // 클라이언트 요청으로 4초 → 5초 (시선 쏠림 완화)
