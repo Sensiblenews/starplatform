@@ -19,6 +19,7 @@ import { ContentResponse } from './types/Content';
 import { HttpService } from './services/http.service';
 import { TermsBigModal } from './modals/terms-big/terms-big.component';
 import { CheckMessageService } from './services/check-message.service';
+import { DeepLinkService } from './services/deep-link.service';
 import { TextZoom } from '@capacitor/text-zoom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Badge } from '@capawesome/capacitor-badge';
@@ -54,6 +55,7 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     private http: HttpService,
     private modalCtrl: ModalController,
     private checkMessageService: CheckMessageService,
+    private deepLink: DeepLinkService,
   ) {
     this.initApp();
   }
@@ -421,106 +423,44 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // 오가닉 설치(utm 계열 리퍼러)는 target_route가 없으므로 아무것도 하지 않음
       if (targetRoute && targetRoute.startsWith('/')) {
         console.log('🔗 설치 리퍼러 딥링크 감지됨:', targetRoute);
-        this.handleDeepLinkUrl(`https://witch-hunting.com${targetRoute}`);
+
+        // 설치 직후 화면 복원이므로 앱 내부 경로일 때만 이동한다.
+        // 화이트리스트 밖 경로가 실려 오더라도 브라우저를 띄우지는 않는다.
+        const decision = this.deepLink.resolve(`https://witch-hunting.com${targetRoute}`);
+        if (decision.kind === 'route') {
+          this.entry = 'deeplink';
+          this.zone.run(() => this.router.navigateByUrl(decision.url));
+        }
       }
     } catch (e) {
       console.log('설치 리퍼러 조회 건너뜀:', e);
     }
   }
 
-  // 기존에 appUrlOpen 안에 있던 파싱 및 라우팅 로직을 별도 함수로 분리
+  // URL 판별은 DeepLinkService가 담당하고, 여기서는 결정된 동작만 실행한다
   private handleDeepLinkUrl(urlStr: string) {
+    const decision = this.deepLink.resolve(urlStr);
+
+    if (decision.kind === 'ignore') {
+      return;
+    }
+
+    // 화이트리스트 밖 URL은 앱이 가로채지 않고 브라우저로 넘긴다 (약관·개인정보 포함)
+    if (decision.kind === 'external') {
+      this.deepLink.openExternal(decision.url);
+      return;
+    }
+
+    // 앱 내부로 진입하는 경우에만 딥링크 진입으로 표시해 마지막 경로 복원을 건너뛴다
     this.entry = 'deeplink';
 
     this.zone.run(() => {
-      try {
-        const urlObj = new URL(urlStr);
-
-        // 🌟 1. 커스텀 스킴 (witchhunting://) 감지 시
-        if (urlObj.protocol === 'witchhunting:') {
-          const host = urlObj.hostname;
-
-          if (host === 'claim-verify') {
-            const starId = urlObj.searchParams.get('starId');
-            const email = urlObj.searchParams.get('email');
-            const pw = urlObj.searchParams.get('pw');
-
-            console.log('✅ 매직 로그인 감지:', { starId, email });
-
-            if (starId && email) {
-              this.executeMagicLogin(starId, email, pw);
-              return;
-            }
-          } else {
-            let path = '/' + host + urlObj.pathname;
-
-            if (path.startsWith('/witch')) {
-              path = path.replace('/witch', '');
-            }
-
-            const routeParts = path.split('/').filter(p => p !== '');
-
-            if (routeParts.length >= 2) {
-              const type = routeParts[0];
-              const id = routeParts[1];
-
-              if (type === 'post') {
-                console.log('✅ 딥링크 피드 페이지 이동:', id);
-                this.router.navigate(['/feed-detail', id]);
-                return;
-              } else if (type === 'star') {
-                console.log('✅ 딥링크 스타 페이지 이동:', id);
-                this.router.navigate(['/star', id]);
-                return;
-              } else {
-                console.log('✅ 딥링크 일반 이동:', path);
-                this.router.navigateByUrl(path);
-                return;
-              }
-            } else {
-              console.log('✅ 딥링크 일반 이동:', path);
-              this.router.navigateByUrl(path);
-              return;
-            }
-          }
-        }
-
-        // 🌟 2. 기존 유니버셜 링크 (https://witch-hunting.com/...) 감지 시
-        const domain = 'witch-hunting.com';
-        if (urlStr.includes(domain)) {
-          if (urlStr.includes('/witch/privacy') || urlStr.includes('/witch/terms')) {
-            return;
-          }
-          const pathArray = urlStr.split(domain);
-
-          if (pathArray.length > 1) {
-            let path = pathArray[1];
-
-            if (path.startsWith('/witch')) {
-              path = path.replace('/witch', '');
-            }
-
-            const routeParts = path.split('/').filter(p => p !== '');
-
-            if (routeParts.length >= 2) {
-              const type = routeParts[0];
-              const id = routeParts[1];
-
-              if (type === 'post') {
-                this.router.navigate(['/feed-detail', id]);
-              } else if (type === 'star') {
-                this.router.navigate(['/star', id]);
-              } else {
-                this.router.navigateByUrl(path);
-              }
-            } else {
-              this.router.navigateByUrl(path);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('URL 파싱 중 에러 발생:', error);
+      if (decision.kind === 'magic-login') {
+        this.executeMagicLogin(decision.starId, decision.email, decision.pw);
+        return;
       }
+
+      this.router.navigateByUrl(decision.url);
     });
   }
 

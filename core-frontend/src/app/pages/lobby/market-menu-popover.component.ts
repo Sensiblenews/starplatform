@@ -3,10 +3,10 @@ import { Component, Input, OnInit } from '@angular/core';
 import { PopoverController, IonicModule, AlertController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { HttpService } from '../../services/http.service';
+import { DeepLinkService } from '../../services/deep-link.service';
 
 @Component({
   selector: 'app-market-menu-popover',
@@ -83,7 +83,8 @@ export class MarketMenuPopoverComponent implements OnInit {
   constructor(
     private popoverCtrl: PopoverController,
     private alertCtrl: AlertController,
-    private http: HttpService
+    private http: HttpService,
+    private deepLink: DeepLinkService
   ) { }
 
   ngOnInit() {
@@ -120,7 +121,7 @@ export class MarketMenuPopoverComponent implements OnInit {
   }
 
   async openExternal(url: string) {
-    await Browser.open({ url });
+    await this.deepLink.openExternal(url);
     await this.popoverCtrl.dismiss();
   }
 

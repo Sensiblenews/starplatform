@@ -11,8 +11,9 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { Device } from '@capacitor/device';
+import { DeepLinkService } from 'src/app/services/deep-link.service';
+import { finalize } from 'rxjs/operators';
 import { WriteModalService } from 'src/app/services/write-modal.service';
-import { Browser } from '@capacitor/browser';
 
 
 @Component({
@@ -72,6 +73,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   isStar: boolean = false; // 🌟 추가: 현재 사용자가 이 페이지의 주인인지 여부
   private paramSub: any;
 
+  // 첫 진입 시에만 스켈레톤을 노출한다 (새로고침·재조회에는 관여하지 않음)
+  isLoadingStar = true;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -85,6 +89,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private modalCtrl: ModalController,
     private writeModalService: WriteModalService,
     private navCtrl: NavController,
+    private deepLink: DeepLinkService,
   ) { }
 
   async ngOnInit() {
@@ -268,7 +273,10 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadStarDetail() {
-    this.http.post(`/api/super/star/${this.starId}`, { deviceId: this.deviceId }).subscribe((res: any) => {
+    this.http.post(`/api/super/star/${this.starId}`, { deviceId: this.deviceId }).pipe(
+      // 성공/실패와 무관하게 스켈레톤을 해제한다
+      finalize(() => this.isLoadingStar = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.starInfo = res.starInfo;
         this.followerCount = this.starInfo.FOLLOWER_CNT || 0;
@@ -763,12 +771,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   async openPinLink(url: string, event: Event) {
     event.stopPropagation();
-    const targetUrl = url || 'https://google.com';
-    try {
-      await Browser.open({ url: targetUrl });
-    } catch (e) {
-      window.open(targetUrl, '_blank');
-    }
+    await this.deepLink.openExternal(url || 'https://google.com');
   }
 
   async showError(msg: string) {
