@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { Platform, ModalController, PopoverController, AlertController, ActionSheetController, IonSearchbar } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -149,6 +149,12 @@ export class LobbyPage implements OnInit, OnDestroy {
   ];
   categoryTop100: any[] = [];
   isLoadingTop100 = false;
+
+  // 스켈레톤 노출용 로딩 플래그. 첫 로드에만 true이며, 이후 폴링 갱신에는 관여하지 않는다.
+  isLoadingTodayTop = true;
+  isLoadingVsCards = true;
+  isLoadingRanking = true;
+  isLoadingRecommended = true;
 
   constructor(
     private router: Router,
@@ -455,7 +461,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   loadLobbyData(event?: any) {
-    this.http.get('/api/super/lobby').subscribe(
+    this.http.get('/api/super/lobby').pipe(
+      // 성공/실패와 무관하게 스켈레톤을 반드시 해제한다
+      finalize(() => this.isLoadingTodayTop = false)
+    ).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.popularStars = (res.popularStars || []).map(this.initStarData);
@@ -487,7 +496,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   loadLeaderboard() {
     // 백엔드 API 호출 (Top 100)
-    this.http.get(this.rankingEndpoints.general).subscribe((res: any) => {
+    this.http.get(this.rankingEndpoints.general).pipe(
+      finalize(() => this.isLoadingRanking = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.rankingStars = (res.list || []).map(this.initStarData);
       }
@@ -521,7 +532,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
 
   loadVsCards() {
-    this.http.get('/api/super/lobby/vs-cards').subscribe((res: any) => {
+    this.http.get('/api/super/lobby/vs-cards').pipe(
+      finalize(() => this.isLoadingVsCards = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK') {
         const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
@@ -1370,7 +1383,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   loadRecommendedPages() {
     this.http.post('/api/super/page/discover', {
       excludePageId: ''
-    }).subscribe((res: any) => {
+    }).pipe(
+      finalize(() => this.isLoadingRecommended = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK' && res.list) {
         this.recommendedPages = res.list;
       }

@@ -255,7 +255,9 @@
 
     <!-- G (General Ranking) Inline View -->
     <ng-container *ngIf="activeRankingTab === 'G'">
-      <ion-list lines="none" *ngIf="rankingStars && rankingStars.length > 0">
+      <app-skeleton *ngIf="isLoadingRanking" variant="ranking" [count]="10"></app-skeleton>
+
+      <ion-list lines="none" *ngIf="!isLoadingRanking && rankingStars && rankingStars.length > 0">
         <ion-item *ngFor="let star of rankingStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
@@ -342,7 +344,8 @@
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
     <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
-    <app-vs-carousel [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
+    <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
+    <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
 
     <!-- 🌟 Today's TOP (VS 카드 바로 아래 — 가로 스크롤) -->
     <div class="section-container today-top-section">
@@ -351,7 +354,9 @@
         <ion-label>Today's TOP</ion-label>
       </div>
 
-      <div class="horizontal-scroll-wrapper" #topScroll>
+      <app-skeleton *ngIf="isLoadingTodayTop" variant="card" [count]="6" [horizontal]="true"></app-skeleton>
+
+      <div class="horizontal-scroll-wrapper" #topScroll *ngIf="!isLoadingTodayTop">
         <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
           (click)="goToStarPage(star.id)">
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
@@ -395,7 +400,7 @@
         <ion-label>TOP 100 — {{ vsRankMode === 'DAILY' ? 'Daily King' : 'Global Ranking' }}</ion-label>
       </div>
 
-      <div *ngIf="isLoadingTop100" class="no-result-msg">Loading...</div>
+      <app-skeleton *ngIf="isLoadingTop100" variant="ranking" [count]="10"></app-skeleton>
 
       <ion-list lines="none" *ngIf="!isLoadingTop100">
         <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
@@ -504,7 +509,9 @@
         🌍 Discover Global Pages
       </h3>
 
-      <div class="discover-scroll">
+      <app-skeleton *ngIf="isLoadingRecommended" variant="card" [count]="6" [horizontal]="true"></app-skeleton>
+
+      <div class="discover-scroll" *ngIf="!isLoadingRecommended">
         <div *ngFor="let p of recommendedPages" (click)="goToStarPage(p.PRS_ID)" class="discover-item">
           <ion-avatar class="discover-avatar">
             <img [src]="p.STORED_FILE_NM || defaultAvatar" (error)="handleImageError($event)" />

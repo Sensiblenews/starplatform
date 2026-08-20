@@ -17,7 +17,9 @@
     <ion-refresher-content pullingText="Pull to check authentication..."
       refreshingText="Verifying..."></ion-refresher-content>
   </ion-refresher>
-  <div class="profile-header">
+  <app-skeleton *ngIf="isLoadingStar" variant="page"></app-skeleton>
+
+  <div class="profile-header" *ngIf="!isLoadingStar">
     <div class="profile-info-pill">
       <div class="avatar-container" (click)="openProfileViewer()" [style.cursor]="'pointer'">
         <ion-avatar>
@@ -84,7 +86,9 @@
     </div>
   </div>
 
-  <div class="feed-list">
+  <app-skeleton *ngIf="isLoadingStar" variant="list" [count]="4"></app-skeleton>
+
+  <div class="feed-list" *ngIf="!isLoadingStar">
     <ng-container *ngFor="let item of feedList">
 
       <div class="ad-slot-item" *ngIf="item.isAd">

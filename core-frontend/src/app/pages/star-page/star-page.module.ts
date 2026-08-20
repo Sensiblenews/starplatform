@@ -10,6 +10,7 @@ import { StarMenuComponent } from './star-menu.component';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { AdminWriteModalModule } from '../lobby/modals/admin-write-modal.module';
+import { SkeletonComponent } from 'src/app/components/skeleton/skeleton.component';
 
 @NgModule({
   imports: [
@@ -17,7 +18,8 @@ import { AdminWriteModalModule } from '../lobby/modals/admin-write-modal.module'
     FormsModule,
     IonicModule,
     StarPagePageRoutingModule,
-    AdminWriteModalModule
+    AdminWriteModalModule,
+    SkeletonComponent
   ],
   declarations: [StarPagePage, IsPlayingPipe, TruncatePipe, StarMenuComponent, CommentModalComponent, MyInsightModalComponent]
 })

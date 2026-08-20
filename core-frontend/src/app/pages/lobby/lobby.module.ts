@@ -14,6 +14,7 @@ import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
+import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 
 @NgModule({
   imports: [
@@ -21,7 +22,8 @@ import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.compon
     FormsModule,
     IonicModule,
     LobbyPageRoutingModule,
-    AdminWriteModalModule
+    AdminWriteModalModule,
+    SkeletonComponent
   ],
   declarations: [
     LobbyPage,
