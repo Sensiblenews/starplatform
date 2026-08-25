@@ -479,7 +479,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     // 단 작성자 본인에게는 단기 접근 토큰이 함께 내려오므로 그것으로 원본을 불러온다(2-26차)
     const isPending = item.MDR_STATUS === 'PENDING';
     item.pendingImageUrl = (isPending && item.pendingImageToken)
-      ? `${environment.apiBaseURL}/api/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
+      ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
       : null;
 
     // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다
