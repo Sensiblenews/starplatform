@@ -48,7 +48,9 @@ describe('SkeletonComponent', () => {
     component.variant = 'vs';
     const el = render();
 
-    expect(el.querySelectorAll('.sk-vs-avatar').length).toBe(2);
+    // 아바타 동그라미는 표시하지 않는다(클라이언트 요청) — 빈 본문이 높이만 차지한다
+    expect(el.querySelectorAll('.sk-vs-avatar').length).toBe(0);
+    expect(el.querySelector('.sk-vs-body')).toBeTruthy();
     expect(el.querySelector('.sk-vs-foot')).toBeTruthy();
   });
 
