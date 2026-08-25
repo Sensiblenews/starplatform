@@ -144,6 +144,25 @@ describe('StarPagePage — 피드 목록', () => {
       expect(merged.map((m: any) => m.CON_ID)).toEqual([1]);
     });
 
+    it('검수 대기 → 승인 전환이 병합에서 반영된다', () => {
+      // 대기 상태로 화면에 떠 있던 항목 (작성자 본인이라 토큰으로 보고 있었다)
+      const page0 = makePage();
+      const existing = page0.prepareFeedItem(
+        makeFeed(1, { MDR_STATUS: 'PENDING', image: null, pendingImageToken: 'TOKEN1' }));
+      existing.isLoaded = true;
+
+      const page = makePage([existing]);
+
+      // 관리자가 승인한 뒤의 서버 응답 (주소가 내려오고 토큰은 없다)
+      const merged = page.mergeFeed(
+        [makeFeed(1, { MDR_STATUS: 'APPROVED', image: 'https://cdn/1.jpg' })], false, 10);
+
+      expect(merged[0].MDR_STATUS).toBe('APPROVED');
+      expect(merged[0].image).toBe('https://cdn/1.jpg');
+      expect(merged[0].pendingImageUrl).toBeNull();
+      expect(merged[0].isUnderReview).toBeFalse();
+    });
+
     it('광고 슬롯은 병합 대상에서 뺀다 (insertAdSlots가 다시 꽂는다)', () => {
       const page = makePage([makeFeed(1), { isAd: true, adId: 1 }, makeFeed(2)]);
 

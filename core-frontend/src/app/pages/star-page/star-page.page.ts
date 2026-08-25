@@ -318,11 +318,17 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * 스타 상세 + 피드 첫 페이지를 불러온다.
-   * 데이터가 이미 있는 상태에서 다시 부르면 화면을 지우지 않고 조용히 갈아끼운다.
+   *
+   * 호출부는 전부 사용자가 명시적으로 일으킨 동작이다(첫 진입, 당겨서 새로고침,
+   * 글 작성·삭제, 프로필 수정). 그래서 목록을 병합하지 않고 새로 만든다 —
+   * 사용자가 최신 상태를 요구한 것이므로 이전 항목을 살려둘 이유가 없다.
+   *
+   * 병합은 복귀 시 조용한 갱신(refreshInBackground)에서만 쓴다. 그쪽은 화면이
+   * 그대로 떠 있는 상태라 이미지가 다시 로딩되면 깜빡임으로 보이기 때문이다.
    */
   loadStarDetail() {
     this.perf.mark('star:api-request');
-    const isFirstLoad = this.isLoadingStar;
+    this.resetFeedPaging();
 
     this.http.post(`/api/super/star/${this.starId}`, {
       deviceId: this.deviceId,
@@ -347,8 +353,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.hasMoreFeeds = photos.length >= StarPagePage.FEED_PAGE_SIZE;
       this.resetInfiniteScroll();
 
-      // 첫 로드가 아니면 기존 항목 객체를 재사용해 이미지 재로딩과 스크롤 튐을 막는다
-      this.feedList = this.mergeFeed(photos, isFirstLoad, StarPagePage.FEED_PAGE_SIZE);
+      this.feedList = this.mergeFeed(photos, true, StarPagePage.FEED_PAGE_SIZE);
       this.insertAdSlots();
 
       // 미디어가 하나도 없으면 onMediaLoaded가 오지 않으므로 여기서 구간을 닫는다
@@ -513,8 +518,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
    * 배열을 통째로 갈아끼우면 trackBy가 같은 키를 봐도 항목 객체가 달라져
    * isLoaded가 false로 돌아가고, 이미지가 다시 페이드인하면서 깜빡임으로 보인다(2-26차).
    */
-  private mergeFeed(incoming: any[], isFirstLoad: boolean, requestedLimit: number): any[] {
-    if (isFirstLoad || this.feedList.length === 0) {
+  private mergeFeed(incoming: any[], rebuild: boolean, requestedLimit: number): any[] {
+    // rebuild면 기존 항목을 재사용하지 않고 받은 그대로 새로 만든다
+    if (rebuild || this.feedList.length === 0) {
       return incoming.map((item: any) => this.prepareFeedItem(item));
     }
 
