@@ -668,9 +668,10 @@
 				C.MDR_STATUS,
 				DATE_FORMAT(C.CON_CREATE_DATE, '%Y-%m-%d %H:%i') AS CREATED_TEXT,
 				C.CON_CREATE_DATE AS CREATED_DATE,
-				IFNULL(M.MEM_NAME, C.PRS_ID) AS WRITER
+				-- 작성자는 ID로만 표시한다. 이름을 붙이려고 WH_MEMBER를 조인했다가
+				-- 운영 DB에 그 테이블이 없어 화면 전체가 500으로 떨어졌다.
+				C.PRS_ID AS WRITER
 			FROM WH_CONTENT C
-			LEFT JOIN WH_MEMBER M ON C.PRS_ID = M.MEM_ID
 			WHERE C.MDR_STATUS = #{status}
 
 			UNION ALL
