@@ -17,7 +17,8 @@ import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
-import { Device } from '@capacitor/device';
+import { DeviceIdService } from 'src/app/services/device-id.service';
+import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { App } from '@capacitor/app';
 import { PluginListenerHandle } from '@capacitor/core';
 import NativeBridge from '../../plugins/native-bridge';
@@ -168,12 +169,18 @@ export class LobbyPage implements OnInit, OnDestroy {
     private writeModalService: WriteModalService,
     private adProtection: AdProtectionService,
     private ngZone: NgZone,
+    private deviceIdService: DeviceIdService,
+    private perf: PerfTraceService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
   async ngOnInit() {
-    const info = await Device.getId();
-    this.deviceId = info.identifier;
+    // 기기 ID는 캐시에서 꺼낸다. 캐시가 비어 있을 때만 네이티브 브리지를 기다린다.
+    // 여기서 한 번 채워두면 스타 페이지로 넘어갈 때는 기다림 없이 바로 요청이 나간다(2-26차).
+    this.deviceId = this.deviceIdService.get();
+    if (!this.deviceId) {
+      this.deviceId = await this.deviceIdService.resolve();
+    }
 
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -845,16 +852,19 @@ export class LobbyPage implements OnInit, OnDestroy {
   async goToStarPage(starId: string) {
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
 
+    this.perf.start('스타페이지 진입');
+
+    // 눌리는 느낌은 CSS 트랜지션에 맡기고 라우팅은 즉시 보낸다.
+    // 예전에는 애니메이션이 끝나기를 setTimeout(200)으로 기다린 뒤 이동해서
+    // 사용자가 체감하는 로딩 시간에 200ms가 그대로 얹혔다(2-26차).
     if (event && event.currentTarget) {
       const targetCard = event.currentTarget as HTMLElement;
       targetCard.classList.add('zoom-active');
-      setTimeout(() => {
-        targetCard.classList.remove('zoom-active');
-        this.router.navigate(['/star', starId]);
-      }, 200);
-    } else {
-      this.router.navigate(['/star', starId]);
+      setTimeout(() => targetCard.classList.remove('zoom-active'), 200);
     }
+
+    this.perf.mark('lobby:navigate');
+    this.router.navigate(['/star', starId]);
   }
 
   async goToContentPage(contentId: string) {

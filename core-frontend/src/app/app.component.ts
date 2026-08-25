@@ -20,6 +20,7 @@ import { HttpService } from './services/http.service';
 import { TermsBigModal } from './modals/terms-big/terms-big.component';
 import { CheckMessageService } from './services/check-message.service';
 import { DeepLinkService } from './services/deep-link.service';
+import { DeviceIdService } from './services/device-id.service';
 import { TextZoom } from '@capacitor/text-zoom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Badge } from '@capawesome/capacitor-badge';
@@ -56,11 +57,16 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     private modalCtrl: ModalController,
     private checkMessageService: CheckMessageService,
     private deepLink: DeepLinkService,
+    private deviceIdService: DeviceIdService,
   ) {
     this.initApp();
   }
 
   async initApp() {
+    // 기기 ID를 미리 받아 캐시에 채워둔다. 각 화면이 진입 직후 네이티브 브리지를
+    // 기다리지 않게 해서 첫 API 요청이 밀리지 않도록 한다(2-26차).
+    this.deviceIdService.preload();
+
     await this.platform.ready();
 
     if (Capacitor.isNativePlatform()) {

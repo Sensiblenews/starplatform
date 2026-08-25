@@ -114,6 +114,24 @@ export class WriteModalPage {
     }, CON_BODY);
   }
 
+  /** 서버가 돌려준 거부 사유를 사용자에게 보여줄 문구로 바꾼다 */
+  private uploadErrorMessage(reason: string): string {
+    switch (reason) {
+      case 'TOO_LARGE':
+        return 'Image is too large. Please upload a file under 10MB.';
+      case 'TOO_LARGE_DIMENSION':
+        return 'Image resolution is too large. Please upload a smaller image.';
+      case 'EXTENSION':
+      case 'MIME':
+      case 'SIGNATURE':
+        return 'Only JPG and PNG images are allowed.';
+      case 'UNREADABLE':
+        return 'This image file could not be read. Please try another file.';
+      default:
+        return 'Upload failed. Please try again.';
+    }
+  }
+
   async updatePost() {
     try {
       await this.helper.loading();
@@ -158,7 +176,12 @@ export class WriteModalPage {
         await this.contentService.updateContent(sendObject).toPromise();
         resultMsg = '수정';
       } else {
-        await this.contentService.postContent(sendObject).toPromise();
+        // 이미지 검증에서 거부되면 글이 저장되지 않는다.
+        // 결과를 확인하지 않으면 실패해도 "작성 되었습니다"가 떠서 사용자가 알 수 없다(2-26차)
+        const res: any = await this.contentService.postContent(sendObject).toPromise();
+        if (res && res.RESULT && res.RESULT !== 'OK') {
+          throw new Error(this.uploadErrorMessage(res.REASON));
+        }
         this.cm.setChange({
           action: 'created',
           content: { CON_TYPE: CONTENT_TYPES.goblin },
@@ -172,7 +195,12 @@ export class WriteModalPage {
         content: {},
       });
 
-      this.helper.toast(`게시글이 ${resultMsg} 되었습니다!`, 'middle');
+      // 이미지를 붙인 글은 검수를 거친 뒤에야 다른 사용자에게 보인다 (작성자 본인에게는 즉시 보인다)
+      if (CON_THUMNAIL && this.type !== 'update') {
+        this.helper.toast('Your post is under review. Others will see it once approved.', 'middle');
+      } else {
+        this.helper.toast(`게시글이 ${resultMsg} 되었습니다!`, 'middle');
+      }
 
       try{
         await this.admob.showInterstitial();

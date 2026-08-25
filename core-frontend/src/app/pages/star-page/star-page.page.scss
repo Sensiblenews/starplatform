@@ -427,6 +427,57 @@
   margin-bottom: 16px; // 카드 간 간격
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); // 살짝 그림자
 
+  // 카드 내부 변경이 목록 전체 재계산으로 번지지 않게 격리한다.
+  // Ionic이 상세페이지로 갈 때 이 페이지에 display:none을 걸었다가 복귀 시 해제하는데,
+  // 그때 화면 밖 카드까지 전부 다시 그리면서 깜빡임이 생긴다(2-26차).
+  contain: layout paint style;
+
+  // 화면 밖 카드는 렌더링을 건너뛴다. 미지원 브라우저는 조용히 무시한다.
+  // 실제 카드 높이(1:1 미디어 + 본문)에 맞춘 예상값을 줘 스크롤 높이가 튀지 않게 한다.
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
+
+  // 작성자 본인이 보는 검수 대기 배지 (2-26차). 이미지는 보이되 상태를 알려준다
+  .pending-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 3;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  // 검수 대기 안내 (2-26차). 미디어 영역과 같은 1:1 박스라 레이아웃이 흔들리지 않는다
+  .media-wrapper.under-review {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f1f3f5;
+
+    .review-box {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 24px;
+      color: #868e96;
+
+      ion-icon { font-size: 40px; margin-bottom: 10px; }
+      .review-title { margin: 0; font-size: 15px; font-weight: 600; color: #495057; }
+      .review-desc { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
+    }
+  }
+
   // 미디어 영역 (꽉 채우기)
   .media-wrapper {
     width: 100%;

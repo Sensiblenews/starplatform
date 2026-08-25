@@ -43,6 +43,16 @@ public class Constants {
 //	public static final String _VIDEO_SAVE_PATH = "/home/hagangmin/tmp/video/";
 	public static final String _VIDEO_THUMNAIL_SAVE_PATH = "/var/lib/tomcat7/webapps/video/thumnail/";
 //	public static final String _VIDEO_THUMNAIL_SAVE_PATH = "/home/hagangmin/tmp/video/thumnail/";
+	/*
+	 * 이미지 검수 대기·차단 보관소 (2-26차).
+	 *
+	 * _FILE_SAVE_PATH는 톰캣의 별도 정적 웹앱(/img)이라 그 안에 파일을 두는 순간 웹으로 공개된다.
+	 * 승인 전 이미지는 아래 경로(웹앱 밖)에 두고, 관리자가 승인할 때 _FILE_SAVE_PATH로 옮긴다.
+	 * 접근 제어 코드를 따로 두지 않고 "파일이 공개 디렉터리에 없으면 404"라는 성질을 그대로 쓴다.
+	 */
+	public static final String _PENDING_SAVE_PATH = "/var/lib/tomcat7/moderation/pending/";
+	public static final String _HIDDEN_SAVE_PATH = "/var/lib/tomcat7/moderation/hidden/";
+
 	public static final String _FILE_URL = "https://witch-hunting.com/img/";
 	public static final String _VIDEO_FILE_URL = "https://witch-hunting.com/video/";
 	public static final String _VIDEO_THUMNAIL_FILE_URL = "https://witch-hunting.com/video/thumnail/";

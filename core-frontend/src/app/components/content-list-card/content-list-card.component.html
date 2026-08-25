@@ -105,7 +105,9 @@
 
 <ng-template #default let-item="item">
   <ion-thumbnail class="content-thumbnail" slot="start">
-    <img [src]="getContentsImage(item.CON_THUMNAIL)" />
+    <!-- 검수 대기 글은 이미지 주소가 내려오지 않는다(2-26차) -->
+    <app-moderated-image [src]="getContentsImage(item.CON_THUMNAIL)" [status]="item.MDR_STATUS"
+      [pendingToken]="item.pendingImageToken" [fallback]="defaultThumbnailPath"></app-moderated-image>
     <div class="content-writer">
       <img class="writer-profile" 
            [src]="item.MEM_PICTURE || '../../../assets/img/defaultImg/avatar.svg'" 
@@ -159,7 +161,8 @@
 
 <ng-template #minimal let-item="item">
   <ion-thumbnail slot="start">
-    <img [src]="getContentsImage(item.CON_THUMNAIL)" />
+    <app-moderated-image [src]="getContentsImage(item.CON_THUMNAIL)" [status]="item.MDR_STATUS"
+      [pendingToken]="item.pendingImageToken" [fallback]="defaultThumbnailPath"></app-moderated-image>
   </ion-thumbnail>
   <span class="title" [innerHTML]="item.CON_TITLE"></span>
 </ng-template>

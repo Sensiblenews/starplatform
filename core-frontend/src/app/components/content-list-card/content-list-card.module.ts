@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { IonicModule } from '@ionic/angular';
 import { ContentListCardComponent } from './content-list-card.component';
+import { ModeratedImageComponent } from 'src/app/components/moderated-image/moderated-image.component';
 import { UserAvatarComponentModule } from 'src/app/components/user-avatar/user-avatar.module';
 import { VirtualScrollerModule } from 'ngx-virtual-scroller';
 import { SubscribeModalPage } from './modal/subscribe-modal.page';
@@ -17,7 +18,8 @@ import { SubscribeModalPage } from './modal/subscribe-modal.page';
     ScrollingModule,
     RouterModule,
     UserAvatarComponentModule,
-    VirtualScrollerModule
+    VirtualScrollerModule,
+    ModeratedImageComponent
   ],
   declarations: [ContentListCardComponent, SubscribeModalPage],
   exports: [ContentListCardComponent],

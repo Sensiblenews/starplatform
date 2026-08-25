@@ -319,50 +319,72 @@
 	        P.STATUS_MSG as status,
 	        P.PRS_HOMEPAGE as homepage,
 	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
-	        (SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = P.PRS_ID AND ACTION = 'IMPRESSION') AS viewCount,
 	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
 	        IFNULL(P.COMMENT_CNT, 0) AS COMMENT_CNT,
 	        IFNULL(P.SHARE_CNT, 0) AS SHARE_CNT,
 	        IF((SELECT COUNT(*) FROM WH_GUEST_LIKE WHERE TARGET_TYPE = 'STAR' AND TARGET_ID = P.PRS_ID AND DEVICE_ID = #{deviceId}) > 0, 1, 0) AS IS_LIKED,
-	        
-	        -- 🌟 신규: 전체 스타 수 (분모용, 예: 8B pages)
-	        (SELECT COUNT(*) FROM WH_PRESS WHERE PRS_USE_YN = 'Y' AND IS_STAR = 'Y') AS TOTAL_STARS,
-	        
-	        -- 🌟 신규: 현재 스타의 실시간 글로벌 랭킹 추출
-	        (
-	            SELECT global_rank FROM (
-	                SELECT 
-	                    P2.PRS_ID,
-	                    ROW_NUMBER() OVER (
-	                        ORDER BY 
-	                            (
-	                                IFNULL(A2.viewCount, 0) * 1 + 
-	                                IFNULL(P2.LIKE_CNT, 0) * 3 + 
-	                                IFNULL(P2.FOLLOWER_CNT, 0) * 5
-	                            ) DESC,
-	                            IFNULL(A2.viewCount, 0) DESC,
-	                            IFNULL(P2.FOLLOWER_CNT, 0) DESC,
-	                            P2.PRS_ID ASC
-	                    ) AS global_rank
-	                FROM WH_PRESS P2
-	                LEFT JOIN (
-	                    SELECT PRS_ID, COUNT(*) as viewCount 
-	                    FROM WH_AD_LOG 
-	                    WHERE ACTION = 'IMPRESSION' 
-	                    GROUP BY PRS_ID
-	                ) A2 ON P2.PRS_ID = A2.PRS_ID
-	                WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
-	            ) r WHERE r.PRS_ID = P.PRS_ID
-	        ) AS GLOBAL_RANK,
 	        P.OWNER_EMAIL,
 	        IF(P.PRS_PWD IS NOT NULL AND P.PRS_PWD != '', 'Y', 'N') AS IS_CLAIMED
-	        
+
 	    FROM WH_PRESS P
 	    WHERE
 	        P.PRS_ID = #{starId}
 	</select>
 
+	<!--
+	  전체 스타 순위표 (2-26차).
+
+	  예전에는 selectStarDetail 안에서 스타 한 명의 순위를 뽑으려고 매 요청마다
+	  WH_AD_LOG 전체를 GROUP BY하고 전체 스타를 ROW_NUMBER로 매긴 뒤 한 행만 꺼냈다.
+	  스타 페이지를 열 때마다 이 비용이 들어 Android에서 첫 화면이 눈에 띄게 늦었다.
+	  이제 순위표를 한 번에 뽑아 Redis에 캐시한다 (starRank, TTL 60초 — context-redis.xml).
+	  점수식과 정렬 기준은 기존과 동일하게 유지한다.
+	-->
+	<select id="selectGlobalRankMap" resultType="hashmap">
+	    SELECT
+	        r.PRS_ID,
+	        r.global_rank AS GLOBAL_RANK,
+	        r.viewCount AS viewCount
+	    FROM (
+	        SELECT
+	            P2.PRS_ID,
+	            IFNULL(A2.viewCount, 0) AS viewCount,
+	            ROW_NUMBER() OVER (
+	                ORDER BY
+	                    (
+	                        IFNULL(A2.viewCount, 0) * 1 +
+	                        IFNULL(P2.LIKE_CNT, 0) * 3 +
+	                        IFNULL(P2.FOLLOWER_CNT, 0) * 5
+	                    ) DESC,
+	                    IFNULL(A2.viewCount, 0) DESC,
+	                    IFNULL(P2.FOLLOWER_CNT, 0) DESC,
+	                    P2.PRS_ID ASC
+	            ) AS global_rank
+	        FROM WH_PRESS P2
+	        LEFT JOIN (
+	            SELECT PRS_ID, COUNT(*) as viewCount
+	            FROM WH_AD_LOG
+	            WHERE ACTION = 'IMPRESSION'
+	            GROUP BY PRS_ID
+	        ) A2 ON P2.PRS_ID = A2.PRS_ID
+	        WHERE P2.PRS_USE_YN = 'Y' AND P2.IS_STAR = 'Y'
+	    ) r
+	</select>
+
+	<!--
+	  순위표에 없는 페이지(IS_STAR='N' 등)의 조회수 폴백.
+	  캐시된 순위표에서 못 찾은 경우에만 호출된다.
+	-->
+	<select id="selectStarViewCount" parameterType="string" resultType="long">
+	    SELECT COUNT(*)
+	    FROM WH_AD_LOG
+	    WHERE PRS_ID = #{starId} AND ACTION = 'IMPRESSION'
+	</select>
+
 	<select id="selectStarGallery" parameterType="map" resultType="map">
+		<!-- 페이징(2-26차): 예전에는 스타의 전체 피드 + 전체 공지를 한 번에 내려줬다.
+		     UNION 결과 전체를 정렬한 뒤 잘라야 하므로 서브쿼리로 감싼다. -->
+		SELECT * FROM (
 		-- 1. 원래 스타가 작성한 피드
 		SELECT
 			M.PRS_ID,
@@ -371,9 +393,11 @@
 			M.YOUTUBE_URL,    
 			M.IS_PINNED,
 			M.CREATED_DATE,
-			D.THUMB_URL as image,
-			D.MEDIA_URL,
+			-- 검수 대기·차단 글은 주소 자체를 내려주지 않는다. 앱은 MDR_STATUS를 보고 플레이스홀더를 그린다(2-26차)
+			IF(M.MDR_STATUS = 'APPROVED', D.THUMB_URL, NULL) as image,
+			IF(M.MDR_STATUS = 'APPROVED', D.MEDIA_URL, NULL) as MEDIA_URL,
 			D.MEDIA_TYPE,
+			M.MDR_STATUS,
 			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) as media_count,
 			P.PRS_NAME as MEM_NAME,
 			P.STORED_FILE_NM as MEM_PICTURE,
@@ -393,6 +417,8 @@
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 		LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID
 		WHERE M.PRS_ID = #{starId}
+		-- 거절·블라인드 글만 목록에서 뺀다. 검수 대기 글은 남기고 이미지 주소만 가린다(2-26차)
+		AND M.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
 
 		UNION ALL
 
@@ -407,6 +433,7 @@
 			A.IMAGE_URL as image,
 			A.IMAGE_URL as MEDIA_URL,
 			'PHOTO' as MEDIA_TYPE,
+			'APPROVED' AS MDR_STATUS,
 			IF(A.IMAGE_URL IS NULL, 0, 1) as media_count,
 			CASE WHEN A.ADMIN_LEVEL = 'GLOBAL' THEN '운영자 공지' ELSE '지역 공지' END as MEM_NAME,
 			'assets/img/defaultImg/avatar.svg' as MEM_PICTURE,
@@ -423,8 +450,10 @@
 		WHERE A.ADMIN_LEVEL = 'GLOBAL'
 		   OR (A.ADMIN_LEVEL = 'LOCAL' AND A.ADMIN_COUNTRY = (SELECT PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{starId}))
 		   
+		) G
 		-- 최종 정렬
-		ORDER BY IS_PINNED DESC, CREATED_DATE DESC
+		ORDER BY G.IS_PINNED DESC, G.CREATED_DATE DESC
+		LIMIT #{limit} OFFSET #{offset}
 	</select>
 
 	<!-- [신규] 루트 허브 페이지용: 전체 스타의 최근 게시물 (내부 링크·콘텐츠 발견 경로 확보) -->
@@ -439,6 +468,8 @@
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		-- 웹 랜딩(크롤러 노출면)은 승인된 글만
+		WHERE M.MDR_STATUS = 'APPROVED'
 		ORDER BY M.CREATED_DATE DESC
 		LIMIT 8
 	</select>
@@ -489,6 +520,8 @@
 		FROM WH_STAR_CONTENT M
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 		WHERE M.PRS_ID = #{starId}
+		-- 하단 추천 목록은 승인된 글만 (검토 중 자리를 만들 이유가 없다)
+		AND M.MDR_STATUS = 'APPROVED'
 		<if test="excludeConId != null and excludeConId != ''">
 			AND M.CON_ID != #{excludeConId}
 		</if>
@@ -506,6 +539,7 @@
 			A.PRS_ID,
 			B.PRS_NAME,
 			B.STORED_FILE_NM,
+			A.MDR_STATUS,
 			'STAR' AS FEED_TYPE,
 			
 			-- 🌟 [수정] PPRO 조인 제거 후 A(본체) 테이블에서 직접 참조. N이면 NULL.
@@ -518,6 +552,9 @@
 		JOIN WH_PRESS B ON A.PRS_ID = B.PRS_ID
 		WHERE
 			A.CON_ID = #{conId}
+			-- 거절·블라인드 글만 상세 진입을 막는다.
+			-- 검수 대기 글은 열리되 미디어 주소가 가려진다(2-26차)
+			AND A.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
 	</select>
 
 	<select id="selectAdminContentDetail" parameterType="map" resultType="map">
@@ -542,9 +579,17 @@
 	</select>
 
 	<select id="selectContentMedias" parameterType="map" resultType="map">
-		SELECT * FROM STAR_CONTENT_MEDIA
-		WHERE CON_ID = #{conId}
-		ORDER BY SORT_ORDER ASC
+		SELECT
+			D.MEDIA_TYPE,
+			D.SORT_ORDER,
+			-- 승인 전에는 미디어 주소를 주지 않는다. 작성자 본인에게는 서비스가 토큰을 붙인다(2-26차)
+			IF(S.MDR_STATUS = 'APPROVED', D.MEDIA_URL, NULL) AS MEDIA_URL,
+			IF(S.MDR_STATUS = 'APPROVED', D.THUMB_URL, NULL) AS THUMB_URL,
+			S.MDR_STATUS
+		FROM STAR_CONTENT_MEDIA D
+		JOIN WH_STAR_CONTENT S ON D.CON_ID = S.CON_ID
+		WHERE D.CON_ID = #{conId}
+		ORDER BY D.SORT_ORDER ASC
 	</select>
 
 	<insert id="insertAdLog" parameterType="hashmap">
@@ -1776,4 +1821,41 @@
 	    ORDER BY T.GLOBAL_RANK ASC
 	    LIMIT 100
 	</select>
+
+	<!-- ===== 이미지 검수 (2-26차) ===== -->
+
+	<update id="updateStarContentModeration" parameterType="map">
+		UPDATE WH_STAR_CONTENT
+		SET
+			MDR_STATUS = #{MDR_STATUS},
+			MDR_DATE   = NOW(),
+			MDR_ADMIN  = #{MDR_ADMIN}
+		WHERE CON_ID = #{CON_ID}
+	</update>
+
+	<insert id="insertModerationLog" parameterType="map">
+		INSERT INTO WH_MEDIA_MODERATION_LOG
+		(TARGET_TYPE, TARGET_ID, ACTION, REASON, ADMIN_ID, CREATED_DATE)
+		VALUES
+		(#{TARGET_TYPE}, #{TARGET_ID}, #{ACTION}, #{REASON}, #{ADMIN_ID}, NOW())
+	</insert>
+
+
+	<!-- 검수 대기 이미지 스트리밍용. 상태와 파일 주소를 한 번에 확인한다(2-26차) -->
+	<select id="selectPendingMediaTarget" parameterType="map" resultType="map">
+		<choose>
+			<when test="targetType == 'STAR_FEED'">
+				SELECT S.MDR_STATUS, D.MEDIA_URL AS IMAGE_URL
+				FROM WH_STAR_CONTENT S
+				LEFT JOIN STAR_CONTENT_MEDIA D ON S.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+				WHERE S.CON_ID = #{targetId}
+			</when>
+			<otherwise>
+				SELECT C.MDR_STATUS, C.CON_THUMNAIL AS IMAGE_URL
+				FROM WH_CONTENT C
+				WHERE C.CON_ID = #{targetId}
+			</otherwise>
+		</choose>
+	</select>
+
 </mapper>

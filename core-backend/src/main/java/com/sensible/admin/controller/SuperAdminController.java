@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.sensible.admin.domain.UserVO;
 import com.sensible.admin.service.SuperAdminService;
 import com.sensible.common.Constants;
+import com.sensible.common.util.ImageModerationUtil;
 
 @Controller
 public class SuperAdminController {
@@ -39,6 +40,11 @@ public class SuperAdminController {
 
     @Resource(name = "dataSource")
     private javax.sql.DataSource dataSource;
+
+    // 5분 간격 구간 지표 수집기. 루트 컨텍스트에 없더라도 기존 순간값 지표는 그대로 나와야 하므로
+    // 필수 주입(@Resource)이 아니라 선택 주입으로 둔다.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sensible.admin.scheduler.SystemMetricsCollector metricsCollector;
 
     // 헬퍼 메소드: 로그인 유저 확인
     private UserVO getLoginUser(HttpServletRequest request) {
@@ -552,6 +558,125 @@ public class SuperAdminController {
 
             result.put("status", "success");
             result.put("msg", "처리되었습니다.");
+        } catch (Exception e) {
+            result.put("status", "fail");
+            result.put("msg", "처리 실패: " + e.getMessage());
+        }
+        return result;
+    }
+
+    // ===== 이미지 검수 (2-26차) =====
+
+    /** 검수 대기 목록. 기본은 PENDING, 차단 목록도 같은 화면에서 본다 */
+    @RequestMapping(value = "/super/moderation/list.do")
+    public String moderationList(HttpServletRequest request, Model model,
+            @RequestParam(value = "status", required = false) String status) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+
+        String target = ("HIDDEN".equals(status) || "REJECTED".equals(status) || "APPROVED".equals(status))
+                ? status : "PENDING";
+        model.addAttribute("status", target);
+        model.addAttribute("queue", superAdminService.getModerationQueue(target));
+        model.addAttribute("counts", superAdminService.getModerationCounts());
+
+        return "super/moderation_list";
+    }
+
+    /**
+     * 검수 대기 이미지 미리보기.
+     *
+     * 대기 중 파일은 공개 디렉터리(/img)에 없으므로 웹으로 직접 열 수 없다.
+     * 관리자만 볼 수 있도록 여기서 직접 내보낸다.
+     */
+    @RequestMapping(value = "/super/moderation/preview.do")
+    public void moderationPreview(HttpServletRequest request, HttpServletResponse response,
+            @RequestParam("file") String file) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // DB에서 온 값이라도 파일 시스템에 그대로 쓰지 않는다 (경로 조작 차단)
+        String fileName = ImageModerationUtil.fileNameFromUrl(file);
+        if (fileName == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        java.io.File found = null;
+        for (String dir : new String[] { Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH,
+                Constants._FILE_SAVE_PATH }) {
+            java.io.File candidate = new java.io.File(dir, fileName);
+            if (candidate.exists() && candidate.isFile()) {
+                found = candidate;
+                break;
+            }
+        }
+        if (found == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        String ext = ImageModerationUtil.extensionOf(fileName);
+        response.setContentType("png".equals(ext) ? "image/png"
+                : "webp".equals(ext) ? "image/webp" : "image/jpeg");
+        response.setContentLength((int) found.length());
+        // 검수 대상 이미지는 캐시하지 않는다. 차단 후에도 브라우저에 남으면 곤란하다
+        response.setHeader("Cache-Control", "no-store");
+
+        java.io.InputStream in = null;
+        java.io.OutputStream out = null;
+        try {
+            in = new java.io.FileInputStream(found);
+            out = response.getOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
+        } finally {
+            if (in != null) { try { in.close(); } catch (Exception e) { } }
+        }
+    }
+
+    /** 승인 / 차단 처리 */
+    @RequestMapping(value = "/super/moderation/action.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> moderationAction(HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            String action = String.valueOf(params.get("action"));
+            String targetType = String.valueOf(params.get("targetType"));
+            String targetId = String.valueOf(params.get("targetId"));
+            String reason = (String) params.get("reason");
+
+            // REJECTED = 검수에서 거절, HIDDEN = 사후 신고로 블라인드.
+            // 접근 차단 동작은 같고 이력·통계에서 원인을 구분하기 위해 나눈다(2-26차)
+            if (!"APPROVED".equals(action) && !"REJECTED".equals(action) && !"HIDDEN".equals(action)) {
+                result.put("status", "fail");
+                result.put("msg", "알 수 없는 처리입니다.");
+                return result;
+            }
+
+            boolean applied = superAdminService.applyModeration(
+                    targetType, targetId, action, user.getPRS_ID(), reason);
+
+            result.put("status", "success");
+            result.put("applied", applied);
+            result.put("msg", applied ? "처리되었습니다." : "이미 처리된 건입니다.");
         } catch (Exception e) {
             result.put("status", "fail");
             result.put("msg", "처리 실패: " + e.getMessage());
@@ -1210,12 +1335,40 @@ public class SuperAdminController {
             // 3) Redis - 기존 redisTemplate 연결로 PING (로컬 미연결은 정상 시나리오 → DOWN 표기)
             result.put("redisStatus", "DOWN");
             result.put("redisMsg", "연결되지 않음");
+            result.put("redisUsedMemoryMb", -1);
+            result.put("redisPeakMemoryMb", -1);
+            result.put("redisClients", "-");
+            result.put("redisEvictedKeys", "-");
+            result.put("redisKeyCount", -1);
             org.springframework.data.redis.connection.RedisConnection redisConn = null;
             try {
                 redisConn = redisTemplate.getConnectionFactory().getConnection();
                 String pong = redisConn.ping();
                 result.put("redisStatus", "UP");
                 result.put("redisMsg", (pong != null ? pong : "PONG"));
+
+                // INFO / DBSIZE는 같은 연결을 재사용한다 (신규 연결 생성 금지)
+                try {
+                    java.util.Properties info = redisConn.info();
+                    if (info != null) {
+                        long redisUsed = parseLongSafe(info.getProperty("used_memory"), -1);
+                        long redisPeak = parseLongSafe(info.getProperty("used_memory_peak"), -1);
+                        result.put("redisUsedMemoryMb", (redisUsed >= 0) ? redisUsed / mb : -1);
+                        result.put("redisPeakMemoryMb", (redisPeak >= 0) ? redisPeak / mb : -1);
+                        result.put("redisClients", nvl(info.getProperty("connected_clients")));
+                        result.put("redisEvictedKeys", nvl(info.getProperty("evicted_keys")));
+                    }
+                } catch (Throwable ignore) {
+                    // INFO 미지원·권한 제한 등은 부가 정보 손실로만 처리
+                }
+                try {
+                    Long dbSize = redisConn.dbSize();
+                    if (dbSize != null) {
+                        result.put("redisKeyCount", dbSize);
+                    }
+                } catch (Throwable ignore) {
+                    // 키 개수는 부가 정보
+                }
             } catch (Throwable t) {
                 result.put("redisStatus", "DOWN");
                 result.put("redisMsg", "연결되지 않음");
@@ -1244,13 +1397,15 @@ public class SuperAdminController {
                 result.put("dbStatus", "DOWN");
                 result.put("dbMsg", "연결 실패");
             }
-            // DBCP 풀 현황 (부가 정보). 주입된 dataSource는 log4jdbc 프록시가 BasicDataSource를
-            // 감싸고 있어 직접 캐스팅이 안 될 수 있음 → 도달 불가 시 -1 유지하고 프론트에서 숨김.
+            // DBCP 풀 현황. 주입된 dataSource는 log4jdbc 프록시(Log4jdbcProxyDataSource)가
+            // BasicDataSource를 감싸고 있어 직접 캐스팅이 안 된다 → 내부 필드를 찾아 꺼낸다.
+            result.put("dbMaxActive", -1);
             try {
-                if (dataSource instanceof org.apache.commons.dbcp.BasicDataSource) {
-                    org.apache.commons.dbcp.BasicDataSource bds = (org.apache.commons.dbcp.BasicDataSource) dataSource;
+                org.apache.commons.dbcp.BasicDataSource bds = unwrapBasicDataSource(dataSource, 0);
+                if (bds != null) {
                     result.put("dbActive", bds.getNumActive());
                     result.put("dbIdle", bds.getNumIdle());
+                    result.put("dbMaxActive", bds.getMaxActive());
                 }
             } catch (Throwable t) {
                 // 풀 통계는 부가 정보이므로 실패 무시
@@ -1260,6 +1415,127 @@ public class SuperAdminController {
             result.put("queueStatus", "N/A");
             result.put("queueMsg", "메시지 큐 미도입");
 
+            // 6) GC 통계 - GC 실행 버튼만 있고 GC 추이를 볼 수 없던 부분 보완
+            result.put("gcAvailable", false);
+            result.put("gcTotalCount", 0);
+            result.put("gcTotalTimeMs", 0);
+            result.put("gcTimePercent", 0);
+            try {
+                List<Map<String, Object>> gcList = new java.util.ArrayList<Map<String, Object>>();
+                long gcCount = 0;
+                long gcTime = 0;
+                for (java.lang.management.GarbageCollectorMXBean gc :
+                        java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+                    Map<String, Object> row = new HashMap<String, Object>();
+                    row.put("name", gc.getName());
+                    row.put("count", Math.max(0, gc.getCollectionCount()));
+                    row.put("timeMs", Math.max(0, gc.getCollectionTime()));
+                    gcList.add(row);
+                    if (gc.getCollectionCount() > 0) {
+                        gcCount += gc.getCollectionCount();
+                    }
+                    if (gc.getCollectionTime() > 0) {
+                        gcTime += gc.getCollectionTime();
+                    }
+                }
+                result.put("gcCollectors", gcList);
+                result.put("gcTotalCount", gcCount);
+                result.put("gcTotalTimeMs", gcTime);
+                // JVM 가동시간 대비 GC가 점유한 비율
+                long up = runtime.getUptime();
+                result.put("gcTimePercent", (up > 0) ? Math.round((double) gcTime / up * 10000.0) / 100.0 : 0);
+                result.put("gcAvailable", true);
+            } catch (Throwable t) {
+                result.put("gcAvailable", false);
+            }
+
+            // 7) 톰캣 스레드풀 / 활성 세션 - JMX. 배포 형태에 따라 도메인이 Catalina 또는 Tomcat이다
+            result.put("tomcatAvailable", false);
+            result.put("tomcatThreadsBusy", -1);
+            result.put("tomcatThreadsMax", -1);
+            result.put("tomcatThreadPercent", 0);
+            result.put("tomcatActiveSessions", -1);
+            try {
+                javax.management.MBeanServer mbs = java.lang.management.ManagementFactory.getPlatformMBeanServer();
+                int busy = 0;
+                int maxThreads = 0;
+                int sessions = 0;
+                boolean poolFound = false;
+                boolean sessionFound = false;
+                String[] domains = { "Catalina", "Tomcat" };
+                for (String domain : domains) {
+                    for (javax.management.ObjectName on :
+                            mbs.queryNames(new javax.management.ObjectName(domain + ":type=ThreadPool,*"), null)) {
+                        Object b = mbs.getAttribute(on, "currentThreadsBusy");
+                        Object m = mbs.getAttribute(on, "maxThreads");
+                        if (b instanceof Number) {
+                            busy += ((Number) b).intValue();
+                        }
+                        if (m instanceof Number) {
+                            maxThreads += ((Number) m).intValue();
+                        }
+                        poolFound = true;
+                    }
+                    for (javax.management.ObjectName on :
+                            mbs.queryNames(new javax.management.ObjectName(domain + ":type=Manager,*"), null)) {
+                        Object a = mbs.getAttribute(on, "activeSessions");
+                        if (a instanceof Number) {
+                            sessions += ((Number) a).intValue();
+                            sessionFound = true;
+                        }
+                    }
+                }
+                if (poolFound) {
+                    result.put("tomcatAvailable", true);
+                    result.put("tomcatThreadsBusy", busy);
+                    result.put("tomcatThreadsMax", maxThreads);
+                    result.put("tomcatThreadPercent",
+                            (maxThreads > 0) ? (int) ((double) busy / maxThreads * 100) : 0);
+                }
+                if (sessionFound) {
+                    result.put("tomcatActiveSessions", sessions);
+                }
+            } catch (Throwable t) {
+                result.put("tomcatAvailable", false);
+            }
+
+            // 8) 열린 파일 디스크립터 - 누수 조기 감지용
+            result.put("fdAvailable", false);
+            result.put("fdOpen", -1);
+            result.put("fdMax", -1);
+            result.put("fdPercent", 0);
+            try {
+                if (os instanceof com.sun.management.UnixOperatingSystemMXBean) {
+                    com.sun.management.UnixOperatingSystemMXBean unixOs =
+                            (com.sun.management.UnixOperatingSystemMXBean) os;
+                    long openFd = unixOs.getOpenFileDescriptorCount();
+                    long maxFd = unixOs.getMaxFileDescriptorCount();
+                    if (openFd >= 0 && maxFd > 0) {
+                        result.put("fdOpen", openFd);
+                        result.put("fdMax", maxFd);
+                        result.put("fdPercent", (int) ((double) openFd / maxFd * 100));
+                        result.put("fdAvailable", true);
+                    }
+                }
+            } catch (Throwable t) {
+                result.put("fdAvailable", false);
+            }
+
+            // 9) 구간 지표(트래픽·요청량·디스크 추세·디렉터리 용량)
+            // 순간값이 아니라 이전 스냅샷과의 델타가 필요한 값이라 5분 수집기가 계산해 둔 것을 읽기만 한다.
+            // 디렉터리 용량은 무거운 작업이라 수집기가 별도 주기로 캐시해 둔 값이다 (폴링마다 재계산하지 않음).
+            result.put("collectorAvailable", metricsCollector != null);
+            try {
+                if (metricsCollector != null) {
+                    result.putAll(metricsCollector.getTrafficSummary());
+                    result.putAll(metricsCollector.getRequestSummary());
+                    result.putAll(metricsCollector.getDiskTrend());
+                    result.putAll(metricsCollector.getDirectorySizes());
+                }
+            } catch (Throwable t) {
+                // 구간 지표 실패가 기존 순간값 응답을 막지 않도록 무시
+            }
+
             result.put("status", "success");
         } catch (Exception e) {
             e.printStackTrace();
@@ -1267,6 +1543,92 @@ public class SuperAdminController {
             result.put("msg", "상태 조회 실패: " + e.getMessage());
         }
 
+        return result;
+    }
+
+    // Redis INFO 문자열을 안전하게 long으로 변환
+    private long parseLongSafe(String v, long defaultValue) {
+        try {
+            if (v == null || v.trim().isEmpty()) {
+                return defaultValue;
+            }
+            return Long.parseLong(v.trim());
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    // null이면 "-" 로 표기
+    private String nvl(String v) {
+        return (v == null || v.trim().isEmpty()) ? "-" : v.trim();
+    }
+
+    // log4jdbc 프록시가 감싼 BasicDataSource를 찾아 꺼낸다. 못 찾으면 null
+    private org.apache.commons.dbcp.BasicDataSource unwrapBasicDataSource(javax.sql.DataSource ds, int depth) {
+        if (ds == null || depth > 3) {
+            return null;
+        }
+        if (ds instanceof org.apache.commons.dbcp.BasicDataSource) {
+            return (org.apache.commons.dbcp.BasicDataSource) ds;
+        }
+        Class<?> clazz = ds.getClass();
+        while (clazz != null && clazz != Object.class) {
+            for (java.lang.reflect.Field f : clazz.getDeclaredFields()) {
+                if (!javax.sql.DataSource.class.isAssignableFrom(f.getType())) {
+                    continue;
+                }
+                try {
+                    f.setAccessible(true);
+                    Object inner = f.get(ds);
+                    if (inner instanceof javax.sql.DataSource && inner != ds) {
+                        org.apache.commons.dbcp.BasicDataSource found =
+                                unwrapBasicDataSource((javax.sql.DataSource) inner, depth + 1);
+                        if (found != null) {
+                            return found;
+                        }
+                    }
+                } catch (Throwable ignore) {
+                    // 접근 불가 필드는 건너뛴다
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return null;
+    }
+
+    /**
+     * [API] 5분 간격 구간 지표 이력 조회 (SM 전용)
+     * 차트용이라 status.json과 분리한다. 5초 폴링 대상이 아니다.
+     */
+    @RequestMapping(value = "/super/system/history.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSystemHistory(HttpServletRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            if (metricsCollector == null) {
+                result.put("status", "success");
+                result.put("available", false);
+                result.put("samples", new java.util.ArrayList<Object>());
+                return result;
+            }
+            List<Map<String, Object>> samples = metricsCollector.getHistory();
+            result.put("status", "success");
+            result.put("available", true);
+            result.put("intervalMinutes", 5);
+            result.put("samples", samples);
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", "이력 조회 실패: " + e.getMessage());
+        }
         return result;
     }
 

@@ -8,6 +8,7 @@ import javax.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import com.sensible.admin.domain.UserVO;
 import com.sensible.common.dao.DefaultDAO;
+import com.sensible.common.util.ImageModerationUtil;
 
 @Service("superAdminService")
 public class SuperAdminService {
@@ -322,6 +323,96 @@ public class SuperAdminService {
     // 🌟 [신규] 글로벌 영구 차단 실행
     public void executeGlobalBlock(Map<String, Object> params) throws Exception {
         dao.insert("super.insertGlobalBlock", params);
+    }
+
+    // ===== 이미지 검수 (2-26차) =====
+    //
+    // 클라이언트 확정 방식: PENDING → 관리자 승인 → 공개.
+    // 노출 단위는 이미지가 아니라 게시물이라, 승인 전에는 게시물 자체가 목록에 뜨지 않는다.
+
+    public List<Map<String, Object>> getModerationQueue(String status) throws Exception {
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("status", status);
+        return dao.selectList("super.selectModerationQueue", param);
+    }
+
+    public Map<String, Object> getModerationCounts() throws Exception {
+        return dao.selectOne("super.selectModerationCounts");
+    }
+
+    public Map<String, Object> getModerationTarget(String targetType, String targetId) throws Exception {
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("targetType", targetType);
+        param.put("targetId", targetId);
+        return dao.selectOne("super.selectModerationTarget", param);
+    }
+
+    /**
+     * 승인 또는 차단 처리.
+     *
+     * DB 상태와 파일 위치를 함께 바꾼다. 파일 이동이 실패하면 상태도 되돌린다 —
+     * 상태만 APPROVED가 되고 파일이 공개 디렉터리에 없으면 깨진 이미지가 노출된다.
+     *
+     * @return 실제로 처리됐으면 true. 이미 같은 상태였으면 false(중복 클릭)
+     */
+    public boolean applyModeration(String targetType, String targetId, String toStatus,
+            String adminId, String reason) throws Exception {
+
+        Map<String, Object> target = getModerationTarget(targetType, targetId);
+        if (target == null) {
+            return false;
+        }
+
+        String fromStatus = String.valueOf(target.get("MDR_STATUS"));
+        if (toStatus.equals(fromStatus)) {
+            return false;
+        }
+
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("targetType", targetType);
+        param.put("targetId", targetId);
+        param.put("status", toStatus);
+        param.put("fromStatus", fromStatus);
+        param.put("adminId", adminId);
+
+        // 현재 상태를 조건에 넣어 두 관리자가 동시에 누르는 경우를 막는다
+        int updated = dao.update("super.updateModerationStatus", param);
+        if (updated == 0) {
+            return false;
+        }
+
+        String fileName = ImageModerationUtil.fileNameFromUrl((String) target.get("IMAGE_URL"));
+        if (fileName != null) {
+            try {
+                if ("APPROVED".equals(toStatus)) {
+                    ImageModerationUtil.promote(fileName);
+                } else {
+                    // REJECTED와 HIDDEN은 사유만 다르고 파일 처리는 같다 (삭제하지 않고 격리)
+                    ImageModerationUtil.quarantine(fileName);
+                }
+            } catch (Exception e) {
+                // 파일을 못 옮겼으면 상태를 되돌린다. 상태와 파일 위치가 어긋나면
+                // 공개 표시인데 이미지가 404이거나, 차단 표시인데 파일이 살아 있게 된다.
+                Map<String, Object> rollback = new HashMap<String, Object>();
+                rollback.put("targetType", targetType);
+                rollback.put("targetId", targetId);
+                rollback.put("status", fromStatus);
+                rollback.put("fromStatus", toStatus);
+                rollback.put("adminId", adminId);
+                dao.update("super.updateModerationStatus", rollback);
+                throw e;
+            }
+        }
+
+        Map<String, Object> log = new HashMap<String, Object>();
+        log.put("TARGET_TYPE", targetType);
+        log.put("TARGET_ID", targetId);
+        log.put("ACTION", toStatus);
+        log.put("REASON", reason);
+        log.put("ADMIN_ID", adminId);
+        dao.insert("super.insertModerationLog", log);
+
+        return true;
     }
     
     public void insertAdminFeed(Map<String, Object> params) throws Exception {

@@ -12,7 +12,9 @@
 			    CON_CATEGORY,
 			    CON_TITLE,
 			    CON_SUBTITLE,
-			    CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다(2-26차)
+			    IF(WC.MDR_STATUS = 'APPROVED', CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+			    WC.MDR_STATUS,
 			    CON_VIDEO,
 			    CON_VIDEO_THUMNAIL,
 			    CON_ORIGIN_URL,
@@ -30,6 +32,8 @@
 			    WH_CONTENT WC  
 			WHERE 1=1				
 				AND WC.CON_ID = #{CON_ID}
+				-- 거절·블라인드 글만 상세를 막는다. 검수 대기는 열리되 이미지가 가려진다(2-26차)
+				AND WC.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
 		]]>
 	</select>
 	
@@ -232,7 +236,9 @@
 		        	ELSE '' END) MEM_PICTURE,
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
-			    C.CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+			    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+			    C.MDR_STATUS,
 			    C.CON_VIDEO,
 			    C.CON_VIDEO_THUMNAIL,
 			    C.CON_YOUTUBE_URL,
@@ -261,6 +267,8 @@
 			    AND P.MEM_ID = #{MEM_ID} 
 			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
 			WHERE C.CON_USE_YN = 1 
+			AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
+			-- 검수 대기 글도 목록에는 남긴다. 이미지 주소만 가리고 앱이 "검토 중"을 그린다(2-26차)
 			AND CON_TYPE = #{CON_TYPE} 
 			<if test='CON_CATEGORY != "" and CON_CATEGORY != null'>
 			AND CON_CATEGORY = #{CON_CATEGORY}
@@ -288,7 +296,9 @@
 	        	ELSE '' END) MEM_PICTURE, 
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
-			    C.CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+			    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+			    C.MDR_STATUS,
 			    C.CON_VIDEO,
 			    C.CON_VIDEO_THUMNAIL,
 			    C.CON_YOUTUBE_URL,
@@ -364,12 +374,15 @@
 	    SELECT 
 	        CON_ID,
 	        CON_TITLE,
-	        IFNULL(CON_THUMNAIL, CON_VIDEO_THUMNAIL) as IMG_URL, 
+	        -- 승인 전에는 이미지 주소를 주지 않는다(2-26차)
+	        IF(MDR_STATUS = 'APPROVED', IFNULL(CON_THUMNAIL, CON_VIDEO_THUMNAIL), NULL) as IMG_URL,
+	        MDR_STATUS, 
 	        CON_CREATE_DATE
 	    FROM WH_CONTENT
 	    WHERE PRS_ID = #{PRS_ID}
 	      AND CON_TYPE = #{CON_TYPE}
 	      AND CON_USE_YN = 1
+	      AND MDR_STATUS NOT IN ('REJECTED', 'HIDDEN') -- 거절·블라인드만 제외(2-26차)
 	    ORDER BY CON_CREATE_DATE DESC
 	    LIMIT 3
 	</select>
@@ -413,6 +426,8 @@
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
 			    C.CON_THUMNAIL,
+			    -- 본인 목록이라 가리지 않는다. 검수 대기면 서비스가 접근 토큰을 붙인다(2-26차)
+			    C.MDR_STATUS,
 			    C.CON_YOUTUBE_URL,
 			    C.CON_BODY,
 			    C.CON_PREFIX,
@@ -465,7 +480,9 @@
 		          ) MEM_NAME,
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
-			    IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL) AS CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+			    IF(C.MDR_STATUS = 'APPROVED', IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL), NULL) AS CON_THUMNAIL,
+			    C.MDR_STATUS,
 			    C.CON_YOUTUBE_URL,
 			    C.CON_BODY,
 			    C.CON_PREFIX,
@@ -493,6 +510,8 @@
 			    AND P.MEM_ID = #{PROFILE_ID} 
 			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
 			WHERE C.CON_USE_YN = 1 
+			AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
+			-- 검수 대기 글도 목록에는 남긴다. 이미지 주소만 가리고 앱이 "검토 중"을 그린다(2-26차)
 			  AND (CON_TYPE = 1 OR CON_TYPE = 0 OR CON_TYPE = 9)
 	    ) M
 		<if test='PROFILE_ID != null'>
@@ -517,7 +536,9 @@
 		          ) MEM_NAME,
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
-			    IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL) AS CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+			    IF(C.MDR_STATUS = 'APPROVED', IFNULL(C.CON_THUMNAIL, C.CON_VIDEO_THUMNAIL), NULL) AS CON_THUMNAIL,
+			    C.MDR_STATUS,
 			    C.CON_YOUTUBE_URL,
 			    C.CON_BODY,
 			    C.CON_PREFIX,
@@ -545,6 +566,8 @@
 			    AND P.MEM_ID = #{PROFILE_ID} 
 			    AND DATE_FORMAT(NOW(), '%Y-%m-%d') &lt;= P.PRI_EXPD
 			WHERE C.CON_USE_YN = 1 
+			AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
+			-- 검수 대기 글도 목록에는 남긴다. 이미지 주소만 가리고 앱이 "검토 중"을 그린다(2-26차)
 			  AND (CON_TYPE = 1 OR CON_TYPE = 0 OR CON_TYPE = 9)
 	    ) M
 		<if test='PROFILE_ID != null'>
@@ -565,7 +588,9 @@
 				    C.CON_ID,
 				    C.CON_TITLE,
 				    C.CON_SUBTITLE,
-				    C.CON_THUMNAIL,
+				    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+				    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+				    C.MDR_STATUS,
 				    C.CON_YOUTUBE_URL,
 				    C.CON_BODY,
 				    C.CON_PREFIX,
@@ -590,13 +615,15 @@
 				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
   				    	LEFT JOIN
 				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID			    
-				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_TITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				WHERE C.CON_USE_YN = 1 AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN') AND CON_TYPE IN ('0', '1', '9') AND (CON_TITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
 				union
 				SELECT 
 				    C.CON_ID,
 				    C.CON_TITLE,
 				    C.CON_SUBTITLE,
-				    C.CON_THUMNAIL,
+				    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+				    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+				    C.MDR_STATUS,
 				    C.CON_YOUTUBE_URL,
 				    C.CON_BODY,
 				    C.CON_PREFIX,
@@ -621,13 +648,15 @@
 				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
   				    	LEFT JOIN
 				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID				    
-				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_SUBTITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				WHERE C.CON_USE_YN = 1 AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN') AND CON_TYPE IN ('0', '1', '9') AND (CON_SUBTITLE LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
 				union
 				SELECT 
 				    C.CON_ID,
 				    C.CON_TITLE,
 				    C.CON_SUBTITLE,
-				    C.CON_THUMNAIL,
+				    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+				    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+				    C.MDR_STATUS,
 				    C.CON_YOUTUBE_URL,
 				    C.CON_BODY,
 				    C.CON_PREFIX,
@@ -652,13 +681,15 @@
 				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
   				    	LEFT JOIN
 				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID
-				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_BODY LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
+				WHERE C.CON_USE_YN = 1 AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN') AND CON_TYPE IN ('0', '1', '9') AND (CON_BODY LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')
 				union
 				SELECT 
 				    C.CON_ID,
 				    C.CON_TITLE,
 				    C.CON_SUBTITLE,
-				    C.CON_THUMNAIL,
+				    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+				    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+				    C.MDR_STATUS,
 				    C.CON_YOUTUBE_URL,
 				    C.CON_BODY,
 				    C.CON_PREFIX,
@@ -683,7 +714,7 @@
 				    WH_PRICE P ON C.CON_ID = P.CON_ID AND P.MEM_ID = #{MEM_ID} AND DATE_FORMAT(NOW(), '%Y-%m-%d') <= P.PRI_EXPD
   				    	LEFT JOIN
 				    WH_MEMBER M ON C.PRS_ID = M.MEM_ID				   
-				WHERE C.CON_USE_YN = 1 AND CON_TYPE IN ('0', '1', '9') AND (CON_PREFIX LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')) A 
+				WHERE C.CON_USE_YN = 1 AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN') AND CON_TYPE IN ('0', '1', '9') AND (CON_PREFIX LIKE '%${keyword}%' OR M.MEM_NAME LIKE '%${keyword}%')) A 
 			ORDER BY CON_UPDATE_DATE DESC
 			LIMIT ${offset}, ${limit}
 		]]>
@@ -695,7 +726,9 @@
 			    C.CON_ID,
 			    C.CON_TITLE,
 			    C.CON_SUBTITLE,
-			    C.CON_THUMNAIL,
+			    -- 승인 전에는 이미지 주소를 주지 않는다. 앱이 MDR_STATUS를 보고 "검토 중"을 그린다(2-26차)
+			    IF(C.MDR_STATUS = 'APPROVED', C.CON_THUMNAIL, NULL) AS CON_THUMNAIL,
+			    C.MDR_STATUS,
 			    C.CON_YOUTUBE_URL,
 			    C.CON_BODY,
 			    C.CON_PREFIX,
@@ -708,6 +741,8 @@
 			FROM
 			    WH_CONTENT C
 			WHERE C.CON_USE_YN = 1 
+			AND C.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
+			-- 검수 대기 글도 목록에는 남긴다. 이미지 주소만 가리고 앱이 "검토 중"을 그린다(2-26차)
 			AND CON_TYPE = #{CON_TYPE}
 			AND  APP_ID = #{APP_ID}
 			ORDER BY CON_UPDATE_DATE DESC LIMIT 1
@@ -1180,4 +1215,25 @@
 	    WHERE MEM_ID = #{MEM_ID} 
 	      AND PRS_ID = #{PRS_ID}
 	</update>
+
+	<!-- ===== 이미지 검수 (2-26차) ===== -->
+
+	<!-- 게시물 검수 상태 변경. 상태가 이미 목표값이면 아무 행도 바뀌지 않는다 -->
+	<update id="updateContentModeration" parameterType="hashmap">
+		UPDATE WH_CONTENT
+		SET
+			MDR_STATUS = #{MDR_STATUS},
+			MDR_DATE   = NOW(),
+			MDR_ADMIN  = #{MDR_ADMIN}
+		WHERE CON_ID = #{CON_ID}
+	</update>
+
+	<!-- 처리 이력. 자동 등록이면 ADMIN_ID가 NULL이다 -->
+	<insert id="insertModerationLog" parameterType="hashmap">
+		INSERT INTO WH_MEDIA_MODERATION_LOG
+		(TARGET_TYPE, TARGET_ID, ACTION, REASON, ADMIN_ID, CREATED_DATE)
+		VALUES
+		(#{TARGET_TYPE}, #{TARGET_ID}, #{ACTION}, #{REASON}, #{ADMIN_ID}, NOW())
+	</insert>
+
 </mapper>

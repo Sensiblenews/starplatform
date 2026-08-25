@@ -8,6 +8,7 @@ import { ContentListComponent } from './content-list.component';
 import { UserAvatarComponentModule } from 'src/app/components/user-avatar/user-avatar.module';
 import { IsPlayingPipe } from './is-playing.pipe';
 import { TruncatePipe } from 'src/app/pipes/truncate.pipe';
+import { ModeratedImageComponent } from 'src/app/components/moderated-image/moderated-image.component';
 
 @NgModule({
   imports: [
@@ -17,6 +18,7 @@ import { TruncatePipe } from 'src/app/pipes/truncate.pipe';
     ScrollingModule,
     RouterModule,
     UserAvatarComponentModule,
+    ModeratedImageComponent,
   ],
   declarations: [ContentListComponent, IsPlayingPipe, TruncatePipe],
   exports: [ContentListComponent],
