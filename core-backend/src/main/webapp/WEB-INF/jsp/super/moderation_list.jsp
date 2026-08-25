@@ -1,6 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -142,7 +141,10 @@
                             <td class="text-truncate"><c:out value="${q.WRITER}" /></td>
                             <td class="text-truncate-3 small"><c:out value="${q.BODY}" /></td>
                             <td class="small text-muted">
-                                <fmt:formatDate value="${q.CREATED_DATE}" pattern="yyyy-MM-dd HH:mm" />
+                                <%-- 날짜는 SQL에서 문자열로 만들어 온다.
+                                     fmt:formatDate는 값이 java.util.Date가 아니면 예외를 던지는데,
+                                     이 저장소는 날짜 컬럼 타입이 화면마다 제각각이다 --%>
+                                <c:out value="${q.CREATED_TEXT}" />
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
