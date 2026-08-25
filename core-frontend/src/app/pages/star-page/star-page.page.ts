@@ -348,7 +348,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.resetInfiniteScroll();
 
       // 첫 로드가 아니면 기존 항목 객체를 재사용해 이미지 재로딩과 스크롤 튐을 막는다
-      this.feedList = this.mergeFeed(photos, isFirstLoad);
+      this.feedList = this.mergeFeed(photos, isFirstLoad, StarPagePage.FEED_PAGE_SIZE);
       this.insertAdSlots();
 
       // 미디어가 하나도 없으면 onMediaLoaded가 오지 않으므로 여기서 구간을 닫는다
@@ -391,7 +391,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.applyStarInfo(res.starInfo);
 
       const photos = res.starInfo.photos || [];
-      this.feedList = this.mergeFeed(photos, false);
+      this.feedList = this.mergeFeed(photos, false, limit);
       this.insertAdSlots();
 
       // 보존한 뒤쪽까지 포함한 실제 길이로 다음 페이지 위치를 다시 잡는다
@@ -513,7 +513,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
    * 배열을 통째로 갈아끼우면 trackBy가 같은 키를 봐도 항목 객체가 달라져
    * isLoaded가 false로 돌아가고, 이미지가 다시 페이드인하면서 깜빡임으로 보인다(2-26차).
    */
-  private mergeFeed(incoming: any[], isFirstLoad: boolean): any[] {
+  private mergeFeed(incoming: any[], isFirstLoad: boolean, requestedLimit: number): any[] {
     if (isFirstLoad || this.feedList.length === 0) {
       return incoming.map((item: any) => this.prepareFeedItem(item));
     }
@@ -541,8 +541,16 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       return old;
     });
 
-    // 이번에 다시 받은 범위 밖(뒤쪽)의 항목은 갱신 대상이 아니므로 그대로 남긴다.
-    // 무한 스크롤로 100건을 보고 있다가 복귀했을 때 목록이 앞부분만 남고 잘리는 것을 막는다.
+    // 요청한 만큼 꽉 채워 왔을 때만 "그 뒤로 더 있다"고 볼 수 있다.
+    // 덜 왔다면 서버가 가진 전부라는 뜻이므로, 목록에 없는 항목은 삭제된 것이다.
+    //
+    // 이 구분이 없으면 글을 지웠을 때 incoming이 한 건 짧아지는 것을
+    // "갱신 범위 밖"으로 오인해 방금 지운 글을 도로 살려낸다.
+    if (incoming.length < requestedLimit) {
+      return merged;
+    }
+
+    // 무한 스크롤로 더 내려받은 뒤쪽은 이번 갱신 대상이 아니므로 그대로 남긴다
     const incomingKeys = new Set(incoming.map((raw: any) => String(raw.CON_ID)));
     const tail = previous
       .slice(incoming.length)

@@ -63,7 +63,7 @@ describe('StarPagePage — 피드 목록', () => {
   describe('mergeFeed (복귀 후 백그라운드 갱신)', () => {
     it('첫 로드는 받은 목록을 그대로 쓴다', () => {
       const page = makePage();
-      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], true);
+      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], true, 10);
       expect(merged.length).toBe(2);
       expect(merged[0].CON_ID).toBe(1);
     });
@@ -73,7 +73,7 @@ describe('StarPagePage — 피드 목록', () => {
       existing.isLoaded = true;
       const page = makePage([existing]);
 
-      const merged = page.mergeFeed([makeFeed(1)], false);
+      const merged = page.mergeFeed([makeFeed(1)], false, 10);
 
       expect(merged[0]).toBe(existing);
     });
@@ -83,7 +83,7 @@ describe('StarPagePage — 피드 목록', () => {
       existing.isLoaded = true;
       const page = makePage([existing]);
 
-      const merged = page.mergeFeed([makeFeed(1)], false);
+      const merged = page.mergeFeed([makeFeed(1)], false, 10);
 
       expect(merged[0].isLoaded).toBeTrue();
     });
@@ -94,7 +94,7 @@ describe('StarPagePage — 피드 목록', () => {
       existing.likeCount = 3;
       const page = makePage([existing]);
 
-      const merged = page.mergeFeed([makeFeed(1, { LIKE_CNT: 9, IS_LIKED: 1 })], false);
+      const merged = page.mergeFeed([makeFeed(1, { LIKE_CNT: 9, IS_LIKED: 1 })], false, 10);
 
       expect(merged[0].likeCount).toBe(9);
       expect(merged[0].hasLiked).toBeTrue();
@@ -103,24 +103,51 @@ describe('StarPagePage — 피드 목록', () => {
 
     it('새로 올라온 콘텐츠는 새 객체로 들어온다', () => {
       const page = makePage([makeFeed(1)]);
-      const merged = page.mergeFeed([makeFeed(2), makeFeed(1)], false);
+      const merged = page.mergeFeed([makeFeed(2), makeFeed(1)], false, 10);
 
       expect(merged.map((m: any) => m.CON_ID)).toEqual([2, 1]);
     });
 
-    it('다시 받은 범위 밖의 항목은 남긴다 (무한 스크롤로 본 뒤쪽이 잘리지 않게)', () => {
+    it('요청한 만큼 꽉 채워 왔으면 그 뒤쪽은 남긴다 (무한 스크롤로 본 뒤가 잘리지 않게)', () => {
       const page = makePage([makeFeed(1), makeFeed(2), makeFeed(3)]);
 
-      // 갱신은 앞 2건만 다시 받아온 상황
-      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], false);
+      // 한도 2건을 꽉 채워 받았으니 3번은 아직 뒤에 있는 것이다
+      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], false, 2);
 
       expect(merged.map((m: any) => m.CON_ID)).toEqual([1, 2, 3]);
+    });
+
+    it('한도보다 적게 왔으면 없는 항목은 삭제된 것으로 본다', () => {
+      const page = makePage([makeFeed(1), makeFeed(2), makeFeed(3)]);
+
+      // 한도 10건인데 2건만 왔다 = 서버가 가진 전부. 3번은 삭제됐다
+      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], false, 10);
+
+      expect(merged.map((m: any) => m.CON_ID)).toEqual([1, 2]);
+    });
+
+    it('하나뿐인 글을 지우면 목록이 빈다 (지운 글이 되살아나지 않는다)', () => {
+      // 위치 기반으로만 꼬리를 보존하면 previous.slice(0)이 통째로 살아나
+      // 방금 지운 글이 화면에 그대로 남는다
+      const page = makePage([makeFeed(1)]);
+
+      const merged = page.mergeFeed([], false, 10);
+
+      expect(merged.length).toBe(0);
+    });
+
+    it('마지막 글을 지워도 되살아나지 않는다', () => {
+      const page = makePage([makeFeed(1), makeFeed(2)]);
+
+      const merged = page.mergeFeed([makeFeed(1)], false, 10);
+
+      expect(merged.map((m: any) => m.CON_ID)).toEqual([1]);
     });
 
     it('광고 슬롯은 병합 대상에서 뺀다 (insertAdSlots가 다시 꽂는다)', () => {
       const page = makePage([makeFeed(1), { isAd: true, adId: 1 }, makeFeed(2)]);
 
-      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], false);
+      const merged = page.mergeFeed([makeFeed(1), makeFeed(2)], false, 10);
 
       expect(merged.some((m: any) => m.isAd)).toBeFalse();
       expect(merged.length).toBe(2);
@@ -129,7 +156,7 @@ describe('StarPagePage — 피드 목록', () => {
     it('갱신에서 사라진 항목은 목록에서도 빠진다 (삭제된 글이 남지 않게)', () => {
       const page = makePage([makeFeed(1), makeFeed(2)]);
 
-      const merged = page.mergeFeed([makeFeed(2)], false);
+      const merged = page.mergeFeed([makeFeed(2)], false, 10);
 
       expect(merged.map((m: any) => m.CON_ID)).toEqual([2]);
     });
