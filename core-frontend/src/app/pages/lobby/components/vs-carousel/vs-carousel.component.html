@@ -1,9 +1,13 @@
 <div class="vs-carousel" *ngIf="cards && cards.length > 0"
      (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
 
-  <ng-container *ngFor="let card of cards; let i = index; trackBy: trackByVsId">
-    <!-- *ngIf로 현재 카드만 렌더링 — 전환 시 DOM이 재생성되며 등장 애니메이션이 다시 실행된다 -->
-    <div class="vs-card" *ngIf="i === currentIndex">
+  <!-- 카드 2장을 같은 자리에 겹쳐 두고 opacity만 바꿔 교체한다(크로스페이드).
+       예전처럼 *ngIf로 현재 카드만 남기면 3.5초마다 DOM이 파괴·재생성되면서
+       아바타가 다시 디코딩되고 등장 애니메이션이 재실행돼 깜빡임으로 보인다. -->
+  <div class="vs-layer" *ngFor="let layer of layers; let li = index; trackBy: trackByLayerIndex"
+       [class.is-active]="li === activeLayer" [attr.aria-hidden]="li === activeLayer ? null : 'true'">
+
+    <div class="vs-card" *ngIf="layer as card">
 
       <div class="vs-top-row">
         <span class="live-badge"><span class="live-dot"></span>LIVE</span>
@@ -15,7 +19,9 @@
         <!-- 좌측: 1위 (탭 → 프로필) -->
         <div class="vs-side left" (click)="goToProfile(card.left, $event)">
           <div class="avatar-ring blue" [class.animate]="isMotionActive">
-            <img [src]="card.left.image" (error)="handleImageError($event)" loading="lazy" />
+            <!-- 미리 올려둔 뒤 레이어에서도 즉시 받아둬야 하므로 lazy를 쓰지 않는다.
+                 디코딩은 async로 넘겨 메인 스레드가 막히지 않게 한다. -->
+            <img [src]="card.left.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
           <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
@@ -38,7 +44,7 @@
         <!-- 우측: 2위 또는 도전자 대기 -->
         <div class="vs-side right" *ngIf="card.right" (click)="goToProfile(card.right, $event)">
           <div class="avatar-ring red" [class.animate]="isMotionActive">
-            <img [src]="card.right.image" (error)="handleImageError($event)" loading="lazy" />
+            <img [src]="card.right.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
           <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
@@ -67,5 +73,5 @@
         </div>
       </div>
     </div>
-  </ng-container>
+  </div>
 </div>
