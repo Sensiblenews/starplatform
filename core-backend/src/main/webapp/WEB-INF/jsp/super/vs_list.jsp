@@ -212,15 +212,23 @@
         }
         renumberOrderInputs();
 
-        // 숫자를 직접 고치면 그 값 기준으로 행을 재배치해 화면과 저장값을 일치시킨다
+        // 숫자를 직접 고치면 편집한 행만 떼어 그 번호 위치에 삽입한다.
+        // 입력칸이 항상 1..N이라 전체 재정렬 방식은 기존 행과 값이 겹쳐
+        // 동점 처리에 따라 목표보다 한 칸 어긋난 자리에 들어가는 버그가 있었다
         $('#vsTableBody').on('change', '.order-input', function() {
-            var rows = $('#vsTableBody tr').get();
-            rows.sort(function(a, b) {
-                var av = parseInt($(a).find('.order-input').val(), 10) || 0;
-                var bv = parseInt($(b).find('.order-input').val(), 10) || 0;
-                return av - bv;
-            });
-            $('#vsTableBody').append(rows);
+            var $row = $(this).closest('tr');
+            var $others = $('#vsTableBody tr').not($row);
+            var total = $others.length + 1;
+            var target = parseInt($(this).val(), 10);
+            if (isNaN(target)) target = 1;
+            target = Math.max(1, Math.min(total, target));
+
+            $row.detach();
+            if (target >= total) {
+                $('#vsTableBody').append($row);
+            } else {
+                $others.eq(target - 1).before($row);
+            }
             renumberOrderInputs();
         });
 
