@@ -519,11 +519,6 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
    * isLoaded가 false로 돌아가고, 이미지가 다시 페이드인하면서 깜빡임으로 보인다(2-26차).
    */
   private mergeFeed(incoming: any[], rebuild: boolean, requestedLimit: number): any[] {
-    // rebuild면 기존 항목을 재사용하지 않고 받은 그대로 새로 만든다
-    if (rebuild || this.feedList.length === 0) {
-      return incoming.map((item: any) => this.prepareFeedItem(item));
-    }
-
     // 광고 슬롯은 병합 대상이 아니다. insertAdSlots()가 뒤에서 다시 꽂는다
     const previous = this.feedList.filter((item: any) => !item.isAd);
 
@@ -533,6 +528,21 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         existing.set(String(item.CON_ID), item);
       }
     });
+
+    // rebuild면 서버가 준 그대로 새로 만든다. 단 isLoaded만은 넘겨받는다 —
+    // 그건 서버 상태가 아니라 "이 주소의 이미지가 이미 화면에 그려져 있다"는 DOM 상태다.
+    // trackBy가 같은 키를 보고 DOM을 유지하는데 src까지 같으면 브라우저가 다시
+    // 불러오지 않아 load 이벤트가 오지 않는다. 그대로 두면 스피너가 영원히 돈다.
+    if (rebuild || this.feedList.length === 0) {
+      return incoming.map((raw: any) => {
+        const prepared = this.prepareFeedItem(raw);
+        const old = existing.get(String(raw.CON_ID));
+        if (old && old.isLoaded && this.mediaKeyOf(old) === this.mediaKeyOf(prepared)) {
+          prepared.isLoaded = true;
+        }
+        return prepared;
+      });
+    }
 
     const merged = incoming.map((raw: any) => {
       const prepared = this.prepareFeedItem(raw);
@@ -563,6 +573,16 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       .filter((item: any) => !incomingKeys.has(String(item.CON_ID)));
 
     return merged.concat(tail);
+  }
+
+  /**
+   * 지금 그려질 미디어 주소를 한 문자열로 묶는다.
+   * 이 값이 그대로면 img/video의 src도 그대로라 브라우저가 다시 불러오지 않는다.
+   */
+  private mediaKeyOf(item: any): string {
+    return [item && item.image, item && item.pendingImageUrl, item && item.MEDIA_URL]
+      .map(v => v || '')
+      .join('|');
   }
 
   /** 피드 항목 추적 키. 광고 슬롯과 콘텐츠를 접두어로 구분한다 */

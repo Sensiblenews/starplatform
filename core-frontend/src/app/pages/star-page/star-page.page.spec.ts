@@ -163,6 +163,35 @@ describe('StarPagePage — 피드 목록', () => {
       expect(merged[0].isUnderReview).toBeFalse();
     });
 
+    it('재구성 시 주소가 같은 이미지는 로딩 완료 상태를 유지한다 (스피너 무한 대기 방지)', () => {
+      // 이미 화면에 그려진 승인 이미지
+      const existing = makeFeed(1, { MDR_STATUS: 'APPROVED' });
+      existing.isLoaded = true;
+      const page = makePage([existing]);
+
+      // 당겨서 새로고침 → 같은 주소가 다시 내려온다.
+      // trackBy가 DOM을 유지하고 src도 같으므로 load 이벤트는 다시 오지 않는다
+      const merged = page.mergeFeed([makeFeed(1, { MDR_STATUS: 'APPROVED' })], true, 10);
+
+      expect(merged[0].isLoaded).toBeTrue();
+    });
+
+    it('재구성이라도 주소가 바뀐 이미지는 다시 로딩한다', () => {
+      // 대기(토큰 주소) → 승인(공개 주소)으로 전환된 경우. src가 바뀌므로
+      // 브라우저가 새로 불러오고 load 이벤트도 다시 온다 — 스피너를 띄워야 맞다
+      const page0 = makePage();
+      const existing = page0.prepareFeedItem(
+        makeFeed(1, { MDR_STATUS: 'PENDING', image: null, pendingImageToken: 'TOKEN1' }));
+      existing.isLoaded = true;
+      const page = makePage([existing]);
+
+      const merged = page.mergeFeed(
+        [makeFeed(1, { MDR_STATUS: 'APPROVED', image: 'https://cdn/1.jpg' })], true, 10);
+
+      expect(merged[0].isLoaded).toBeFalse();
+      expect(merged[0].MDR_STATUS).toBe('APPROVED');
+    });
+
     it('광고 슬롯은 병합 대상에서 뺀다 (insertAdSlots가 다시 꽂는다)', () => {
       const page = makePage([makeFeed(1), { isAd: true, adId: 1 }, makeFeed(2)]);
 
