@@ -12,12 +12,19 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f0f2f5; font-family: 'Pretendard', sans-serif; }
-        .sidebar { width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff; }
+        .sidebar { width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff; overflow-y: auto; overflow-x: hidden; }
         .main-content { margin-left: 260px; padding: 30px; }
-        .nav-link { color: rgba(255,255,255,0.7); padding: 12px 20px; font-size: 1.1rem; }
+        .nav-link { color: rgba(255,255,255,0.7); padding: 9px 14px; font-size: 0.95rem; }
         .nav-link:hover, .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
         .stat-card { border: none; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: transform 0.2s; }
         .stat-card:hover { transform: translateY(-5px); }
+        /* 카드 아이콘·수치 축소 — 한 화면에 들어오는 정보량을 늘린다 */
+        .stat-card h6 { font-size: 0.85rem; }
+        .stat-card h6 i { font-size: 0.8rem; width: 16px; text-align: center; }
+        .stat-card h2 { font-size: 1.5rem; }
+        .stat-card h4 { font-size: 1.15rem; }
+        .stat-card .badge i { font-size: 0.7rem; }
+        .chart-box h5 { font-size: 1rem; }
         .chart-box { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); height: 100%; }
         .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 15px; margin-bottom: 10px; font-size: 14px; }
 		.chat-user { background: #e9ecef; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }

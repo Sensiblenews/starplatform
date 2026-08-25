@@ -47,3 +47,8 @@ core-backend/target
 
 # Claude Code 로컬 설정
 .claude/
+
+# 네이티브 프로젝트 로컬 백업 (build-android/ios가 android·ios 디렉터리를 지우고 재생성하므로 따로 보관)
+# 수백 MB짜리라 실수로 커밋되면 저장소를 되돌리기 어렵다
+core-frontend/*.zip
+core-frontend/platforms/
