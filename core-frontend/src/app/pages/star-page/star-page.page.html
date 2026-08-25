@@ -139,8 +139,6 @@
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
 
-          <!-- 검수 대기 중임을 작성자에게 알리는 배지 -->
-          <div class="pending-badge" *ngIf="item.pendingImageUrl">Under review</div>
 
           <!-- 🎬 3순위: YouTube 썸네일 표시 -->
           <div *ngIf="item.MEDIA_TYPE !== 'VIDEO' && !item.image && (item.youtubeUrl || item.YOUTUBE_URL)"

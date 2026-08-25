@@ -437,20 +437,6 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 480px;
 
-  // 작성자 본인이 보는 검수 대기 배지 (2-26차). 이미지는 보이되 상태를 알려준다
-  .pending-badge {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 3;
-    padding: 4px 10px;
-    border-radius: 12px;
-    background: rgba(0, 0, 0, 0.62);
-    color: #fff;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
   // 검수 대기 안내 (2-26차). 미디어 영역과 같은 1:1 박스라 레이아웃이 흔들리지 않는다
   .media-wrapper.under-review {
     display: flex;
