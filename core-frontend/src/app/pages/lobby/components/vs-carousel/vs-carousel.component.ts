@@ -36,6 +36,8 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
   private static readonly ROTATE_MS = 3500; // 클라이언트 요청으로 5초 → 3.5초
   // 스와이프로 인정할 최소 가로 이동량(px)
   private static readonly SWIPE_THRESHOLD = 40;
+  // 크로스페이드 길이. vs-carousel.component.scss의 .vs-layer transition과 반드시 일치시킨다
+  private static readonly TRANSITION_MS = 300;
 
   private _cards: VsCard[] = [];
 
@@ -46,6 +48,12 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     if (this.currentIndex >= this._cards.length) {
       this.currentIndex = 0;
     }
+
+    // 3초 폴링 갱신은 화면을 교체하지 않는다. 현재 보이는 레이어가 든 참조만
+    // 최신 객체로 바꿔 점수 텍스트를 갱신한다. 이미지 URL이 그대로면 Angular가
+    // src 속성을 건드리지 않으므로 이미지가 다시 로딩되지 않는다.
+    this.layers[this.activeLayer] = this._cards[this.currentIndex] || null;
+    this.stageNext();
   }
   get cards(): VsCard[] {
     return this._cards;
@@ -56,11 +64,24 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
 
   currentIndex = 0;
 
+  // 겹쳐 놓는 카드 2장(더블 버퍼). 전환 시 DOM을 파괴하지 않고 opacity만 바꾼다.
+  // 카드를 매번 재생성하면 아바타가 다시 디코딩되고 등장 애니메이션이 재실행돼
+  // 3.5초마다 깜빡이는 것처럼 보인다(2-26차).
+  layers: (VsCard | null)[] = [null, null];
+  activeLayer = 0;
+
   // 아바타 숨쉬기 모션 on/off. 로비가 화면을 떠날 때 자동 순환과 함께 멈춘다
   isMotionActive = true;
 
   private rotateIntervalId: any = null;
   private touchStartX = 0;
+
+  // 전환 중에는 뒤 레이어를 건드리지 않는다 (사라지는 카드의 내용이 바뀌어 보인다)
+  private isTransitioning = false;
+  private rafId: any = null;
+  private stageTimeoutId: any = null;
+  // 이미 프리로드한 URL. 3초 폴링마다 같은 이미지를 다시 요청하지 않기 위해 기억한다
+  private preloadedUrls = new Set<string>();
 
   private readonly categoryLabels: { [key: string]: string } = {
     GLOBAL: '🌐 All',
@@ -81,6 +102,7 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopAutoPlay();
+    this.cancelPending();
   }
 
   // 로비 페이지가 ionViewDidEnter/ionViewWillLeave에서 호출해 백그라운드 낭비를 막는다
@@ -99,13 +121,93 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
   }
 
   next() {
-    if (this.cards.length === 0) return;
-    this.currentIndex = (this.currentIndex + 1) % this.cards.length;
+    if (this._cards.length < 2) return;
+    this.transitionTo((this.currentIndex + 1) % this._cards.length);
   }
 
   prev() {
-    if (this.cards.length === 0) return;
-    this.currentIndex = (this.currentIndex - 1 + this.cards.length) % this.cards.length;
+    if (this._cards.length < 2) return;
+    this.transitionTo((this.currentIndex - 1 + this._cards.length) % this._cards.length);
+  }
+
+  // 레이어는 배열을 제자리에서 바꾸므로 인덱스로 추적한다.
+  // 기본(참조) 추적을 쓰면 카드가 바뀔 때마다 뷰가 재생성돼 크로스페이드가 무의미해진다.
+  trackByLayerIndex(index: number): number {
+    return index;
+  }
+
+  // ===== 전환 =====
+  private transitionTo(index: number) {
+    const target = this._cards[index];
+    if (!target) return;
+
+    // 이전 전환이 아직 진행 중이면 취소하고 요청받은 카드로 바로 넘어간다
+    this.cancelPending();
+
+    const back = this.activeLayer === 0 ? 1 : 0;
+    // 정상 흐름에서는 stageNext()가 이미 뒤 레이어에 올려두었다.
+    // 스와이프처럼 예상 밖 인덱스면 지금 채운다.
+    if (this.layers[back] !== target) {
+      this.layers[back] = target;
+      this.preloadCard(target);
+    }
+    this.currentIndex = index;
+
+    this.isTransitioning = true;
+    // 뒤 레이어가 opacity 0 상태로 한 프레임 그려진 뒤에 전환을 시작해야
+    // 브라우저가 transition을 건너뛰고 즉시 교체해버리지 않는다
+    this.rafId = requestAnimationFrame(() => {
+      this.rafId = null;
+      this.activeLayer = back;
+
+      this.stageTimeoutId = setTimeout(() => {
+        this.stageTimeoutId = null;
+        this.isTransitioning = false;
+        this.stageNext();
+      }, VsCarouselComponent.TRANSITION_MS);
+    });
+  }
+
+  // 다음 카드를 뒤 레이어에 미리 올려둔다. opacity 0이라 보이지 않지만
+  // DOM에는 있으므로 브라우저가 이미지를 미리 받아 디코딩해 둔다.
+  private stageNext() {
+    if (this.isTransitioning) return;
+    if (this._cards.length === 0) {
+      this.layers[this.activeLayer === 0 ? 1 : 0] = null;
+      return;
+    }
+
+    const back = this.activeLayer === 0 ? 1 : 0;
+    const nextCard = this._cards[(this.currentIndex + 1) % this._cards.length] || null;
+    this.layers[back] = nextCard;
+    this.preloadCard(nextCard);
+  }
+
+  private cancelPending() {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (this.stageTimeoutId !== null) {
+      clearTimeout(this.stageTimeoutId);
+      this.stageTimeoutId = null;
+    }
+    this.isTransitioning = false;
+  }
+
+  private preloadCard(card: VsCard | null) {
+    if (!card) return;
+    this.preloadImage(card.left && card.left.image);
+    this.preloadImage(card.right && card.right.image);
+  }
+
+  private preloadImage(url: string | null | undefined) {
+    if (!url || this.preloadedUrls.has(url)) return;
+    this.preloadedUrls.add(url);
+
+    const img = new Image();
+    img.setAttribute('decoding', 'async');
+    img.src = url;
   }
 
   // 좌우 비율 게이지: 0 나눗셈 방지 + 10~90% 보정 (한쪽이 압도해도 레이아웃 유지)

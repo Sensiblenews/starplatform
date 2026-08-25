@@ -653,4 +653,97 @@
           AND PRS_COUNTRY = #{country}
         </if>
     </update>
+
+	<!-- ===== 이미지 검수 화면 (2-26차) =====
+	     회원 콘텐츠와 스타 피드를 한 목록으로 합쳐 오래된 대기 건부터 보여준다.
+	     이미지가 아직 공개 디렉터리에 없으므로 미리보기는 관리자 전용 스트리밍으로 내보낸다. -->
+	<select id="selectModerationQueue" parameterType="map" resultType="map">
+		SELECT * FROM (
+			SELECT
+				'MEMBER_CONTENT' AS TARGET_TYPE,
+				CAST(C.CON_ID AS CHAR) AS TARGET_ID,
+				C.CON_TITLE AS TITLE,
+				C.CON_BODY  AS BODY,
+				C.CON_THUMNAIL AS IMAGE_URL,
+				C.MDR_STATUS,
+				C.CON_CREATE_DATE AS CREATED_DATE,
+				IFNULL(M.MEM_NAME, C.PRS_ID) AS WRITER
+			FROM WH_CONTENT C
+			LEFT JOIN WH_MEMBER M ON C.PRS_ID = M.MEM_ID
+			WHERE C.MDR_STATUS = #{status}
+
+			UNION ALL
+
+			SELECT
+				'STAR_FEED' AS TARGET_TYPE,
+				CAST(S.CON_ID AS CHAR) AS TARGET_ID,
+				NULL AS TITLE,
+				S.CON_BODY AS BODY,
+				D.MEDIA_URL AS IMAGE_URL,
+				S.MDR_STATUS,
+				S.CREATED_DATE,
+				IFNULL(P.PRS_NAME, S.PRS_ID) AS WRITER
+			FROM WH_STAR_CONTENT S
+			LEFT JOIN STAR_CONTENT_MEDIA D ON S.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+			LEFT JOIN WH_PRESS P ON S.PRS_ID = P.PRS_ID
+			WHERE S.MDR_STATUS = #{status}
+			  AND D.MEDIA_TYPE = 'PHOTO'
+		) Q
+		ORDER BY Q.CREATED_DATE ASC
+		LIMIT 200
+	</select>
+
+	<!-- 대시보드용 상태별 건수 -->
+	<select id="selectModerationCounts" resultType="map">
+		SELECT
+			(SELECT COUNT(*) FROM WH_CONTENT      WHERE MDR_STATUS = 'PENDING')
+		  + (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'PENDING') AS PENDING_CNT,
+			(SELECT COUNT(*) FROM WH_CONTENT      WHERE MDR_STATUS = 'REJECTED')
+		  + (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'REJECTED') AS REJECTED_CNT,
+			(SELECT COUNT(*) FROM WH_CONTENT      WHERE MDR_STATUS = 'HIDDEN')
+		  + (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'HIDDEN')  AS HIDDEN_CNT,
+			(SELECT MIN(CON_CREATE_DATE) FROM WH_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_MEMBER,
+			(SELECT MIN(CREATED_DATE) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_STAR
+	</select>
+
+	<!-- 처리 대상 1건 조회 (파일명·현재 상태 확인용) -->
+	<select id="selectModerationTarget" parameterType="map" resultType="map">
+		<choose>
+			<when test="targetType == 'STAR_FEED'">
+				SELECT S.CON_ID, S.MDR_STATUS, D.MEDIA_URL AS IMAGE_URL
+				FROM WH_STAR_CONTENT S
+				LEFT JOIN STAR_CONTENT_MEDIA D ON S.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+				WHERE S.CON_ID = #{targetId}
+			</when>
+			<otherwise>
+				SELECT C.CON_ID, C.MDR_STATUS, C.CON_THUMNAIL AS IMAGE_URL
+				FROM WH_CONTENT C
+				WHERE C.CON_ID = #{targetId}
+			</otherwise>
+		</choose>
+	</select>
+
+	<!-- 상태 변경. 현재 상태를 조건에 넣어 중복 클릭·경합을 막는다 -->
+	<update id="updateModerationStatus" parameterType="map">
+		<choose>
+			<when test="targetType == 'STAR_FEED'">
+				UPDATE WH_STAR_CONTENT
+				SET MDR_STATUS = #{status}, MDR_DATE = NOW(), MDR_ADMIN = #{adminId}
+				WHERE CON_ID = #{targetId} AND MDR_STATUS = #{fromStatus}
+			</when>
+			<otherwise>
+				UPDATE WH_CONTENT
+				SET MDR_STATUS = #{status}, MDR_DATE = NOW(), MDR_ADMIN = #{adminId}
+				WHERE CON_ID = #{targetId} AND MDR_STATUS = #{fromStatus}
+			</otherwise>
+		</choose>
+	</update>
+
+	<insert id="insertModerationLog" parameterType="map">
+		INSERT INTO WH_MEDIA_MODERATION_LOG
+		(TARGET_TYPE, TARGET_ID, ACTION, REASON, ADMIN_ID, CREATED_DATE)
+		VALUES
+		(#{TARGET_TYPE}, #{TARGET_ID}, #{ACTION}, #{REASON}, #{ADMIN_ID}, NOW())
+	</insert>
+
 </mapper>

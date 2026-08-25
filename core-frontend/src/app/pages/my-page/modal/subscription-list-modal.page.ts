@@ -5,6 +5,7 @@ import { IonicModule, ModalController, Platform } from "@ionic/angular";
 import { AuthService } from "src/app/services/auth.service";
 import { HelperService } from "src/app/services/helper.service";
 import { HttpService } from "src/app/services/http.service";
+import { DeepLinkService } from "src/app/services/deep-link.service";
 
 @Component({
   imports: [CommonModule, FormsModule, IonicModule],
@@ -21,6 +22,7 @@ export class SubscriptionListModalPage implements OnInit {
     private auth: AuthService,
     private platform: Platform,
     private helper: HelperService,
+    private deepLink: DeepLinkService,
   ) { }
 
   ngOnInit() {
@@ -65,7 +67,7 @@ export class SubscriptionListModalPage implements OnInit {
     } else {
       url = 'https://play.google.com/store/account/subscriptions';
     }
-    window.open(url, '_system');
+    this.deepLink.openExternal(url);
   }
 
   close() {

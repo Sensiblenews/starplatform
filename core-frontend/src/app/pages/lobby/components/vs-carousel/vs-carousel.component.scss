@@ -1,6 +1,37 @@
 // VS 배틀필드 카드 — 다크 배경 + 좌 블루 / 우 레드 대비
+//
+// 카드 2장을 같은 그리드 칸에 겹쳐 두고 opacity로 교체한다(2-26차).
+// absolute 대신 grid를 쓰는 이유: 컨테이너 높이가 카드 실제 높이를 따라가므로
+// 내용이 min-height를 넘겨도 잘리지 않는다.
 .vs-carousel {
+  display: grid;
   margin: 10px 12px 4px;
+  // 레이어 교체가 바깥 레이아웃 재계산으로 번지지 않게 격리한다 (Android WebView Reflow 억제)
+  contain: layout paint;
+}
+
+.vs-layer {
+  grid-area: 1 / 1;
+  opacity: 0;
+  pointer-events: none;
+  // GPU 합성만 쓰는 속성으로 전환한다. 값을 바꾸면 컴포넌트의 TRANSITION_MS도 같이 바꿀 것
+  transition: opacity 300ms ease;
+}
+
+.vs-layer.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+// 모션을 끈 사용자에게는 페이드 없이 즉시 교체한다
+@media (prefers-reduced-motion: reduce) {
+  .vs-layer { transition: none; }
+}
+
+// 대기 중인(보이지 않는) 레이어에서는 숨쉬기 모션을 돌리지 않는다.
+// opacity가 0이어도 애니메이션은 계속 돌아 Android에서 헛된 합성 비용이 든다.
+.vs-layer:not(.is-active) .avatar-ring.animate img {
+  animation: none;
 }
 
 .vs-card {
@@ -8,25 +39,14 @@
   border-radius: 16px;
   padding: 16px 16px 18px;
   color: #fff;
-  animation: vs-fade-in 0.4s ease;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 
   // 화면 세로의 절반 수준으로 확대 (클라이언트 요청 — 기존 약 1/3).
-  // 세로 플렉스로 본문을 가운데 채우고 게이지를 하단에 붙인다
+  // 세로 플렉스로 본문을 가운데 채우고 게이지를 하단에 붙인다.
+  // 값을 바꾸면 skeleton.component.scss의 .sk-vs도 같이 맞출 것
   min-height: 46vh;
   display: flex;
   flex-direction: column;
-}
-
-@keyframes vs-fade-in {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .vs-top-row {

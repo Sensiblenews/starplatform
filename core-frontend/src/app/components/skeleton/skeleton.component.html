@@ -1,0 +1,72 @@
+<!-- 랭킹 행: 순위 + 아바타 + 3단 텍스트 (TOP 100 / Global Ranking) -->
+<ng-container *ngIf="variant === 'ranking'">
+  <div class="sk-ranking-row" *ngFor="let i of rows">
+    <div class="sk sk-rank-no"></div>
+    <div class="sk sk-avatar"></div>
+    <div class="sk-lines">
+      <div class="sk sk-line w-50"></div>
+      <div class="sk sk-line w-35"></div>
+      <div class="sk sk-line w-25"></div>
+    </div>
+  </div>
+</ng-container>
+
+<!-- 리스트 행: 아바타 + 2단 텍스트 (검색 결과, 팔로워, 콘텐츠 목록) -->
+<ng-container *ngIf="variant === 'list'">
+  <div class="sk-list-row" *ngFor="let i of rows">
+    <div class="sk sk-avatar"></div>
+    <div class="sk-lines">
+      <div class="sk sk-line w-60"></div>
+      <div class="sk sk-line w-40"></div>
+    </div>
+  </div>
+</ng-container>
+
+<!-- 카드: 썸네일 + 이름 + 지표 (Today's TOP, 추천 페이지) -->
+<ng-container *ngIf="variant === 'card'">
+  <div class="sk-card-strip" [class.horizontal]="horizontal">
+    <div class="sk-card" *ngFor="let i of rows">
+      <div class="sk sk-thumb"></div>
+      <div class="sk sk-line w-70"></div>
+      <div class="sk sk-line w-45"></div>
+    </div>
+  </div>
+</ng-container>
+
+<!-- VS 카드: 좌우 대결 구도 + 하단 배틀 버튼 -->
+<ng-container *ngIf="variant === 'vs'">
+  <div class="sk-vs">
+    <div class="sk-vs-head">
+      <div class="sk sk-line w-30"></div>
+      <div class="sk sk-vs-badge"></div>
+      <div class="sk sk-line w-30"></div>
+    </div>
+    <div class="sk-vs-body">
+      <div class="sk sk-vs-avatar"></div>
+      <div class="sk sk-vs-avatar"></div>
+    </div>
+    <div class="sk-vs-foot">
+      <div class="sk sk-line w-40"></div>
+    </div>
+  </div>
+</ng-container>
+
+<!-- 페이지: 프로필 헤더 + 지표 3칸 + 본문 블록 (StarPage) -->
+<ng-container *ngIf="variant === 'page'">
+  <div class="sk-page">
+    <div class="sk-page-head">
+      <div class="sk sk-avatar-lg"></div>
+      <div class="sk-lines">
+        <div class="sk sk-line w-55"></div>
+        <div class="sk sk-line w-35"></div>
+      </div>
+    </div>
+    <div class="sk-page-stats">
+      <div class="sk sk-stat"></div>
+      <div class="sk sk-stat"></div>
+      <div class="sk sk-stat"></div>
+    </div>
+    <div class="sk sk-block"></div>
+    <div class="sk sk-block"></div>
+  </div>
+</ng-container>

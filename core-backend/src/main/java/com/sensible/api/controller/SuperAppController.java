@@ -19,8 +19,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.sensible.api.service.LandingVisitService;
+import com.sensible.api.service.MediaAccessService;
 import com.sensible.api.service.SuperAppService;
 import com.sensible.common.Constants;
+import com.sensible.common.util.ImageModerationUtil;
 import com.sensible.common.domain.CommandMap;
 
 @Controller
@@ -30,6 +32,9 @@ public class SuperAppController {
 
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
+
+	@Resource(name = "mediaAccessService")
+	private MediaAccessService mediaAccessService;
 
 	@Resource(name = "landingVisitService")
 	private LandingVisitService landingVisitService;
@@ -49,12 +54,57 @@ public class SuperAppController {
 	}
 
 	// 2. 스타 상세 정보 조회 (프로필 + 갤러리)
+	// 피드는 limit/offset으로 나눠 받는다(2-26차). 두 값을 보내지 않으면
+	// 서비스가 기본값으로 보정하므로 기존 호출(웹 랜딩 등)은 그대로 동작한다.
 	@RequestMapping(value = "/api/super/star/{starId}", method = RequestMethod.POST)
 	@ResponseBody
 	public Map<String, Object> getStarDetail(@PathVariable("starId") String starId, CommandMap commandMap)
 			throws Exception {
 		commandMap.put("starId", starId);
 		return superAppService.getStarDetail(commandMap.getMap());
+	}
+
+	/**
+	 * 검수 대기 이미지 — 작성자 본인 전용 (2-26차).
+	 *
+	 * &lt;img src&gt;는 인증 헤더를 붙일 수 없으므로 목록 응답에 실어 보낸 단기 서명 토큰으로 판정한다.
+	 * 서명이 유효해도 서비스가 현재 상태를 다시 확인하므로, 관리자가 거절한 순간부터는
+	 * 이미 발급된 토큰도 통하지 않는다. 응답은 캐시하지 않는다.
+	 */
+	@RequestMapping(value = "/api/media/pending", method = RequestMethod.GET)
+	public void getPendingMedia(@RequestParam("t") String token, HttpServletResponse response) throws Exception {
+		MediaAccessService.Grant grant = mediaAccessService.verify(token);
+		if (grant == null) {
+			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+			return;
+		}
+
+		java.io.File file = superAppService.resolvePendingMedia(grant.targetType, grant.targetId);
+		if (file == null) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+			return;
+		}
+
+		String ext = ImageModerationUtil.extensionOf(file.getName());
+		response.setContentType("png".equals(ext) ? "image/png"
+				: "webp".equals(ext) ? "image/webp" : "image/jpeg");
+		response.setContentLength((int) file.length());
+		// 거절 후에도 브라우저 캐시에 남으면 곤란하다
+		response.setHeader("Cache-Control", "no-store");
+
+		java.io.InputStream in = null;
+		try {
+			in = new java.io.FileInputStream(file);
+			java.io.OutputStream out = response.getOutputStream();
+			byte[] buffer = new byte[8192];
+			int read;
+			while ((read = in.read(buffer)) != -1) {
+				out.write(buffer, 0, read);
+			}
+			out.flush();
+		} finally {
+			if (in != null) { try { in.close(); } catch (Exception e) { } }
+		}
 	}
 
 	// 3. [핵심] 광고 시청 로그 기록 (돈 계산용)

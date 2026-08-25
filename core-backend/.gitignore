@@ -1,0 +1,20 @@
+# Build output
+target/
+
+# Eclipse
+.project
+.classpath
+.springBeans
+.settings/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# VSCode (JDK 경로 등 로컬 환경 설정)
+.vscode/
+
+# JVM crash logs
+hs_err_pid*.log
+
+docs

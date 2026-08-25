@@ -258,7 +258,14 @@
                         <span class="status-dot" id="redis-dot" style="background-color:#adb5bd;"></span>
                         <span class="fw-bold fs-5" id="redis-status">확인 중...</span>
                     </div>
-                    <p class="text-muted small mb-0" id="redis-msg">-</p>
+                    <p class="text-muted small mb-2" id="redis-msg">-</p>
+                    <div class="small text-secondary" id="redis-detail" style="display:none;">
+                        메모리: <span class="fw-semibold" id="redis-memory">-</span>
+                        (peak <span id="redis-peak">-</span>)<br>
+                        클라이언트: <span class="fw-semibold" id="redis-clients">-</span> ·
+                        키: <span class="fw-semibold" id="redis-keys">-</span><br>
+                        축출된 키: <span class="fw-semibold" id="redis-evicted">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -274,6 +281,7 @@
                     <div class="small text-secondary" id="db-pool" style="display:none;">
                         활성 커넥션: <span class="fw-semibold" id="db-active">-</span> /
                         유휴: <span class="fw-semibold" id="db-idle">-</span>
+                        <span id="db-max-wrap" style="display:none;"> / 최대: <span class="fw-semibold" id="db-max">-</span></span>
                     </div>
                 </div>
             </div>
@@ -287,6 +295,227 @@
                         <span class="fw-bold fs-5 text-muted" id="queue-status">N/A</span>
                     </div>
                     <p class="text-muted small mb-0" id="queue-msg">메시지 큐 미도입</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== [신규] 비용 지표 (구간값) ===== -->
+        <div class="mt-5 mb-3">
+            <h4 class="fw-bold text-dark"><i class="fas fa-coins text-warning me-2"></i>비용 지표 (구간값)</h4>
+            <p class="text-muted mb-0 small">
+                아웃바운드 트래픽 · 요청량 · 디스크 증가 추세. 5분 간격으로 수집한 델타값이며,
+                누적 표시는 <span class="fw-semibold">수집 시작 이후</span> 기준이다 (WAS 재시작 시 초기화).
+            </p>
+        </div>
+
+        <div class="alert alert-secondary py-2 px-3 small" id="collector-warning" style="display:none;">
+            <i class="fas fa-circle-info me-1"></i>
+            <span id="collector-warning-text">구간 지표 수집기가 아직 표본을 모으지 못했습니다. 첫 값은 수집 시작 후 5~10분 뒤에 나타납니다.</span>
+        </div>
+
+        <div class="row g-4">
+            <!-- 아웃바운드 트래픽 -->
+            <div class="col-lg-8">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-arrow-up-from-bracket text-danger me-2"></i>아웃바운드 트래픽</h5>
+                        <span class="badge bg-light text-dark border" id="traffic-source">-</span>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-3 border-end">
+                            <div class="metric-label">최근 5분</div>
+                            <div class="metric-value" id="traffic-5m">- MB</div>
+                        </div>
+                        <div class="col-3 border-end">
+                            <div class="metric-label">최근 1시간</div>
+                            <div class="metric-value text-primary" id="traffic-1h">- GB</div>
+                        </div>
+                        <div class="col-3 border-end">
+                            <div class="metric-label">오늘 누적</div>
+                            <div class="metric-value text-success" id="traffic-today">- GB</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="metric-label">월 환산 예상</div>
+                            <div class="metric-value text-danger" id="traffic-monthly">- GB</div>
+                        </div>
+                    </div>
+                    <hr class="text-muted">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small text-secondary">최근 24시간 추이 (5분 단위 송신 MB)</span>
+                        <span class="small text-muted" id="traffic-spark-max">-</span>
+                    </div>
+                    <svg id="traffic-spark" viewBox="0 0 600 80" preserveAspectRatio="none"
+                         style="width:100%;height:80px;background:#f8f9fa;border-radius:6px;">
+                        <polyline id="traffic-spark-line" fill="none" stroke="#dc3545" stroke-width="2" points=""></polyline>
+                    </svg>
+                    <div class="mt-3 small text-secondary">
+                        앱이 낸 응답 바이트: <span class="fw-semibold" id="traffic-app-1h">-</span>
+                        (NIC 송신 대비 <span class="fw-semibold" id="traffic-app-share">-</span>)
+                        <br>
+                        <span class="text-muted">
+                            NIC 값은 정적 파일까지 포함한 실제 송신량이다. 두 값의 차이가 크면 WAS를 거치지 않는 트래픽이 크다는 뜻이다.
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 디스크 증가 추세 -->
+            <div class="col-lg-4">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-line text-warning me-2"></i>디스크 증가 추세</h5>
+                        <span class="badge bg-light text-dark border" id="disk-trend-window">-</span>
+                    </div>
+                    <div class="text-center my-3">
+                        <div class="metric-label">시간당 증가량</div>
+                        <div class="fw-bold fs-3" id="disk-growth">-</div>
+                    </div>
+                    <hr class="text-muted">
+                    <div class="text-center">
+                        <div class="metric-label">이 속도면 디스크가 가득 차기까지</div>
+                        <div class="fw-bold fs-4" id="disk-days-left">-</div>
+                    </div>
+                    <p class="text-muted small mb-0 mt-3">
+                        사용률 %만으로는 임계치를 넘은 뒤에야 알게 된다. 증가 속도를 봐야 미리 정리할 수 있다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-1">
+            <!-- 요청량 -->
+            <div class="col-lg-5">
+                <div class="card p-4 h-100">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-wave-square text-info me-2"></i>API 요청량</h5>
+                    <div class="row text-center">
+                        <div class="col-4 border-end">
+                            <div class="metric-label">최근 5분</div>
+                            <div class="metric-value" id="req-5m">-</div>
+                        </div>
+                        <div class="col-4 border-end">
+                            <div class="metric-label">분당 평균</div>
+                            <div class="metric-value text-primary" id="req-per-min">-</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="metric-label">최근 1시간</div>
+                            <div class="metric-value text-info" id="req-1h">-</div>
+                        </div>
+                    </div>
+                    <hr class="text-muted">
+                    <div class="small text-secondary mb-2">상태코드 분포 (수집 시작 이후 누적)</div>
+                    <div id="req-status-badges">
+                        <span class="badge bg-success me-1">2xx <span id="req-2xx">0</span></span>
+                        <span class="badge bg-secondary me-1">3xx <span id="req-3xx">0</span></span>
+                        <span class="badge bg-warning text-dark me-1">4xx <span id="req-4xx">0</span></span>
+                        <span class="badge bg-danger me-1">5xx <span id="req-5xx">0</span></span>
+                    </div>
+                    <div class="small text-muted mt-3 mb-0">
+                        전체 누적 요청: <span class="fw-semibold" id="req-total">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 응답 바이트 상위 경로 -->
+            <div class="col-lg-7">
+                <div class="card p-4 h-100">
+                    <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-list-ol text-danger me-2"></i>응답 바이트 상위 경로</h5>
+                    <div class="table-responsive" style="max-height:280px;overflow-y:auto;">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:60%;">경로</th>
+                                    <th class="text-end">요청 수</th>
+                                    <th class="text-end">응답 MB</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-paths-body">
+                                <tr><td colspan="3" class="text-muted text-center py-4">수집 대기 중</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">
+                        절감 모드에서 무엇부터 끌지 정하는 근거. 숫자 ID는 {id}로 묶어 집계한다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-1">
+            <!-- 디렉터리 용량 -->
+            <div class="col-lg-6">
+                <div class="card p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-folder-tree text-secondary me-2"></i>디렉터리 용량</h5>
+                        <span class="badge bg-light text-dark border" id="dir-scanned-at">-</span>
+                    </div>
+                    <div id="dir-list">
+                        <p class="text-muted small mb-0">
+                            감시 대상 디렉터리가 설정되지 않았습니다.
+                            globals.properties의 monitor.dir.upload / monitor.dir.log / monitor.dir.temp 에 경로를 넣으면 집계합니다.
+                        </p>
+                    </div>
+                    <p class="text-muted small mb-0 mt-3">
+                        30분 간격으로만 계산해 캐시한다. 폴링마다 재계산하면 스캔 자체가 디스크 부하가 되기 때문이다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 런타임 상세 -->
+            <div class="col-lg-6">
+                <div class="row g-4 h-100">
+                    <div class="col-12">
+                        <div class="card p-4">
+                            <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-recycle text-success me-2"></i>가비지 컬렉션</h5>
+                            <div class="row text-center">
+                                <div class="col-4 border-end">
+                                    <div class="metric-label">총 실행 횟수</div>
+                                    <div class="metric-value" id="gc-count">-</div>
+                                </div>
+                                <div class="col-4 border-end">
+                                    <div class="metric-label">총 소요 시간</div>
+                                    <div class="metric-value text-primary" id="gc-time">-</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="metric-label">가동시간 대비</div>
+                                    <div class="metric-value text-danger" id="gc-percent">-</div>
+                                </div>
+                            </div>
+                            <div class="small text-secondary mt-3" id="gc-collectors">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-4 h-100">
+                            <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-server text-primary me-2"></i>톰캣</h5>
+                            <div class="small text-secondary mb-1">처리 스레드</div>
+                            <div class="progress mb-2">
+                                <div id="tomcat-bar" class="progress-bar bg-success" role="progressbar" style="width:0%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span id="tomcat-threads">-</span>
+                                <span class="fw-semibold" id="tomcat-percent">- %</span>
+                            </div>
+                            <hr class="text-muted">
+                            <div class="d-flex justify-content-between">
+                                <span class="small text-secondary">활성 세션</span>
+                                <span class="fw-bold" id="tomcat-sessions">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-4 h-100">
+                            <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-file-lines text-info me-2"></i>파일 디스크립터</h5>
+                            <div class="progress mb-2">
+                                <div id="fd-bar" class="progress-bar bg-success" role="progressbar" style="width:0%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span id="fd-count">-</span>
+                                <span class="fw-semibold" id="fd-percent">- %</span>
+                            </div>
+                            <p class="text-muted small mb-0 mt-3">
+                                꾸준히 늘기만 하면 커넥션·스트림 누수 신호다.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -377,6 +606,10 @@
             updateSystemStatus();
             // 폴링 주기(ms)는 global.properties(monitor.polling.interval)에서 주입
             pollingInterval = setInterval(updateSystemStatus, ${pollingInterval});
+
+            // 이력은 5분 간격 표본이라 5초 폴링과 같이 돌릴 이유가 없다. 별도 주기로 갱신
+            updateTrafficHistory();
+            setInterval(updateTrafficHistory, 300000);
         });
 
         function updateSystemStatus() {
@@ -475,10 +708,251 @@
                         document.getElementById('queue-status').innerText = data.queueStatus || "N/A";
                         document.getElementById('queue-msg').innerText = data.queueMsg;
                     }
+
+                    // 10. Redis 상세 (INFO 조회에 성공한 경우에만)
+                    if (typeof data.redisUsedMemoryMb === 'number' && data.redisUsedMemoryMb >= 0) {
+                        document.getElementById('redis-detail').style.display = 'block';
+                        setText('redis-memory', data.redisUsedMemoryMb.toLocaleString() + " MB");
+                        setText('redis-peak', (data.redisPeakMemoryMb >= 0 ? data.redisPeakMemoryMb.toLocaleString() + " MB" : "-"));
+                        setText('redis-clients', data.redisClients);
+                        setText('redis-evicted', data.redisEvictedKeys);
+                        setText('redis-keys', (typeof data.redisKeyCount === 'number' && data.redisKeyCount >= 0)
+                            ? data.redisKeyCount.toLocaleString() : "-");
+                    }
+                    // DB 최대 커넥션
+                    if (typeof data.dbMaxActive === 'number' && data.dbMaxActive >= 0) {
+                        document.getElementById('db-max-wrap').style.display = 'inline';
+                        setText('db-max', data.dbMaxActive);
+                    }
+
+                    // 11. 비용 지표 / 런타임 상세
+                    renderCostMetrics(data);
+                    renderRuntimeDetail(data);
                 }
             })
             .catch(error => {
                 console.error("실시간 상태 조회 도중 오류 발생:", error);
+            });
+        }
+
+        // 텍스트 세팅 (요소가 없으면 무시)
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = (value === null || value === undefined) ? "-" : value;
+        }
+
+        // 숫자 표기 (수집 전이면 "-")
+        function fmtNum(v, suffix, digits) {
+            if (typeof v !== 'number' || v < 0) return "-";
+            const d = (typeof digits === 'number') ? digits : 2;
+            return v.toFixed(d) + (suffix || "");
+        }
+
+        // 비용 지표(트래픽 · 요청량 · 디스크 추세 · 디렉터리) 렌더
+        function renderCostMetrics(data) {
+            // 수집기 미탑재 또는 표본 부족 안내
+            const warnBox = document.getElementById('collector-warning');
+            const sampleCount = (typeof data.sampleCount === 'number') ? data.sampleCount : 0;
+            if (data.collectorAvailable === false) {
+                warnBox.style.display = 'block';
+                setText('collector-warning-text', '구간 지표 수집기가 로딩되지 않았습니다. 서버 로그를 확인해 주세요.');
+            } else if (sampleCount < 2) {
+                warnBox.style.display = 'block';
+                setText('collector-warning-text',
+                    '구간 지표 수집기가 아직 표본을 모으지 못했습니다 (현재 ' + sampleCount + '개). 첫 값은 수집 시작 후 5~10분 뒤에 나타납니다.');
+            } else {
+                warnBox.style.display = 'none';
+            }
+
+            // 트래픽
+            setText('traffic-source', data.trafficAvailable ? (data.trafficSource || "NIC") : "NIC 조회 불가");
+            setText('traffic-5m', fmtNum(data.last5mOutMb, " MB"));
+            setText('traffic-1h', fmtNum(data.lastHourOutGb, " GB"));
+            setText('traffic-today', fmtNum(data.todayOutGb, " GB"));
+            setText('traffic-monthly', fmtNum(data.projectedMonthlyOutGb, " GB"));
+            setText('traffic-app-1h', fmtNum(data.lastHourAppMb, " MB"));
+            setText('traffic-app-share',
+                (typeof data.appSharePercent === 'number' && data.appSharePercent >= 0) ? data.appSharePercent + " %" : "-");
+
+            // 디스크 추세
+            if (data.trendAvailable) {
+                const g = data.growthGbPerHour;
+                setText('disk-growth', (Math.abs(g) >= 1) ? fmtNum(g, " GB/h") : fmtNum(data.growthMbPerHour, " MB/h"));
+                setText('disk-trend-window', "관측 " + fmtNum(data.windowHours, "시간", 1));
+                const days = data.daysUntilFull;
+                setText('disk-days-left', (typeof days === 'number' && days >= 0) ? ("약 " + days.toLocaleString() + "일") : "증가 없음");
+            } else {
+                setText('disk-growth', "-");
+                setText('disk-trend-window', "표본 부족");
+                setText('disk-days-left', "-");
+            }
+
+            // 요청량
+            setText('req-5m', (typeof data.requestsLast5m === 'number') ? data.requestsLast5m.toLocaleString() : "-");
+            setText('req-per-min', fmtNum(data.requestsPerMinute, "", 1));
+            setText('req-1h', (typeof data.requestsLastHour === 'number') ? data.requestsLastHour.toLocaleString() : "-");
+            setText('req-total', (typeof data.requestsTotal === 'number') ? data.requestsTotal.toLocaleString() : "-");
+            const sc = data.statusCounts || {};
+            setText('req-2xx', (sc['2xx'] || 0).toLocaleString());
+            setText('req-3xx', (sc['3xx'] || 0).toLocaleString());
+            setText('req-4xx', (sc['4xx'] || 0).toLocaleString());
+            setText('req-5xx', (sc['5xx'] || 0).toLocaleString());
+
+            renderTopPaths(data.topPaths);
+            renderDirectories(data);
+        }
+
+        // 응답 바이트 상위 경로 테이블 (경로 문자열은 textContent로만 넣는다)
+        function renderTopPaths(rows) {
+            const body = document.getElementById('top-paths-body');
+            if (!body) return;
+            body.innerHTML = "";
+            if (!rows || rows.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 3;
+                td.className = "text-muted text-center py-4";
+                td.textContent = "수집 대기 중";
+                tr.appendChild(td);
+                body.appendChild(tr);
+                return;
+            }
+            rows.forEach(function(r) {
+                const tr = document.createElement('tr');
+
+                const tdPath = document.createElement('td');
+                tdPath.className = "text-truncate";
+                tdPath.style.maxWidth = "0";
+                tdPath.title = r.path;
+                tdPath.textContent = r.path;
+
+                const tdCount = document.createElement('td');
+                tdCount.className = "text-end";
+                tdCount.textContent = (r.count || 0).toLocaleString();
+
+                const tdMb = document.createElement('td');
+                tdMb.className = "text-end fw-semibold";
+                tdMb.textContent = (r.mb || 0).toFixed(2);
+
+                tr.appendChild(tdPath);
+                tr.appendChild(tdCount);
+                tr.appendChild(tdMb);
+                body.appendChild(tr);
+            });
+        }
+
+        // 디렉터리 용량 목록
+        function renderDirectories(data) {
+            const box = document.getElementById('dir-list');
+            if (!box) return;
+            const dirs = data.directories;
+            if (!data.configured || !dirs || dirs.length === 0) {
+                return; // 초기 안내 문구 유지
+            }
+            box.innerHTML = "";
+            dirs.forEach(function(d) {
+                const wrap = document.createElement('div');
+                wrap.className = "d-flex justify-content-between align-items-start py-2 border-bottom";
+
+                const left = document.createElement('div');
+                const label = document.createElement('div');
+                label.className = "fw-semibold";
+                label.textContent = d.label;
+                const path = document.createElement('div');
+                path.className = "small text-muted text-truncate";
+                path.style.maxWidth = "320px";
+                path.title = d.path;
+                path.textContent = d.path;
+                left.appendChild(label);
+                left.appendChild(path);
+
+                const right = document.createElement('div');
+                right.className = "text-end";
+                const size = document.createElement('div');
+                size.className = "fw-bold";
+                size.textContent = d.exists ? ((d.gb >= 1) ? d.gb.toFixed(2) + " GB" : d.mb.toFixed(1) + " MB") : "경로 없음";
+                const meta = document.createElement('div');
+                meta.className = "small text-muted";
+                meta.textContent = d.exists
+                    ? ((d.fileCount || 0).toLocaleString() + "개" + (d.truncated ? " (상한 도달, 실제는 더 큼)" : ""))
+                    : "-";
+                right.appendChild(size);
+                right.appendChild(meta);
+
+                wrap.appendChild(left);
+                wrap.appendChild(right);
+                box.appendChild(wrap);
+            });
+            if (data.scannedAt) {
+                const d = new Date(data.scannedAt);
+                setText('dir-scanned-at', d.getHours() + "시 " + ("0" + d.getMinutes()).slice(-2) + "분 기준");
+            }
+        }
+
+        // GC · 톰캣 · 파일 디스크립터
+        function renderRuntimeDetail(data) {
+            if (data.gcAvailable) {
+                setText('gc-count', (data.gcTotalCount || 0).toLocaleString() + " 회");
+                setText('gc-time', ((data.gcTotalTimeMs || 0) / 1000).toFixed(1) + " 초");
+                setText('gc-percent', (data.gcTimePercent || 0) + " %");
+                const names = (data.gcCollectors || []).map(function(g) {
+                    return g.name + " " + (g.count || 0) + "회 / " + ((g.timeMs || 0) / 1000).toFixed(1) + "초";
+                });
+                setText('gc-collectors', names.join(" · "));
+            }
+
+            if (data.tomcatAvailable) {
+                setBar('tomcat-bar', null, data.tomcatThreadPercent, 60, 80);
+                setText('tomcat-threads', data.tomcatThreadsBusy + " / " + data.tomcatThreadsMax);
+                setText('tomcat-percent', data.tomcatThreadPercent + " %");
+            } else {
+                setText('tomcat-threads', "JMX 조회 불가");
+                setText('tomcat-percent', "-");
+            }
+            setText('tomcat-sessions',
+                (typeof data.tomcatActiveSessions === 'number' && data.tomcatActiveSessions >= 0)
+                    ? data.tomcatActiveSessions.toLocaleString() : "-");
+
+            if (data.fdAvailable) {
+                setBar('fd-bar', null, data.fdPercent, 60, 80);
+                setText('fd-count', data.fdOpen.toLocaleString() + " / " + data.fdMax.toLocaleString());
+                setText('fd-percent', data.fdPercent + " %");
+            } else {
+                setText('fd-count', "미지원 환경");
+                setText('fd-percent', "-");
+            }
+        }
+
+        // 트래픽 이력 스파크라인 (외부 차트 라이브러리 없이 SVG polyline으로 그린다)
+        function updateTrafficHistory() {
+            fetch('/super/system/history.json')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.status !== 'success' || !data.available) return;
+                const samples = data.samples || [];
+                const line = document.getElementById('traffic-spark-line');
+                if (!line) return;
+                if (samples.length < 2) {
+                    line.setAttribute('points', "");
+                    setText('traffic-spark-max', "표본 " + samples.length + "개");
+                    return;
+                }
+                let max = 0;
+                samples.forEach(function(s) { if (s.outMb > max) max = s.outMb; });
+                if (max <= 0) max = 1;
+
+                const w = 600, h = 80, pad = 4;
+                const step = (samples.length > 1) ? (w / (samples.length - 1)) : w;
+                const pts = samples.map(function(s, i) {
+                    const x = (i * step).toFixed(1);
+                    const y = (h - pad - ((s.outMb / max) * (h - pad * 2))).toFixed(1);
+                    return x + "," + y;
+                });
+                line.setAttribute('points', pts.join(" "));
+                setText('traffic-spark-max', "최대 " + max.toFixed(1) + " MB / 5분 · 표본 " + samples.length + "개");
+            })
+            .catch(function(err) {
+                console.error("지표 이력 조회 도중 오류 발생:", err);
             });
         }
 

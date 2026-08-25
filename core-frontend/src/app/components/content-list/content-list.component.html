@@ -125,9 +125,16 @@
         "
         [attr.data-id]="item.CON_ID"
       >
-        <ng-container *ngIf="item.CON_THUMNAIL; else videoThumb">
-          <img [src]="item.CON_THUMNAIL" alt="img" class="thumbnail-image" />
-        </ng-container>
+        <!-- 검수 대기 글은 이미지 주소가 내려오지 않는다. 깨진 이미지 대신 안내를 그린다(2-26차) -->
+        <app-moderated-image *ngIf="item.MDR_STATUS === 'PENDING'; else approvedThumb"
+          [src]="item.CON_THUMNAIL" [status]="item.MDR_STATUS"
+          [pendingToken]="item.pendingImageToken" imgClass="thumbnail-image"
+          alt="img"></app-moderated-image>
+        <ng-template #approvedThumb>
+          <ng-container *ngIf="item.CON_THUMNAIL; else videoThumb">
+            <img [src]="item.CON_THUMNAIL" alt="img" class="thumbnail-image" />
+          </ng-container>
+        </ng-template>
         <ng-template #videoThumb>
 
           <video
@@ -253,7 +260,8 @@
 
 <ng-template #minimal let-item="item">
   <ion-thumbnail slot="start">
-    <img [src]="getContentsImage(item.CON_THUMNAIL)" />
+    <app-moderated-image [src]="getContentsImage(item.CON_THUMNAIL)" [status]="item.MDR_STATUS"
+      [pendingToken]="item.pendingImageToken" [fallback]="defaultThumbnailPath"></app-moderated-image>
   </ion-thumbnail>
   <span class="title" [innerHTML]="item.CON_TITLE"></span>
 </ng-template>

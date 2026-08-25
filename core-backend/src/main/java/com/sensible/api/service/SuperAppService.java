@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import com.google.firebase.messaging.Notification;
 import com.sensible.common.Constants;
 import com.sensible.common.dao.DefaultDAO;
+import com.sensible.common.util.ImageModerationUtil;
 
 @Service("superAppService")
 public class SuperAppService {
@@ -38,6 +39,17 @@ public class SuperAppService {
 
 	@Autowired
 	private FirebaseService firebaseService;
+
+	@Resource(name = "starRankService")
+	private StarRankService starRankService;
+
+	@Resource(name = "mediaAccessService")
+	private MediaAccessService mediaAccessService;
+
+	// 피드 페이징 기본값 (2-26차). limit/offset을 보내지 않는 기존 호출을 위한 값이며,
+	// 앱은 첫 화면 10건 + 무한 스크롤로 명시 전달한다.
+	public static final int DEFAULT_FEED_LIMIT = 20;
+	public static final int MAX_FEED_LIMIT = 100;
 
 	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 60초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
@@ -72,12 +84,25 @@ public class SuperAppService {
 	public Map<String, Object> getStarDetail(Map<String, Object> map) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
 
+		// 피드 페이징 파라미터 정규화 (미지정·비정상 값은 기본값으로 보정)
+		map.put("limit", normalizeFeedLimit(map.get("limit")));
+		map.put("offset", normalizeFeedOffset(map.get("offset")));
+
+		// 페이지 주인 본인인지 확인한다(2-26차).
+		// viewerStarId만으로는 위조할 수 있으므로 starToken까지 맞아야 소유자로 인정한다.
+		boolean isOwner = isStarOwner(String.valueOf(map.get("starId")), map.get("starToken"));
+
 		// 스타 기본 정보
 		Map<String, Object> starInfo = dao.selectOne("superapp.selectStarDetail", map);
 
 		if (starInfo != null) {
+			// 순위·조회수·전체 스타 수는 캐시된 순위표에서 채운다 (2-26차)
+			applyGlobalRank(starInfo, String.valueOf(map.get("starId")));
+
 			// 스타의 갤러리 이미지들 (WH_CONTENT 재사용)
 			List<Map<String, Object>> photos = dao.selectList("superapp.selectStarGallery", map);
+			// 작성자 본인에게는 검수 대기 이미지에 접근 토큰을 붙여준다
+			attachPendingTokens(photos, "STAR_FEED", isOwner);
 			starInfo.put("photos", photos);
 
 			resultMap.put("starInfo", starInfo);
@@ -86,6 +111,186 @@ public class SuperAppService {
 			resultMap.put("result", "FAIL");
 		}
 		return resultMap;
+	}
+
+	/**
+	 * 캐시된 전체 순위표에서 해당 스타의 GLOBAL_RANK / viewCount / TOTAL_STARS를 채운다.
+	 *
+	 * 순위표에 없는 페이지(IS_STAR='N' 등)는 순위를 매기지 않고 조회수만 별도로 센다.
+	 * 예전 쿼리에서도 그런 페이지의 GLOBAL_RANK는 NULL이었으므로 동작이 같다.
+	 */
+	private void applyGlobalRank(Map<String, Object> starInfo, String starId) {
+		List<Map<String, Object>> rankList;
+		try {
+			rankList = starRankService.getGlobalRankMap();
+		} catch (Exception e) {
+			// Redis 장애 시 fail-open — 캐시 도입 이전과 같은 비용으로 직접 계산한다
+			System.out.println("Star rank cache skipped (fail-open): " + e.getMessage());
+			try {
+				rankList = starRankService.getGlobalRankMapUncached();
+			} catch (Exception inner) {
+				rankList = null;
+			}
+		}
+
+		Map<String, Object> mine = null;
+		if (rankList != null) {
+			for (Map<String, Object> row : rankList) {
+				if (starId.equals(String.valueOf(row.get("PRS_ID")))) {
+					mine = row;
+					break;
+				}
+			}
+			starInfo.put("TOTAL_STARS", rankList.size());
+		} else {
+			starInfo.put("TOTAL_STARS", 0);
+		}
+
+		if (mine != null) {
+			starInfo.put("GLOBAL_RANK", mine.get("GLOBAL_RANK"));
+			starInfo.put("viewCount", mine.get("viewCount"));
+		} else {
+			starInfo.put("GLOBAL_RANK", null);
+			// 순위표 밖의 페이지는 조회수만 따로 센다
+			Object views = null;
+			try {
+				views = dao.selectOne("superapp.selectStarViewCount", starId);
+			} catch (Exception e) {
+				System.out.println("Star view count fallback failed: " + e.getMessage());
+			}
+			starInfo.put("viewCount", views == null ? 0 : views);
+		}
+	}
+
+	/**
+	 * 검수 대기 이미지 파일을 찾는다.
+	 *
+	 * 서명이 유효해도 여기서 현재 상태를 다시 확인한다.
+	 * 그래서 관리자가 거절·블라인드한 순간부터는 이미 발급된 토큰도 통하지 않는다.
+	 *
+	 * @return 내보낼 파일. 접근 불가면 null
+	 */
+	public java.io.File resolvePendingMedia(String targetType, String targetId) {
+		Map<String, Object> param = new HashMap<>();
+		param.put("targetType", targetType);
+		param.put("targetId", targetId);
+
+		Map<String, Object> row;
+		try {
+			row = dao.selectOne("superapp.selectPendingMediaTarget", param);
+		} catch (Exception e) {
+			return null;
+		}
+		if (row == null) {
+			return null;
+		}
+
+		// 검수 대기 상태에서만 작성자에게 보여준다. 거절·블라인드는 작성자도 볼 수 없다
+		if (!"PENDING".equals(String.valueOf(row.get("MDR_STATUS")))) {
+			return null;
+		}
+
+		String fileName = ImageModerationUtil.fileNameFromUrl((String) row.get("IMAGE_URL"));
+		if (fileName == null) {
+			return null;
+		}
+
+		java.io.File file = new java.io.File(Constants._PENDING_SAVE_PATH, fileName);
+		return (file.exists() && file.isFile()) ? file : null;
+	}
+
+	/**
+	 * 스타 페이지의 주인 본인인지 확인한다.
+	 *
+	 * 검수 대기 이미지에 대한 접근 권한이 걸려 있으므로 토큰까지 검증한다.
+	 * 앱이 보내는 viewerStarId는 localStorage 값이라 그것만으로는 신뢰할 수 없다.
+	 */
+	private boolean isStarOwner(String starId, Object starToken) {
+		if (starId == null || starId.trim().isEmpty()
+				|| !(starToken instanceof String) || ((String) starToken).trim().isEmpty()) {
+			return false;
+		}
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("starId", starId);
+			param.put("starToken", starToken);
+			Integer valid = dao.selectOne("superapp.checkStarToken", param);
+			return valid != null && valid > 0;
+		} catch (Exception e) {
+			// 확인에 실패하면 소유자가 아닌 것으로 본다 (fail-closed)
+			System.out.println("Star owner check failed: " + e.getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * 검수 대기 항목에 작성자 전용 이미지 접근 토큰을 붙인다.
+	 * 소유자가 아니면 아무것도 하지 않는다 — 이미지 주소는 이미 SQL에서 NULL로 나온다.
+	 */
+	private void attachPendingTokens(List<Map<String, Object>> rows, String targetType, boolean isOwner) {
+		if (!isOwner || rows == null) {
+			return;
+		}
+		for (Map<String, Object> row : rows) {
+			if (!"PENDING".equals(String.valueOf(row.get("MDR_STATUS")))) {
+				continue;
+			}
+			String token = mediaAccessService.issueToken(targetType, String.valueOf(row.get("CON_ID")));
+			if (token != null) {
+				row.put("pendingImageToken", token);
+			}
+		}
+	}
+
+	/** 업로드 거부 사유를 사용자에게 보여줄 문구로 바꾼다 (노출 텍스트는 영어) */
+	public static String rejectionMessage(ImageModerationUtil.Rejection rejection) {
+		if (rejection == null) {
+			return "";
+		}
+		switch (rejection) {
+		case TOO_LARGE:
+			return "Image is too large. Please upload a file under 10MB.";
+		case TOO_LARGE_DIMENSION:
+			return "Image resolution is too large. Please upload a smaller image.";
+		case EXTENSION:
+		case MIME:
+		case SIGNATURE:
+			return "Only JPG, PNG and WebP images are allowed.";
+		case UNREADABLE:
+			return "This image file could not be read. Please try another file.";
+		case EMPTY:
+		default:
+			return "No image was received. Please try again.";
+		}
+	}
+
+	/** 피드 조회 건수 보정. 0 이하·미지정은 기본값, 상한을 넘으면 상한으로 자른다 */
+	public static int normalizeFeedLimit(Object raw) {
+		int value = parseIntOrDefault(raw, DEFAULT_FEED_LIMIT);
+		if (value <= 0) {
+			return DEFAULT_FEED_LIMIT;
+		}
+		return Math.min(value, MAX_FEED_LIMIT);
+	}
+
+	/** 피드 시작 위치 보정. 음수·미지정은 0으로 본다 */
+	public static int normalizeFeedOffset(Object raw) {
+		int value = parseIntOrDefault(raw, 0);
+		return value < 0 ? 0 : value;
+	}
+
+	private static int parseIntOrDefault(Object raw, int defaultValue) {
+		if (raw == null) {
+			return defaultValue;
+		}
+		if (raw instanceof Number) {
+			return ((Number) raw).intValue();
+		}
+		try {
+			return Integer.parseInt(String.valueOf(raw).trim());
+		} catch (NumberFormatException e) {
+			return defaultValue;
+		}
 	}
 
 	/**
@@ -1170,21 +1375,35 @@ public class SuperAppService {
 
 			int sortOrder = 0;
 
-			// 3. Base64 이미지 디코딩 및 저장
+			// 3. Base64 이미지 디코딩 및 저장 (2-26차 — 검수 대기로 저장한다)
+			//
+			// 승인 전에는 파일을 공개 디렉터리(/img)에 두지 않고 검수 보관소에 둔다.
+			// 게시물도 PENDING이라 목록에 뜨지 않으며, 관리자가 승인할 때 파일이 옮겨지면서 함께 공개된다.
+			// MEDIA_URL에는 승인 후의 최종 주소를 미리 넣어둔다 — 승인 시 URL을 다시 쓸 필요가 없다.
 			if (imageBase64 != null && !imageBase64.isEmpty()) {
-				String[] parts = imageBase64.split(",");
-				String base64Data = parts.length > 1 ? parts[1] : parts[0];
+				byte[] decodedBytes;
+				try {
+					decodedBytes = Base64.getDecoder()
+							.decode(ImageModerationUtil.base64Payload(imageBase64));
+				} catch (IllegalArgumentException e) {
+					result.put("result", "FAIL");
+					result.put("msg", "Invalid image data.");
+					return result;
+				}
 
-				String ext = ".jpg";
-				if (parts[0].contains("png"))
-					ext = ".png";
-				else if (parts[0].contains("gif"))
-					ext = ".gif";
+				String declaredMime = ImageModerationUtil.mimeFromDataUri(imageBase64);
+				ImageModerationUtil.Result check =
+						ImageModerationUtil.validate(decodedBytes, null, declaredMime);
 
-				byte[] decodedBytes = Base64.getDecoder().decode(base64Data);
-				String fileName = UUID.randomUUID().toString().replace("-", "") + ext;
-				Path targetPath = Paths.get(Constants._FILE_SAVE_PATH + fileName);
-				Files.write(targetPath, decodedBytes);
+				if (!check.isValid()) {
+					result.put("result", "FAIL");
+					result.put("msg", rejectionMessage(check.rejection));
+					return result;
+				}
+
+				// 확장자는 클라이언트 주장이 아니라 실제 형식을 따른다
+				String fileName = UUID.randomUUID().toString().replace("-", "") + "." + check.extension;
+				ImageModerationUtil.saveToPending(decodedBytes, fileName);
 
 				// 미디어 테이블 Insert
 				Map<String, Object> mediaParam = new HashMap<>();
@@ -1195,6 +1414,19 @@ public class SuperAppService {
 				mediaParam.put("SORT_ORDER", sortOrder++);
 
 				dao.insert("superapp.insertContentMedia", mediaParam);
+
+				// 이미지가 붙은 피드만 검수 대상이다 (영상·유튜브만 있는 글은 그대로 공개)
+				Map<String, Object> mdrParam = new HashMap<>();
+				mdrParam.put("CON_ID", conId);
+				mdrParam.put("MDR_STATUS", "PENDING");
+				dao.update("superapp.updateStarContentModeration", mdrParam);
+
+				Map<String, Object> logParam = new HashMap<>();
+				logParam.put("TARGET_TYPE", "STAR_FEED");
+				logParam.put("TARGET_ID", String.valueOf(conId));
+				logParam.put("ACTION", "PENDING");
+				logParam.put("REASON", "업로드 검수 대기");
+				dao.insert("superapp.insertModerationLog", logParam);
 			}
 
 			// 4. Base64 동영상 디코딩 및 저장

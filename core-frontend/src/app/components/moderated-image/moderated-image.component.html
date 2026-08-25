@@ -1,0 +1,9 @@
+<!-- 승인됐거나, 작성자 본인이 토큰으로 볼 수 있는 경우 -->
+<img *ngIf="resolvedSrc as url" [src]="url" [class]="imgClass" [alt]="alt"
+     decoding="async" (error)="handleError($event)" />
+
+<!-- 검수 대기 중이고 볼 권한이 없는 경우. 깨진 이미지 대신 안내를 그린다 -->
+<div class="review-box" *ngIf="!resolvedSrc">
+  <ion-icon name="eye-off-outline"></ion-icon>
+  <p class="review-title">Under review</p>
+</div>

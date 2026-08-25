@@ -3,7 +3,14 @@
     "details": [
       {
         "appID": "VU2D7F2P7E.kr.co.sensiblenews.witchHunting",
-        "paths": ["*"]
+        "paths": [
+          "/post/*",
+          "/star/*",
+          "/feed-detail/*",
+          "/witch/post/*",
+          "/witch/star/*",
+          "/witch/feed-detail/*"
+        ]
       }
     ]
   }

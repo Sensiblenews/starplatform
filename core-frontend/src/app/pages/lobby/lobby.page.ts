@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { Platform, ModalController, PopoverController, AlertController, ActionSheetController, IonSearchbar } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -17,7 +17,8 @@ import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
-import { Device } from '@capacitor/device';
+import { DeviceIdService } from 'src/app/services/device-id.service';
+import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { App } from '@capacitor/app';
 import { PluginListenerHandle } from '@capacitor/core';
 import NativeBridge from '../../plugins/native-bridge';
@@ -150,6 +151,12 @@ export class LobbyPage implements OnInit, OnDestroy {
   categoryTop100: any[] = [];
   isLoadingTop100 = false;
 
+  // 스켈레톤 노출용 로딩 플래그. 첫 로드에만 true이며, 이후 폴링 갱신에는 관여하지 않는다.
+  isLoadingTodayTop = true;
+  isLoadingVsCards = true;
+  isLoadingRanking = true;
+  isLoadingRecommended = true;
+
   constructor(
     private router: Router,
     private http: HttpService,
@@ -162,12 +169,18 @@ export class LobbyPage implements OnInit, OnDestroy {
     private writeModalService: WriteModalService,
     private adProtection: AdProtectionService,
     private ngZone: NgZone,
+    private deviceIdService: DeviceIdService,
+    private perf: PerfTraceService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
   async ngOnInit() {
-    const info = await Device.getId();
-    this.deviceId = info.identifier;
+    // 기기 ID는 캐시에서 꺼낸다. 캐시가 비어 있을 때만 네이티브 브리지를 기다린다.
+    // 여기서 한 번 채워두면 스타 페이지로 넘어갈 때는 기다림 없이 바로 요청이 나간다(2-26차).
+    this.deviceId = this.deviceIdService.get();
+    if (!this.deviceId) {
+      this.deviceId = await this.deviceIdService.resolve();
+    }
 
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -455,7 +468,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   loadLobbyData(event?: any) {
-    this.http.get('/api/super/lobby').subscribe(
+    this.http.get('/api/super/lobby').pipe(
+      // 성공/실패와 무관하게 스켈레톤을 반드시 해제한다
+      finalize(() => this.isLoadingTodayTop = false)
+    ).subscribe(
       (res: any) => {
         if (res.result === 'OK') {
           this.popularStars = (res.popularStars || []).map(this.initStarData);
@@ -487,7 +503,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   loadLeaderboard() {
     // 백엔드 API 호출 (Top 100)
-    this.http.get(this.rankingEndpoints.general).subscribe((res: any) => {
+    this.http.get(this.rankingEndpoints.general).pipe(
+      finalize(() => this.isLoadingRanking = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.rankingStars = (res.list || []).map(this.initStarData);
       }
@@ -521,7 +539,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
 
   loadVsCards() {
-    this.http.get('/api/super/lobby/vs-cards').subscribe((res: any) => {
+    this.http.get('/api/super/lobby/vs-cards').pipe(
+      finalize(() => this.isLoadingVsCards = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK') {
         const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
@@ -832,16 +852,19 @@ export class LobbyPage implements OnInit, OnDestroy {
   async goToStarPage(starId: string) {
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
 
+    this.perf.start('스타페이지 진입');
+
+    // 눌리는 느낌은 CSS 트랜지션에 맡기고 라우팅은 즉시 보낸다.
+    // 예전에는 애니메이션이 끝나기를 setTimeout(200)으로 기다린 뒤 이동해서
+    // 사용자가 체감하는 로딩 시간에 200ms가 그대로 얹혔다(2-26차).
     if (event && event.currentTarget) {
       const targetCard = event.currentTarget as HTMLElement;
       targetCard.classList.add('zoom-active');
-      setTimeout(() => {
-        targetCard.classList.remove('zoom-active');
-        this.router.navigate(['/star', starId]);
-      }, 200);
-    } else {
-      this.router.navigate(['/star', starId]);
+      setTimeout(() => targetCard.classList.remove('zoom-active'), 200);
     }
+
+    this.perf.mark('lobby:navigate');
+    this.router.navigate(['/star', starId]);
   }
 
   async goToContentPage(contentId: string) {
@@ -1370,7 +1393,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   loadRecommendedPages() {
     this.http.post('/api/super/page/discover', {
       excludePageId: ''
-    }).subscribe((res: any) => {
+    }).pipe(
+      finalize(() => this.isLoadingRecommended = false)
+    ).subscribe((res: any) => {
       if (res.result === 'OK' && res.list) {
         this.recommendedPages = res.list;
       }

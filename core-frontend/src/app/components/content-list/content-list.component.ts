@@ -73,7 +73,8 @@ export class ContentListComponent
   };
   private currentPage = 0;
   private contentChangeSubscriber: Subscription;
-  private defaultThumbnailPath = '../../../assets/img/defaultImg/thumbnail.svg';
+  // 템플릿(app-moderated-image)에서 fallback으로 바인딩하므로 public이어야 한다
+  defaultThumbnailPath = '../../../assets/img/defaultImg/thumbnail.svg';
   private scrollSubscription: Subscription;
   private isScrollEventSubscribed = false;
   private prevValue = 0;

@@ -152,3 +152,10 @@ ion-fab {
     --border-radius: 0;
   }
 }
+
+// 이미지가 내려오기 전 빈 흰 박스가 보이지 않도록 회색 바탕을 깔아둔다.
+// 텍스트는 먼저 렌더되고 이미지가 1~2초 늦게 도착하는 구간을 덮는 용도.
+img,
+ion-img {
+  background-color: #eeeeee;
+}

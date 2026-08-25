@@ -49,11 +49,17 @@ platforms:
           android:host="@string/kakaolink_host"
           android:scheme="@string/kakao_scheme" />
           </intent-filter>
+          <!-- App Links는 공유 링크 경로만 가로챈다. 약관/개인정보/웹 랜딩은 브라우저에 남긴다 -->
           <intent-filter android:autoVerify="true">
               <action android:name="android.intent.action.VIEW" />
               <category android:name="android.intent.category.DEFAULT" />
               <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="https" android:host="$DEEPLINK_HOST" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/post/" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/star/" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/feed-detail/" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/witch/post/" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/witch/star/" />
+              <data android:scheme="https" android:host="$DEEPLINK_HOST" android:pathPrefix="/witch/feed-detail/" />
           </intent-filter>
 
       - file: AndroidManifest.xml

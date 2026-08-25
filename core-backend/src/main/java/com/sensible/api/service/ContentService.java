@@ -27,12 +27,17 @@ import org.springframework.stereotype.Service;
 import com.owlike.genson.convert.DefaultConverters.PrimitiveConverterFactory.intConverter;
 import com.sensible.common.Constants;
 import com.sensible.common.dao.DefaultDAO;
+import com.sensible.common.util.ImageModerationUtil;
+import com.sensible.api.service.MediaAccessService;
 
 @Service("contentService")
 public class ContentService {
 	
 	@Resource(name="DefaultDAO")
     private DefaultDAO dao;
+
+	@Resource(name="mediaAccessService")
+    private MediaAccessService mediaAccessService;
 	
 	
 
@@ -737,7 +742,18 @@ public class ContentService {
 		map.put("SORT_ITEM", "CON_ID");
 		map.put("SORT_ORDER", "DESC");
 		List<Map<String, Object>> mcMap = dao.selectList("content.myContents", map);
-		
+
+		// 내 글 목록이므로 검수 대기 이미지도 본인에게는 보여준다.
+		// 파일이 공개 디렉터리 밖에 있어 단기 서명 토큰을 붙여 내보낸다(2-26차).
+		for (Map<String, Object> row : mcMap) {
+			if ("PENDING".equals(String.valueOf(row.get("MDR_STATUS")))) {
+				String token = mediaAccessService.issueToken("MEMBER_CONTENT", String.valueOf(row.get("CON_ID")));
+				if (token != null) {
+					row.put("pendingImageToken", token);
+				}
+			}
+		}
+
 		for (int i = 0; i < mcMap.size(); i++) {
 			String conId = String.valueOf(mcMap.get(i).get("CON_ID"));
 			String prsId = String.valueOf(mcMap.get(i).get("PRS_ID"));
@@ -1183,15 +1199,51 @@ public class ContentService {
 				dao.update("admin.contentImgUpdate", map); // DB Update (영상 경로 저장)
 			}
 
-			//이미지 등록
-			if((String)map.get("CON_THUMNAIL") !=null || !"".equals((String)map.get("CON_THUMNAIL")) )
-			{
-				String fileNm = String.valueOf(conId.intValue()) + ".jpg";				
-				makeImgFile((String)map.get("CON_THUMNAIL"),fileNm);
-				
-				map.put("CON_THUMNAIL", Constants._FILE_URL + fileNm);
+			// 이미지 등록 (2-26차 — 검수 대기로 저장한다)
+			//
+			// 승인 전에는 파일을 공개 디렉터리(/img)에 두지 않고 검수 보관소에 둔다.
+			// 게시물도 PENDING이라 목록에 뜨지 않으며, 관리자가 승인할 때 파일이 옮겨지면서 함께 공개된다.
+			//
+			// 기존 조건문은 `!= null || !"".equals(...)`라 이미지가 없어도 항상 참이 되어
+			// 본문만 있는 글이 저장 실패로 떨어지고 있었다. 조건을 바로잡는다.
+			String thumbnail = (String) map.get("CON_THUMNAIL");
+			if (thumbnail != null && !thumbnail.trim().isEmpty()) {
 
+				byte[] imageBytes = Base64.decodeBase64(ImageModerationUtil.base64Payload(thumbnail));
+				String declaredMime = ImageModerationUtil.mimeFromDataUri(thumbnail);
+
+				// 파일명 없이 base64만 오므로 실질 판정은 매직 바이트가 한다
+				ImageModerationUtil.Result check =
+						ImageModerationUtil.validate(imageBytes, null, declaredMime);
+
+				// 이 경로는 ImageIO로 JPEG 재인코딩을 거친다(EXIF·위장 파일 제거).
+				// Java 8 ImageIO는 webp를 읽지 못하므로 여기서는 받지 않는다.
+				if (check.isValid() && "webp".equals(check.extension)) {
+					check = ImageModerationUtil.Result.reject(ImageModerationUtil.Rejection.UNREADABLE);
+				}
+
+				if (!check.isValid()) {
+					resultMap.put("RESULT", "FAIL");
+					resultMap.put("REASON", check.rejection.name());
+					return resultMap;
+				}
+
+				String fileNm = String.valueOf(conId.intValue()) + ".jpg";
+				makeImgFile(thumbnail, fileNm);
+
+				map.put("CON_THUMNAIL", Constants._FILE_URL + fileNm);
 				dao.update("admin.contentImgUpdate", map);
+
+				// 이미지가 붙은 글만 검수 대상이다
+				map.put("MDR_STATUS", "PENDING");
+				dao.update("content.updateContentModeration", map);
+
+				Map<String, Object> logParam = new HashMap<String, Object>();
+				logParam.put("TARGET_TYPE", "MEMBER_CONTENT");
+				logParam.put("TARGET_ID", String.valueOf(conId));
+				logParam.put("ACTION", "PENDING");
+				logParam.put("REASON", "업로드 검수 대기");
+				dao.insert("content.insertModerationLog", logParam);
 			}
 			
 			resultMap.put("RESULT", "OK");
@@ -1334,8 +1386,12 @@ public class ContentService {
 			image = ImageIO.read(bis);
 			bis.close();
 
-			// write the image to a file			
-			File outputfile = new File(Constants._FILE_SAVE_PATH + savename);
+			// 검수 보관소에 저장한다. 승인 전까지 공개 디렉터리로 옮기지 않는다(2-26차)
+			File saveDir = new File(Constants._PENDING_SAVE_PATH);
+			if (!saveDir.exists()) {
+				saveDir.mkdirs();
+			}
+			File outputfile = new File(Constants._PENDING_SAVE_PATH + savename);
 			
 			ImageIO.write(image, "jpg", outputfile); // 파일생성
 			

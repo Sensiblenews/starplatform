@@ -1,7 +1,7 @@
-import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, PopoverController, AlertController, ModalController, NavController } from '@ionic/angular';
+import { Platform, PopoverController, AlertController, ModalController, NavController, IonInfiniteScroll } from '@ionic/angular';
 import NativeBridge from 'src/app/plugins/native-bridge';
 import { AdMobService } from 'src/app/services/ad-mob.service';
 import { AdProtectionService } from 'src/app/services/ad-protection.service';
@@ -10,9 +10,12 @@ import { Share } from '@capacitor/share';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
-import { Device } from '@capacitor/device';
+import { DeepLinkService } from 'src/app/services/deep-link.service';
+import { finalize } from 'rxjs/operators';
 import { WriteModalService } from 'src/app/services/write-modal.service';
-import { Browser } from '@capacitor/browser';
+import { DeviceIdService } from 'src/app/services/device-id.service';
+import { environment } from 'src/environments/environment';
+import { PerfTraceService } from 'src/app/services/perf-trace.service';
 
 
 @Component({
@@ -37,7 +40,17 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   private isGoingToDetail: boolean = false;
 
   @ViewChildren('feedVideo') videoElements: QueryList<ElementRef>;
+  @ViewChild(IonInfiniteScroll) infiniteScroll: IonInfiniteScroll;
   private observer: IntersectionObserver;
+
+  // 피드는 한 번에 다 내려받지 않는다. 스타의 전체 피드를 통째로 받으면
+  // 응답 크기와 초기 DOM이 같이 커져 Android에서 첫 화면이 늦어진다(2-26차).
+  private static readonly FEED_PAGE_SIZE = 10;
+  // 백엔드 SuperAppService.MAX_FEED_LIMIT과 같은 값. 복귀 갱신 시 한 번에 다시 받을 상한
+  private static readonly FEED_REFRESH_MAX = 100;
+  private feedOffset = 0;
+  hasMoreFeeds = true;
+  private isLoadingMoreFeeds = false;
 
   viewCount = 0;
   displayViewCount = 0;
@@ -60,7 +73,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   deviceId: string = '';
 
   private pollingIntervalId: any;
+  private pollingStartTimeoutId: any = null;
   private lastCheckTime: string = '';
+
+  // 두 번째 이후 진입(= 상세페이지에서 복귀)인지 구분한다.
+  // 복귀 시에는 스켈레톤을 다시 띄우지 않고 화면을 유지한 채 뒤에서만 갱신한다.
+  private hasEnteredBefore = false;
+
+  // 진입 구간 계측을 이미 닫았는지 (첫 미디어 1건에서만 닫는다)
+  private perfTraceClosed = false;
 
   isAdmin: boolean = false;
   currentAdminId: string = '';
@@ -71,6 +92,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   isStar: boolean = false; // 🌟 추가: 현재 사용자가 이 페이지의 주인인지 여부
   private paramSub: any;
+
+  // 첫 진입 시에만 스켈레톤을 노출한다 (새로고침·재조회에는 관여하지 않음)
+  isLoadingStar = true;
 
   constructor(
     private route: ActivatedRoute,
@@ -85,18 +109,29 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private modalCtrl: ModalController,
     private writeModalService: WriteModalService,
     private navCtrl: NavController,
+    private deepLink: DeepLinkService,
+    private deviceIdService: DeviceIdService,
+    private perf: PerfTraceService,
   ) { }
 
   async ngOnInit() {
-    const info = await Device.getId();
-    this.deviceId = info.identifier;
+    this.perf.mark('star:ngOnInit');
     this.isAdmin = localStorage.getItem('isAdmin') === 'true';
     this.currentAdminId = localStorage.getItem('adminId') || '';
+
+    // 기기 ID는 앱 기동 시 한 번 조회해 캐시해 둔다(DeviceIdService).
+    // 캐시가 차 있으면 네이티브 브리지를 기다리지 않고 바로 첫 요청을 보낸다.
+    // 비어 있을 때만 예전처럼 기다린다 — IS_LIKED 판정에 기기 ID가 필요하기 때문이다.
+    this.deviceId = this.deviceIdService.get();
+    if (!this.deviceId) {
+      this.deviceId = await this.deviceIdService.resolve();
+    }
 
     this.paramSub = this.route.paramMap.subscribe(params => {
       this.starId = params.get('starId');
       this.isStar = localStorage.getItem('isStar') === 'true' && localStorage.getItem('starId') === this.starId;
 
+      this.resetFeedPaging();
       this.loadStarDetail();
       this.checkFavoriteState();
     });
@@ -139,6 +174,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    this.perf.mark('star:first-render');
     this.videoElements.changes.subscribe(() => {
       this.initIntersectionObserver();
     });
@@ -153,6 +189,13 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ionViewDidEnter() {
+    // 상세페이지에서 돌아온 경우에만 조용히 최신화한다.
+    // 화면은 그대로 두고 데이터만 갈아끼우므로 스켈레톤이 다시 뜨지 않는다(2-26차).
+    if (this.hasEnteredBefore) {
+      this.refreshInBackground();
+    }
+    this.hasEnteredBefore = true;
+
     // 🎬 돌아왔을 때 동영상 재개
     if (!this.isGoingToDetail) {
       this.resumeAllVideos();
@@ -165,8 +208,14 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // 🌟 방문자 수 실시간 폴링 시작 (화면에 보일 때만 가동, ionViewWillLeave에서 정지)
-    this.startPolling();
+    // 🌟 방문자 수 실시간 폴링 시작 (화면에 보일 때만 가동, ionViewWillLeave에서 정지).
+    // 첫 틱을 진입 직후에 쏘면 초기 로딩과 경합해 Android에서 첫 화면이 늦어진다.
+    // 핵심 화면이 그려질 여유를 준 뒤 시작한다(2-26차).
+    this.stopPolling();
+    this.pollingStartTimeoutId = setTimeout(() => {
+      this.pollingStartTimeoutId = null;
+      this.startPolling();
+    }, 2000);
 
     if (this.platform.is('capacitor')) {
       let canShow = await this.adProtection.shouldShowAd(this.starId);
@@ -267,52 +316,244 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * 스타 상세 + 피드 첫 페이지를 불러온다.
+   * 데이터가 이미 있는 상태에서 다시 부르면 화면을 지우지 않고 조용히 갈아끼운다.
+   */
   loadStarDetail() {
-    this.http.post(`/api/super/star/${this.starId}`, { deviceId: this.deviceId }).subscribe((res: any) => {
-      if (res.result === 'OK') {
-        this.starInfo = res.starInfo;
-        this.followerCount = this.starInfo.FOLLOWER_CNT || 0;
+    this.perf.mark('star:api-request');
+    const isFirstLoad = this.isLoadingStar;
 
-        // 🌟 [신규] 백엔드에서 받은 랭킹/전체 수 세팅
-        this.globalRank = this.starInfo.GLOBAL_RANK || 0;
-        // loadStarDetail() 내부 (res.result === 'OK' 안쪽)
+    this.http.post(`/api/super/star/${this.starId}`, {
+      deviceId: this.deviceId,
+      // 본인 페이지면 검수 대기 글도 받는다. 서버는 이미지 주소를 주지 않고
+      // 상태값만 내려주므로, 앱이 "검토 중" 자리를 대신 그린다(2-26차)
+      viewerStarId: this.isStar ? this.starId : '',
+      // 서버가 starToken까지 검증해야 소유자로 인정한다. 이 값이 검수 대기 이미지 접근으로 이어진다(2-26차)
+      starToken: this.isStar ? (localStorage.getItem('starToken') || '') : '',
+      limit: StarPagePage.FEED_PAGE_SIZE,
+      offset: 0
+    }).pipe(
+      // 성공/실패와 무관하게 스켈레톤을 해제한다
+      finalize(() => this.isLoadingStar = false)
+    ).subscribe((res: any) => {
+      this.perf.mark('star:api-response');
+      if (res.result !== 'OK') return;
 
-        this.totalStars = this.starInfo.TOTAL_STARS || 0;
+      this.applyStarInfo(res.starInfo);
 
-        this.viewCount = this.starInfo.viewCount || 0;
-        this.displayViewCount = this.viewCount;
+      const photos = res.starInfo.photos || [];
+      this.feedOffset = photos.length;
+      this.hasMoreFeeds = photos.length >= StarPagePage.FEED_PAGE_SIZE;
+      this.resetInfiniteScroll();
 
-        this.starAction = {
-          hasLiked: this.starInfo.IS_LIKED == 1 || this.starInfo.IS_LIKED === true,
-          likeCount: this.starInfo.LIKE_CNT || 0,
-          commentCount: this.starInfo.COMMENT_CNT || 0,
-          shareCount: this.starInfo.SHARE_CNT || 0
-        };
+      // 첫 로드가 아니면 기존 항목 객체를 재사용해 이미지 재로딩과 스크롤 튐을 막는다
+      this.feedList = this.mergeFeed(photos, isFirstLoad);
+      this.insertAdSlots();
 
-        const photos = res.starInfo.photos || [];
+      // 미디어가 하나도 없으면 onMediaLoaded가 오지 않으므로 여기서 구간을 닫는다
+      if (!this.perfTraceClosed && !this.feedList.some((item: any) => !item.isAd && !item.isLoaded)) {
+        this.perfTraceClosed = true;
+        this.perf.end('star:no-media');
+      }
 
-        photos.forEach((item: any, index: number) => {
-          if (item.MEDIA_TYPE === 'VIDEO') item.isMuted = true;
-          
-          // 미디어가 전혀 없는 텍스트 피드인 경우 로딩 완료(isLoaded = true) 처리
-          const hasMedia = item.MEDIA_TYPE === 'VIDEO' || item.image || item.youtubeUrl || item.YOUTUBE_URL;
-          item.isLoaded = hasMedia ? false : true;
+      // 🌟 [신규] OWNER_EMAIL 또는 PRS_PWD가 존재하면 주인이 있는 페이지! (백엔드 IS_CLAIMED 사용)
+      this.isClaimed = this.starInfo.IS_CLAIMED === 'Y';
+      // 🌟 [신규] 페이지 디테일 로딩 시 하단 추천 페이지도 같이 불러옵니다.
+      this.loadRecommendedPages();
+    });
+  }
 
-          item.hasLiked = item.IS_LIKED == 1 || item.IS_LIKED === true;
-          item.likeCount = item.LIKE_CNT || 0;
-          item.commentCount = item.COMMENT_CNT || 0;
-        });
+  /**
+   * 상세페이지에서 복귀했을 때의 조용한 최신화.
+   * 스켈레톤을 다시 띄우지 않고, 이미 로드한 페이지 수만큼만 다시 받아 병합한다.
+   */
+  private refreshInBackground() {
+    if (this.isLoadingStar || !this.starId) return;
 
-        // 🌟 [수정] 모든 콘텐츠(스타 포스트 + 관리자 공지 등)를 먼저 feedList에 확정한 뒤,
-        // 최종 배열 기준으로 광고 빈칸을 삽입합니다.
-        this.feedList = photos;
-        this.insertAdSlots();
-        // 🌟 [신규] OWNER_EMAIL 또는 PRS_PWD가 존재하면 주인이 있는 페이지! (백엔드 IS_CLAIMED 사용)
-        this.isClaimed = this.starInfo.IS_CLAIMED === 'Y';
-        // 🌟 [신규] 페이지 디테일 로딩 시 하단 추천 페이지도 같이 불러옵니다.
-        this.loadRecommendedPages();
+    // 무한 스크롤로 더 내려받았다면 그만큼 다시 받아야 앞부분만 남고 잘리지 않는다.
+    // 상한을 넘는 뒤쪽은 mergeFeed가 그대로 보존한다.
+    const limit = Math.min(
+      Math.max(this.feedOffset, StarPagePage.FEED_PAGE_SIZE),
+      StarPagePage.FEED_REFRESH_MAX
+    );
+
+    this.http.post(`/api/super/star/${this.starId}`, {
+      deviceId: this.deviceId,
+      viewerStarId: this.isStar ? this.starId : '',
+      // 서버가 starToken까지 검증해야 소유자로 인정한다. 이 값이 검수 대기 이미지 접근으로 이어진다(2-26차)
+      starToken: this.isStar ? (localStorage.getItem('starToken') || '') : '',
+      limit: limit,
+      offset: 0
+    }).subscribe((res: any) => {
+      if (res.result !== 'OK') return;
+
+      this.applyStarInfo(res.starInfo);
+
+      const photos = res.starInfo.photos || [];
+      this.feedList = this.mergeFeed(photos, false);
+      this.insertAdSlots();
+
+      // 보존한 뒤쪽까지 포함한 실제 길이로 다음 페이지 위치를 다시 잡는다
+      this.feedOffset = this.feedList.filter((item: any) => !item.isAd).length;
+      this.hasMoreFeeds = this.hasMoreFeeds || photos.length >= limit;
+      this.resetInfiniteScroll();
+
+      this.isClaimed = this.starInfo.IS_CLAIMED === 'Y';
+    });
+  }
+
+  /** 무한 스크롤 — 다음 페이지를 이어 붙인다 (기존 항목은 건드리지 않는다) */
+  loadMoreFeeds(event?: any) {
+    if (this.isLoadingMoreFeeds || !this.hasMoreFeeds) {
+      if (event) event.target.complete();
+      return;
+    }
+    this.isLoadingMoreFeeds = true;
+
+    this.http.post(`/api/super/star/${this.starId}`, {
+      deviceId: this.deviceId,
+      viewerStarId: this.isStar ? this.starId : '',
+      // 서버가 starToken까지 검증해야 소유자로 인정한다. 이 값이 검수 대기 이미지 접근으로 이어진다(2-26차)
+      starToken: this.isStar ? (localStorage.getItem('starToken') || '') : '',
+      limit: StarPagePage.FEED_PAGE_SIZE,
+      offset: this.feedOffset
+    }).pipe(
+      finalize(() => {
+        this.isLoadingMoreFeeds = false;
+        if (event) event.target.complete();
+      })
+    ).subscribe((res: any) => {
+      if (res.result !== 'OK') return;
+
+      const photos = res.starInfo && res.starInfo.photos ? res.starInfo.photos : [];
+      this.hasMoreFeeds = photos.length >= StarPagePage.FEED_PAGE_SIZE;
+      this.feedOffset += photos.length;
+
+      const known = this.collectFeedKeys();
+      const added = photos
+        .filter((item: any) => !known.has(String(item.CON_ID)))
+        .map((item: any) => this.prepareFeedItem(item));
+
+      // 광고 슬롯을 걷어낸 뒤 이어 붙이고 다시 삽입한다
+      this.feedList = this.feedList.filter((item: any) => !item.isAd).concat(added);
+      this.insertAdSlots();
+    });
+  }
+
+  private resetFeedPaging() {
+    this.feedOffset = 0;
+    this.hasMoreFeeds = true;
+    this.isLoadingMoreFeeds = false;
+  }
+
+  private resetInfiniteScroll() {
+    if (this.infiniteScroll) {
+      this.infiniteScroll.disabled = !this.hasMoreFeeds;
+    }
+  }
+
+  private applyStarInfo(starInfo: any) {
+    this.starInfo = starInfo;
+    this.followerCount = starInfo.FOLLOWER_CNT || 0;
+
+    // 🌟 [신규] 백엔드에서 받은 랭킹/전체 수 세팅
+    this.globalRank = starInfo.GLOBAL_RANK || 0;
+    this.totalStars = starInfo.TOTAL_STARS || 0;
+
+    this.viewCount = starInfo.viewCount || 0;
+    this.displayViewCount = this.viewCount;
+
+    this.starAction = {
+      hasLiked: starInfo.IS_LIKED == 1 || starInfo.IS_LIKED === true,
+      likeCount: starInfo.LIKE_CNT || 0,
+      commentCount: starInfo.COMMENT_CNT || 0,
+      shareCount: starInfo.SHARE_CNT || 0
+    };
+  }
+
+  private prepareFeedItem(item: any): any {
+    if (item.MEDIA_TYPE === 'VIDEO') item.isMuted = true;
+
+    // 검수 대기 글은 서버가 이미지 주소를 주지 않는다.
+    // 단 작성자 본인에게는 단기 접근 토큰이 함께 내려오므로 그것으로 원본을 불러온다(2-26차)
+    const isPending = item.MDR_STATUS === 'PENDING';
+    item.pendingImageUrl = (isPending && item.pendingImageToken)
+      ? `${environment.apiBaseURL}/api/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
+      : null;
+
+    // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다
+    item.isUnderReview = isPending && !item.pendingImageUrl;
+
+    // 미디어가 전혀 없는 텍스트 피드인 경우 로딩 완료(isLoaded = true) 처리
+    const hasMedia = item.MEDIA_TYPE === 'VIDEO' || item.image || item.pendingImageUrl
+      || item.youtubeUrl || item.YOUTUBE_URL;
+    item.isLoaded = (hasMedia && !item.isUnderReview) ? false : true;
+
+    item.hasLiked = item.IS_LIKED == 1 || item.IS_LIKED === true;
+    item.likeCount = item.LIKE_CNT || 0;
+    item.commentCount = item.COMMENT_CNT || 0;
+    return item;
+  }
+
+  private collectFeedKeys(): Set<string> {
+    const keys = new Set<string>();
+    this.feedList.forEach((item: any) => {
+      if (!item.isAd && item.CON_ID !== undefined && item.CON_ID !== null) {
+        keys.add(String(item.CON_ID));
       }
     });
+    return keys;
+  }
+
+  /**
+   * 새 응답을 기존 목록에 겹쳐 넣는다.
+   *
+   * 같은 CON_ID가 이미 있으면 기존 객체를 그대로 재사용하고 값만 덮어쓴다.
+   * 배열을 통째로 갈아끼우면 trackBy가 같은 키를 봐도 항목 객체가 달라져
+   * isLoaded가 false로 돌아가고, 이미지가 다시 페이드인하면서 깜빡임으로 보인다(2-26차).
+   */
+  private mergeFeed(incoming: any[], isFirstLoad: boolean): any[] {
+    if (isFirstLoad || this.feedList.length === 0) {
+      return incoming.map((item: any) => this.prepareFeedItem(item));
+    }
+
+    // 광고 슬롯은 병합 대상이 아니다. insertAdSlots()가 뒤에서 다시 꽂는다
+    const previous = this.feedList.filter((item: any) => !item.isAd);
+
+    const existing = new Map<string, any>();
+    previous.forEach((item: any) => {
+      if (item.CON_ID !== undefined && item.CON_ID !== null) {
+        existing.set(String(item.CON_ID), item);
+      }
+    });
+
+    const merged = incoming.map((raw: any) => {
+      const prepared = this.prepareFeedItem(raw);
+      const old = existing.get(String(raw.CON_ID));
+      if (!old) return prepared;
+
+      // 화면 상태(로딩 완료 여부, 음소거)는 유지하고 서버 값만 갱신한다
+      const fresh: any = Object.assign({}, prepared);
+      delete fresh.isLoaded;
+      delete fresh.isMuted;
+      Object.assign(old, fresh);
+      return old;
+    });
+
+    // 이번에 다시 받은 범위 밖(뒤쪽)의 항목은 갱신 대상이 아니므로 그대로 남긴다.
+    // 무한 스크롤로 100건을 보고 있다가 복귀했을 때 목록이 앞부분만 남고 잘리는 것을 막는다.
+    const incomingKeys = new Set(incoming.map((raw: any) => String(raw.CON_ID)));
+    const tail = previous
+      .slice(incoming.length)
+      .filter((item: any) => !incomingKeys.has(String(item.CON_ID)));
+
+    return merged.concat(tail);
+  }
+
+  /** 피드 항목 추적 키. 광고 슬롯과 콘텐츠를 접두어로 구분한다 */
+  trackByFeed(index: number, item: any): string {
+    return item && item.isAd ? `ad-${item.adId}` : `con-${item && item.CON_ID}`;
   }
 
   toggleLike(target: any, type: 'star' | 'feed', event?: Event) {
@@ -384,6 +625,12 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   onMediaLoaded(item: any) {
     item.isLoaded = true;
+
+    // 첫 미디어가 그려지는 시점까지를 진입 구간의 끝으로 본다 (계측 켠 경우에만 동작)
+    if (!this.perfTraceClosed) {
+      this.perfTraceClosed = true;
+      this.perf.end('star:first-media');
+    }
   }
 
   async presentPopover(ev: any) {
@@ -619,6 +866,10 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   stopPolling() {
+    if (this.pollingStartTimeoutId) {
+      clearTimeout(this.pollingStartTimeoutId);
+      this.pollingStartTimeoutId = null;
+    }
     if (this.pollingIntervalId) {
       clearInterval(this.pollingIntervalId);
       this.pollingIntervalId = null;
@@ -763,12 +1014,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   async openPinLink(url: string, event: Event) {
     event.stopPropagation();
-    const targetUrl = url || 'https://google.com';
-    try {
-      await Browser.open({ url: targetUrl });
-    } catch (e) {
-      window.open(targetUrl, '_blank');
-    }
+    await this.deepLink.openExternal(url || 'https://google.com');
   }
 
   async showError(msg: string) {

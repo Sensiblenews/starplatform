@@ -17,7 +17,9 @@
     <ion-refresher-content pullingText="Pull to check authentication..."
       refreshingText="Verifying..."></ion-refresher-content>
   </ion-refresher>
-  <div class="profile-header">
+  <app-skeleton *ngIf="isLoadingStar" variant="page"></app-skeleton>
+
+  <div class="profile-header" *ngIf="!isLoadingStar">
     <div class="profile-info-pill">
       <div class="avatar-container" (click)="openProfileViewer()" [style.cursor]="'pointer'">
         <ion-avatar>
@@ -84,8 +86,12 @@
     </div>
   </div>
 
-  <div class="feed-list">
-    <ng-container *ngFor="let item of feedList">
+  <app-skeleton *ngIf="isLoadingStar" variant="list" [count]="4"></app-skeleton>
+
+  <div class="feed-list" *ngIf="!isLoadingStar">
+    <!-- trackBy 없이는 배열이 바뀔 때마다 카드가 전부 재생성돼 이미지가 다시 로딩되고
+         스크롤 위치까지 튄다. 복귀 시 백그라운드 갱신을 견디려면 필수다(2-26차). -->
+    <ng-container *ngFor="let item of feedList; trackBy: trackByFeed">
 
       <div class="ad-slot-item" *ngIf="item.isAd">
         <div class="ad-placeholder-box">
@@ -98,8 +104,17 @@
       </div>
 
       <div class="feed-card" *ngIf="!item.isAd" (click)="goDetail(item.CON_ID)">
+        <!-- 검수 대기 중이고 볼 권한이 없는 경우. 깨진 이미지 대신 안내를 띄운다(2-26차) -->
+        <div class="media-wrapper under-review" *ngIf="item.isUnderReview">
+          <div class="review-box">
+            <ion-icon name="eye-off-outline"></ion-icon>
+            <p class="review-title">Under review</p>
+            <p class="review-desc">This photo is visible only to its author until approved.</p>
+          </div>
+        </div>
+
         <div class="media-wrapper"
-          *ngIf="item.MEDIA_TYPE === 'VIDEO' || item.image || item.youtubeUrl || item.YOUTUBE_URL">
+          *ngIf="!item.isUnderReview && (item.MEDIA_TYPE === 'VIDEO' || item.image || item.pendingImageUrl || item.youtubeUrl || item.YOUTUBE_URL)">
           <div class="loading-spinner-box" *ngIf="!item.isLoaded">
             <ion-spinner name="crescent"></ion-spinner>
           </div>
@@ -118,9 +133,14 @@
           </ng-container>
 
           <!-- 🖼️ 2순위: 이미지 표시 -->
-          <img *ngIf="item.MEDIA_TYPE !== 'VIDEO' && item.image" [src]="item.image" loading="lazy"
+          <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차) -->
+          <img *ngIf="item.MEDIA_TYPE !== 'VIDEO' && (item.image || item.pendingImageUrl)"
+            [src]="item.image || item.pendingImageUrl" loading="lazy"
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
+
+          <!-- 검수 대기 중임을 작성자에게 알리는 배지 -->
+          <div class="pending-badge" *ngIf="item.pendingImageUrl">Under review</div>
 
           <!-- 🎬 3순위: YouTube 썸네일 표시 -->
           <div *ngIf="item.MEDIA_TYPE !== 'VIDEO' && !item.image && (item.youtubeUrl || item.YOUTUBE_URL)"
@@ -190,6 +210,12 @@
 
     </ng-container>
   </div>
+
+  <!-- 피드는 10건씩 이어 붙인다. 스타의 전체 피드를 처음부터 다 그리면
+       Android에서 첫 화면과 복귀 리페인트가 같이 느려진다(2-26차). -->
+  <ion-infinite-scroll *ngIf="!isLoadingStar" threshold="200px" (ionInfinite)="loadMoreFeeds($event)">
+    <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+  </ion-infinite-scroll>
 
   <div class="discover-pages-section"
     style="padding: 20px 15px; background: #f8f9fa; border-top: 1px solid #eee; margin-top: 20px;">

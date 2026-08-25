@@ -3,9 +3,25 @@
 
 <style>
     /* 공통 사이드바 전용 스타일 */
-    .sidebar { width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff; top: 0; left: 0; z-index: 1000; }
-    .nav-link { color: rgba(255,255,255,0.7); padding: 12px 20px; font-size: 1.1rem; text-decoration: none; display: block; }
+    /* 메뉴가 화면 높이를 넘으면 사이드바 안에서만 스크롤된다.
+       overflow가 없으면 fixed 요소라 넘친 하단 메뉴에 접근할 방법이 없다. */
+    .sidebar {
+        width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff;
+        top: 0; left: 0; z-index: 1000;
+        overflow-y: auto; overflow-x: hidden;
+        scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.25) transparent;
+    }
+    /* 어두운 배경에 맞춘 얇은 스크롤바 (webkit 계열) */
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+
+    .sidebar-title { font-size: 1.15rem; }
+    .nav-link { color: rgba(255,255,255,0.7); padding: 9px 14px; font-size: 0.95rem; text-decoration: none; display: block; border-radius: 6px; }
     .nav-link:hover, .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+    /* 아이콘 폭을 고정해 라벨 시작선을 맞춘다 */
+    .nav-link i { font-size: 0.85rem; width: 18px; text-align: center; }
     .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 15px; margin-bottom: 10px; font-size: 14px; }
     .chat-user { background: #e9ecef; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
     .chat-admin { background: #3880ff; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
@@ -14,54 +30,59 @@
 </style>
 
 <div class="sidebar d-flex flex-column p-3">
-    <h3 class="text-center mb-5 mt-3 fw-bold">🚀 Super Admin</h3>
+    <h3 class="sidebar-title text-center mb-4 mt-2 fw-bold">🚀 Super Admin</h3>
     <ul class="nav flex-column">
-        <li class="nav-item mb-2">
+        <li class="nav-item mb-1">
             <a href="/super/dashboard.do" class="nav-link <c:if test="${activeMenu eq 'dashboard'}">active</c:if>"><i class="fas fa-chart-pie me-2"></i> 대시보드</a>
         </li>
-        <li class="nav-item mb-2">
+        <li class="nav-item mb-1">
             <a href="/super/star/list.do" class="nav-link <c:if test="${activeMenu eq 'star_list'}">active</c:if>"><i class="fas fa-users-cog me-2"></i> 스타 관리</a>
         </li>
-        <li class="nav-item mb-2">
+        <li class="nav-item mb-1">
             <a href="/super/star/create.do" class="nav-link <c:if test="${activeMenu eq 'star_create'}">active</c:if>"><i class="fas fa-user-plus me-2"></i> 스타 등록</a>
         </li>
         <!-- 🌟 VS 배틀필드: 스타 직군 분류 (SM 전체 / LC 자국) -->
-        <li class="nav-item mb-2">
+        <li class="nav-item mb-1">
             <a href="/super/star/category.do" class="nav-link <c:if test="${activeMenu eq 'star_category'}">active</c:if>"><i class="fas fa-tags me-2"></i> 스타 직군 분류</a>
         </li>
 
         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
             <!-- 🌟 VS 배틀필드 카드 관리 (전 국가 공통 노출이므로 SM 전용) -->
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="/super/vs/list.do" class="nav-link <c:if test="${activeMenu eq 'vs_list'}">active</c:if>" style="color: #f48fb1;">
                     <i class="fas fa-bolt me-2"></i> VS 배틀필드
                 </a>
             </li>
             <!-- 🌟 최고 권한 전용: 스타 일괄 등록 메뉴 추가 -->
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="/super/star/bulk-create.do" class="nav-link <c:if test="${activeMenu eq 'star_bulk'}">active</c:if>"><i class="fas fa-file-import me-2"></i> 스타 일괄 등록</a>
             </li>
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="#" class="nav-link text-info" onclick="openThreadsModal()">
                     <i class="fas fa-envelope me-2"></i> 정산/1:1 문의
                     <span id="globalMsgBadge" class="badge bg-danger ms-2" style="display:none;">0</span>
                 </a>
             </li>
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="/super/local/create.do" class="nav-link text-warning <c:if test="${activeMenu eq 'local_create'}">active</c:if>"><i class="fas fa-user-shield me-2"></i> 지역 관리자 생성</a>
             </li>
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="/super/report/list.do" class="nav-link <c:if test="${activeMenu eq 'report'}">active</c:if>" style="color: #ff8a65;">
                     <i class="fas fa-flag me-2"></i> 신고 관리
                 </a>
             </li>
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
+                <a href="/super/moderation/list.do" class="nav-link <c:if test="${activeMenu eq 'moderation'}">active</c:if>" style="color: #ffd54f;">
+                    <i class="fas fa-image me-2"></i> 이미지 검수
+                </a>
+            </li>
+            <li class="nav-item mb-1">
                 <a href="/super/system/panel.do" class="nav-link <c:if test="${activeMenu eq 'system_panel'}">active</c:if>" style="color: #4fc3f7;">
                     <i class="fas fa-server me-2"></i> 시스템 관리
                 </a>
             </li>
             <!-- 🌟 약관/개인정보처리방침 수정 (좌측 탭 맨 하단 배치 — 클라이언트 요청) -->
-            <li class="nav-item mb-2">
+            <li class="nav-item mb-1">
                 <a href="/super/policy/edit.do" class="nav-link <c:if test="${activeMenu eq 'policy'}">active</c:if>" style="color: #a5d6a7;">
                     <i class="fas fa-file-contract me-2"></i> 약관 수정
                 </a>
