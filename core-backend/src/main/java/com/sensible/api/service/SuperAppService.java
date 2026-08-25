@@ -422,6 +422,17 @@ public class SuperAppService {
 
 		if (content != null) {
 			List<Map<String, Object>> medias = dao.selectList("superapp.selectContentMedias", map);
+
+			// 검수 대기 글이면 작성자 본인에게만 이미지 접근 토큰을 붙인다(2-26차).
+			// 미디어 주소는 SQL에서 이미 가려져 있으므로, 토큰이 없으면 앱이 "검토 중"을 그린다.
+			if ("PENDING".equals(String.valueOf(content.get("MDR_STATUS")))
+					&& isStarOwner(String.valueOf(content.get("PRS_ID")), map.get("starToken"))) {
+				String token = mediaAccessService.issueToken("STAR_FEED", conIdStr);
+				if (token != null) {
+					resultMap.put("pendingImageToken", token);
+				}
+			}
+
 			resultMap.put("content", content);
 			resultMap.put("medias", medias);
 			resultMap.put("result", "OK");
