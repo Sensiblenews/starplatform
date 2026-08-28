@@ -45,6 +45,10 @@
         <li class="nav-item mb-1">
             <a href="/super/star/category.do" class="nav-link <c:if test="${activeMenu eq 'star_category'}">active</c:if>"><i class="fas fa-tags me-2"></i> 스타 직군 분류</a>
         </li>
+        <!-- 🌟 웹 랜딩 About 섹션용 스타 소개문 관리 (SM 전체 / LC 자국) -->
+        <li class="nav-item mb-1">
+            <a href="/super/star/bio.do" class="nav-link <c:if test="${activeMenu eq 'star_bio'}">active</c:if>"><i class="fas fa-id-card me-2"></i> 스타 소개(Bio) 관리</a>
+        </li>
 
         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
             <!-- 🌟 VS 배틀필드 카드 관리 (전 국가 공통 노출이므로 SM 전용) -->
