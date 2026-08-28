@@ -1635,6 +1635,22 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 🌟 [신규 2-27차] 스타 랜딩 Related Stars 카드용: 승인 게시물 보유 스타 최대 6명 (같은 카테고리 우선)
+	 */
+	public List<Map<String, Object>> getRelatedStars(String starId, String category) {
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("starId", starId);
+			params.put("category", category);
+			return dao.selectList("superapp.selectRelatedStars", params);
+		} catch (Exception e) {
+			// 관련 스타는 부가 요소이므로 조회 실패 시 랜딩 렌더링을 막지 않는다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
 	 * 🌟 [신규] sitemap.xml용: 활성 스타 ID 목록 조회
 	 */
 	public List<Map<String, Object>> getSitemapStars() {

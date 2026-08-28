@@ -83,6 +83,7 @@
             font-weight: 800;
             font-size: 1.05rem;
             color: #ff4b5c;
+            text-decoration: none;
         }
 
         .top-open {
@@ -140,6 +141,132 @@
             margin: 0;
         }
 
+        /* [2-27차] 스타 프로필 헤더 스탯: previewMeta 한 줄 대신 개별 지표로 노출 */
+        .stat-grid {
+            display: flex;
+            gap: 8px;
+            margin: 0 0 12px;
+        }
+
+        .stat-item {
+            flex: 1;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 8px 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #222;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* [2-27차] About: 어드민 입력 스타 소개문 */
+        .about-heading {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 16px 0 6px;
+        }
+
+        /* [2-27차] 포스트 작성자 카드: 포스트 → 스타 페이지 내부 링크 */
+        .author-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            text-decoration: none;
+        }
+
+        .author-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .author-name {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #222;
+        }
+
+        .author-meta {
+            display: block;
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* [2-27차] 관리자 공지 배지 */
+        .admin-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #555;
+            background: #f1f1f1;
+            border-radius: 10px;
+            padding: 3px 10px;
+            margin-right: 8px;
+        }
+
+        /* [2-27차] Related Stars 카드 그리드 */
+        .star-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .star-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 12px 8px;
+            text-decoration: none;
+        }
+
+        .star-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .star-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #222;
+            margin-top: 8px;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .star-followers {
+            font-size: 0.72rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
         /* 관련 콘텐츠 카드: 페이지당 콘텐츠량·내부 링크 확보 (AdSense Thin Content 대응) */
         .related-section {
             margin-top: 20px;
@@ -178,6 +305,18 @@
             color: #444;
             margin: 0;
             word-break: break-word;
+        }
+
+        .related-text {
+            min-width: 0;
+        }
+
+        /* [2-27차] 관련 게시물 작성일 */
+        .related-date {
+            display: block;
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 4px;
         }
 
         /* FAQ: 페이지 고유 콘텐츠 보강 + h2/h3 계층 제공 (AdSense·SEO 대응) */
@@ -281,8 +420,9 @@
 </head>
 
 <body>
+    <!-- [2-27차] 브랜드를 홈 링크로 — 랜딩 → 허브 역방향 내부 링크 확보 -->
     <div class="top-bar">
-        <span class="brand">StarPlatform</span>
+        <a class="brand" href="${pageContext.request.contextPath}/">StarPlatform</a>
     </div>
 
     <div class="container">
@@ -294,12 +434,62 @@
             <div class="card-body">
                 <h1 class="title">${previewTitle}</h1>
 
-                <!-- 스타 랜딩: 랭크/방문자 요약, 포스트 랜딩: 본문 전문
-                     (AdSense '콘텐츠 없는 화면 광고' 정책 판정에 따라 50% 컷·프리뷰 잠금 제거 — 클라이언트 확정) -->
-                ${not empty previewMeta ? '<p class="meta">'.concat(previewMeta).concat('</p>') : ''}
+                <!-- [2-27차] 스타 랜딩: 랭크·팔로워·방문자를 개별 스탯으로 노출 (기존 previewMeta 한 줄 표기 대체) -->
+                <c:if test="${landingType eq 'star'}">
+                    <div class="stat-grid">
+                        <c:if test="${not empty statRank}">
+                            <div class="stat-item">
+                                <span class="stat-value">#<c:out value="${statRank}"/></span>
+                                <span class="stat-label">Global Rank<c:if test="${not empty statTotalStars}"> of <c:out value="${statTotalStars}"/></c:if></span>
+                            </div>
+                        </c:if>
+                        <c:if test="${not empty statFollowers}">
+                            <div class="stat-item">
+                                <span class="stat-value"><c:out value="${statFollowers}"/></span>
+                                <span class="stat-label">Followers</span>
+                            </div>
+                        </c:if>
+                        <c:if test="${not empty statViews}">
+                            <div class="stat-item">
+                                <span class="stat-value"><c:out value="${statViews}"/></span>
+                                <span class="stat-label">Visitors</span>
+                            </div>
+                        </c:if>
+                    </div>
+                </c:if>
+
+                <!-- [2-27차] 포스트 랜딩: 작성일 + 관리자 공지 배지 -->
+                <c:if test="${landingType eq 'post' and (isAdminPost or not empty previewDate)}">
+                    <p class="meta">
+                        <c:if test="${isAdminPost}"><span class="admin-badge">Official Announcement</span></c:if>
+                        <c:if test="${not empty previewDate}">Posted on ${previewDate}</c:if>
+                    </p>
+                </c:if>
+
+                <!-- 본문 전문 (AdSense '콘텐츠 없는 화면 광고' 정책 판정에 따라 50% 컷·프리뷰 잠금 제거 — 클라이언트 확정) -->
                 ${not empty previewBody ? '<p class="body-text">'.concat(previewBody).concat('</p>') : ''}
+
+                <!-- [2-27차] About: 어드민이 입력한 스타 소개문 (없으면 섹션 생략) -->
+                <c:if test="${not empty starBio}">
+                    <h2 class="about-heading">About ${previewTitle}</h2>
+                    <p class="body-text">${starBio}</p>
+                </c:if>
             </div>
         </div>
+
+        <!-- [2-27차] 작성자 프로필 카드: 포스트 → 스타 페이지 내부 링크 -->
+        <c:if test="${not empty authorId}">
+            <a class="author-card" href="${pageContext.request.contextPath}/star/${authorId}">
+                <c:if test="${not empty authorImage}">
+                    <img class="author-avatar" src="${authorImage}" alt="" loading="lazy"
+                        onerror="this.style.display='none'">
+                </c:if>
+                <span>
+                    <span class="author-name">${authorName}</span>
+                    <span class="author-meta">Followers <c:out value="${authorFollowers}"/> &middot; View star page</span>
+                </span>
+            </a>
+        </c:if>
 
         <!-- 관련 콘텐츠: 이 스타의 다른 최근 게시물 (내부 링크) -->
         <c:if test="${not empty relatedPosts}">
@@ -311,30 +501,74 @@
                             <img class="related-thumb" src="${rp.image}" alt="" loading="lazy"
                                 onerror="this.style.display='none'">
                         </c:if>
-                        <p class="related-snippet">${rp.snippet}</p>
+                        <div class="related-text">
+                            <p class="related-snippet">${rp.snippet}</p>
+                            <c:if test="${not empty rp.date}"><span class="related-date">${rp.date}</span></c:if>
+                        </div>
                     </a>
                 </c:forEach>
             </div>
         </c:if>
 
-        <!-- FAQ: 광고 위·본문 아래 배치. 광고가 첫 화면에 노출되지 않게 밀어주는 역할도 겸함 -->
+        <!-- [2-27차] Related Stars: 승인 게시물 보유 스타로만 구성한 내부 링크 (스타 랜딩 전용) -->
+        <c:if test="${landingType eq 'star' and not empty relatedStars}">
+            <div class="related-section">
+                <p class="related-heading">Related stars</p>
+                <div class="star-grid">
+                    <c:forEach var="st" items="${relatedStars}">
+                        <a class="star-card" href="${pageContext.request.contextPath}/star/${st.id}">
+                            <c:if test="${not empty st.image}">
+                                <img class="star-avatar" src="${st.image}" alt="" loading="lazy"
+                                    onerror="this.style.visibility='hidden'">
+                            </c:if>
+                            <span class="star-name">${st.name}</span>
+                            <span class="star-followers">Followers ${st.followerCnt}</span>
+                        </a>
+                    </c:forEach>
+                </div>
+            </div>
+        </c:if>
+
+        <!-- FAQ: 광고 위·본문 아래 배치. 광고가 첫 화면에 노출되지 않게 밀어주는 역할도 겸함.
+             [2-27차] star/post 맥락에 맞게 문항 분리 (기존엔 공용 3문항이라 post에도 follow this star가 노출됐음) -->
         <section class="faq-section">
             <h2 class="faq-title">FAQ</h2>
-            <div class="faq-item">
-                <h3 class="faq-q">Can I read this content without installing the app?</h3>
-                <p class="faq-a">Yes. The full content of this page is available right here on the web.
-                    Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
-            </div>
-            <div class="faq-item">
-                <h3 class="faq-q">What is StarPlatform?</h3>
-                <p class="faq-a">StarPlatform is a fan community platform where stars share their latest posts and
-                    fans follow their favorite stars, join conversations, and support them.</p>
-            </div>
-            <div class="faq-item">
-                <h3 class="faq-q">How can I follow this star and get updates?</h3>
-                <p class="faq-a">Open this page in the StarPlatform app and tap Follow.
-                    You will get a notification whenever a new post is shared.</p>
-            </div>
+            <c:choose>
+                <c:when test="${landingType eq 'star'}">
+                    <div class="faq-item">
+                        <h3 class="faq-q">Can I view this star page without installing the app?</h3>
+                        <p class="faq-a">Yes. This star page and its posts are available right here on the web.
+                            Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3 class="faq-q">What does the Global Rank mean?</h3>
+                        <p class="faq-a">The Global Rank compares every star on StarPlatform.
+                            It is calculated from page visits, likes, and followers, and is updated continuously.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3 class="faq-q">How can I follow this star and get updates?</h3>
+                        <p class="faq-a">Open this page in the StarPlatform app and tap Follow.
+                            You will get a notification whenever a new post is shared.</p>
+                    </div>
+                </c:when>
+                <c:otherwise>
+                    <div class="faq-item">
+                        <h3 class="faq-q">Can I read this post without installing the app?</h3>
+                        <p class="faq-a">Yes. The full content of this post is available right here on the web.
+                            Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3 class="faq-q">What is StarPlatform?</h3>
+                        <p class="faq-a">StarPlatform is a fan community platform where stars share their latest posts and
+                            fans follow their favorite stars, join conversations, and support them.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h3 class="faq-q">How can I follow the author of this post?</h3>
+                        <p class="faq-a">Visit the author's star page or open this post in the StarPlatform app and tap Follow.
+                            You will get a notification whenever a new post is shared.</p>
+                    </div>
+                </c:otherwise>
+            </c:choose>
         </section>
 
         <%-- [AdSense 승인 대기] ② 광고 슬롯 임시 제거 — 승인 후 복원 (표식: AdSense 승인 대기) --%>

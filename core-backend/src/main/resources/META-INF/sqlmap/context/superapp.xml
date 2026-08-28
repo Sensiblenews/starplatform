@@ -317,6 +317,8 @@
 	        P.PRS_NAME as name,
 	        P.STORED_FILE_NM as image,
 	        P.STATUS_MSG as status,
+	        P.PRS_BIO,
+	        P.STAR_CATEGORY,
 	        P.PRS_HOMEPAGE as homepage,
 	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
 	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
@@ -534,6 +536,27 @@
 		LIMIT 20
 	</select>
 
+	<!-- [신규 2-27차] 스타 랜딩 하단 Related Stars 카드용.
+	     웹 품질 게이트와 동일하게 승인 게시물 보유 스타만 — 빈 페이지로 내부 링크를 만들지 않는다.
+	     같은 카테고리를 우선하되 부족하면 팔로워순으로 채운다 -->
+	<select id="selectRelatedStars" parameterType="map" resultType="map">
+		SELECT
+			P.PRS_ID,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		AND P.PRS_ID != #{starId}
+		AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
+		ORDER BY
+		<if test="category != null and category != '' and category != 'GENERAL'">
+			(IFNULL(P.STAR_CATEGORY, 'GENERAL') = #{category}) DESC,
+		</if>
+			FOLLOWER_CNT DESC, P.PRS_ID ASC
+		LIMIT 6
+	</select>
+
 	<select id="selectContentDetail" parameterType="map" resultType="map">
 		SELECT
 			A.CON_ID,
@@ -544,6 +567,7 @@
 			A.PRS_ID,
 			B.PRS_NAME,
 			B.STORED_FILE_NM,
+			IFNULL(B.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
 			A.MDR_STATUS,
 			'STAR' AS FEED_TYPE,
 			

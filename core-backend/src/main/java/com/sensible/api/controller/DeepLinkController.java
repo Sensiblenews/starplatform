@@ -299,6 +299,34 @@ public class DeepLinkController {
 							"Global Rank #" + starInfo.get("GLOBAL_RANK") + " | Visitors " + starInfo.get("viewCount"));
 					model.addAttribute("previewImage", imageUrl != null ? imageUrl : "");
 
+					// 🌟 [2-27차] 프로필 헤더 스탯: previewMeta 한 줄 대신 개별 값으로 노출 (OG/JSON-LD는 기존 문자열 유지)
+					model.addAttribute("statRank", starInfo.get("GLOBAL_RANK"));
+					model.addAttribute("statTotalStars", starInfo.get("TOTAL_STARS"));
+					model.addAttribute("statFollowers", starInfo.get("FOLLOWER_CNT"));
+					model.addAttribute("statViews", starInfo.get("viewCount"));
+
+					// 🌟 [2-27차] About 섹션: 어드민이 입력한 스타 소개문 (없으면 섹션 생략)
+					Object bioObj = starInfo.get("PRS_BIO");
+					String bio = bioObj != null ? String.valueOf(bioObj).trim() : "";
+					if (!bio.isEmpty()) {
+						model.addAttribute("starBio", escapeHtml(bio));
+					}
+
+					// 🌟 [2-27차] Related Stars: 승인 게시물 보유 스타로만 내부 링크 (같은 카테고리 우선)
+					Object categoryObj = starInfo.get("STAR_CATEGORY");
+					List<Map<String, Object>> related = superAppService.getRelatedStars(id,
+							categoryObj != null ? String.valueOf(categoryObj) : null);
+					List<Map<String, Object>> relatedCards = new java.util.ArrayList<>();
+					for (Map<String, Object> rs : related) {
+						Map<String, Object> card = new HashMap<>();
+						card.put("id", rs.get("PRS_ID"));
+						card.put("name", escapeHtml(String.valueOf(rs.get("PRS_NAME"))));
+						card.put("image", toAbsoluteUrl((String) rs.get("STORED_FILE_NM"), baseUrl));
+						card.put("followerCnt", rs.get("FOLLOWER_CNT"));
+						relatedCards.add(card);
+					}
+					model.addAttribute("relatedStars", relatedCards);
+
 					// 🌟 canonical: 레거시(/witch/star/..)·중복 경로가 모두 대표 URL 하나로 수렴하게 한다
 					String canonicalUrl = baseUrl + "/star/" + id;
 					model.addAttribute("canonicalUrl", canonicalUrl);
@@ -350,6 +378,16 @@ public class DeepLinkController {
 					String starName = (String) content.get("PRS_NAME"); // 작성자 이름
 					String fullBody = (String) content.get("CON_BODY"); // 글 본문 원문 (랜딩 미리보기 컷 용도)
 
+					// 🌟 [2-27차] 관리자 공지는 PRS_NAME이 한국어('운영자 공지')로 하드코딩돼 있어
+					// 영어 웹 랜딩 제목에 그대로 쓰지 않는다 (OG 공유 카드에도 동일 반영)
+					boolean isAdminPost = "ADMIN".equals(content.get("FEED_TYPE"));
+					String displayPostTitle;
+					if (isAdminPost) {
+						displayPostTitle = "StarPlatform Announcement";
+					} else {
+						displayPostTitle = starName != null ? starName + "'s Post" : "StarPlatform Post";
+					}
+
 					// 💡 OG 설명용: 글 내용이 너무 길면 미리보기 카드가 깨질 수 있으므로 적당히 자름
 					String body = fullBody;
 					if (body != null && body.length() > 50) {
@@ -385,7 +423,7 @@ public class DeepLinkController {
 						imageUrl = targetUrl;
 					}
 
-					model.addAttribute("ogTitle", starName + "'s Post | StarPlatform");
+					model.addAttribute("ogTitle", displayPostTitle + " | StarPlatform");
 					model.addAttribute("ogDesc", body != null ? body : "Check out the latest updates.");
 					model.addAttribute("ogImage", imageUrl);
 					model.addAttribute("ogUrl", baseUrl + uri);
@@ -393,8 +431,7 @@ public class DeepLinkController {
 					// 🌟 웹 랜딩 본문: 전체 노출 (AdSense '콘텐츠 없는 화면 광고' 정책 위반 판정에 따라
 					// 기존 50% 컷 + 프리뷰 잠금을 제거하고 전문을 내려준다 — 클라이언트 확정)
 					model.addAttribute("landingType", "post");
-					model.addAttribute("previewTitle",
-							escapeHtml(starName != null ? starName + "'s Post" : "StarPlatform Post"));
+					model.addAttribute("previewTitle", escapeHtml(displayPostTitle));
 					model.addAttribute("previewBody", escapeHtml(fullBody != null ? fullBody.trim() : ""));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
@@ -404,17 +441,23 @@ public class DeepLinkController {
 					model.addAttribute("canonicalUrl", canonicalUrl);
 
 					// 🌟 JSON-LD(BlogPosting) 서버 렌더링: Googlebot이 소스보기만으로 읽을 수 있어야 함
-					String createdDate = content.get("CREATED_DATE") != null ? String.valueOf(content.get("CREATED_DATE")) : "";
-					String datePublished = createdDate.length() >= 10 ? createdDate.substring(0, 10) : "";
+					String datePublished = toDatePart(content.get("CREATED_DATE"));
+					// [2-27차] 화면에도 작성일을 노출한다 (그동안 JSON-LD에만 있었음)
+					if (!datePublished.isEmpty()) {
+						model.addAttribute("previewDate", datePublished);
+					}
 					StringBuilder ld = new StringBuilder();
 					ld.append("{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"");
-					ld.append(",\"headline\":\"").append(escapeJson(
-							starName != null ? starName + "'s Post" : "StarPlatform Post")).append("\"");
+					ld.append(",\"headline\":\"").append(escapeJson(displayPostTitle)).append("\"");
 					if (!datePublished.isEmpty()) {
 						ld.append(",\"datePublished\":\"").append(escapeJson(datePublished)).append("\"");
 					}
-					ld.append(",\"author\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(
-							starName != null ? starName : "StarPlatform")).append("\"}");
+					if (isAdminPost) {
+						ld.append(",\"author\":{\"@type\":\"Organization\",\"name\":\"StarPlatform\"}");
+					} else {
+						ld.append(",\"author\":{\"@type\":\"Person\",\"name\":\"").append(escapeJson(
+								starName != null ? starName : "StarPlatform")).append("\"}");
+					}
 					if (medias != null && !medias.isEmpty()) {
 						ld.append(",\"image\":[\"").append(escapeJson(imageUrl)).append("\"]");
 					}
@@ -432,8 +475,22 @@ public class DeepLinkController {
 						if (!LandingVisitService.isCrawler(userAgent)) {
 							model.addAttribute("visitToken", landingVisitService.issueToken(String.valueOf(feedPrsId)));
 						}
-						// 🌟 관련 콘텐츠 카드: 같은 스타의 다른 게시물 2건 (현재 글 제외)
+						// 🌟 관련 콘텐츠 카드: 같은 스타의 다른 게시물 (현재 글 제외)
 						addRelatedPosts(model, String.valueOf(feedPrsId), String.valueOf(content.get("CON_ID")), baseUrl);
+
+						// 🌟 [2-27차] 작성자 프로필 카드: 포스트 → 스타 페이지 내부 링크 (양방향 링크 네트워크)
+						String authorImage = toAbsoluteUrl((String) content.get("STORED_FILE_NM"), baseUrl);
+						if (authorImage.startsWith("http://witch-hunting.com")) {
+							authorImage = authorImage.replace("http://", "https://");
+						}
+						model.addAttribute("authorId", feedPrsId);
+						model.addAttribute("authorName", escapeHtml(starName != null ? starName : "StarPlatform"));
+						model.addAttribute("authorImage", authorImage);
+						model.addAttribute("authorFollowers", content.get("FOLLOWER_CNT"));
+					}
+					// 🌟 [2-27차] 관리자 공지는 작성자 카드 대신 배지로 표기 (스타 페이지 링크가 없으므로)
+					if (isAdminPost) {
+						model.addAttribute("isAdminPost", true);
 					}
 					view = "/common/content_landing";
 				}
