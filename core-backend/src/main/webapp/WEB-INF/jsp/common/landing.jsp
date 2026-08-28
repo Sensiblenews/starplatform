@@ -25,6 +25,19 @@
   {"@context":"https://schema.org","@type":"WebSite","name":"StarPlatform","url":"https://witch-hunting.com/"}
   </script>
 
+  <%-- [2-27차] FAQPage JSON-LD.
+       주의: 아래 문항·답변은 본문 FAQ 섹션의 화면 텍스트와 "완전히 동일"해야 한다 (불일치는 구조화 데이터 스팸 판정 소지).
+       FAQ 문구를 수정할 때는 반드시 이 블록과 본문 섹션을 함께 고칠 것. --%>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+    {"@type":"Question","name":"Can I use StarPlatform without the app?","acceptedAnswer":{"@type":"Answer","text":"Yes. Public star pages and posts on StarPlatform can be read in full right here on the web. The mobile app adds extra features such as real-time notifications, comments, and community participation."}},
+    {"@type":"Question","name":"What is StarPlatform?","acceptedAnswer":{"@type":"Answer","text":"StarPlatform is a global creator platform where stars, creators, and brands run public pages, share posts, and grow an audience worldwide."}},
+    {"@type":"Question","name":"How does the global ranking work?","acceptedAnswer":{"@type":"Answer","text":"Every star page competes in a single global ranking. The rank is calculated from real engagement such as page visits, likes, and followers, and is updated continuously."}},
+    {"@type":"Question","name":"How do creators earn on StarPlatform?","acceptedAnswer":{"@type":"Answer","text":"Creators earn through automated advertising based on the real traffic and engagement their pages generate."}},
+    {"@type":"Question","name":"Is StarPlatform free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Creating a page, following stars, and reading posts are all free."}}
+  ]}
+  </script>
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -39,10 +52,26 @@
     .btn { display: inline-block; padding: 12px 24px; margin: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; }
     .btn-primary { background: #3b82f6; color: white; }
     .btn-secondary { background: #1e293b; color: white; border: 1px solid #334155; }
+    /* [2-27차] 다운로드는 보조 동선 — 대형 버튼 대신 낮은 시각 비중의 텍스트 링크 */
+    .link-muted { display: inline-block; margin-top: 20px; font-size: 14px; color: #94a3b8; text-decoration: underline; cursor: pointer; }
+    .link-muted:hover { color: #cbd5f5; }
     .section { padding: 60px 20px; text-align: center; }
     .section h2 { font-size: 28px; margin-bottom: 20px; }
     .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 40px; }
     .card { background: #1e293b; padding: 20px; border-radius: 12px; }
+
+    /* [2-27차] How StarPlatform Works: 서비스 이용 흐름 5단계 */
+    .steps { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-top: 40px; text-align: left; }
+    .step-card { background: #1e293b; border-radius: 12px; padding: 20px; }
+    .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+    .step-card h3 { font-size: 16px; margin-bottom: 6px; }
+    .step-card p { font-size: 14px; color: #94a3b8; }
+
+    /* [2-27차] 메인 FAQ */
+    .faq-list { margin-top: 40px; text-align: left; max-width: 760px; margin-left: auto; margin-right: auto; }
+    .faq-item { background: #1e293b; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+    .faq-item h3 { font-size: 16px; margin-bottom: 6px; }
+    .faq-item p { font-size: 14px; color: #94a3b8; }
 
     /* 최근 포스트·인기 스타 카드: 크롤러의 콘텐츠 발견 경로이자 실제 방문자용 목차 */
     .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-top: 30px; text-align: left; }
@@ -82,11 +111,9 @@
     <p>Compete in global rankings based on real engagement such as visits, likes, and bookmarks.</p>
     <p>Turn your traffic into real opportunity — and become part of a new digital economy.</p>
 
-    <div class="buttons">
-      <a onclick="openApp()" class="btn btn-primary">Open in App</a>
-      <!-- OS별 스토어 분기: iOS에 Play 링크가 노출되던 버그 수정 (하드코딩 Google Play 버튼 제거) -->
-      <a onclick="goStore()" class="btn btn-secondary">Download App</a>
-    </div>
+    <!-- [2-27차] Hero의 Open in App 대형 버튼을 FAQ 아래 CTA 섹션으로 이동 (웹 콘텐츠를 먼저 읽게 하는 구조).
+         다운로드는 소형 텍스트 링크로 다운그레이드 — OS별 스토어 분기(goStore)는 유지 -->
+    <a onclick="goStore()" class="link-muted">Download the StarPlatform App</a>
   </section>
 
   <!-- 최근 포스트: 크롤러가 /post/*(광고·본문 랜딩)를 발견하는 내부 링크 -->
@@ -140,6 +167,78 @@
         <h3>🏆 Ranking System</h3>
         <p>Compete globally with transparent ranking metrics.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- [2-27차] How StarPlatform Works: 서비스 이용 흐름을 텍스트로 설명 (웹 자체 완결성 보강) -->
+  <section class="section">
+    <h2>How StarPlatform Works</h2>
+    <ol class="steps">
+      <li class="step-card">
+        <span class="step-num">1</span>
+        <h3>Create a Page</h3>
+        <p>Launch your own public star page in minutes and introduce yourself to the world.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">2</span>
+        <h3>Publish Content</h3>
+        <p>Share posts, photos, and updates that your audience can read on the web or in the app.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">3</span>
+        <h3>Build an Audience</h3>
+        <p>Attract followers and visitors from around the world as your page gets discovered.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">4</span>
+        <h3>Climb the Global Ranking</h3>
+        <p>Real engagement such as visits, likes, and bookmarks moves your page up the global ranking.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">5</span>
+        <h3>Grow and Earn</h3>
+        <p>Turn your audience into revenue through automated advertising on your pages.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- [2-27차] 메인 FAQ.
+       주의: 문항·답변은 head의 FAQPage JSON-LD와 "완전히 동일"해야 한다 — 수정 시 두 곳을 함께 고칠 것 -->
+  <section class="section">
+    <h2>FAQ</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Can I use StarPlatform without the app?</h3>
+        <p>Yes. Public star pages and posts on StarPlatform can be read in full right here on the web.
+          The mobile app adds extra features such as real-time notifications, comments, and community participation.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What is StarPlatform?</h3>
+        <p>StarPlatform is a global creator platform where stars, creators, and brands run public pages,
+          share posts, and grow an audience worldwide.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How does the global ranking work?</h3>
+        <p>Every star page competes in a single global ranking. The rank is calculated from real engagement
+          such as page visits, likes, and followers, and is updated continuously.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How do creators earn on StarPlatform?</h3>
+        <p>Creators earn through automated advertising based on the real traffic and engagement their pages generate.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is StarPlatform free?</h3>
+        <p>Yes. Creating a page, following stars, and reading posts are all free.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- [2-27차] 앱 CTA: 콘텐츠·FAQ를 모두 지난 최하단 배치 (Hero에서 이동) -->
+  <section class="section">
+    <h2>Already have the app?</h2>
+    <p>Open StarPlatform to follow stars, join conversations, and get real-time updates.</p>
+    <div class="buttons">
+      <a onclick="openApp()" class="btn btn-primary">Open in StarPlatform App</a>
     </div>
   </section>
 

@@ -119,4 +119,25 @@ public class DeepLinkControllerJsonLdTest {
 		String emoji = "😀😀😀😀"; // 코드포인트 4개
 		assertEquals("😀😀...", cutPlain(emoji, 2));
 	}
+
+	private String toDatePart(Object rawDate) throws Exception {
+		Method m = DeepLinkController.class.getDeclaredMethod("toDatePart", Object.class);
+		m.setAccessible(true);
+		return (String) m.invoke(controller, rawDate);
+	}
+
+	@Test
+	public void toDatePart_날짜_부분만_잘라낸다() throws Exception {
+		assertEquals("2026-08-03", toDatePart("2026-08-03 12:00:00.0"));
+		assertEquals("2026-08-03", toDatePart("2026-08-03"));
+		// DB 드라이버가 Timestamp 등 비문자열을 돌려줘도 문자열 변환 후 앞 10자리를 쓴다
+		assertEquals("2026-08-03", toDatePart(java.sql.Timestamp.valueOf("2026-08-03 12:00:00")));
+	}
+
+	@Test
+	public void toDatePart_null이거나_짧으면_빈문자열() throws Exception {
+		assertEquals("", toDatePart(null));
+		assertEquals("", toDatePart("2026"));
+		assertEquals("", toDatePart(""));
+	}
 }
