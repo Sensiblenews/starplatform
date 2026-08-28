@@ -104,13 +104,15 @@ public class DeepLinkController {
 
 	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 최대 20건) 모델 구성.
 	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
-	private void addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
+	// 반환값은 승인 게시물 건수 — 스타 랜딩의 noindex 판단(콘텐츠 유무 기준)에 쓴다.
+	private int addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
 		List<Map<String, Object>> posts = superAppService.getRecentStarPosts(starId, excludeConId);
 		List<Map<String, Object>> cards = new java.util.ArrayList<>();
 		for (Map<String, Object> post : posts) {
 			Map<String, Object> card = new HashMap<>();
 			card.put("conId", post.get("CON_ID"));
 			card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
+			card.put("date", toDatePart(post.get("CREATED_DATE")));
 
 			String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
 			if (image != null && image.startsWith("/")) {
@@ -120,6 +122,16 @@ public class DeepLinkController {
 			cards.add(card);
 		}
 		model.addAttribute("relatedPosts", cards);
+		return cards.size();
+	}
+
+	// DB의 날짜 문자열(yyyy-MM-dd HH:mm:ss 등)에서 날짜 부분만 잘라낸다. 형식이 짧으면 빈 문자열.
+	private String toDatePart(Object rawDate) {
+		if (rawDate == null) {
+			return "";
+		}
+		String s = String.valueOf(rawDate);
+		return s.length() >= 10 ? s.substring(0, 10) : "";
 	}
 
 	private String encodeUrlParams(String urlStr) {
@@ -310,8 +322,13 @@ public class DeepLinkController {
 					if (!LandingVisitService.isCrawler(userAgent)) {
 						model.addAttribute("visitToken", landingVisitService.issueToken(id));
 					}
-					// 🌟 관련 콘텐츠 카드: 이 스타의 최근 게시물 2건 (AdSense Thin Content 대응)
-					addRelatedPosts(model, id, null, baseUrl);
+					// 🌟 관련 콘텐츠 카드: 이 스타의 최근 게시물 (AdSense Thin Content 대응)
+					int approvedPostCount = addRelatedPosts(model, id, null, baseUrl);
+					// 🌟 웹 품질 게이트: 승인 게시물이 없는 스타 페이지는 색인 제외.
+					// 판단 기준은 오직 "렌더되는 콘텐츠 유무"다 — UA(크롤러) 분기를 섞으면 클로킹 소지가 있어 금지.
+					if (approvedPostCount == 0) {
+						model.addAttribute("robotsNoindex", true);
+					}
 					view = "/common/content_landing";
 				}
 			}

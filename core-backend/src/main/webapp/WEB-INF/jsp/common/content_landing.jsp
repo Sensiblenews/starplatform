@@ -15,8 +15,9 @@
     <meta name="apple-itunes-app" content="app-id=1188195403">
     <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
 
-    <!-- 검색 색인 허용 + 대표 URL 명시 (AdSense/SEO 대응) -->
-    <meta name="robots" content="index, follow">
+    <!-- 검색 색인 허용 + 대표 URL 명시 (AdSense/SEO 대응).
+         승인 게시물이 없는 스타 페이지는 빈약 콘텐츠라 색인에서 제외한다 (콘텐츠 유무 기준, UA 분기 아님) -->
+    <meta name="robots" content="${robotsNoindex ? 'noindex, follow' : 'index, follow'}">
     <c:if test="${not empty canonicalUrl}">
         <link rel="canonical" href="${canonicalUrl}">
     </c:if>
