@@ -654,9 +654,74 @@
         </if>
     </update>
 
+    <!-- ==========================================
+         🌟 [신규] 스타 소개(Bio) 관리 (2-27차)
+         웹 랜딩 About 섹션에 노출할 스타별 고유 소개문을 어드민이 입력한다.
+         구조는 카테고리 분류 화면과 동일 (SM 전체 / LC 자국)
+         ========================================== -->
+
+    <select id="selectStarBioList" parameterType="map" resultType="map">
+        SELECT
+            PRS_ID, PRS_NAME, PRS_COUNTRY,
+            IFNULL(FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+            PRS_BIO,
+            EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = A.PRS_ID AND M.MDR_STATUS = 'APPROVED') AS HAS_CONTENT
+        FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        <if test="filterBio == 'EMPTY'">
+            AND (PRS_BIO IS NULL OR PRS_BIO = '')
+        </if>
+        <if test="filterBio == 'FILLED'">
+            AND PRS_BIO IS NOT NULL AND PRS_BIO != ''
+        </if>
+        <!-- 웹에 실제 노출되는(승인 글 보유) 스타 중 미작성이 앞에 오도록 -->
+        ORDER BY HAS_CONTENT DESC, (PRS_BIO IS NULL OR PRS_BIO = '') DESC, FOLLOWER_CNT DESC, PRS_CREATE_DATE DESC
+        <if test="start != null and length != null">
+            LIMIT #{start}, #{length}
+        </if>
+    </select>
+
+    <select id="selectStarBioListCount" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+        FROM WH_PRESS A
+        WHERE PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+            AND PRS_COUNTRY = #{country}
+        </if>
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (PRS_NAME LIKE CONCAT('%', #{searchKeyword}, '%') OR PRS_ID LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        <if test="filterBio == 'EMPTY'">
+            AND (PRS_BIO IS NULL OR PRS_BIO = '')
+        </if>
+        <if test="filterBio == 'FILLED'">
+            AND PRS_BIO IS NOT NULL AND PRS_BIO != ''
+        </if>
+    </select>
+
+    <update id="updateStarBio" parameterType="map">
+        UPDATE WH_PRESS
+        SET PRS_BIO = #{bio},
+            PRS_UPDATE_DATE = CURRENT_TIMESTAMP
+        WHERE PRS_ID = #{prsId}
+          AND PRS_TYPE = '4' AND PRS_AUTH = 'ST'
+        <if test="country != null and country != ''">
+          AND PRS_COUNTRY = #{country}
+        </if>
+    </update>
+
 	<!-- ===== 이미지 검수 화면 (2-26차) =====
 	     회원 콘텐츠와 스타 피드를 한 목록으로 합쳐 오래된 대기 건부터 보여준다.
-	     이미지가 아직 공개 디렉터리에 없으므로 미리보기는 관리자 전용 스트리밍으로 내보낸다. -->
+	     이미지가 아직 공개 디렉터리에 없으므로 미리보기는 관리자 전용 스트리밍으로 내보낸다.
+
+	     작성자 이름은 이 파일의 다른 쿼리와 마찬가지로 WH_PRESS에서 가져온다.
+	     content.xml·admin.xml은 WH_MEMBER를 쓰지만 그 테이블은 운영 DB에 없다. -->
 	<select id="selectModerationQueue" parameterType="map" resultType="map">
 		SELECT * FROM (
 			SELECT
@@ -666,10 +731,11 @@
 				C.CON_BODY  AS BODY,
 				C.CON_THUMNAIL AS IMAGE_URL,
 				C.MDR_STATUS,
+				DATE_FORMAT(C.CON_CREATE_DATE, '%Y-%m-%d %H:%i') AS CREATED_TEXT,
 				C.CON_CREATE_DATE AS CREATED_DATE,
-				IFNULL(M.MEM_NAME, C.PRS_ID) AS WRITER
+				IFNULL(P.PRS_NAME, C.PRS_ID) AS WRITER
 			FROM WH_CONTENT C
-			LEFT JOIN WH_MEMBER M ON C.PRS_ID = M.MEM_ID
+			LEFT JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
 			WHERE C.MDR_STATUS = #{status}
 
 			UNION ALL
@@ -681,6 +747,7 @@
 				S.CON_BODY AS BODY,
 				D.MEDIA_URL AS IMAGE_URL,
 				S.MDR_STATUS,
+				DATE_FORMAT(S.CREATED_DATE, '%Y-%m-%d %H:%i') AS CREATED_TEXT,
 				S.CREATED_DATE,
 				IFNULL(P.PRS_NAME, S.PRS_ID) AS WRITER
 			FROM WH_STAR_CONTENT S
@@ -702,8 +769,10 @@
 		  + (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'REJECTED') AS REJECTED_CNT,
 			(SELECT COUNT(*) FROM WH_CONTENT      WHERE MDR_STATUS = 'HIDDEN')
 		  + (SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'HIDDEN')  AS HIDDEN_CNT,
-			(SELECT MIN(CON_CREATE_DATE) FROM WH_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_MEMBER,
-			(SELECT MIN(CREATED_DATE) FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_STAR
+			(SELECT DATE_FORMAT(MIN(CON_CREATE_DATE), '%Y-%m-%d %H:%i')
+			   FROM WH_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_MEMBER,
+			(SELECT DATE_FORMAT(MIN(CREATED_DATE), '%Y-%m-%d %H:%i')
+			   FROM WH_STAR_CONTENT WHERE MDR_STATUS = 'PENDING') AS OLDEST_STAR
 	</select>
 
 	<!-- 처리 대상 1건 조회 (파일명·현재 상태 확인용) -->

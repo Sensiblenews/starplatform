@@ -318,11 +318,17 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * 스타 상세 + 피드 첫 페이지를 불러온다.
-   * 데이터가 이미 있는 상태에서 다시 부르면 화면을 지우지 않고 조용히 갈아끼운다.
+   *
+   * 호출부는 전부 사용자가 명시적으로 일으킨 동작이다(첫 진입, 당겨서 새로고침,
+   * 글 작성·삭제, 프로필 수정). 그래서 목록을 병합하지 않고 새로 만든다 —
+   * 사용자가 최신 상태를 요구한 것이므로 이전 항목을 살려둘 이유가 없다.
+   *
+   * 병합은 복귀 시 조용한 갱신(refreshInBackground)에서만 쓴다. 그쪽은 화면이
+   * 그대로 떠 있는 상태라 이미지가 다시 로딩되면 깜빡임으로 보이기 때문이다.
    */
   loadStarDetail() {
     this.perf.mark('star:api-request');
-    const isFirstLoad = this.isLoadingStar;
+    this.resetFeedPaging();
 
     this.http.post(`/api/super/star/${this.starId}`, {
       deviceId: this.deviceId,
@@ -347,8 +353,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.hasMoreFeeds = photos.length >= StarPagePage.FEED_PAGE_SIZE;
       this.resetInfiniteScroll();
 
-      // 첫 로드가 아니면 기존 항목 객체를 재사용해 이미지 재로딩과 스크롤 튐을 막는다
-      this.feedList = this.mergeFeed(photos, isFirstLoad);
+      this.feedList = this.mergeFeed(photos, true, StarPagePage.FEED_PAGE_SIZE);
       this.insertAdSlots();
 
       // 미디어가 하나도 없으면 onMediaLoaded가 오지 않으므로 여기서 구간을 닫는다
@@ -391,7 +396,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.applyStarInfo(res.starInfo);
 
       const photos = res.starInfo.photos || [];
-      this.feedList = this.mergeFeed(photos, false);
+      this.feedList = this.mergeFeed(photos, false, limit);
       this.insertAdSlots();
 
       // 보존한 뒤쪽까지 포함한 실제 길이로 다음 페이지 위치를 다시 잡는다
@@ -479,7 +484,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     // 단 작성자 본인에게는 단기 접근 토큰이 함께 내려오므로 그것으로 원본을 불러온다(2-26차)
     const isPending = item.MDR_STATUS === 'PENDING';
     item.pendingImageUrl = (isPending && item.pendingImageToken)
-      ? `${environment.apiBaseURL}/api/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
+      ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
       : null;
 
     // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다
@@ -513,11 +518,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
    * 배열을 통째로 갈아끼우면 trackBy가 같은 키를 봐도 항목 객체가 달라져
    * isLoaded가 false로 돌아가고, 이미지가 다시 페이드인하면서 깜빡임으로 보인다(2-26차).
    */
-  private mergeFeed(incoming: any[], isFirstLoad: boolean): any[] {
-    if (isFirstLoad || this.feedList.length === 0) {
-      return incoming.map((item: any) => this.prepareFeedItem(item));
-    }
-
+  private mergeFeed(incoming: any[], rebuild: boolean, requestedLimit: number): any[] {
     // 광고 슬롯은 병합 대상이 아니다. insertAdSlots()가 뒤에서 다시 꽂는다
     const previous = this.feedList.filter((item: any) => !item.isAd);
 
@@ -527,6 +528,21 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         existing.set(String(item.CON_ID), item);
       }
     });
+
+    // rebuild면 서버가 준 그대로 새로 만든다. 단 isLoaded만은 넘겨받는다 —
+    // 그건 서버 상태가 아니라 "이 주소의 이미지가 이미 화면에 그려져 있다"는 DOM 상태다.
+    // trackBy가 같은 키를 보고 DOM을 유지하는데 src까지 같으면 브라우저가 다시
+    // 불러오지 않아 load 이벤트가 오지 않는다. 그대로 두면 스피너가 영원히 돈다.
+    if (rebuild || this.feedList.length === 0) {
+      return incoming.map((raw: any) => {
+        const prepared = this.prepareFeedItem(raw);
+        const old = existing.get(String(raw.CON_ID));
+        if (old && old.isLoaded && this.mediaKeyOf(old) === this.mediaKeyOf(prepared)) {
+          prepared.isLoaded = true;
+        }
+        return prepared;
+      });
+    }
 
     const merged = incoming.map((raw: any) => {
       const prepared = this.prepareFeedItem(raw);
@@ -541,14 +557,32 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       return old;
     });
 
-    // 이번에 다시 받은 범위 밖(뒤쪽)의 항목은 갱신 대상이 아니므로 그대로 남긴다.
-    // 무한 스크롤로 100건을 보고 있다가 복귀했을 때 목록이 앞부분만 남고 잘리는 것을 막는다.
+    // 요청한 만큼 꽉 채워 왔을 때만 "그 뒤로 더 있다"고 볼 수 있다.
+    // 덜 왔다면 서버가 가진 전부라는 뜻이므로, 목록에 없는 항목은 삭제된 것이다.
+    //
+    // 이 구분이 없으면 글을 지웠을 때 incoming이 한 건 짧아지는 것을
+    // "갱신 범위 밖"으로 오인해 방금 지운 글을 도로 살려낸다.
+    if (incoming.length < requestedLimit) {
+      return merged;
+    }
+
+    // 무한 스크롤로 더 내려받은 뒤쪽은 이번 갱신 대상이 아니므로 그대로 남긴다
     const incomingKeys = new Set(incoming.map((raw: any) => String(raw.CON_ID)));
     const tail = previous
       .slice(incoming.length)
       .filter((item: any) => !incomingKeys.has(String(item.CON_ID)));
 
     return merged.concat(tail);
+  }
+
+  /**
+   * 지금 그려질 미디어 주소를 한 문자열로 묶는다.
+   * 이 값이 그대로면 img/video의 src도 그대로라 브라우저가 다시 불러오지 않는다.
+   */
+  private mediaKeyOf(item: any): string {
+    return [item && item.image, item && item.pendingImageUrl, item && item.MEDIA_URL]
+      .map(v => v || '')
+      .join('|');
   }
 
   /** 피드 항목 추적 키. 광고 슬롯과 콘텐츠를 접두어로 구분한다 */

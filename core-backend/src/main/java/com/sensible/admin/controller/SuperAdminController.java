@@ -1931,4 +1931,90 @@ public class SuperAdminController {
         }
         return result;
     }
+
+    // ==========================================
+    // 🌟 [신규] 스타 소개(Bio) 관리 (2-27차, SM 전체 / LC 자국)
+    // 웹 랜딩(/star/{id}) About 섹션에 노출할 소개문을 입력한다
+    // ==========================================
+
+    /**
+     * [화면] 스타 소개문 관리 목록
+     */
+    @RequestMapping(value = "/super/star/bio.do")
+    public String starBioList(HttpServletRequest request,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(value = "searchKeyword", required = false, defaultValue = "") String searchKeyword,
+            @RequestParam(value = "filterBio", required = false, defaultValue = "") String filterBio,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            searchKeyword = decodeGetParameter(searchKeyword);
+        }
+
+        String filterCountry = getFilterCountry(user);
+
+        int length = 30;
+        int start = (page - 1) * length;
+        if (start < 0) start = 0;
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("country", filterCountry);
+        params.put("searchKeyword", searchKeyword.trim());
+        params.put("filterBio", filterBio.trim());
+        params.put("start", start);
+        params.put("length", length);
+
+        int totalCount = superAdminService.getStarBioListCount(params);
+        List<Map<String, Object>> starList = superAdminService.getStarBioList(params);
+
+        int totalPages = (int) Math.ceil((double) totalCount / length);
+        if (totalPages == 0) totalPages = 1;
+
+        int startPage = Math.max(1, page - 4);
+        int endPage = Math.min(totalPages, startPage + 9);
+        if (endPage - startPage < 9) {
+            startPage = Math.max(1, endPage - 9);
+        }
+
+        model.addAttribute("starList", starList);
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
+        model.addAttribute("searchKeyword", searchKeyword);
+        model.addAttribute("filterBio", filterBio);
+        model.addAttribute("bioMaxLength", SuperAdminService.STAR_BIO_MAX_LENGTH);
+        model.addAttribute("activeMenu", "star_bio");
+        return "super/star_bio";
+    }
+
+    /**
+     * [API] 스타 소개문 저장 (LC는 자국 스타만 — 매퍼의 country 조건으로 방어)
+     */
+    @RequestMapping(value = "/super/star/updateBio.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateStarBio(HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null) {
+            result.put("status", "fail");
+            result.put("msg", "로그인 필요");
+            return result;
+        }
+        try {
+            params.put("country", getFilterCountry(user));
+            superAdminService.updateStarBio(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
 }

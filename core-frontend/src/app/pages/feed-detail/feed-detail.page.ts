@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpService } from '../../services/http.service';
+import { environment } from 'src/environments/environment';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
@@ -42,7 +43,10 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   }
 
   loadFeedDetail() {
-    this.http.post(`/api/super/feed/${this.conId}`, {}).subscribe((res: any) => {
+    // 작성자 본인이면 검수 대기 이미지 접근 토큰을 받기 위해 starToken을 함께 보낸다(2-26차)
+    this.http.post(`/api/super/feed/${this.conId}`, {
+      starToken: localStorage.getItem('starToken') || ''
+    }).subscribe((res: any) => {
       if (res.result === 'OK') {
         this.contentInfo = res.content;
         this.safeContentHtml = this.sanitizer.bypassSecurityTrustHtml(
@@ -55,11 +59,22 @@ export class FeedDetailPage implements OnInit, OnDestroy {
         }
         
         // [핵심] 받아온 미디어 리스트를 순회하며, 비디오일 경우 초기 음소거 상태(true)를 넣어줍니다.
+        // 검수 대기 글은 서버가 미디어 주소를 주지 않는다. 작성자 본인에게만
+        // 단기 접근 토큰이 내려오므로 그것으로 원본을 그린다(2-26차)
+        const pendingToken = res.pendingImageToken || null;
         const rawMedias = res.medias || [];
         this.mediaList = rawMedias.map((media: any) => {
             if (media.MEDIA_TYPE === 'VIDEO') {
                 media.isMuted = true; // 기본 음소거 상태 추가
             }
+
+            const isPending = media.MDR_STATUS === 'PENDING';
+            media.isPendingOwn = isPending && media.MEDIA_TYPE === 'PHOTO' && !!pendingToken;
+            media.displayUrl = media.MEDIA_URL
+              || (media.isPendingOwn
+                  ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(pendingToken)}`
+                  : null);
+            media.isUnderReview = isPending && !media.displayUrl;
             return media;
         });
         
@@ -99,9 +114,10 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     return this.mediaList.filter(m => m.MEDIA_TYPE === 'PHOTO');
   }
 
-  // 🎥 [신규] 동영상 목록만 필터링 (2순위)
+  // 🎥 [신규] 동영상 목록만 필터링 (2순위).
+  // 검수 대기 글의 동영상은 주소가 가려져 재생할 수 없으므로 목록에서 뺀다
   getVideoList(): any[] {
-    return this.mediaList.filter(m => m.MEDIA_TYPE === 'VIDEO');
+    return this.mediaList.filter(m => m.MEDIA_TYPE === 'VIDEO' && m.MEDIA_URL);
   }
 
   // 🎬 YouTube URL을 embed URL로 변환

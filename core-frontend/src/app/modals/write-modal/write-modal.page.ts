@@ -195,12 +195,7 @@ export class WriteModalPage {
         content: {},
       });
 
-      // 이미지를 붙인 글은 검수를 거친 뒤에야 다른 사용자에게 보인다 (작성자 본인에게는 즉시 보인다)
-      if (CON_THUMNAIL && this.type !== 'update') {
-        this.helper.toast('Your post is under review. Others will see it once approved.', 'middle');
-      } else {
-        this.helper.toast(`게시글이 ${resultMsg} 되었습니다!`, 'middle');
-      }
+      this.helper.toast(`게시글이 ${resultMsg} 되었습니다!`, 'middle');
 
       try{
         await this.admob.showInterstitial();

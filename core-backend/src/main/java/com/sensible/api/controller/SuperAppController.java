@@ -70,8 +70,13 @@ public class SuperAppController {
 	 * &lt;img src&gt;는 인증 헤더를 붙일 수 없으므로 목록 응답에 실어 보낸 단기 서명 토큰으로 판정한다.
 	 * 서명이 유효해도 서비스가 현재 상태를 다시 확인하므로, 관리자가 거절한 순간부터는
 	 * 이미 발급된 토큰도 통하지 않는다. 응답은 캐시하지 않는다.
+	 *
+	 * 경로가 /api/super/ 아래인 이유: witch-servlet.xml의 InterceptorAppAPI·InterceptorAPI가
+	 * /api/**에 걸려 app_authorization 헤더를 요구하는데, 브라우저가 직접 보내는 이미지 요청에는
+	 * 헤더를 붙일 수 없어 403이 된다. 두 인터셉터 모두 /api/super/**를 제외하고 있고
+	 * 앱이 쓰는 다른 API도 전부 그 아래에 있다.
 	 */
-	@RequestMapping(value = "/api/media/pending", method = RequestMethod.GET)
+	@RequestMapping(value = "/api/super/media/pending", method = RequestMethod.GET)
 	public void getPendingMedia(@RequestParam("t") String token, HttpServletResponse response) throws Exception {
 		MediaAccessService.Grant grant = mediaAccessService.verify(token);
 		if (grant == null) {

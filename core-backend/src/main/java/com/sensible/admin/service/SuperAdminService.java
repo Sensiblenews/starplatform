@@ -643,4 +643,31 @@ public class SuperAdminService {
         }
         dao.update("super.updateStarCategory", params);
     }
+
+    // ==========================================
+    // 🌟 [신규] 스타 소개(Bio) 관리 (2-27차)
+    // ==========================================
+
+    /** 웹 랜딩 About 섹션용 소개문 입력 대상 스타 목록 */
+    public List<Map<String, Object>> getStarBioList(Map<String, Object> params) throws Exception {
+        return dao.selectList("super.selectStarBioList", params);
+    }
+
+    public int getStarBioListCount(Map<String, Object> params) throws Exception {
+        return dao.selectOne("super.selectStarBioListCount", params);
+    }
+
+    /** 소개문 길이 상한. 랜딩 페이지 레이아웃과 입력 남용을 함께 막는다 */
+    public static final int STAR_BIO_MAX_LENGTH = 2000;
+
+    // 소개문 저장. country는 LC 권한 스코프 방어용 (SM이면 null)
+    public void updateStarBio(Map<String, Object> params) throws Exception {
+        Object bioObj = params.get("bio");
+        String bio = bioObj != null ? String.valueOf(bioObj).trim() : "";
+        if (bio.length() > STAR_BIO_MAX_LENGTH) {
+            throw new Exception("소개문은 " + STAR_BIO_MAX_LENGTH + "자를 넘을 수 없습니다.");
+        }
+        params.put("bio", bio);
+        dao.update("super.updateStarBio", params);
+    }
 }

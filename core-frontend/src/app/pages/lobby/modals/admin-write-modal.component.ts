@@ -218,8 +218,7 @@ export class AdminWriteModalComponent implements OnInit {
 
     // 1. 백그라운드 업로드 시작 (컴포넌트가 사라져도 브라우저가 네트워크 작업을 진행함).
     //    ToastController는 앱 전역 서비스라 모달이 닫힌 뒤에도 결과를 띄울 수 있다.
-    const hasImage = !!this.imagePreview;
-
+    //    검수 안내 토스트는 클라이언트 요청으로 표시하지 않는다. 실패 안내만 남긴다.
     this.http.post(targetUrl, payload).subscribe({
       next: (res: any) => {
         console.log('[Background Upload] Success:', res);
@@ -227,10 +226,6 @@ export class AdminWriteModalComponent implements OnInit {
           console.error('[Background Upload] Server error:', res.msg);
           // 이미지 검증에서 거부되면 글이 저장되지 않는다. 조용히 사라지면 안 된다(2-26차)
           this.showToast(res.msg || 'Upload failed. Please try again.', 'danger');
-          return;
-        }
-        if (hasImage) {
-          this.showToast('Your post is under review. Others will see it once approved.', 'medium');
         }
       },
       error: (err) => {

@@ -50,7 +50,7 @@ export class ModeratedImageComponent {
     }
     // 작성자 본인에게만 토큰이 내려온다. 서버가 매 요청마다 상태를 다시 확인한다
     if (this.status === 'PENDING' && this.pendingToken) {
-      return `${environment.apiBaseURL}/api/media/pending?t=${encodeURIComponent(this.pendingToken)}`;
+      return `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(this.pendingToken)}`;
     }
     return null;
   }

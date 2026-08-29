@@ -160,3 +160,22 @@ ion-back-button {
      마진을 이용해 시각적인 위치는 원래대로(왼쪽으로) 살짝 당겨줍니다. */
   margin-left: -10px;
 }
+// 검수 대기 표시 (2-26차) — 스타 페이지의 규격을 따른다
+.media-item {
+  position: relative;
+
+  .review-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+    background-color: #f1f3f5;
+    color: #868e96;
+
+    ion-icon { font-size: 40px; margin-bottom: 10px; }
+    .review-title { margin: 0; font-size: 15px; font-weight: 600; color: #495057; }
+    .review-desc { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
+  }
+}

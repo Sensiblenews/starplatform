@@ -14,7 +14,17 @@
   <div class="media-stack">
     <!-- 🖼️ 1순위: 이미지들 -->
     <div class="media-item" *ngFor="let media of getPhotoList()">
-      <img [src]="media.MEDIA_URL" (error)="handleImgError($event)" />
+      <!-- 승인 전에는 주소가 없다. 작성자 본인은 토큰 주소로 보고, 타인은 안내를 본다(2-26차) -->
+      <ng-container *ngIf="media.displayUrl; else underReview">
+        <img [src]="media.displayUrl" (error)="handleImgError($event)" />
+      </ng-container>
+      <ng-template #underReview>
+        <div class="review-box">
+          <ion-icon name="eye-off-outline"></ion-icon>
+          <p class="review-title">Under review</p>
+          <p class="review-desc">This photo is visible only to its author until approved.</p>
+        </div>
+      </ng-template>
     </div>
 
     <!-- 🎥 2순위: 동영상들 -->

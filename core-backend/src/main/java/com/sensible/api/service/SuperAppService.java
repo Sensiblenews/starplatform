@@ -422,6 +422,17 @@ public class SuperAppService {
 
 		if (content != null) {
 			List<Map<String, Object>> medias = dao.selectList("superapp.selectContentMedias", map);
+
+			// 검수 대기 글이면 작성자 본인에게만 이미지 접근 토큰을 붙인다(2-26차).
+			// 미디어 주소는 SQL에서 이미 가려져 있으므로, 토큰이 없으면 앱이 "검토 중"을 그린다.
+			if ("PENDING".equals(String.valueOf(content.get("MDR_STATUS")))
+					&& isStarOwner(String.valueOf(content.get("PRS_ID")), map.get("starToken"))) {
+				String token = mediaAccessService.issueToken("STAR_FEED", conIdStr);
+				if (token != null) {
+					resultMap.put("pendingImageToken", token);
+				}
+			}
+
 			resultMap.put("content", content);
 			resultMap.put("medias", medias);
 			resultMap.put("result", "OK");
@@ -1618,6 +1629,22 @@ public class SuperAppService {
 		try {
 			return dao.selectList("superapp.selectHomeTopStars", new HashMap<>());
 		} catch (Exception e) {
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 🌟 [신규 2-27차] 스타 랜딩 Related Stars 카드용: 승인 게시물 보유 스타 최대 6명 (같은 카테고리 우선)
+	 */
+	public List<Map<String, Object>> getRelatedStars(String starId, String category) {
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("starId", starId);
+			params.put("category", category);
+			return dao.selectList("superapp.selectRelatedStars", params);
+		} catch (Exception e) {
+			// 관련 스타는 부가 요소이므로 조회 실패 시 랜딩 렌더링을 막지 않는다
 			e.printStackTrace();
 			return new ArrayList<>();
 		}

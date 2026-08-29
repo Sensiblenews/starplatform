@@ -317,6 +317,8 @@
 	        P.PRS_NAME as name,
 	        P.STORED_FILE_NM as image,
 	        P.STATUS_MSG as status,
+	        P.PRS_BIO,
+	        P.STAR_CATEGORY,
 	        P.PRS_HOMEPAGE as homepage,
 	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
 	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
@@ -474,7 +476,9 @@
 		LIMIT 8
 	</select>
 
-	<!-- [신규] 루트 허브 페이지용: 팔로워순 상위 스타 목록 -->
+	<!-- [신규] 루트 허브 페이지용: 팔로워순 상위 스타 목록.
+	     웹 품질 게이트 — 승인 게시물이 없는 빈 스타 페이지로 내부 링크를 걸면
+	     허브가 빈약 콘텐츠 입구가 되므로 승인 글 보유 스타만 노출한다 -->
 	<select id="selectHomeTopStars" parameterType="map" resultType="map">
 		SELECT
 			P.PRS_ID,
@@ -483,6 +487,7 @@
 			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT
 		FROM WH_PRESS P
 		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
 		ORDER BY FOLLOWER_CNT DESC, P.PRS_NAME ASC
 		LIMIT 10
 	</select>
@@ -494,16 +499,18 @@
 		SELECT P.PRS_ID
 		FROM WH_PRESS P
 		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
-		  AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID)
+		  AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
 		ORDER BY P.PRS_ID
 		LIMIT 10000
 	</select>
 
-	<!-- [신규] sitemap.xml용: 활성 스타의 게시물 전체 (CREATED_DATE는 lastmod 표기용) -->
+	<!-- [신규] sitemap.xml용: 활성 스타의 게시물 전체 (CREATED_DATE는 lastmod 표기용).
+	     승인된 글만 — 미승인 글은 렌더 목록에도 없으므로 사이트맵과 실제 노출을 일치시킨다 -->
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
 		SELECT M.CON_ID, M.CREATED_DATE
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		WHERE M.MDR_STATUS = 'APPROVED'
 		ORDER BY M.CON_ID
 		LIMIT 39000
 	</select>
@@ -529,6 +536,27 @@
 		LIMIT 20
 	</select>
 
+	<!-- [신규 2-27차] 스타 랜딩 하단 Related Stars 카드용.
+	     웹 품질 게이트와 동일하게 승인 게시물 보유 스타만 — 빈 페이지로 내부 링크를 만들지 않는다.
+	     같은 카테고리를 우선하되 부족하면 팔로워순으로 채운다 -->
+	<select id="selectRelatedStars" parameterType="map" resultType="map">
+		SELECT
+			P.PRS_ID,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		AND P.PRS_ID != #{starId}
+		AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
+		ORDER BY
+		<if test="category != null and category != '' and category != 'GENERAL'">
+			(IFNULL(P.STAR_CATEGORY, 'GENERAL') = #{category}) DESC,
+		</if>
+			FOLLOWER_CNT DESC, P.PRS_ID ASC
+		LIMIT 6
+	</select>
+
 	<select id="selectContentDetail" parameterType="map" resultType="map">
 		SELECT
 			A.CON_ID,
@@ -539,6 +567,7 @@
 			A.PRS_ID,
 			B.PRS_NAME,
 			B.STORED_FILE_NM,
+			IFNULL(B.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
 			A.MDR_STATUS,
 			'STAR' AS FEED_TYPE,
 			

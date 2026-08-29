@@ -1,6 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -22,6 +21,34 @@
                         background: #e9ecef; cursor: zoom-in; }
         .text-truncate-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .waiting-long { color: #d63384; font-weight: 600; }
+
+        /* 부트스트랩 기본 nav-link 색이 흰 배경에서 거의 안 보여 대비를 올린다 */
+        .nav-pills .nav-link {
+            color: #343a40;
+            font-weight: 600;
+            background-color: #e9ecef;
+            margin-right: 6px;
+        }
+        .nav-pills .nav-link:hover {
+            background-color: #dee2e6;
+            color: #000;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+        /* 탭별 건수 뱃지 */
+        .nav-pills .nav-link .tab-count {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 0 7px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.12);
+            font-size: 12px;
+        }
+        .nav-pills .nav-link.active .tab-count {
+            background: rgba(255, 255, 255, 0.28);
+        }
     </style>
 </head>
 <body>
@@ -78,15 +105,18 @@
         <ul class="nav nav-pills mb-3">
             <li class="nav-item">
                 <a class="nav-link ${status eq 'PENDING' ? 'active' : ''}"
-                   href="/super/moderation/list.do?status=PENDING">검수 대기</a>
+                   href="/super/moderation/list.do?status=PENDING">검수 대기
+                   <span class="tab-count">${counts.PENDING_CNT}</span></a>
             </li>
             <li class="nav-item">
                 <a class="nav-link ${status eq 'REJECTED' ? 'active' : ''}"
-                   href="/super/moderation/list.do?status=REJECTED">검수 거절</a>
+                   href="/super/moderation/list.do?status=REJECTED">검수 거절
+                   <span class="tab-count">${counts.REJECTED_CNT}</span></a>
             </li>
             <li class="nav-item">
                 <a class="nav-link ${status eq 'HIDDEN' ? 'active' : ''}"
-                   href="/super/moderation/list.do?status=HIDDEN">신고 블라인드</a>
+                   href="/super/moderation/list.do?status=HIDDEN">신고 블라인드
+                   <span class="tab-count">${counts.HIDDEN_CNT}</span></a>
             </li>
             <li class="nav-item">
                 <a class="nav-link ${status eq 'APPROVED' ? 'active' : ''}"
@@ -142,7 +172,10 @@
                             <td class="text-truncate"><c:out value="${q.WRITER}" /></td>
                             <td class="text-truncate-3 small"><c:out value="${q.BODY}" /></td>
                             <td class="small text-muted">
-                                <fmt:formatDate value="${q.CREATED_DATE}" pattern="yyyy-MM-dd HH:mm" />
+                                <%-- 날짜는 SQL에서 문자열로 만들어 온다.
+                                     fmt:formatDate는 값이 java.util.Date가 아니면 예외를 던지는데,
+                                     이 저장소는 날짜 컬럼 타입이 화면마다 제각각이다 --%>
+                                <c:out value="${q.CREATED_TEXT}" />
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
