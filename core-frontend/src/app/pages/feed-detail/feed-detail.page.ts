@@ -21,6 +21,9 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   safeYoutubeUrl: SafeResourceUrl | null = null;
   safeContentHtml: SafeHtml | null = null;
 
+  // 검수 대기 글을 타인이 딥링크로 열면 서버가 FAIL을 준다(2-27차). 빈 화면 대신 안내를 띄운다
+  notFound = false;
+
   private paramSub: any;
 
   constructor(
@@ -47,40 +50,44 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     this.http.post(`/api/super/feed/${this.conId}`, {
       starToken: localStorage.getItem('starToken') || ''
     }).subscribe((res: any) => {
-      if (res.result === 'OK') {
-        this.contentInfo = res.content;
-        this.safeContentHtml = this.sanitizer.bypassSecurityTrustHtml(
-          this.linkifyContent(this.contentInfo?.CON_BODY || '')
-        );
-
-        if (this.contentInfo.YOUTUBE_URL) {
-           const embedUrl = this.convertToYoutubeEmbedUrl(this.contentInfo.YOUTUBE_URL);
-           this.safeYoutubeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
-        }
-        
-        // [핵심] 받아온 미디어 리스트를 순회하며, 비디오일 경우 초기 음소거 상태(true)를 넣어줍니다.
-        // 검수 대기 글은 서버가 미디어 주소를 주지 않는다. 작성자 본인에게만
-        // 단기 접근 토큰이 내려오므로 그것으로 원본을 그린다(2-26차)
-        const pendingToken = res.pendingImageToken || null;
-        const rawMedias = res.medias || [];
-        this.mediaList = rawMedias.map((media: any) => {
-            if (media.MEDIA_TYPE === 'VIDEO') {
-                media.isMuted = true; // 기본 음소거 상태 추가
-            }
-
-            const isPending = media.MDR_STATUS === 'PENDING';
-            media.isPendingOwn = isPending && media.MEDIA_TYPE === 'PHOTO' && !!pendingToken;
-            media.displayUrl = media.MEDIA_URL
-              || (media.isPendingOwn
-                  ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(pendingToken)}`
-                  : null);
-            media.isUnderReview = isPending && !media.displayUrl;
-            return media;
-        });
-        
-        if (res.content.PRS_NAME) this.starName = res.content.PRS_NAME;
-        if (res.content.STORED_FILE_NM) this.starProfileImg = res.content.STORED_FILE_NM;
+      if (res.result !== 'OK') {
+        this.notFound = true;
+        return;
       }
+      this.notFound = false;
+      this.contentInfo = res.content;
+      this.safeContentHtml = this.sanitizer.bypassSecurityTrustHtml(
+        this.linkifyContent(this.contentInfo?.CON_BODY || '')
+      );
+
+      if (this.contentInfo.YOUTUBE_URL) {
+         const embedUrl = this.convertToYoutubeEmbedUrl(this.contentInfo.YOUTUBE_URL);
+         this.safeYoutubeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
+      }
+
+      // [핵심] 받아온 미디어 리스트를 순회하며, 비디오일 경우 초기 음소거 상태(true)를 넣어줍니다.
+      // 검수 대기 글은 서버가 미디어 주소를 주지 않는다. 작성자 본인에게만
+      // 단기 접근 토큰이 내려오므로 그것으로 원본을 그린다(2-26차)
+      const pendingToken = res.pendingImageToken || null;
+      const rawMedias = res.medias || [];
+      this.mediaList = rawMedias.map((media: any) => {
+          if (media.MEDIA_TYPE === 'VIDEO') {
+              media.isMuted = true; // 기본 음소거 상태 추가
+          }
+
+          const isPending = media.MDR_STATUS === 'PENDING';
+          media.isPendingOwn = isPending && media.MEDIA_TYPE === 'PHOTO' && !!pendingToken;
+          media.displayUrl = media.MEDIA_URL
+            || (media.isPendingOwn
+                ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(pendingToken)}`
+                : null);
+          media.isUnderReview = isPending && !media.displayUrl;
+          return media;
+      });
+
+
+      if (res.content.PRS_NAME) this.starName = res.content.PRS_NAME;
+      if (res.content.STORED_FILE_NM) this.starProfileImg = res.content.STORED_FILE_NM;
     });
   }
 

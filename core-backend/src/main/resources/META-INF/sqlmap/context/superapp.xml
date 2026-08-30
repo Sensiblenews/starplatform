@@ -419,8 +419,12 @@
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 		LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID
 		WHERE M.PRS_ID = #{starId}
-		-- 거절·블라인드 글만 목록에서 뺀다. 검수 대기 글은 남기고 이미지 주소만 가린다(2-26차)
-		AND M.MDR_STATUS NOT IN ('REJECTED', 'HIDDEN')
+		-- 검수 대기 글은 작성자 본인에게만 보인다. 타인 화면에는 자리 자체를 만들지 않는다(2-27차)
+		AND (M.MDR_STATUS = 'APPROVED'
+		<if test="isOwner">
+			OR M.MDR_STATUS = 'PENDING'
+		</if>
+		)
 
 		UNION ALL
 
@@ -1307,11 +1311,18 @@
 
 	<update id="updateProfile" parameterType="map">
 	    UPDATE WH_PRESS
-	    SET 
-	        PRS_NAME = #{name}
+	    <!-- 온 항목만 갱신한다. 소개문(bio)만 고칠 때 이름이 NULL로 덮이지 않도록 전부 조건부(2-27차) -->
+	    <trim prefix="SET" prefixOverrides=",">
+		<if test="name != null and name != ''">
+	            , PRS_NAME = #{name}
+		</if>
 		<if test="profileImageUrl != null and profileImageUrl != ''">
 	            , STORED_FILE_NM = #{profileImageUrl}
 		</if>
+		<if test="bio != null">
+	            , PRS_BIO = #{bio}
+		</if>
+	    </trim>
 	    WHERE PRS_ID = #{starId}
 	</update>
 
@@ -1410,6 +1421,8 @@
 	    FROM WH_STAR_CONTENT C
 	    JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
 	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      -- 검색은 익명 노출면이므로 승인된 글만 (2-27차)
+	      AND C.MDR_STATUS = 'APPROVED'
 	      AND LOWER(C.CON_BODY) LIKE CONCAT('%', LOWER(#{query}), '%')
 	    ORDER BY C.CREATED_DATE DESC
 	    LIMIT #{limit} OFFSET #{offset}
@@ -1420,6 +1433,8 @@
 	    FROM WH_STAR_CONTENT C
 	    JOIN WH_PRESS P ON C.PRS_ID = P.PRS_ID
 	    WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	      -- 검색은 익명 노출면이므로 승인된 글만 (2-27차)
+	      AND C.MDR_STATUS = 'APPROVED'
 	      AND LOWER(C.CON_BODY) LIKE CONCAT('%', LOWER(#{query}), '%')
 	</select>
 

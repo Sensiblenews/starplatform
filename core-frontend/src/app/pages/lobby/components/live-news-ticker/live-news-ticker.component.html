@@ -1,0 +1,9 @@
+<div class="ticker-bar" (click)="onBarClick()">
+  <div class="live-badge">
+    <span class="live-dot"></span>
+    <span class="live-label">LIVE</span>
+  </div>
+  <div class="marquee-window" #marqueeWindow>
+    <span class="marquee-text" #marqueeText [class.urgent]="currentUrgent">{{ currentText }}</span>
+  </div>
+</div>

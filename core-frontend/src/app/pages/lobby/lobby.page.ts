@@ -17,6 +17,7 @@ import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
+import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { App } from '@capacitor/app';
@@ -132,6 +133,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 🌟 [신규] VS 배틀필드 (상단 캐러셀 + 카테고리 탭 + TOP100)
   // ==========================================
   @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
+  @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
   vsCards: VsCard[] = [];
   private vsPollIntervalId: any;
 
@@ -299,6 +301,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 VS 배틀필드: 폴링·자동 순환 재개 (백그라운드 트래픽/배터리 보호)
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
+    if (this.newsTicker) this.newsTicker.start();
 
     // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
     this.updateLobbyAd();
@@ -334,6 +337,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 VS 배틀필드: 폴링·자동 순환 정지
     this.stopVsPolling();
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
+    if (this.newsTicker) this.newsTicker.stop();
 
     if (this.backButtonSub) {
       this.backButtonSub.unsubscribe();
@@ -596,6 +600,12 @@ export class LobbyPage implements OnInit, OnDestroy {
         },
         error: () => { this.isLoadingTop100 = false; }
       });
+  }
+
+  // 뉴스 티커 터치 → 현재 진행 중인 VS 카드로 시선 이동 (2-27차)
+  onTickerFocus() {
+    const el = document.querySelector('app-vs-carousel');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   // VS 카드 중앙 클릭 → 해당 랭킹 탭으로 전환 후 TOP100 섹션으로 스크롤
@@ -1102,6 +1112,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.loadVsCards(); // VS 카드 즉시 갱신 (폴링 첫 틱은 3초 뒤)
           this.startVsPolling();
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
+          if (this.newsTicker) this.newsTicker.start();
         }
         this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
       } else {
@@ -1110,6 +1121,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         this.stopAutoShuffle();
         this.stopVsPolling();
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
+        if (this.newsTicker) this.newsTicker.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
       }
     });
