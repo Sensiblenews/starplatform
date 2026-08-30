@@ -1196,6 +1196,56 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     await alert.present();
   }
 
+  // 소개문 탭: 소유자는 편집, 방문자는 전문 보기 (헤더에는 1줄 말줄임만 보인다 — 2-28차)
+  onBioClick() {
+    if (this.isStar) {
+      this.editBio();
+    } else {
+      this.showFullBio();
+    }
+  }
+
+  // 🌟 [신규 2-28차] 방문자용 소개문 전문 보기
+  async showFullBio() {
+    const bio = this.starInfo?.PRS_BIO;
+    if (!bio) return;
+
+    const alert = await this.alertCtrl.create({
+      header: this.starInfo?.name || 'About',
+      message: bio,
+      buttons: [{ text: 'Close', role: 'cancel' }]
+    });
+    await alert.present();
+  }
+
+  // 🌟 [신규 2-27차] 소개문 수정 로직 — 어드민 입력(웹 랜딩 About)과 같은 컬럼(PRS_BIO)을 쓴다
+  async editBio() {
+    const alert = await this.alertCtrl.create({
+      header: 'Edit Bio',
+      message: 'Introduce yourself to your fans.',
+      inputs: [
+        {
+          name: 'newBio',
+          type: 'textarea',
+          value: this.starInfo?.PRS_BIO || '',
+          placeholder: 'Write a short introduction',
+          attributes: { maxlength: 2000, rows: 4 }
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Save',
+          handler: (data) => {
+            // 빈 값 저장 = 소개문 비우기 (서버가 trim 후 그대로 반영)
+            this.updateProfile({ bio: (data.newBio || '').trim() });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   // 🌟 [신규] 2. 프로필 사진 선택 및 확인 로직
   onFileSelected(event: any) {
     const file = event.target.files[0];
@@ -1230,13 +1280,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // 🌟 [신규] 3. 공통 프로필 업데이트 API 호출 로직
-  updateProfile(data: { name?: string, imageBase64?: string }) {
-    const payload = {
+  updateProfile(data: { name?: string, imageBase64?: string, bio?: string }) {
+    // 보낸 항목만 서버가 갱신한다. bio만 고칠 때 이름이 지워지지 않도록 undefined는 싣지 않는다(2-27차)
+    const payload: any = {
       starId: this.starId,
-      starToken: localStorage.getItem('starToken'),
-      name: data.name,
-      imageBase64: data.imageBase64
+      starToken: localStorage.getItem('starToken')
     };
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.imageBase64 !== undefined) payload.imageBase64 = data.imageBase64;
+    if (data.bio !== undefined) payload.bio = data.bio;
 
     // 로딩 인디케이터나 버튼 비활성화 처리를 해주면 더 좋습니다.
     this.http.post('/api/super/star/profile/update', payload).subscribe((res: any) => {

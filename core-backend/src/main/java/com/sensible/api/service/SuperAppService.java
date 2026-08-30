@@ -99,6 +99,8 @@ public class SuperAppService {
 			// 순위·조회수·전체 스타 수는 캐시된 순위표에서 채운다 (2-26차)
 			applyGlobalRank(starInfo, String.valueOf(map.get("starId")));
 
+			// 검수 대기 글은 작성자 본인 목록에만 포함된다. 타인에게는 자리 자체가 없다(2-27차)
+			map.put("isOwner", isOwner);
 			// 스타의 갤러리 이미지들 (WH_CONTENT 재사용)
 			List<Map<String, Object>> photos = dao.selectList("superapp.selectStarGallery", map);
 			// 작성자 본인에게는 검수 대기 이미지에 접근 토큰을 붙여준다
@@ -421,17 +423,23 @@ public class SuperAppService {
 		Map<String, Object> content = dao.selectOne("superapp.selectContentDetail", map);
 
 		if (content != null) {
-			List<Map<String, Object>> medias = dao.selectList("superapp.selectContentMedias", map);
-
-			// 검수 대기 글이면 작성자 본인에게만 이미지 접근 토큰을 붙인다(2-26차).
-			// 미디어 주소는 SQL에서 이미 가려져 있으므로, 토큰이 없으면 앱이 "검토 중"을 그린다.
-			if ("PENDING".equals(String.valueOf(content.get("MDR_STATUS")))
-					&& isStarOwner(String.valueOf(content.get("PRS_ID")), map.get("starToken"))) {
+			// 검수 대기 글은 작성자 본인만 열 수 있다(2-27차).
+			// 타인에게는 존재하지 않는 글과 동일하게 응답해 딥링크로도 확인할 수 없게 한다.
+			if ("PENDING".equals(String.valueOf(content.get("MDR_STATUS")))) {
+				if (!isStarOwner(String.valueOf(content.get("PRS_ID")), map.get("starToken"))) {
+					resultMap.put("result", "FAIL");
+					resultMap.put("msg", "This post has been deleted or does not exist.");
+					return resultMap;
+				}
+				// 본인에게는 검수 대기 이미지 접근 토큰을 붙인다(2-26차).
+				// 미디어 주소는 SQL에서 가려져 있으므로 토큰이 없으면 앱이 "검토 중"을 그린다.
 				String token = mediaAccessService.issueToken("STAR_FEED", conIdStr);
 				if (token != null) {
 					resultMap.put("pendingImageToken", token);
 				}
 			}
+
+			List<Map<String, Object>> medias = dao.selectList("superapp.selectContentMedias", map);
 
 			resultMap.put("content", content);
 			resultMap.put("medias", medias);
@@ -1528,7 +1536,18 @@ public class SuperAppService {
 	// SuperAppService.java 내부에 추가
 
 	/**
-	 * 스타 프로필 수정 (닉네임, 사진, 비밀번호)
+	 * 앱에서 온 소개문 파라미터 정규화.
+	 * null이면 "이번 요청은 소개문을 건드리지 않는다", 문자열이면 trim 결과(빈 문자열 = 비우기).
+	 */
+	public static String normalizeBio(Object raw) {
+		if (raw == null) {
+			return null;
+		}
+		return String.valueOf(raw).trim();
+	}
+
+	/**
+	 * 스타 프로필 수정 (닉네임, 사진, 소개문)
 	 */
 	public Map<String, Object> updateStarProfile(Map<String, Object> params) {
 		Map<String, Object> result = new HashMap<>();
@@ -1541,6 +1560,32 @@ public class SuperAppService {
 			if (!this.verifyStarToken(starId, starToken)) {
 				result.put("result", "FAIL");
 				result.put("msg", "인증 세션이 만료되었습니다.");
+				return result;
+			}
+
+			// 소개문(2-27차). 길이 상한은 어드민 입력 화면과 동일한 기준을 쓴다.
+			// 웹 랜딩 About 섹션에도 노출되는 값이므로 상한을 넘으면 저장하지 않는다.
+			String bio = normalizeBio(params.get("bio"));
+			if (bio != null && bio.length() > com.sensible.admin.service.SuperAdminService.STAR_BIO_MAX_LENGTH) {
+				result.put("result", "FAIL");
+				result.put("msg", "Bio must be "
+						+ com.sensible.admin.service.SuperAdminService.STAR_BIO_MAX_LENGTH + " characters or less.");
+				return result;
+			}
+			// JSON null이 매퍼 <if>에서 "비우기"로 오인되지 않도록 정규화 결과로 교체한다
+			if (bio != null) {
+				params.put("bio", bio);
+			} else {
+				params.remove("bio");
+			}
+
+			// 갱신할 항목이 하나도 없으면 UPDATE 자체가 성립하지 않는다
+			Object name = params.get("name");
+			boolean hasName = name instanceof String && !((String) name).trim().isEmpty();
+			boolean hasImage = imageBase64 != null && !imageBase64.isEmpty();
+			if (!hasName && !hasImage && bio == null) {
+				result.put("result", "FAIL");
+				result.put("msg", "Nothing to update.");
 				return result;
 			}
 

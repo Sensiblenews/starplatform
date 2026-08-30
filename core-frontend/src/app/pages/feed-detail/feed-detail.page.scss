@@ -179,3 +179,17 @@ ion-back-button {
     .review-desc { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
   }
 }
+
+// 삭제·접근 불가 글 안내 (2-27차)
+.not-found-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 24px;
+  color: #868e96;
+
+  ion-icon { font-size: 44px; margin-bottom: 12px; }
+  p { margin: 0; font-size: 14px; }
+}

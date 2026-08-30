@@ -38,6 +38,13 @@
           <ion-icon *ngIf="isStar" name="pencil" class="edit-name-icon" (click)="editName()"></ion-icon>
         </div>
 
+        <!-- 스타 소개문 — 이름 바로 아래 1줄 말줄임. 탭하면 소유자는 편집, 방문자는 전문 보기(2-28차) -->
+        <div class="star-bio-line" *ngIf="starInfo?.PRS_BIO || isStar">
+          <span class="bio-text" *ngIf="starInfo?.PRS_BIO" (click)="onBioClick()">{{ starInfo?.PRS_BIO }}</span>
+          <span class="bio-placeholder" *ngIf="!starInfo?.PRS_BIO" (click)="editBio()">Add a short bio</span>
+          <ion-icon *ngIf="isStar && starInfo?.PRS_BIO" name="pencil" class="edit-bio-icon" (click)="editBio()"></ion-icon>
+        </div>
+
         <div class="info-rank-line" *ngIf="globalRank > 0" [class.info-rank-line--clickable]="isStar"
           (click)="isStar ? openMyInsight() : null">
           🌎 <span>#{{ globalRank }}</span> <span> / {{ formatNumber(totalStars) }}</span>

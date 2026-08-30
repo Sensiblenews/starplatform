@@ -11,7 +11,13 @@
 </ion-header>
 
 <ion-content>
-  <div class="media-stack">
+  <!-- 삭제됐거나 검수 대기(타인 접근 불가)인 글 — 빈 화면 대신 안내 (2-27차) -->
+  <div class="not-found-box" *ngIf="notFound">
+    <ion-icon name="alert-circle-outline"></ion-icon>
+    <p>This post has been deleted or does not exist.</p>
+  </div>
+
+  <div class="media-stack" *ngIf="!notFound">
     <!-- 🖼️ 1순위: 이미지들 -->
     <div class="media-item" *ngFor="let media of getPhotoList()">
       <!-- 승인 전에는 주소가 없다. 작성자 본인은 토큰 주소로 보고, 타인은 안내를 본다(2-26차) -->
@@ -57,7 +63,7 @@
     </div>
   </div>
 
-  <div class="feed-body-section">
+  <div class="feed-body-section" *ngIf="!notFound">
     <div class="author-row">
       <ion-avatar>
         <img [src]="starProfileImg" (error)="handleImgError($event)" />

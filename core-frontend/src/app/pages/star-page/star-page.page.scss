@@ -21,6 +21,10 @@
     height: 100px;
     display: flex;
     flex-grow: 1;
+    // 알약 자신도 헤더 플렉스의 자식이다. min-width:auto(기본)면 소개문 nowrap의 원래 폭이
+    // 최소 폭으로 잡혀 알약이 화면 밖까지 늘어난다 — 재현 페이지 실측으로 확인(2-28차).
+    // 말줄임은 알약→정보 영역→글자, 세 단계 모두 줄어들 수 있어야 동작한다.
+    min-width: 0;
     align-items: center;
     padding: 12px 20px;
     background: #ffffff; // 알약 내부 배경색
@@ -82,9 +86,13 @@
 
     .info-details-wrap {
       flex: 1; // 남은 가로 공간 전부 차지
+      // 이 컨테이너 자신도 가로 플렉스의 자식이다. min-width:auto(기본)면 소개문 nowrap 폭만큼
+      // 늘어나 알약 테두리를 뚫는다 — 자식의 말줄임은 여기가 줄어들 수 있어야 동작한다
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 5px; // 🌟 줄 간격 최소화
+      // 소개문 줄까지 4줄이 필 고정 높이(100px) 안에 들어가야 한다 — 넘치면 위아래가 테두리 밖으로 밀린다(2-28차)
+      gap: 3px;
       justify-content: center; // 세로 중앙 정렬
 
       // 첫 번째 줄: 스타 이름
@@ -113,6 +121,40 @@
           font-size: 16px;
           color: #888;
           cursor: pointer;
+        }
+      }
+
+      // 이름 바로 아래 소개문 — 필 높이(100px)가 네이티브 광고 dp 하드코딩과 묶여 있어
+      // 헤더를 키울 수 없다. 1줄 말줄임으로 고정하고, 탭하면 전문을 보여준다(2-28차)
+      .star-bio-line {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .bio-text {
+          // 플렉스 아이템은 min-width:0이 없으면 내용 폭 밑으로 줄지 않아 말줄임이 안 걸린다
+          min-width: 0;
+          font-size: 11px;
+          color: #666;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .bio-placeholder {
+          font-size: 11px;
+          color: #aaa;
+          font-style: italic;
+          cursor: pointer;
+        }
+
+        .edit-bio-icon {
+          flex-shrink: 0;
+          font-size: 12px;
+          color: #888;
+          cursor: pointer;
+          margin-top: 1px;
         }
       }
 
