@@ -17,9 +17,10 @@ import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
-import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
+import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
+import { HelperService } from 'src/app/services/helper.service';
 import { App } from '@capacitor/app';
 import { PluginListenerHandle } from '@capacitor/core';
 import NativeBridge from '../../plugins/native-bridge';
@@ -137,6 +138,11 @@ export class LobbyPage implements OnInit, OnDestroy {
   vsCards: VsCard[] = [];
   private vsPollIntervalId: any;
 
+  // 🌟 로비 LIVE 티커 어드민 문구 (2-29차). 로비 진입 시 1회 + 60초 갱신 — 3초 VS 폴링에 얹지 않는다
+  liveNews: LiveNewsItem[] = [];
+  private liveNewsIntervalId: any;
+  private static readonly LIVE_NEWS_REFRESH_MS = 60000;
+
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
   // 8개 직군 — 표기는 클라이언트 확정안(대문자·이모지), 내부 코드는 서버 화이트리스트와 동일
@@ -173,6 +179,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private ngZone: NgZone,
     private deviceIdService: DeviceIdService,
     private perf: PerfTraceService,
+    private helper: HelperService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -559,9 +566,12 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   // 3초 폴링 — 서버 Redis 캐시 TTL 2초와 박자를 맞춰 항상 최신 데이터를 받는다
+  // 티커 어드민 문구 갱신(60초)도 같은 생명주기로 켜고 끈다
   startVsPolling() {
     this.stopVsPolling();
     this.vsPollIntervalId = setInterval(() => this.loadVsCards(), 3000);
+    this.loadLiveNews();
+    this.liveNewsIntervalId = setInterval(() => this.loadLiveNews(), LobbyPage.LIVE_NEWS_REFRESH_MS);
   }
 
   stopVsPolling() {
@@ -569,6 +579,22 @@ export class LobbyPage implements OnInit, OnDestroy {
       clearInterval(this.vsPollIntervalId);
       this.vsPollIntervalId = null;
     }
+    if (this.liveNewsIntervalId) {
+      clearInterval(this.liveNewsIntervalId);
+      this.liveNewsIntervalId = null;
+    }
+  }
+
+  // 티커 ① 구간(어드민 LIVE NEWS). 실패해도 티커는 ②·③만으로 계속 돈다
+  loadLiveNews() {
+    this.http.get('/api/super/lobby/live-news').subscribe({
+      next: (res: any) => {
+        if (res && res.result === 'OK') {
+          this.liveNews = res.items || [];
+        }
+      },
+      error: () => { }
+    });
   }
 
   setVsRankMode(mode: 'GLOBAL' | 'DAILY') {
@@ -603,9 +629,28 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   // 뉴스 티커 터치 → 현재 진행 중인 VS 카드로 시선 이동 (2-27차)
-  onTickerFocus() {
+  // 티커 탭 → 문장의 타겟으로 이동 (2-29차). 스타 페이지 / VS 카드 / 외부 URL(기기 브라우저) / 없으면 VS 영역 스크롤
+  onTickerFocus(target?: TickerTarget) {
+    const kind = target ? target.kind : 'NONE';
+    if (kind === 'STAR' && target.starId) {
+      this.router.navigate(['/star', target.starId]);
+      return;
+    }
+    if (kind === 'URL' && target.url) {
+      // 외부 URL은 기기 기본 브라우저로 (클라이언트 확정)
+      try {
+        this.helper.openExternalURL({ url: target.url });
+      } catch (e) {
+        console.warn('[ticker] open url failed', e);
+      }
+      return;
+    }
     const el = document.querySelector('app-vs-carousel');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // VS 타겟: 캐러셀을 해당 카드로 돌린다. 비노출 카드면 스크롤만 된다
+    if (kind === 'VS' && target.vsId != null && this.vsCarousel) {
+      this.vsCarousel.jumpTo(target.vsId);
+    }
   }
 
   // VS 카드 중앙 클릭 → 해당 랭킹 탭으로 전환 후 TOP100 섹션으로 스크롤

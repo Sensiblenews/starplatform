@@ -1136,6 +1136,17 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 (2-29차). 로비 진입 시 1회 + 60초 갱신.
+	// 어드민 저장 시 SuperAdminService가 캐시를 비우므로 TTL(30초)과 무관하게 즉시 반영된다.
+	@Cacheable(value = "liveNews", key = "'active'", unless = "#result == null")
+	public Map<String, Object> getLiveNews() throws Exception {
+		Map<String, Object> resultMap = new HashMap<>();
+		List<Map<String, Object>> items = dao.selectList("superapp.selectLiveNewsActiveList");
+		resultMap.put("result", "OK");
+		resultMap.put("items", items == null ? new ArrayList<Map<String, Object>>() : items);
+		return resultMap;
+	}
+
 	// 카테고리 탭 TOP100. rankType/category는 컨트롤러에서 화이트리스트 정규화 후 전달된다
 	// (캐시 키가 파라미터 기반이므로 임의 값 유입 시 키 오염 방지 목적)
 	@Cacheable(value = "categoryLeaderboard",

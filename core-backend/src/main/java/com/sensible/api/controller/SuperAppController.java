@@ -324,6 +324,13 @@ public class SuperAppController {
 		return superAppService.getVsCards();
 	}
 
+	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 목록 (2-29차). Redis 30초 캐시, 어드민 저장 시 즉시 evict
+	@RequestMapping(value = "/api/super/lobby/live-news", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getLiveNews() throws Exception {
+		return superAppService.getLiveNews();
+	}
+
 	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)
 	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|ORG|UNIV|CITY|MEDIA
 	@RequestMapping(value = "/api/super/leaderboard/category", method = { RequestMethod.GET, RequestMethod.POST })

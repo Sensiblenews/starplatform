@@ -670,4 +670,125 @@ public class SuperAdminService {
         params.put("bio", bio);
         dao.update("super.updateStarBio", params);
     }
+
+    // ==========================================
+    // 🌟 [신규] 로비 LIVE NEWS 관리 (2-29차)
+    // ==========================================
+
+    /** 문구 길이 상한(문자 수). 티커 한 줄 폭과 입력 남용을 함께 막는다. JSP 카운터와 같은 값 */
+    public static final int LIVE_NEWS_MAX_LENGTH = 50; // 2026-09-06 클라이언트 확정 (30 → 50)
+    /** 외부 URL 길이 상한 (컬럼 VARCHAR(500)) */
+    public static final int LIVE_NEWS_URL_MAX_LENGTH = 500;
+    /** 허용 타겟 종류 */
+    public static final java.util.List<String> LIVE_NEWS_TARGET_TYPES =
+            java.util.Collections.unmodifiableList(java.util.Arrays.asList("NONE", "STAR", "VS", "URL"));
+
+    public List<Map<String, Object>> getLiveNewsList() throws Exception {
+        return dao.selectList("super.selectLiveNewsAdminList");
+    }
+
+    /**
+     * 입력값 정규화·검증 (순수 함수 — 단위 테스트 대상).
+     * 문구는 trim 후 코드포인트 수로 길이를 재서 이모지 하나가 2자로 세지지 않게 한다.
+     * 타겟은 종류별로 값 형식만 본다. 존재 여부(DB)는 호출부에서 따로 확인한다.
+     */
+    public static Map<String, Object> normalizeLiveNews(Object messageObj, Object targetTypeObj, Object targetValueObj)
+            throws Exception {
+        String message = messageObj == null ? "" : String.valueOf(messageObj).trim();
+        if (message.isEmpty()) {
+            throw new Exception("문구를 입력해주세요.");
+        }
+        if (message.codePointCount(0, message.length()) > LIVE_NEWS_MAX_LENGTH) {
+            throw new Exception("문구는 " + LIVE_NEWS_MAX_LENGTH + "자를 넘을 수 없습니다.");
+        }
+
+        String targetType = targetTypeObj == null ? "NONE" : String.valueOf(targetTypeObj).trim().toUpperCase();
+        if (targetType.isEmpty() || "NULL".equals(targetType)) targetType = "NONE";
+        if (!LIVE_NEWS_TARGET_TYPES.contains(targetType)) {
+            throw new Exception("허용되지 않은 타겟 종류입니다: " + targetType);
+        }
+
+        String targetValue = targetValueObj == null ? "" : String.valueOf(targetValueObj).trim();
+        if ("NULL".equalsIgnoreCase(targetValue)) targetValue = "";
+
+        if ("NONE".equals(targetType)) {
+            targetValue = null;
+        } else if (targetValue.isEmpty()) {
+            throw new Exception("타겟 값을 입력해주세요.");
+        } else if ("VS".equals(targetType)) {
+            if (!targetValue.matches("\\d{1,10}")) {
+                throw new Exception("VS 카드 ID가 올바르지 않습니다.");
+            }
+        } else if ("URL".equals(targetType)) {
+            String lower = targetValue.toLowerCase();
+            if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
+                throw new Exception("외부 URL은 http:// 또는 https:// 로 시작해야 합니다.");
+            }
+            if (targetValue.length() > LIVE_NEWS_URL_MAX_LENGTH) {
+                throw new Exception("URL은 " + LIVE_NEWS_URL_MAX_LENGTH + "자를 넘을 수 없습니다.");
+            }
+        }
+
+        Map<String, Object> normalized = new HashMap<>();
+        normalized.put("message", message);
+        normalized.put("targetType", targetType);
+        normalized.put("targetValue", targetValue);
+        return normalized;
+    }
+
+    // 타겟이 가리키는 스타·VS 카드가 실제로 있는지 확인한다. 없는 대상으로 저장하면 앱에서 탭해도 갈 곳이 없다
+    private void assertLiveNewsTargetExists(Map<String, Object> normalized) throws Exception {
+        String targetType = String.valueOf(normalized.get("targetType"));
+        String targetValue = String.valueOf(normalized.get("targetValue"));
+        if ("STAR".equals(targetType)) {
+            int count = dao.selectOne("super.selectLiveNewsTargetStar", targetValue);
+            if (count == 0) throw new Exception("존재하지 않는 스타 ID입니다: " + targetValue);
+        } else if ("VS".equals(targetType)) {
+            int count = dao.selectOne("super.selectLiveNewsTargetVs", targetValue);
+            if (count == 0) throw new Exception("존재하지 않는 VS 카드입니다: " + targetValue);
+        }
+    }
+
+    // 앱 캐시(liveNews, 30초 TTL)는 어드민이 바꾸는 즉시 비운다 — 다음 로비 조회부터 반영
+    @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
+    public void insertLiveNews(Map<String, Object> params) throws Exception {
+        Map<String, Object> normalized = normalizeLiveNews(
+                params.get("message"), params.get("targetType"), params.get("targetValue"));
+        assertLiveNewsTargetExists(normalized);
+        normalized.put("useYn", "N".equals(String.valueOf(params.get("useYn"))) ? "N" : "Y");
+        dao.insert("super.insertLiveNews", normalized);
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
+    public void updateLiveNews(Map<String, Object> params) throws Exception {
+        Map<String, Object> normalized = normalizeLiveNews(
+                params.get("message"), params.get("targetType"), params.get("targetValue"));
+        assertLiveNewsTargetExists(normalized);
+        normalized.put("newsId", params.get("newsId"));
+        dao.update("super.updateLiveNews", normalized);
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
+    public void toggleLiveNewsUseYn(Map<String, Object> params) throws Exception {
+        String useYn = "N".equals(String.valueOf(params.get("useYn"))) ? "N" : "Y";
+        params.put("useYn", useYn);
+        dao.update("super.updateLiveNewsUseYn", params);
+    }
+
+    // 드래그 정렬 저장: 화면이 넘긴 ID 순서대로 SORT_ORDER를 1부터 재부여
+    @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
+    public void saveLiveNewsOrder(List<Object> newsIds) throws Exception {
+        int order = 1;
+        for (Object newsId : newsIds) {
+            Map<String, Object> param = new HashMap<>();
+            param.put("newsId", newsId);
+            param.put("sortOrder", order++);
+            dao.update("super.updateLiveNewsOrder", param);
+        }
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
+    public void deleteLiveNews(Map<String, Object> params) throws Exception {
+        dao.update("super.deleteLiveNews", params);
+    }
 }

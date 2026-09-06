@@ -2017,4 +2017,140 @@ public class SuperAdminController {
         }
         return result;
     }
+
+    // ==========================================
+    // 🌟 [신규] 로비 LIVE NEWS 관리 (2-29차, SM 전용 — 전 국가 공통 노출)
+    // ==========================================
+
+    @RequestMapping(value = "/super/live-news/list.do")
+    public String liveNewsList(HttpServletRequest request, Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+
+        model.addAttribute("newsList", superAdminService.getLiveNewsList());
+        // 타겟 'VS Card' 선택용 카드 목록 (VS 배틀필드 화면과 같은 소스)
+        model.addAttribute("vsList", superAdminService.getVsCardList());
+        model.addAttribute("maxLength", SuperAdminService.LIVE_NEWS_MAX_LENGTH);
+        model.addAttribute("activeMenu", "live_news");
+        return "super/live_news";
+    }
+
+    /** [API] 문구 등록 */
+    @RequestMapping(value = "/super/live-news/insert.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> insertLiveNews(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.insertLiveNews(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 문구 수정 (문구·타겟) */
+    @RequestMapping(value = "/super/live-news/update.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateLiveNews(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.updateLiveNews(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] ON/OFF 토글 */
+    @RequestMapping(value = "/super/live-news/toggle.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> toggleLiveNews(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.toggleLiveNewsUseYn(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 노출 순서 저장 (드래그 결과 — ID 배열 순서대로 SORT_ORDER 재부여) */
+    @RequestMapping(value = "/super/live-news/order.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveLiveNewsOrder(HttpServletRequest request, @RequestBody Map<String, Object> payload) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object> newsIds = (List<Object>) payload.get("newsIds");
+            if (newsIds == null || newsIds.isEmpty()) {
+                throw new Exception("저장할 순서 정보가 없습니다.");
+            }
+            superAdminService.saveLiveNewsOrder(newsIds);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 문구 삭제 (소프트) */
+    @RequestMapping(value = "/super/live-news/delete.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deleteLiveNews(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+        try {
+            superAdminService.deleteLiveNews(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
 }

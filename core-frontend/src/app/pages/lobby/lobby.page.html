@@ -348,8 +348,8 @@
     <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
 
     <!-- 📰 라이브 뉴스 티커 (2-27차) — VS 카드 바로 아래, 방송 자막처럼 우→좌로 흐른다 -->
-    <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards"
-      (focusRequest)="onTickerFocus()"></app-live-news-ticker>
+    <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards" [news]="liveNews"
+      (focusRequest)="onTickerFocus($event)"></app-live-news-ticker>
 
     <!-- 🌟 Today's TOP (VS 카드 바로 아래 — 가로 스크롤) -->
     <div class="section-container today-top-section">

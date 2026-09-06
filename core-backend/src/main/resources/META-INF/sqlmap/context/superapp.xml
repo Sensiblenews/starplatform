@@ -1902,4 +1902,17 @@
 		</choose>
 	</select>
 
+	<!-- 🌟 [신규] 로비 LIVE 티커 — 어드민 문구 (ON 상태만, 노출 순서대로). 2-29차 -->
+	<select id="selectLiveNewsActiveList" resultType="map">
+		SELECT
+			NEWS_ID AS newsId,
+			MESSAGE AS message,
+			TARGET_TYPE AS targetType,
+			TARGET_VALUE AS targetValue
+		FROM WH_LIVE_NEWS
+		WHERE DEL_YN = 'N'
+		  AND USE_YN = 'Y'
+		ORDER BY SORT_ORDER ASC, NEWS_ID ASC
+	</select>
+
 </mapper>

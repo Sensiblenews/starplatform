@@ -57,6 +57,12 @@
                     <i class="fas fa-bolt me-2"></i> VS 배틀필드
                 </a>
             </li>
+            <!-- 🌟 로비 LIVE 티커 문구 관리 (전 국가 공통 노출이므로 SM 전용) -->
+            <li class="nav-item mb-1">
+                <a href="/super/live-news/list.do" class="nav-link <c:if test="${activeMenu eq 'live_news'}">active</c:if>" style="color: #ffd166;">
+                    <i class="fas fa-broadcast-tower me-2"></i> LIVE NEWS 관리
+                </a>
+            </li>
             <!-- 🌟 최고 권한 전용: 스타 일괄 등록 메뉴 추가 -->
             <li class="nav-item mb-1">
                 <a href="/super/star/bulk-create.do" class="nav-link <c:if test="${activeMenu eq 'star_bulk'}">active</c:if>"><i class="fas fa-file-import me-2"></i> 스타 일괄 등록</a>
