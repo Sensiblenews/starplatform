@@ -45,10 +45,16 @@
           <ion-icon *ngIf="isStar && starInfo?.PRS_BIO" name="pencil" class="edit-bio-icon" (click)="editBio()"></ion-icon>
         </div>
 
-        <div class="info-rank-line" *ngIf="globalRank > 0" [class.info-rank-line--clickable]="isStar"
+        <!-- 순위 줄. 로그인한 스타가 다른 스타 페이지를 볼 때는 맨 오른쪽에 채팅 아이콘(2-29차 메신저) -->
+        <div class="info-rank-line" *ngIf="globalRank > 0 || canMessage" [class.info-rank-line--clickable]="isStar"
           (click)="isStar ? openMyInsight() : null">
-          🌎 <span>#{{ globalRank }}</span> <span> / {{ formatNumber(totalStars) }}</span>
+          <ng-container *ngIf="globalRank > 0">
+            🌎 <span>#{{ globalRank }}</span> <span> / {{ formatNumber(totalStars) }}</span>
+          </ng-container>
           <ion-icon *ngIf="isStar" name="chevron-forward-outline" class="insight-arrow"></ion-icon>
+          <button *ngIf="canMessage" type="button" class="dm-button" (click)="openDm($event)" title="Message">
+            <ion-icon name="chatbubble-ellipses"></ion-icon>
+          </button>
         </div>
 
         <div class="info-stats-line">

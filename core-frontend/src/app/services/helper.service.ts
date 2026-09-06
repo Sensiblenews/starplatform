@@ -124,6 +124,17 @@ export class HelperService {
     });
   }
 
+  /**
+   * 기기 기본 브라우저(크롬·사파리)로 연다 — 인앱 브라우저가 아니라 앱 밖으로 나간다.
+   * 로비 LIVE 티커의 외부 URL 타겟용 (2-29차 클라이언트 확정).
+   */
+  openExternalURL(openOptions: { url: string }): void {
+    if (!openOptions.url?.length) {
+      throw new Error('No Specific URL');
+    }
+    this.iab.create(openOptions.url, '_system');
+  }
+
   toastSet(msg, position: 'top' | 'bottom' | 'middle' = 'bottom'): void {
     this.toastCtrl
       .create({

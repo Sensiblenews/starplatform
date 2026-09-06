@@ -815,4 +815,83 @@
 		(#{TARGET_TYPE}, #{TARGET_ID}, #{ACTION}, #{REASON}, #{ADMIN_ID}, NOW())
 	</insert>
 
+	<!-- ==========================================
+	     🌟 [신규] 로비 LIVE NEWS 관리 (WH_LIVE_NEWS, 2-29차)
+	     ========================================== -->
+
+	<!-- 관리 화면용 목록. STAR 타겟은 스타 이름, VS 타겟은 카드 정보를 조인해 표시 -->
+	<select id="selectLiveNewsAdminList" resultType="map">
+		SELECT
+			N.NEWS_ID,
+			N.MESSAGE,
+			N.TARGET_TYPE,
+			N.TARGET_VALUE,
+			N.SORT_ORDER,
+			N.USE_YN,
+			N.CREATED_DATE,
+			N.UPDATED_DATE,
+			P.PRS_NAME AS TARGET_STAR_NAME,
+			V.CARD_KIND AS TARGET_VS_KIND,
+			V.RANK_TYPE AS TARGET_VS_RANK_TYPE,
+			V.CATEGORY AS TARGET_VS_CATEGORY,
+			V.TITLE AS TARGET_VS_TITLE
+		FROM WH_LIVE_NEWS N
+		LEFT JOIN WH_PRESS P ON N.TARGET_TYPE = 'STAR' AND N.TARGET_VALUE = P.PRS_ID
+		LEFT JOIN WH_VS_CARD V ON N.TARGET_TYPE = 'VS' AND N.TARGET_VALUE = CAST(V.VS_ID AS CHAR)
+		WHERE N.DEL_YN = 'N'
+		ORDER BY N.SORT_ORDER ASC, N.NEWS_ID ASC
+	</select>
+
+	<!-- 타겟 유효성 검사용: 스타 존재 여부 -->
+	<select id="selectLiveNewsTargetStar" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM WH_PRESS WHERE PRS_ID = #{prsId}
+	</select>
+
+	<!-- 타겟 유효성 검사용: VS 카드 존재 여부 (삭제된 커스텀 카드 제외) -->
+	<select id="selectLiveNewsTargetVs" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM WH_VS_CARD WHERE VS_ID = #{vsId} AND USE_YN = 'Y'
+	</select>
+
+	<insert id="insertLiveNews" parameterType="map">
+		INSERT INTO WH_LIVE_NEWS (
+			MESSAGE, TARGET_TYPE, TARGET_VALUE, SORT_ORDER, USE_YN, DEL_YN, CREATED_DATE
+		) VALUES (
+			#{message}, #{targetType}, #{targetValue},
+			IFNULL((SELECT MAX(W.SORT_ORDER) + 1 FROM WH_LIVE_NEWS W WHERE W.DEL_YN = 'N'), 1),
+			#{useYn}, 'N', NOW()
+		)
+	</insert>
+
+	<update id="updateLiveNews" parameterType="map">
+		UPDATE WH_LIVE_NEWS
+		SET MESSAGE = #{message},
+			TARGET_TYPE = #{targetType},
+			TARGET_VALUE = #{targetValue},
+			UPDATED_DATE = NOW()
+		WHERE NEWS_ID = #{newsId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<!-- ON/OFF 토글 -->
+	<update id="updateLiveNewsUseYn" parameterType="map">
+		UPDATE WH_LIVE_NEWS
+		SET USE_YN = #{useYn}, UPDATED_DATE = NOW()
+		WHERE NEWS_ID = #{newsId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<!-- 드래그 정렬 저장: 화면이 넘긴 순서대로 SORT_ORDER 재부여 -->
+	<update id="updateLiveNewsOrder" parameterType="map">
+		UPDATE WH_LIVE_NEWS
+		SET SORT_ORDER = #{sortOrder}
+		WHERE NEWS_ID = #{newsId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<update id="deleteLiveNews" parameterType="map">
+		UPDATE WH_LIVE_NEWS
+		SET DEL_YN = 'Y', UPDATED_DATE = NOW()
+		WHERE NEWS_ID = #{newsId}
+	</update>
+
 </mapper>

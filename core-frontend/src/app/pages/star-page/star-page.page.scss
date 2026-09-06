@@ -167,6 +167,9 @@
         display: flex;
         align-items: center;
         gap: 2px;
+        // 순위 텍스트는 절대 줄바꿈하지 않는다 — "화면 크게" 모드처럼 폭이 좁아지면
+        // pill이 두 줄로 꺾여 아래 통계 줄이 헤더 밖으로 밀려났다(실기기 확인)
+        white-space: nowrap;
         transition: all 0.2s ease;
 
         .rank-num {
@@ -180,7 +183,33 @@
         }
 
         // 🌟 본인 프로필일 때 클릭 유도 스타일
+        // 채팅 아이콘 — 줄 맨 오른쪽 (2-29차). 헤더 높이는 네이티브 광고 dp 고정이라 한 줄 안에 둔다
+        .dm-button {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 22px;
+          border: none;
+          border-radius: 11px;
+          background: #3880ff;
+          color: #fff;
+          padding: 0;
+          font-size: 13px;
+          box-shadow: 0 1px 3px rgba(56, 128, 255, 0.4);
+
+          &:active {
+            transform: scale(0.92);
+          }
+        }
+
         &--clickable {
+          // 본인 페이지의 순위 pill은 줄 전체가 아니라 내용 폭만큼만 (클라이언트 요청 "절반").
+          // 퍼센트 상한을 두면 좁은 화면에서 줄바꿈이 생기므로 폭은 내용에 맡긴다
+          align-self: flex-start;
+          width: fit-content;
+          max-width: 100%;
           cursor: pointer;
           background: linear-gradient(135deg, #fff0f0, #ffe8ec);
           padding: 3px 8px 3px 4px;

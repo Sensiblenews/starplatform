@@ -130,6 +130,20 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     this.transitionTo((this.currentIndex - 1 + this._cards.length) % this._cards.length);
   }
 
+  /**
+   * 특정 카드로 이동 (로비 LIVE 티커 탭, 2-29차). 카드가 목록에 없으면 false.
+   * 자동 순환 타이머를 다시 시작해 방금 보여준 카드가 한 주기를 온전히 머물게 한다.
+   */
+  jumpTo(vsId: number): boolean {
+    const index = this._cards.findIndex(c => c && c.vsId === vsId);
+    if (index < 0) return false;
+    if (index !== this.currentIndex) {
+      this.transitionTo(index);
+    }
+    if (this.rotateIntervalId) this.startAutoPlay();
+    return true;
+  }
+
   // 레이어는 배열을 제자리에서 바꾸므로 인덱스로 추적한다.
   // 기본(참조) 추적을 쓰면 카드가 바뀔 때마다 뷰가 재생성돼 크로스페이드가 무의미해진다.
   trackByLayerIndex(index: number): number {

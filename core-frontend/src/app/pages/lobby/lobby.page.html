@@ -8,26 +8,38 @@
 
     <ion-buttons slot="end">
       <ion-button (click)="toggleSearchMode()">
-        <ion-icon [name]="isSearchMode ? 'search' : 'search-outline'" style="color: white; font-size: 24px;"></ion-icon>
+        <ion-icon [name]="isSearchMode ? 'search' : 'search-outline'" style="color: white;"></ion-icon>
+      </ion-button>
+
+      <!-- 💬 대화 목록 (2-29차 메신저). 스타 소유자만. 미읽음이 있으면 점 -->
+      <ion-button *ngIf="isStar" (click)="openDmRoomsList()" title="Messages" class="dm-rooms-button">
+        <span class="dm-icon-wrap">
+          <ion-icon [name]="dmUnread > 0 ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'"
+            style="color: white;"></ion-icon>
+          <span class="dm-dot" *ngIf="dmUnread > 0"></span>
+        </span>
       </ion-button>
 
       <ion-button (click)="openMarketMenu($event)">
-        <ion-icon name="add-circle-outline" style="color: white; font-size: 26px;"></ion-icon>
+        <ion-icon name="add-circle-outline" style="color: white;" class="plus-icon"></ion-icon>
       </ion-button>
 
       <ion-button (click)="toggleFavoriteList()">
         <ion-icon [name]="isShowingFavorites ? 'star' : 'star-outline'"
-          style="color: #ffca28; font-size: 24px;"></ion-icon>
+          style="color: #ffca28;"></ion-icon>
       </ion-button>
 
       <ion-button (click)="toggleRankingList()">
         <ion-icon [name]="isShowingRanking ? 'trophy' : 'trophy-outline'"
-          style="color: #ffca28; font-size: 24px;"></ion-icon>
+          style="color: #ffca28;"></ion-icon>
       </ion-button>
 
-      <!-- 아이콘 탭 = 내 페이지 바로 진입 (중간 메뉴 제거). 관리자는 스타 페이지가 없어 노출하지 않는다 -->
-      <ion-button *ngIf="isStar" (click)="goToMyStarPage()" title="My Page">
-        👤
+      <!-- 내 프로필 사진(2-29차). 탭 = 내 페이지 바로 진입. 대화 목록은 💬 아이콘이 맡는다.
+           관리자는 스타 페이지가 없어 노출하지 않는다 (스타가 아닌 사용자는 현행대로 아이콘 없음) -->
+      <ion-button *ngIf="isStar" (click)="goToMyStarPage()" title="My Page" class="my-avatar-button">
+        <span class="my-avatar">
+          <img [src]="myImage || defaultAvatar" (error)="onMyAvatarError($event)" />
+        </span>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
@@ -348,8 +360,8 @@
     <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
 
     <!-- 📰 라이브 뉴스 티커 (2-27차) — VS 카드 바로 아래, 방송 자막처럼 우→좌로 흐른다 -->
-    <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards"
-      (focusRequest)="onTickerFocus()"></app-live-news-ticker>
+    <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards" [news]="liveNews"
+      (focusRequest)="onTickerFocus($event)"></app-live-news-ticker>
 
     <!-- 🌟 Today's TOP (VS 카드 바로 아래 — 가로 스크롤) -->
     <div class="section-container today-top-section">

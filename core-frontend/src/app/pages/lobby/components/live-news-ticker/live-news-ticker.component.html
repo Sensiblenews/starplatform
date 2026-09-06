@@ -3,7 +3,8 @@
     <span class="live-dot"></span>
     <span class="live-label">LIVE</span>
   </div>
+  <!-- 문장 슬롯 2개 — 앞 문장이 다 빠지기 전에 다음 문장이 출발하므로 동시에 둘이 흐른다 -->
   <div class="marquee-window" #marqueeWindow>
-    <span class="marquee-text" #marqueeText [class.urgent]="currentUrgent">{{ currentText }}</span>
+    <span class="marquee-text" #slotEl *ngFor="let slot of slots" [class.urgent]="slot.urgent">{{ slot.text }}</span>
   </div>
 </div>

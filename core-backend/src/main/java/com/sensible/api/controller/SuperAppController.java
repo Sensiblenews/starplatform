@@ -30,6 +30,9 @@ public class SuperAppController {
 
 	private static final Logger logger = LoggerFactory.getLogger(SuperAppController.class);
 
+	@Resource(name = "dmService")
+	private com.sensible.api.service.DmService dmService;
+
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
 
@@ -322,6 +325,80 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> getVsCards() throws Exception {
 		return superAppService.getVsCards();
+	}
+
+	// ==========================================
+	// 🌟 [신규] 1:1 메신저 (2-29차) — 스타 소유자끼리만. 모든 요청은 body의 starId + starToken으로 본인 확인
+	// ==========================================
+
+	@RequestMapping(value = "/api/super/dm/send", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmSend(@RequestBody Map<String, Object> params) {
+		return dmService.sendText(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/upload", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmUpload(@RequestBody Map<String, Object> params) {
+		return dmService.sendFile(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/rooms", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmRooms(@RequestBody Map<String, Object> params) {
+		return dmService.getRooms(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/messages", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmMessages(@RequestBody Map<String, Object> params) {
+		return dmService.getMessages(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/read", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmRead(@RequestBody Map<String, Object> params) {
+		return dmService.markRead(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/unread-count", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmUnreadCount(@RequestBody Map<String, Object> params) {
+		return dmService.getUnreadCount(params);
+	}
+
+	// 첨부 파일 스트리밍. 대화 내용 응답에 붙은 단기 토큰(t)으로만 접근 — URL만으로는 열리지 않는다
+	@RequestMapping(value = "/api/super/dm/file", method = RequestMethod.GET)
+	public void dmFile(@RequestParam("t") String token, HttpServletResponse response) throws Exception {
+		MediaAccessService.Grant grant = mediaAccessService.verify(token);
+		if (grant == null || !com.sensible.api.service.DmService.isFileGrant(grant.targetType)) {
+			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+			return;
+		}
+		java.io.File file = dmService.resolveFile(grant.targetType, grant.targetId);
+		if (file == null) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+			return;
+		}
+		response.setContentType(com.sensible.api.service.DmService.contentTypeOf(file.getName()));
+		response.setContentLength((int) file.length());
+		response.setHeader("Cache-Control", "no-store");
+		try (java.io.InputStream in = new java.io.FileInputStream(file);
+				java.io.OutputStream out = response.getOutputStream()) {
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) != -1) {
+				out.write(buf, 0, n);
+			}
+			out.flush();
+		}
+	}
+
+	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 목록 (2-29차). Redis 30초 캐시, 어드민 저장 시 즉시 evict
+	@RequestMapping(value = "/api/super/lobby/live-news", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getLiveNews() throws Exception {
+		return superAppService.getLiveNews();
 	}
 
 	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)

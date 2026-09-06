@@ -1,0 +1,88 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon slot="icon-only" name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>
+      <div class="peer-title">
+        <img class="peer-avatar" [src]="peerImage || defaultAvatar" (error)="handleImageError($event)" />
+        <span>{{ peerName || 'Chat' }}</span>
+      </div>
+    </ion-title>
+  </ion-toolbar>
+  <!-- 자동폭파 안내 (발송 5분 · 읽음 1분, 클라이언트 확정) -->
+  <div class="expire-hint">⏱ Messages disappear 5 min after sending and 1 min after being read.</div>
+</ion-header>
+
+<ion-content #content class="chat-content">
+  <div class="chat-wrapper">
+    <div *ngIf="loaded && messages.length === 0" class="empty">Say hello 👋</div>
+
+    <div *ngFor="let msg of messages; trackBy: trackByMsg"
+         [ngClass]="isMine(msg) ? 'bubble-row me' : 'bubble-row other'">
+      <div class="profile-wrapper" *ngIf="!isMine(msg)">
+        <img class="profile-image" [src]="peerImage || defaultAvatar" (error)="handleImageError($event)" />
+      </div>
+
+      <div class="bubble" [class.media]="msg.contentType !== 'TEXT'" [ngSwitch]="msg.contentType">
+        <!-- 사진: 풍선 안에 맞춰 표시, 탭 → 원본 전체 보기 -->
+        <img *ngSwitchCase="'IMAGE'" class="thumbnail" [src]="url(msg.fileUrl)"
+             (click)="openViewer(url(msg.fileUrl), 'IMAGE')" />
+        <!-- 영상: 컨트롤 없이 무음 반복 미리보기, 탭 → 소리 포함 전체 재생 -->
+        <div *ngSwitchCase="'VIDEO'" class="video-preview"
+             (click)="openViewer(url(msg.fileUrl), 'VIDEO', msg.thumbUrl ? url(msg.thumbUrl) : '')">
+          <!-- muted는 HTML 속성이 아니라 프로퍼티로 묶어야 무음이 보장된다 (속성만 두면 src 바인딩 뒤 소리가 남) -->
+          <video class="thumbnail" autoplay loop playsinline preload="auto"
+                 [muted]="true" [volume]="0" (loadedmetadata)="muteVideo($event)"
+                 [src]="url(msg.fileUrl)" [poster]="msg.thumbUrl ? url(msg.thumbUrl) : null"></video>
+          <span class="play-badge">▶</span>
+        </div>
+        <div *ngSwitchDefault class="text">{{ msg.text }}</div>
+      </div>
+
+      <div class="meta">
+        <span *ngIf="isMine(msg) && !msg.readDate" class="unread">Unread</span>
+        <span>{{ msg.sendDate | date:'HH:mm' }}</span>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<!-- 첨부 미리보기 (전송 전) -->
+<div *ngIf="pending" class="pending-overlay">
+  <img *ngIf="pending.kind === 'IMAGE'" [src]="pending.previewUrl" class="pending-preview" />
+  <video *ngIf="pending.kind === 'VIDEO'" [src]="pending.previewUrl" class="pending-preview" autoplay loop playsinline
+         [muted]="true" [volume]="0" (loadedmetadata)="muteVideo($event)"></video>
+  <ion-button (click)="removePending()" class="remove-pending" fill="clear" size="small">
+    <ion-icon name="close-circle" color="dark"></ion-icon>
+  </ion-button>
+</div>
+
+<ion-footer class="ion-no-border">
+  <div class="composer">
+    <ion-button fill="clear" size="small" (click)="attachPhoto()" [disabled]="sending" title="Photo">
+      <ion-icon slot="icon-only" name="image-outline"></ion-icon>
+    </ion-button>
+    <ion-button fill="clear" size="small" (click)="attachVideo()" [disabled]="sending" title="Video">
+      <ion-icon slot="icon-only" name="videocam-outline"></ion-icon>
+    </ion-button>
+    <ion-input class="draft" [(ngModel)]="draft" placeholder="Type a message..." [disabled]="sending"
+               (keyup.enter)="send()"></ion-input>
+    <ion-button fill="clear" size="small" (click)="send()" [disabled]="sending || (!draft.trim() && !pending)">
+      <ion-icon slot="icon-only" name="paper-plane"></ion-icon>
+    </ion-button>
+  </div>
+</ion-footer>
+
+<!-- 전체 보기: 사진은 원본, 영상은 소리·컨트롤 포함. 바깥을 탭하면 닫힌다 -->
+<div *ngIf="viewerUrl" class="image-overlay" (click)="closeViewer()">
+  <img *ngIf="viewerType === 'IMAGE'" [src]="viewerUrl" class="preview-image" />
+  <!-- 로드 전 회색 바탕 대신 첫 프레임 썸네일을 포스터로 -->
+  <video *ngIf="viewerType === 'VIDEO'" [src]="viewerUrl" class="preview-image" controls autoplay playsinline
+         [poster]="viewerPoster || null" (click)="stopClose($event)"></video>
+  <ion-button class="viewer-close" fill="clear" (click)="closeViewer()">
+    <ion-icon slot="icon-only" name="close" color="light"></ion-icon>
+  </ion-button>
+</div>
