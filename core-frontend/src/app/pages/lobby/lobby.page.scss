@@ -3,15 +3,48 @@
   --background: linear-gradient(90deg, #ff4b5c 0%, #ff6b6b 100%);
   --color: white;
 
+  // 제목은 남는 폭만 쓰고, 좁으면 말줄임 — 아이콘이 제목 위를 덮지 않게 한다
+  ion-title {
+    min-width: 0;
+    padding-inline: 12px 4px;
+  }
+
   .header-logo {
     display: flex;
     align-items: center;
     font-weight: 800;
-    // px 고정: iOS Dynamic Type은 루트 폰트만 키워 rem이 따라 커지므로,
-    // 로고가 글자 크기 설정과 무관하게 항상 같은 크기로 보이게 한다 (0.9rem ≈ 14.4px)
-    font-size: 14px;
+    // px 기준: iOS Dynamic Type은 루트 폰트만 키워 rem이 따라 커지므로 rem을 쓰지 않는다.
+    // 안드로이드 "화면 크게" 모드는 CSS 화면 폭 자체가 줄어들므로(예: 360 → 320px)
+    // 폭에 비례(vw)해 작아지되 12~14px 사이로 묶는다
+    font-size: clamp(12px, 3.8vw, 14px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
-    // gap: 8px; (별을 지웠으므로 간격은 빼도 무방합니다)
+  }
+
+  // 우측 아이콘 6개(🔍 💬 ⊕ ☆ 🏆 👤)
+  // - 간격: Ionic 기본 좌우 패딩·마진을 줄인다 (클라이언트 요청)
+  // - 크기: 화면 폭 비례(18~24px). "화면 크게" 모드처럼 폭이 좁아지면 같이 작아져 제목을 가리지 않는다
+  ion-buttons[slot="end"] {
+    margin-inline-end: 4px;
+    flex-shrink: 0;
+
+    ion-button {
+      --padding-start: 3px;
+      --padding-end: 3px;
+      margin-inline-start: 0;
+      margin-inline-end: 0;
+      min-width: 0;
+    }
+
+    ion-icon {
+      font-size: clamp(18px, 6vw, 24px);
+
+      &.plus-icon {
+        font-size: clamp(19px, 6.5vw, 26px);
+      }
+    }
   }
 }
 
@@ -777,5 +810,48 @@
 
   &.top3 {
     color: #f59f00;
+  }
+}
+
+
+// 로비 헤더 내 프로필 사진 + 미읽음 점 (2-29차 메신저)
+.my-avatar-button {
+  --padding-start: 3px;
+  --padding-end: 3px;
+}
+
+.my-avatar {
+  position: relative;
+  display: inline-block;
+  // 아이콘과 같은 규칙으로 폭에 비례 (21~28px)
+  width: clamp(21px, 7vw, 28px);
+  height: clamp(21px, 7vw, 28px);
+
+  img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    background: #fff;
+  }
+
+}
+
+// 💬 대화 목록 아이콘 + 미읽음 점
+.dm-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+
+  .dm-dot {
+    position: absolute;
+    top: -2px;
+    right: -3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e53935;
+    border: 2px solid #1e1e1e;
   }
 }

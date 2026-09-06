@@ -52,6 +52,47 @@ public class FirebaseService {
 		}
 	}
 	
+	/**
+	 * 데이터 페이로드·채널을 지정하는 개인 푸시 (1:1 메신저용, 2-29차).
+	 * 기존 sendPersonalNotification은 방문자 알림 채널·badge=1이 고정이라 건드리지 않는다.
+	 * badge는 클라이언트 확정대로 1(점 표기) — 앱을 열면 Badge.clear()가 지운다.
+	 */
+	public String sendDataNotification(final String token, Notification content,
+			Map<String, String> data, String channelId) {
+		String retData = "";
+		AndroidConfig androidConfig = AndroidConfig.builder()
+				.setPriority(AndroidConfig.Priority.HIGH)
+				.setTtl(Duration.ofMinutes(5).toMillis())
+				.setNotification(AndroidNotification.builder()
+						.setChannelId(channelId)
+						.setSound("tick.mp3")
+						.build())
+				.build();
+
+		ApnsConfig apnsConfig = ApnsConfig.builder()
+				.setAps(Aps.builder()
+						.setSound("tick.wav")
+						.setBadge(1)
+						.build())
+				.build();
+
+		Message.Builder builder = Message.builder()
+				.setToken(token)
+				.setAndroidConfig(androidConfig)
+				.setNotification(content)
+				.setApnsConfig(apnsConfig);
+		if (data != null && !data.isEmpty()) {
+			builder.putAllData(data);
+		}
+
+		try {
+			retData = firebaseMessaging.send(builder.build());
+		} catch (FirebaseMessagingException ex) {
+			throw new RuntimeException("Error sending notification: " + ex.getMessage());
+		}
+		return retData;
+	}
+
 	public String sendPersonalNotification(final String token, Notification content) {
 		String retData = "";
         AndroidConfig androidConfig = AndroidConfig.builder()

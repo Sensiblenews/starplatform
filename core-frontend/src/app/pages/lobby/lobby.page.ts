@@ -21,6 +21,8 @@ import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './component
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { HelperService } from 'src/app/services/helper.service';
+import { DmService } from 'src/app/services/dm.service';
+import { openDmRooms } from 'src/app/modals/dm-rooms/dm-rooms.component';
 import { App } from '@capacitor/app';
 import { PluginListenerHandle } from '@capacitor/core';
 import NativeBridge from '../../plugins/native-bridge';
@@ -180,8 +182,34 @@ export class LobbyPage implements OnInit, OnDestroy {
     private deviceIdService: DeviceIdService,
     private perf: PerfTraceService,
     private helper: HelperService,
+    private dm: DmService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
+
+  // ===== 1:1 메신저 (2-29차): 헤더 아바타 + 미읽음 점 =====
+  myImage = '';
+  dmUnread = 0;
+  private dmSubs: Subscription[] = [];
+
+  private bindDmState() {
+    this.dmSubs.push(this.dm.unread$.subscribe(n => this.dmUnread = n));
+    this.dmSubs.push(this.dm.myImage$.subscribe(img => this.myImage = img));
+  }
+
+  private unbindDmState() {
+    this.dmSubs.forEach(s => s.unsubscribe());
+    this.dmSubs = [];
+  }
+
+  // 💬 아이콘 → 대화 목록 (헤더 순서: 🔍 💬 ⊕ ☆ 🏆 👤)
+  async openDmRoomsList() {
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    await openDmRooms(this.modalCtrl, this.dm);
+  }
+
+  onMyAvatarError(event: any) {
+    if (event && event.target) event.target.src = this.defaultAvatar;
+  }
 
   async ngOnInit() {
     // 기기 ID는 캐시에서 꺼낸다. 캐시가 비어 있을 때만 네이티브 브리지를 기다린다.
@@ -200,6 +228,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.loadLobbyData();
     this.startPolling();
     this.setupAppStateListener();
+    this.bindDmState();
 
     // 🌟 네이티브 광고 이벤트 수신 (로드 성공 → 슬롯 펼침 / 클릭 → 24시간 잠금)
     window.addEventListener('ad_loaded', this.onNativeAdLoaded);
@@ -279,6 +308,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoShuffle();
     this.stopVsPolling();
     this.removeAppStateListener();
+    this.unbindDmState();
     window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
     window.removeEventListener('ad_click_detected', this.onNativeAdClicked);
     if (this.isLobbyAdActive) this.hideLobbyAd();
@@ -300,6 +330,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   ionViewDidEnter() {
     this.isViewActive = true;
+
+    // 🌟 1:1 메신저 미읽음 점 (로그인 상태에서만 요청)
+    this.dm.refreshUnread();
 
     // 🌟 화면에 보일 때만 타이머 가동 (성능 최적화)
     this.startAutoSlide();
@@ -1001,6 +1034,7 @@ export class LobbyPage implements OnInit, OnDestroy {
               localStorage.setItem('isStar', 'true');
               localStorage.setItem('starId', res.starId);
               localStorage.setItem('starToken', res.starToken);
+        this.dm.refreshUnread();
               // this.globalFeedback.startPolling();
               this.registerFCMToken(this.starId); // 로그인 성공한 스타의 ID로 FCM 토큰 등록
               this.showSimpleAlert('Login successful! Welcome back.');
@@ -1150,6 +1184,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.appForeground = isActive;
 
       if (isActive) {
+        this.dm.refreshUnread(); // 복귀 시 미읽음 점 갱신
         this.startPolling(); // 즉시 1회 호출 후 30초 간격 재개
         if (this.isViewActive) {
           this.startAutoSlide();
@@ -1279,6 +1314,7 @@ export class LobbyPage implements OnInit, OnDestroy {
                     localStorage.setItem('starId', this.starId);
                     localStorage.setItem('starPw', data.pw);
                     localStorage.setItem('starToken', res.starToken);
+        this.dm.refreshUnread();
                   }
 
                   if (type === 'STAR') {

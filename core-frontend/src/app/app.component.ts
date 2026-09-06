@@ -24,6 +24,8 @@ import { DeviceIdService } from './services/device-id.service';
 import { TextZoom } from '@capacitor/text-zoom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Badge } from '@capawesome/capacitor-badge';
+import { DmService } from './services/dm.service';
+import { openDmChat } from './modals/dm-chat/dm-chat.component';
 
 export const interstitialOptions: AdOptions = {
   adId: 'ca-app-pub-9109251900558498/1182509295',
@@ -55,6 +57,7 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     private pushService: NotificationsService,
     private http: HttpService,
     private modalCtrl: ModalController,
+    private dm: DmService,
     private checkMessageService: CheckMessageService,
     private deepLink: DeepLinkService,
     private deviceIdService: DeviceIdService,
@@ -193,6 +196,17 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
           vibration: true
         })
         console.log('[starfcm] ✅ Android 알림 채널 생성 완료');
+
+        // 1:1 메신저 채널 (2-29차). 알림이 남아 있는 동안 런처가 점을 표시한다
+        await PushNotifications.createChannel({
+          id: 'dm_channel',
+          name: 'Messages',
+          description: 'Direct messages from other stars',
+          importance: 5,
+          visibility: 1,
+          sound: 'tick',
+          vibration: true
+        });
       }
 
       // 1. 토큰 발급/갱신 시 localStorage에 캐싱 + 백엔드로 자동 전송
@@ -228,11 +242,23 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // 2. 포그라운드(앱 켜진 상태)에서 푸시 도착
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
         console.log('[starfcm] 📩 포그라운드 푸시 수신:', notification);
+        // 메신저 도착 → 앱 안 미읽음 점 갱신 (2-29차)
+        const data: any = (notification && notification.data) || {};
+        if (data.type === 'DM') {
+          this.zone.run(() => this.dm.refreshUnread());
+        }
       });
 
       // 3. 알림 클릭 시 동작 (딥링크 등 연동 가능)
       PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
         console.log('[starfcm] 👆 푸시 알림 클릭:', notification);
+        // 메신저 푸시 탭 → 해당 대화로 바로 진입 (2-29차). 발신자 이름은 푸시에 싣지 않는다
+        const data: any = (notification && notification.notification && notification.notification.data) || {};
+        if (data.type === 'DM' && data.peerId && this.dm.isSignedIn) {
+          this.zone.run(() => {
+            openDmChat(this.modalCtrl, this.dm, { peerId: String(data.peerId) });
+          });
+        }
       });
 
       // 4. 앱 구동 시 권한 체크 후, 이미 허용(granted)된 유저면 바로 등록(토큰 갱신)
@@ -564,15 +590,21 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
+  // 앱을 열면 아이콘 점·알림을 지운다 (클라이언트 확정: 뱃지는 점 표기, 앱 켜면 제거).
+  // 예전에는 iOS만 처리했는데, Android 런처의 점은 알림이 남아 있는 동안 켜져 있으므로 양쪽 다 지운다 (2-29차 메신저)
   private async clearBadgesAndNotifications() {
-    if (Capacitor.isNativePlatform() && this.platform.is('ios')) {
-      try {
-        await Badge.clear();
-        await PushNotifications.removeAllDeliveredNotifications();
-        console.log('[Badge/Notification] Cleared badge and notifications successfully on iOS');
-      } catch (error) {
-        console.error('[Badge/Notification] Failed to clear badge and notifications:', error);
-      }
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await PushNotifications.removeAllDeliveredNotifications();
+    } catch (error) {
+      console.error('[Badge/Notification] Failed to clear notifications:', error);
+    }
+    try {
+      await Badge.clear();
+      console.log('[Badge/Notification] Cleared badge and notifications');
+    } catch (error) {
+      // 뱃지를 지원하지 않는 런처에서는 실패할 수 있다
+      console.warn('[Badge/Notification] Badge clear skipped:', error);
     }
   }
 }

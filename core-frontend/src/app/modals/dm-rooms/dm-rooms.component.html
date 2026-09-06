@@ -1,0 +1,37 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="light">
+    <ion-title>Messages</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div *ngIf="loaded && errorMsg" class="empty">
+    <div class="empty-icon">⚠️</div>
+    <div>{{ errorMsg }}</div>
+  </div>
+
+  <div *ngIf="loaded && !errorMsg && rooms.length === 0" class="empty">
+    <div class="empty-icon">💬</div>
+    <div>No conversations yet.</div>
+    <div class="sub">Messages disappear 5 min after sending and 1 min after being read.</div>
+  </div>
+
+  <ion-list *ngIf="rooms.length > 0" lines="full">
+    <ion-item *ngFor="let room of rooms" button detail="false" (click)="open(room)">
+      <ion-avatar slot="start">
+        <img [src]="room.peerImage || defaultAvatar" (error)="handleImageError($event)" />
+      </ion-avatar>
+      <ion-label>
+        <h2>{{ room.peerName }}</h2>
+        <p>{{ preview(room) }}</p>
+      </ion-label>
+      <div slot="end" class="room-meta">
+        <span class="time">{{ room.lastDate | date:'HH:mm' }}</span>
+        <ion-badge *ngIf="room.unread > 0" color="danger">{{ room.unread }}</ion-badge>
+      </div>
+    </ion-item>
+  </ion-list>
+</ion-content>

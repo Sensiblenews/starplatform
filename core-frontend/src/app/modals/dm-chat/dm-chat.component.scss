@@ -1,0 +1,230 @@
+// 전역 global.scss가 ion-modal 배경을 투명으로 두므로 모달 안에서 배경을 직접 잡는다
+:host {
+  --ion-background-color: #f7f7f7;
+  background: #f7f7f7;
+}
+
+// 1:1 채팅 (레거시 chat-write-modal 스타일을 옮기되 전역으로 새는 규칙은 뺐다)
+
+.peer-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+
+  .peer-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+}
+
+.expire-hint {
+  font-size: 11px;
+  color: #8a8a8a;
+  background: #f7f7f7;
+  text-align: center;
+  padding: 4px 12px 6px;
+}
+
+.chat-content {
+  --background: #f7f7f7;
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 8px;
+  --padding-bottom: 12px;
+}
+
+.chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  padding: 40px 0;
+}
+
+.bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+
+  &.me {
+    flex-direction: row-reverse;
+  }
+}
+
+.profile-wrapper {
+  width: 30px;
+  flex-shrink: 0;
+
+  .profile-image {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+}
+
+.bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+  .me & {
+    background: #3880ff;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .other & {
+    background: #fff;
+    color: #222;
+    border-bottom-left-radius: 4px;
+  }
+
+}
+
+// 첨부 풍선. `.me .bubble`보다 우선해야 하므로 행 클래스까지 붙여 명시도를 높인다
+// (Angular 캡슐화 속성이 선택자마다 붙어 `.bubble.media`만으로는 `.me .bubble` 배경에 진다)
+.bubble-row .bubble.media {
+  width: min(70%, 240px);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 14px;
+  overflow: hidden;
+
+  .thumbnail {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: 14px;
+    background: #000;
+  }
+
+  .video-preview {
+    position: relative;
+
+    .play-badge {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+  }
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 9px;
+  color: #999;
+  flex-shrink: 0;
+
+  .other & {
+    align-items: flex-start;
+  }
+
+  .unread {
+    color: #e53935;
+    font-weight: 700;
+  }
+}
+
+.pending-overlay {
+  position: absolute;
+  left: 12px;
+  bottom: 64px;
+  width: 100px;
+  height: 100px;
+  z-index: 1000;
+  background: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+  .pending-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-pending {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    --padding-start: 0;
+    --padding-end: 0;
+  }
+}
+
+ion-footer {
+  background: #fff;
+  border-top: 1px solid #eee;
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  gap: 2px;
+
+  .draft {
+    flex: 1;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    background: #f3f3f3;
+    border-radius: 20px;
+    font-size: 14px;
+    min-height: 36px;
+  }
+}
+
+.image-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+
+  .preview-image {
+    max-width: 96vw;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+
+  .viewer-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    --padding-start: 6px;
+    --padding-end: 6px;
+  }
+}

@@ -16,6 +16,8 @@ import { WriteModalService } from 'src/app/services/write-modal.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { environment } from 'src/environments/environment';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
+import { DmService } from 'src/app/services/dm.service';
+import { openDmChat } from 'src/app/modals/dm-chat/dm-chat.component';
 
 
 @Component({
@@ -112,7 +114,24 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private deepLink: DeepLinkService,
     private deviceIdService: DeviceIdService,
     private perf: PerfTraceService,
+    private dm: DmService,
   ) { }
+
+  // 로그인한 스타가 다른 스타 페이지를 볼 때만 채팅 아이콘 (2-29차 메신저, 스타 소유자끼리 1:1)
+  get canMessage(): boolean {
+    return this.dm.canMessage(this.starId);
+  }
+
+  async openDm(event?: Event) {
+    if (event) event.stopPropagation();
+    if (!this.canMessage) return;
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    await openDmChat(this.modalCtrl, this.dm, {
+      peerId: this.starId,
+      peerName: this.starInfo?.name || '',
+      peerImage: this.starInfo?.image || null,
+    });
+  }
 
   async ngOnInit() {
     this.perf.mark('star:ngOnInit');
