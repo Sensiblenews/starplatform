@@ -20,11 +20,12 @@ android {
     }
     buildTypes {
         release {
-            // Play Console "앱 최적화" 대응 (2026-09-06): R8 코드 축소·난독화 + 미사용 리소스 제거.
-            // 규칙은 proguard-rules.pro (platformConfigurement 스냅샷과 동일하게 유지)
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // R8 난독화는 보류 (2026-09-07 클라이언트 결정). 2026-09-06에 켰다가 카카오 SDK(Retrofit) 시그니처
+            // 제거로 10.0.61/62에서 크래시가 나 이전 상태로 되돌림. 다시 켤 때는 minifyEnabled/shrinkResources true로
+            // 바꾸고 proguard-rules.pro(Retrofit·카카오 규칙 포함)와 gradle.properties의 fullMode=false를 그대로 쓴다.
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
