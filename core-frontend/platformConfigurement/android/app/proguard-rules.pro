@@ -63,3 +63,23 @@
 -dontwarn org.openjsse.javax.net.ssl.SSLParameters
 -dontwarn org.openjsse.javax.net.ssl.SSLSocket
 -dontwarn org.openjsse.net.ssl.OpenJSSE
+
+# --- Retrofit (카카오 SDK v2-network가 retrofit 2.9.0 사용) — 2026-09-06 Crashlytics 대응 ---
+# 10.0.61/62(R8 첫 적용)에서 "retrofit2.DefaultCallAdapterFactory.get: Call return type must be parameterized" 급증.
+# R8 full mode가 인터페이스 메서드의 제네릭 시그니처(Call<T>)를 지워서 나는 예외.
+# retrofit 2.9.0의 consumer 규칙에는 full mode용 keep이 없다(2.11에서 추가됨) → 여기서 직접 넣는다.
+-keepattributes Signature,InnerClasses,EnclosingMethod,RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface <1>
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-dontwarn retrofit2.KotlinExtensions
+-dontwarn retrofit2.KotlinExtensions$*
+-dontwarn javax.annotation.**
+-dontwarn kotlin.Unit
+# 카카오 SDK API 인터페이스는 메서드·시그니처까지 그대로
+-keep interface com.kakao.sdk.**.*Api { *; }
