@@ -83,3 +83,19 @@
 -dontwarn kotlin.Unit
 # 카카오 SDK API 인터페이스는 메서드·시그니처까지 그대로
 -keep interface com.kakao.sdk.**.*Api { *; }
+
+# --- Capacitor 코어·플러그인 전체 keep — 2026-09-07 Crashlytics 대응 ---
+# 10.0.63/64(R8 compat + Retrofit 규칙 빌드)에서 "Bridge.getPermissionStates(Bridge.java:1178) NullPointerException"
+# (PluginHandle.invoke → Plugin.checkPermissions 경로, 삼성 기기). 플러그인 어노테이션(@CapacitorPlugin/@Permission)
+# 정보가 난독화 과정에서 유실돼 annotation이 null이 되는 알려진 증상 — Ionic 포럼 해결책 그대로 적용.
+# Capacitor 코드는 전체 앱에서 작은 비중이라 통째로 지켜도 난독화 비율에 영향이 거의 없다.
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
+-keep class com.getcapacitor.community.** { *; }
+-keep class io.capawesome.** { *; }
+-keep class com.nerdfrenz.kakao.** { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.annotation.Permission *;
+    @com.getcapacitor.PluginMethod *;
+}
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
