@@ -44,6 +44,9 @@ target 'App' do
   # Add your Pods here
   pod 'Firebase/Messaging'
   pod 'Google-Mobile-Ads-SDK'
+  # AppLovin Bidding 어댑터 (2-28차). AppLovin SDK를 의존성으로 함께 가져온다.
+  # 앱 코드는 참조하지 않는다 — AdMob이 이름으로 찾아 올린다
+  pod 'GoogleMobileAdsMediationAppLovin'
   pod 'FBSDKCoreKit'
   pod 'GoogleUserMessagingPlatform', '2.1.0'
   pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
