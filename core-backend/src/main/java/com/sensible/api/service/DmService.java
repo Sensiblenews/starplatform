@@ -385,6 +385,61 @@ public class DmService {
 		return result;
 	}
 
+	/**
+	 * 사용자 차단 (2-28차).
+	 *
+	 * 저장은 단방향이지만 효과는 양방향이다 — 차단하면 둘 중 누구도 상대에게 전달되지 않는다.
+	 * 차단당한 쪽에는 알리지 않는다(보복·마찰 방지). 상대가 보낸 메시지는 평소대로 저장되지만
+	 * 내 조회에서 걸러지고 푸시도 가지 않는다. 자세한 근거는 db/dm-block.sql 주석 참조.
+	 */
+	public Map<String, Object> blockPeer(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		String peerId = str(params.get("peerId"));
+		if (peerId.isEmpty()) return fail(result, "Invalid request.");
+		if (!isBlockable(starId, peerId)) return fail(result, "You cannot block yourself.");
+
+		Map<String, Object> param = new HashMap<>();
+		param.put("starId", starId);
+		param.put("peerId", peerId);
+		// 이미 차단한 상대를 다시 눌러도 오류로 보지 않는다 (INSERT IGNORE)
+		dao.insert("superapp.insertDmBlock", param);
+
+		result.put("result", "OK");
+		return result;
+	}
+
+	/** 차단 해제 */
+	public Map<String, Object> unblockPeer(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		String peerId = str(params.get("peerId"));
+		if (peerId.isEmpty()) return fail(result, "Invalid request.");
+
+		Map<String, Object> param = new HashMap<>();
+		param.put("starId", starId);
+		param.put("peerId", peerId);
+		dao.delete("superapp.deleteDmBlock", param);
+
+		result.put("result", "OK");
+		return result;
+	}
+
+	/** 내가 차단한 사람 목록. 해제 화면용이라 정지·탈퇴한 계정도 그대로 보여준다 */
+	public Map<String, Object> getBlockedList(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		result.put("result", "OK");
+		result.put("blocked", dao.selectList("superapp.selectDmBlockedList", starId));
+		return result;
+	}
+
 	/** 파일 토큰 → 실제 파일. 만료됐거나 없으면 null */
 	public File resolveFile(String grantType, String targetId) {
 		long msgId;
@@ -439,6 +494,17 @@ public class DmService {
 			throw new IllegalArgumentException("Please select a reason for the report.");
 		}
 		return reason;
+	}
+
+	/**
+	 * 차단 가능 조건: 자기 자신은 차단할 수 없다.
+	 * 자기 차단을 허용하면 selectDmRooms의 NOT EXISTS가 자기 대화를 전부 지워
+	 * 스스로 메신저를 못 쓰게 만들 수 있다
+	 */
+	public static boolean isBlockable(String starId, String peerId) {
+		if (starId == null || starId.isEmpty()) return false;
+		if (peerId == null || peerId.isEmpty()) return false;
+		return !starId.equals(peerId);
 	}
 
 	/** 신고 가능 조건: 내가 받은 메시지여야 하고, 내가 보낸 메시지는 신고할 수 없다 */
@@ -549,9 +615,40 @@ public class DmService {
 		}
 	}
 
-	/** 상대 스타 확인. 자기 자신에게는 보낼 수 없다 */
+	/**
+	 * 두 사람 사이에 차단이 있는지 (방향 무관).
+	 *
+	 * 확인에 실패하면 차단으로 본다(fail-closed). 발송을 막는 판정이라 열어두면
+	 * DB가 흔들리는 동안 차단이 무력화된다.
+	 *
+	 * 이 판정이 발송 경로에 있으므로 WH_DM_BLOCK 테이블이 없으면 메신저 발송이 멈춘다.
+	 * 대화 목록·내용 쿼리도 같은 테이블을 참조해 어차피 함께 깨지므로,
+	 * 여기만 열어둔다고 앱이 살아나지는 않는다.
+	 * → db/dm-block.sql은 WAR 배포 "전"에 반드시 적용할 것.
+	 */
+	private boolean isBlockedPair(String aId, String bId) {
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("starId", aId);
+			param.put("peerId", bId);
+			Integer blocked = dao.selectOne("superapp.checkDmBlockPair", param);
+			return blocked != null && blocked > 0;
+		} catch (Exception e) {
+			logger.warn("[DM] block check failed: {}", e.getMessage());
+			return true;
+		}
+	}
+
+	/**
+	 * 상대 스타 확인. 자기 자신에게는 보낼 수 없다.
+	 *
+	 * 차단 관계도 여기서 막는다 (2-28차). 호출부가 null을 "This star is not available."로
+	 * 옮기므로, 차단당한 쪽은 상대가 계정을 내린 경우와 똑같은 응답을 받는다 —
+	 * 차단당했다는 사실 자체가 드러나지 않는다.
+	 */
 	private Map<String, Object> findPeer(String starId, String peerId) {
 		if (peerId == null || peerId.isEmpty() || peerId.equals(starId)) return null;
+		if (isBlockedPair(starId, peerId)) return null;
 		return dao.selectOne("superapp.selectDmPeer", peerId);
 	}
 

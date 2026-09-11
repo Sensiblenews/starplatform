@@ -348,10 +348,47 @@ export class DmChatComponent implements OnInit, OnDestroy {
           icon: 'flag-outline',
           handler: () => { this.askReportReason(msgId); },
         },
+        {
+          text: 'Block this user',
+          role: 'destructive',
+          icon: 'ban-outline',
+          handler: () => { this.askBlock(); },
+        },
         { text: 'Cancel', role: 'cancel' },
       ],
     });
     await sheet.present();
+  }
+
+  /** 차단 확인 → 실행 → 채팅방 즉시 종료 (목록에서도 사라진다) */
+  private async askBlock() {
+    const alert = await this.alertCtrl.create({
+      header: 'Block user',
+      message: `Block ${this.peerName || 'this user'}? You will no longer exchange messages, `
+        + 'and this conversation will be removed. You can undo this from the blocked list.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Block', role: 'destructive', handler: () => { this.submitBlock(); } },
+      ],
+    });
+    await alert.present();
+  }
+
+  private submitBlock() {
+    this.dm.block(this.peerId).subscribe({
+      next: (res: any) => {
+        if (res && res.result === 'OK') {
+          this.helper.toast('User blocked.', 'middle');
+          // 차단했으면 이 방은 더 볼 이유가 없다. 목록도 서버에서 이미 빠진다
+          this.modalCtrl.dismiss({ blocked: true });
+        } else {
+          this.helper.toast(res && res.msg ? res.msg : 'Could not block this user.', 'middle');
+        }
+      },
+      error: () => {
+        this.helper.toast('Could not block this user.', 'middle');
+      },
+    });
   }
 
   private async askReportReason(msgId: number) {

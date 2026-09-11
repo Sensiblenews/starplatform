@@ -167,6 +167,27 @@ public class DmServiceTest {
 		assertEquals(-1L, DmService.parsePositiveId("1.5"));
 	}
 
+	// ===== 차단 (2-28차) =====
+
+	@Test
+	public void 자기_자신은_차단할_수_없다() {
+		// 허용하면 selectDmRooms가 자기 대화를 전부 지워 스스로 메신저를 못 쓰게 된다
+		assertFalse(DmService.isBlockable("a", "a"));
+	}
+
+	@Test
+	public void 다른_사람은_차단할_수_있다() {
+		assertTrue(DmService.isBlockable("a", "b"));
+	}
+
+	@Test
+	public void 빈_값으로는_차단할_수_없다() {
+		assertFalse(DmService.isBlockable("", "b"));
+		assertFalse(DmService.isBlockable("a", ""));
+		assertFalse(DmService.isBlockable(null, "b"));
+		assertFalse(DmService.isBlockable("a", null));
+	}
+
 	@Test
 	public void 증거_파일명은_업로드와_같은_규칙으로_검사한다() {
 		// 신고 디렉터리 복사와 어드민 미리보기가 둘 다 이 규칙에 기대고 있다

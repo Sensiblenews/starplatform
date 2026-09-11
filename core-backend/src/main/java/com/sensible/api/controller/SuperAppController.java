@@ -374,6 +374,26 @@ public class SuperAppController {
 		return dmService.reportMessage(params);
 	}
 
+	// 사용자 차단 (2-28차). 차단당한 쪽에는 알리지 않는다
+	@RequestMapping(value = "/api/super/dm/block", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmBlock(@RequestBody Map<String, Object> params) {
+		return dmService.blockPeer(params);
+	}
+
+	// 차단 해제 (스토어 심사 필수 — 차단 목록에서 되돌릴 수 있어야 한다)
+	@RequestMapping(value = "/api/super/dm/unblock", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmUnblock(@RequestBody Map<String, Object> params) {
+		return dmService.unblockPeer(params);
+	}
+
+	@RequestMapping(value = "/api/super/dm/blocked-list", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmBlockedList(@RequestBody Map<String, Object> params) {
+		return dmService.getBlockedList(params);
+	}
+
 	// 첨부 파일 스트리밍. 대화 내용 응답에 붙은 단기 토큰(t)으로만 접근 — URL만으로는 열리지 않는다
 	@RequestMapping(value = "/api/super/dm/file", method = RequestMethod.GET)
 	public void dmFile(@RequestParam("t") String token, HttpServletResponse response) throws Exception {

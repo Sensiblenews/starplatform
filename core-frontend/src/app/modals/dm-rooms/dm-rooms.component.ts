@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { DmRoom, DmService } from 'src/app/services/dm.service';
+import { openDmBlocked } from '../dm-blocked/dm-blocked.component';
 import { openDmChat } from '../dm-chat/dm-chat.component';
 
 /** 대화 목록 모달 열기 (로비 헤더 아바타의 미읽음 점 탭) */
@@ -70,7 +71,14 @@ export class DmRoomsComponent implements OnInit {
 
   async open(room: DmRoom) {
     await openDmChat(this.modalCtrl, this.dm, { peerId: room.peerId, peerName: room.peerName, peerImage: room.peerImage });
+    // 채팅 안에서 차단했으면 서버 목록에서 이미 빠졌으므로 다시 불러야 반영된다
     this.load();
+  }
+
+  /** 차단 목록. 해제가 있었으면 대화 목록을 다시 부른다 (차단했던 방이 돌아온다) */
+  async openBlocked() {
+    const changed = await openDmBlocked(this.modalCtrl);
+    if (changed) this.load();
   }
 
   handleImageError(event: any) {

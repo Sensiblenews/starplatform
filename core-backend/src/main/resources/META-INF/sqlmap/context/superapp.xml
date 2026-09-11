@@ -1964,6 +1964,15 @@
 		) R
 		JOIN WH_DM_MESSAGE L ON L.MSG_ID = R.LAST_ID
 		JOIN WH_PRESS PEER ON PEER.PRS_ID = R.PEER_ID
+		-- 차단 관계인 상대는 양쪽 모두의 목록에서 사라진다 (2-28차).
+		-- 한쪽만 가리면 남은 쪽에 미읽음 뱃지와 미리보기가 남는데, 정작 방을 열면
+		-- 내용이 안 보여 고장처럼 보인다. 메시지가 5분이면 사라지는 앱이라
+		-- 방이 없어지는 것 자체는 폭파와 구분되지 않는다
+		WHERE NOT EXISTS (
+			SELECT 1 FROM WH_DM_BLOCK B
+			WHERE (B.BLOCKER_PRS_ID = #{starId} AND B.BLOCKED_PRS_ID = PEER.PRS_ID)
+			   OR (B.BLOCKER_PRS_ID = PEER.PRS_ID AND B.BLOCKED_PRS_ID = #{starId})
+		)
 		ORDER BY L.SEND_DATE DESC
 	</select>
 
@@ -1983,6 +1992,13 @@
 		WHERE ((SEND_PRS_ID = #{starId} AND RECV_PRS_ID = #{peerId})
 		    OR (SEND_PRS_ID = #{peerId} AND RECV_PRS_ID = #{starId}))
 		  AND EXPIRE_AT > NOW()
+		  -- 차단 관계면 대화 자체를 양쪽 모두에게 가린다 (2-28차).
+		  -- 새 메시지는 findPeer가 이미 막으므로 여기서 걸리는 것은 차단 전에 오간 내용뿐이다
+		  AND NOT EXISTS (
+		      SELECT 1 FROM WH_DM_BLOCK B
+		      WHERE (B.BLOCKER_PRS_ID = #{starId} AND B.BLOCKED_PRS_ID = #{peerId})
+		         OR (B.BLOCKER_PRS_ID = #{peerId} AND B.BLOCKED_PRS_ID = #{starId})
+		  )
 		ORDER BY MSG_ID ASC
 	</select>
 
@@ -1999,10 +2015,17 @@
 
 	<select id="selectDmUnreadCount" parameterType="string" resultType="int">
 		SELECT COUNT(*)
-		FROM WH_DM_MESSAGE
-		WHERE RECV_PRS_ID = #{starId}
-		  AND READ_DATE IS NULL
-		  AND EXPIRE_AT > NOW()
+		FROM WH_DM_MESSAGE M
+		WHERE M.RECV_PRS_ID = #{starId}
+		  AND M.READ_DATE IS NULL
+		  AND M.EXPIRE_AT > NOW()
+		  -- 차단 관계인 상대가 보낸 것은 세지 않는다. 안 그러면 읽을 수 없는 메시지 때문에
+		  -- 로비 아바타에 빨간 점이 영구히 붙어 있게 된다 (2-28차)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM WH_DM_BLOCK B
+		      WHERE (B.BLOCKER_PRS_ID = #{starId} AND B.BLOCKED_PRS_ID = M.SEND_PRS_ID)
+		         OR (B.BLOCKER_PRS_ID = M.SEND_PRS_ID AND B.BLOCKED_PRS_ID = #{starId})
+		  )
 	</select>
 
 	<!-- 파일 스트리밍용: 살아 있는 첨부 메시지 1건 -->
@@ -2084,5 +2107,44 @@
 			'OPEN', NOW()
 		)
 	</insert>
+
+	<!-- ==========================================
+	     🌟 [신규] 사용자 차단 (WH_DM_BLOCK, 2-28차)
+	     저장은 단방향, 효과는 양방향. 차단당한 쪽에는 알리지 않는다
+	     ========================================== -->
+
+	<!-- 이미 차단한 상대를 다시 눌러도 오류로 보지 않는다 -->
+	<insert id="insertDmBlock" parameterType="map">
+		INSERT IGNORE INTO WH_DM_BLOCK (BLOCKER_PRS_ID, BLOCKED_PRS_ID, CREATED_DATE)
+		VALUES (#{starId}, #{peerId}, NOW())
+	</insert>
+
+	<delete id="deleteDmBlock" parameterType="map">
+		DELETE FROM WH_DM_BLOCK
+		WHERE BLOCKER_PRS_ID = #{starId}
+		  AND BLOCKED_PRS_ID = #{peerId}
+	</delete>
+
+	<!-- 방향 무관 차단 여부 (푸시 차단 판정용) -->
+	<select id="checkDmBlockPair" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_DM_BLOCK
+		WHERE (BLOCKER_PRS_ID = #{starId} AND BLOCKED_PRS_ID = #{peerId})
+		   OR (BLOCKER_PRS_ID = #{peerId} AND BLOCKED_PRS_ID = #{starId})
+	</select>
+
+	<!-- 해제 화면용. 정지·탈퇴한 계정도 빠지면 안 되므로 selectDmPeer와 달리
+	     PRS_USE_YN·IS_STAR 조건을 걸지 않고, 이름이 없으면 ID로 대체한다 -->
+	<select id="selectDmBlockedList" parameterType="string" resultType="map">
+		SELECT
+			B.BLOCKED_PRS_ID AS peerId,
+			IFNULL(P.PRS_NAME, B.BLOCKED_PRS_ID) AS peerName,
+			P.STORED_FILE_NM AS peerImage,
+			B.CREATED_DATE AS blockedDate
+		FROM WH_DM_BLOCK B
+		LEFT JOIN WH_PRESS P ON P.PRS_ID = B.BLOCKED_PRS_ID
+		WHERE B.BLOCKER_PRS_ID = #{starId}
+		ORDER BY B.CREATED_DATE DESC
+	</select>
 
 </mapper>

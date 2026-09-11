@@ -1,0 +1,36 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="light">
+    <ion-title>Blocked users</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div *ngIf="loaded && errorMsg" class="empty">
+    <div class="empty-icon">⚠️</div>
+    <div>{{ errorMsg }}</div>
+  </div>
+
+  <div *ngIf="loaded && !errorMsg && blocked.length === 0" class="empty">
+    <div class="empty-icon">🚫</div>
+    <div>You have not blocked anyone.</div>
+    <div class="sub">Blocked users cannot exchange messages with you.</div>
+  </div>
+
+  <ion-list *ngIf="blocked.length > 0" lines="full">
+    <ion-item *ngFor="let item of blocked" detail="false">
+      <ion-avatar slot="start">
+        <img [src]="item.peerImage || defaultAvatar" (error)="handleImageError($event)" />
+      </ion-avatar>
+      <ion-label>
+        <h2>{{ item.peerName }}</h2>
+        <p>Blocked on {{ item.blockedDate | date:'yyyy-MM-dd' }}</p>
+      </ion-label>
+      <ion-button slot="end" size="small" fill="outline" (click)="confirmUnblock(item)">
+        Unblock
+      </ion-button>
+    </ion-item>
+  </ion-list>
+</ion-content>
