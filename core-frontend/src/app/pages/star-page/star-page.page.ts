@@ -93,6 +93,13 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   recommendedPages: any[] = []; // 하단 무한 스크롤(Next Page)용 추천 리스트
 
   isStar: boolean = false; // 🌟 추가: 현재 사용자가 이 페이지의 주인인지 여부
+
+  // 🌟 [신규 2-28차] 글쓰기 플로팅 버튼용. isStar는 "이 페이지의 주인인가"라서
+  // 남의 스타페이지에서는 false다. 글쓰기는 어느 페이지에 있든 "내 글"을 쓰는 것이므로
+  // 로그인 여부와 내 스타 ID를 따로 들고 있어야 한다
+  myIsStar: boolean = false;
+  myStarId: string = '';
+
   private paramSub: any;
 
   // 첫 진입 시에만 스켈레톤을 노출한다 (새로고침·재조회에는 관여하지 않음)
@@ -148,7 +155,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
     this.paramSub = this.route.paramMap.subscribe(params => {
       this.starId = params.get('starId');
-      this.isStar = localStorage.getItem('isStar') === 'true' && localStorage.getItem('starId') === this.starId;
+      this.myIsStar = localStorage.getItem('isStar') === 'true';
+      this.myStarId = localStorage.getItem('starId') || '';
+      this.isStar = this.myIsStar && this.myStarId === this.starId;
 
       this.resetFeedPaging();
       this.loadStarDetail();
@@ -1157,6 +1166,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     localStorage.setItem('ownerEmail', email);
 
     this.isStar = true; // UI 즉시 반영 (Edit 버튼 노출 등)
+    this.myIsStar = true; // 글쓰기 버튼도 같이 켜진다
+    this.myStarId = starId;
     this.isClaimed = true; // 소유권 상태 갱신
 
     this.showError('Congratulations! You are now the owner of this page.');
@@ -1376,13 +1387,27 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     this.isProfileViewerOpen = false;
   }
 
+  /** 글쓰기 버튼 노출 조건. 로비와 달리 비로그인 상태에서는 감춘다 (2-28차) */
+  get canWrite(): boolean {
+    return this.isAdmin || this.myIsStar;
+  }
+
+  /**
+   * 글쓰기 (2-28차). 어느 스타페이지에 있든 "내 글"을 쓴다 —
+   * 보고 있는 페이지의 starId가 아니라 내 starId를 넘긴다.
+   */
   handleWriteButtonClick() {
     this.writeModalService.openWriteModal(
-      this.isStar,
-      this.starId,
+      this.myIsStar,
+      this.myStarId,
       localStorage.getItem('adminLevel') || '',
       () => {
-        this.loadStarDetail(); // Reload page feeds on success
+        if (this.myIsStar && this.myStarId && this.myStarId !== this.starId) {
+          // 남의 페이지에서 썼으면 방금 올린 글이 있는 내 페이지로 보낸다 (로비와 같은 동작)
+          this.router.navigate(['/star', this.myStarId]);
+        } else {
+          this.loadStarDetail();
+        }
       }
     );
   }
