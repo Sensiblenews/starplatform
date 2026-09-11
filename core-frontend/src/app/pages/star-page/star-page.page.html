@@ -269,9 +269,9 @@
     <p>ⓒ All activities are automatically recorded.</p>
   </div>
 
-  <!-- 🌟 [신규 2-28차] 글쓰기 버튼. 로비와 같은 자리·같은 모양이고,
-       어느 스타페이지에서 눌러도 내 글을 쓴다. 비로그인 상태에서는 감춘다 -->
-  <ion-fab vertical="bottom" horizontal="end" slot="fixed" *ngIf="canWrite">
+  <!-- 🌟 [신규 2-28차] 글쓰기 버튼. 로비와 같은 자리·같은 모양·같은 동작이다.
+       어느 스타페이지에서 눌러도 내 글을 쓰고, 비로그인이면 크리에이터 로그인을 유도한다 -->
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
     <ion-fab-button class="glass-fab" (click)="handleWriteButtonClick()">
       <span style="font-size: 24px; transform: translateY(-1px);">✏️</span>
     </ion-fab-button>

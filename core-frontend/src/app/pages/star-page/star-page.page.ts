@@ -13,6 +13,7 @@ import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { DeepLinkService } from 'src/app/services/deep-link.service';
 import { finalize } from 'rxjs/operators';
 import { WriteModalService } from 'src/app/services/write-modal.service';
+import { CreatorLoginService } from 'src/app/services/creator-login.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { environment } from 'src/environments/environment';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
@@ -117,6 +118,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private alertCtrl: AlertController,
     private modalCtrl: ModalController,
     private writeModalService: WriteModalService,
+    private creatorLogin: CreatorLoginService,
     private navCtrl: NavController,
     private deepLink: DeepLinkService,
     private deviceIdService: DeviceIdService,
@@ -1387,16 +1389,29 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     this.isProfileViewerOpen = false;
   }
 
-  /** 글쓰기 버튼 노출 조건. 로비와 달리 비로그인 상태에서는 감춘다 (2-28차) */
-  get canWrite(): boolean {
-    return this.isAdmin || this.myIsStar;
+  /**
+   * 글쓰기 (2-28차). 로비 버튼과 같은 동작이다.
+   * 로그인 상태면 바로 글쓰기, 아니면 크리에이터 로그인을 유도한다.
+   */
+  async handleWriteButtonClick() {
+    if (this.isAdmin || this.myIsStar) {
+      this.openWriteModal();
+      return;
+    }
+
+    const res = await this.creatorLogin.promptLogin();
+    if (!res.ok) return;
+
+    this.myIsStar = true;
+    this.myStarId = res.starId;
+    this.isStar = this.myStarId === this.starId;
+    // 소유자로 로그인했다면 이 페이지의 관리 UI(Edit 등)도 같이 열려야 한다
+    this.loadStarDetail();
+    this.openWriteModal();
   }
 
-  /**
-   * 글쓰기 (2-28차). 어느 스타페이지에 있든 "내 글"을 쓴다 —
-   * 보고 있는 페이지의 starId가 아니라 내 starId를 넘긴다.
-   */
-  handleWriteButtonClick() {
+  /** 어느 스타페이지에 있든 "내 글"을 쓴다 — 보고 있는 페이지가 아니라 내 starId를 넘긴다 */
+  private openWriteModal() {
     this.writeModalService.openWriteModal(
       this.myIsStar,
       this.myStarId,
