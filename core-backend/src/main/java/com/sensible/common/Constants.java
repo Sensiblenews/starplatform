@@ -53,6 +53,14 @@ public class Constants {
 	public static final String _PENDING_SAVE_PATH = "/var/lib/tomcat7/moderation/pending/";
 	public static final String _HIDDEN_SAVE_PATH = "/var/lib/tomcat7/moderation/hidden/";
 
+	/*
+	 * 신고된 채팅 첨부 보관소 (2-28차).
+	 *
+	 * DM 첨부 원본은 폭파 스케줄러가 5분·1분 뒤 지우므로 신고 시점에 이곳으로 복사한다.
+	 * 위 검수 보관소와 같은 이유로 웹앱 밖에 둔다 — 관리자 전용 스트리밍으로만 본다.
+	 */
+	public static final String _DM_REPORT_SAVE_PATH = "/var/lib/tomcat7/moderation/dm-report/";
+
 	public static final String _FILE_URL = "https://witch-hunting.com/img/";
 	public static final String _VIDEO_FILE_URL = "https://witch-hunting.com/video/";
 	public static final String _VIDEO_THUMNAIL_FILE_URL = "https://witch-hunting.com/video/thumnail/";

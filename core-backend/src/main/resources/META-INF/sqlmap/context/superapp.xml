@@ -1237,12 +1237,17 @@
           AND PRS_USE_YN = 'Y'
 	</select>
 
+	<!-- 토큰 유효기간이 30일이라 PRS_USE_YN을 같이 보지 않으면, 정지당한 계정이
+	     남은 토큰으로 최대 30일간 DM·피드 작성을 계속할 수 있다.
+	     이 쿼리를 쓰는 6곳(DmService·SuperAppService)은 모두 쓰기 작업의 본인 확인이므로
+	     "정지된 계정은 거부"가 전부 의도에 맞는다 (2-28차) -->
 	<select id="checkStarToken" parameterType="map" resultType="int">
-	    SELECT COUNT(*) 
-	    FROM WH_PRESS 
-	    WHERE PRS_ID = #{starId} 
+	    SELECT COUNT(*)
+	    FROM WH_PRESS
+	    WHERE PRS_ID = #{starId}
 	      AND PRS_TOKEN = #{starToken}
 	      AND TOKEN_EXPIRED_DATE > NOW()
+	      AND PRS_USE_YN = 'Y'
 	</select>
 
 	<select id="selectStarByIdPw" parameterType="map" resultType="map">
@@ -2026,5 +2031,58 @@
 			#{id}
 		</foreach>
 	</delete>
+
+	<!-- ==========================================
+	     🌟 [신규] 채팅 메시지 신고 (WH_DM_REPORT, 2-28차)
+	     원본은 곧 폭파되므로 신고 시점에 스냅샷을 뜬다
+	     ========================================== -->
+
+	<!-- 신고 대상 메시지 1건.
+	     다른 DM 조회와 달리 EXPIRE_AT 조건이 없다 — 폭파 예정 시각이 지났어도 스케줄러(1분)가
+	     아직 지우기 전이면 파일이 디스크에 남아 있어 증거를 건질 수 있다. 의도적 예외다 -->
+	<select id="selectDmMessageForReport" parameterType="long" resultType="map">
+		SELECT
+			MSG_ID       AS msgId,
+			SEND_PRS_ID  AS senderId,
+			RECV_PRS_ID  AS receiverId,
+			CONTENT_TYPE AS contentType,
+			CONTENT      AS content,
+			THUMB_NM     AS thumbNm,
+			SEND_DATE    AS sendDate
+		FROM WH_DM_MESSAGE
+		WHERE MSG_ID = #{msgId}
+	</select>
+
+	<!-- 피신고자 이름 스냅샷 (계정이 지워져도 어드민 화면에 남긴다) -->
+	<select id="selectDmReportTargetName" parameterType="string" resultType="string">
+		SELECT PRS_NAME FROM WH_PRESS WHERE PRS_ID = #{prsId}
+	</select>
+
+	<select id="selectDmReportExists" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_DM_REPORT
+		WHERE MSG_ID = #{msgId}
+		  AND REPORTER_PRS_ID = #{starId}
+	</select>
+
+	<!-- 도배 방지: 신고자 1인의 24시간 건수 -->
+	<select id="selectDmReportCountToday" parameterType="string" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_DM_REPORT
+		WHERE REPORTER_PRS_ID = #{starId}
+		  AND CREATED_DATE &gt; DATE_SUB(NOW(), INTERVAL 1 DAY)
+	</select>
+
+	<insert id="insertDmReport" parameterType="map">
+		INSERT INTO WH_DM_REPORT (
+			MSG_ID, REPORTER_PRS_ID, TARGET_PRS_ID, TARGET_PRS_NAME, REASON,
+			CONTENT_TYPE, CONTENT_SNAPSHOT, FILE_NM, THUMB_NM, MSG_SEND_DATE,
+			STATUS, CREATED_DATE
+		) VALUES (
+			#{msgId}, #{reporterId}, #{targetId}, #{targetName}, #{reason},
+			#{contentType}, #{contentSnapshot}, #{fileNm}, #{thumbNm}, #{msgSendDate},
+			'OPEN', NOW()
+		)
+	</insert>
 
 </mapper>

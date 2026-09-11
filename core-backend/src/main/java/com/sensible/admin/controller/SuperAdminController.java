@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.sensible.admin.domain.UserVO;
 import com.sensible.admin.service.SuperAdminService;
+import com.sensible.api.service.DmService;
 import com.sensible.common.Constants;
 import com.sensible.common.util.ImageModerationUtil;
 
@@ -677,6 +678,132 @@ public class SuperAdminController {
             result.put("status", "success");
             result.put("applied", applied);
             result.put("msg", applied ? "처리되었습니다." : "이미 처리된 건입니다.");
+        } catch (Exception e) {
+            result.put("status", "fail");
+            result.put("msg", "처리 실패: " + e.getMessage());
+        }
+        return result;
+    }
+
+    // ===== 채팅 신고 관리 (2-28차) =====
+
+    /** 신고 목록. 기본은 미처리(OPEN) */
+    @RequestMapping(value = "/super/dm-report/list.do")
+    public String dmReportList(HttpServletRequest request, Model model,
+            @RequestParam(value = "status", required = false) String status) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+
+        String target = ("RESOLVED".equals(status) || "DISMISSED".equals(status)) ? status : "OPEN";
+        model.addAttribute("status", target);
+        model.addAttribute("list", superAdminService.getDmReportList(target));
+        model.addAttribute("counts", superAdminService.getDmReportCounts());
+
+        return "super/dm_report_list";
+    }
+
+    /**
+     * 신고된 첨부 미리보기.
+     *
+     * 이미지 검수 미리보기와 같은 방식이지만 한 가지가 다르다 — 파일명을 요청에서 받지 않는다.
+     * rptId로 DB 행을 찾아 거기 적힌 파일명만 쓴다. kind는 "어느 컬럼을 볼지"만 고른다.
+     * 탐색 디렉터리도 신고 보관소 하나뿐이다. 여러 곳을 도는 폴백을 두면
+     * 관리자 세션으로 아무 공개 파일이나 읽는 통로가 된다.
+     */
+    @RequestMapping(value = "/super/dm-report/preview.do")
+    public void dmReportPreview(HttpServletRequest request, HttpServletResponse response,
+            @RequestParam("rptId") String rptId,
+            @RequestParam(value = "kind", required = false) String kind) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        long id = DmService.parsePositiveId(rptId);
+        if (id < 1) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        Map<String, Object> report = superAdminService.getDmReport(id);
+        if (report == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        String fileName = (String) ("THUMB".equals(kind) ? report.get("THUMB_NM") : report.get("FILE_NM"));
+        // DB에서 온 값이라도 파일 시스템에 그대로 쓰지 않는다 (경로 조작 차단)
+        if (fileName == null || !DmService.isSafeFileName(fileName)) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        java.io.File found = new java.io.File(Constants._DM_REPORT_SAVE_PATH, fileName);
+        if (!found.isFile()) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        response.setContentType(DmService.contentTypeOf(fileName));
+        response.setContentLength((int) found.length());
+        // 신고 증거는 캐시하지 않는다. 처리 후에도 브라우저에 남으면 곤란하다
+        response.setHeader("Cache-Control", "no-store");
+        // Range를 지원하지 않으므로 플레이어가 탐색을 시도하다 실패하지 않게 미리 알린다
+        response.setHeader("Accept-Ranges", "none");
+
+        java.io.InputStream in = null;
+        java.io.OutputStream out = null;
+        try {
+            in = new java.io.FileInputStream(found);
+            out = response.getOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
+        } finally {
+            if (in != null) { try { in.close(); } catch (Exception e) { } }
+        }
+    }
+
+    /** 신고 처리: 영구 정지 / 조치 완료 / 기각 */
+    @RequestMapping(value = "/super/dm-report/action.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> dmReportAction(HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        try {
+            String action = String.valueOf(params.get("action"));
+            if (SuperAdminService.reportActionToStatus(action) == null) {
+                result.put("status", "fail");
+                result.put("msg", "알 수 없는 처리입니다.");
+                return result;
+            }
+
+            long rptId = DmService.parsePositiveId(params.get("rptId"));
+            if (rptId < 1) {
+                result.put("status", "fail");
+                result.put("msg", "잘못된 요청입니다.");
+                return result;
+            }
+
+            boolean applied = superAdminService.handleDmReport(
+                    rptId, action, user.getPRS_ID(), (String) params.get("memo"));
+
+            result.put("status", "success");
+            result.put("applied", applied);
+            result.put("msg", applied ? "처리되었습니다." : "이미 처리된 신고입니다.");
         } catch (Exception e) {
             result.put("status", "fail");
             result.put("msg", "처리 실패: " + e.getMessage());

@@ -367,6 +367,13 @@ public class SuperAppController {
 		return dmService.getUnreadCount(params);
 	}
 
+	// 상대 메시지 신고 (2-28차). 원문·첨부가 폭파되기 전에 서버가 스냅샷으로 남긴다
+	@RequestMapping(value = "/api/super/dm/report", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> dmReport(@RequestBody Map<String, Object> params) {
+		return dmService.reportMessage(params);
+	}
+
 	// 첨부 파일 스트리밍. 대화 내용 응답에 붙은 단기 토큰(t)으로만 접근 — URL만으로는 열리지 않는다
 	@RequestMapping(value = "/api/super/dm/file", method = RequestMethod.GET)
 	public void dmFile(@RequestParam("t") String token, HttpServletResponse response) throws Exception {

@@ -111,6 +111,11 @@ export class DmService {
     return this.post('/api/super/dm/read', { peerId });
   }
 
+  // 상대 메시지 신고 (2-28차). 본문은 보내지 않는다 — 서버가 msgId로 원문을 찾아 스냅샷을 뜬다
+  report(msgId: number, reason: string): Observable<any> {
+    return this.post('/api/super/dm/report', { msgId, reason });
+  }
+
   private post(path: string, body: any): Observable<any> {
     const auth = {
       starId: localStorage.getItem('starId') || '',

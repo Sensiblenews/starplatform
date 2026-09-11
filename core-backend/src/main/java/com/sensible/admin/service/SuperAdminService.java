@@ -1,5 +1,7 @@
 package com.sensible.admin.service;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -414,7 +416,105 @@ public class SuperAdminService {
 
         return true;
     }
-    
+
+    // ===== 채팅 신고 관리 (2-28차) =====
+    // 원본 메시지는 폭파돼 없다. WH_DM_REPORT의 스냅샷이 유일한 증거다.
+    // 제재는 영구 정지 하나뿐 — WH_PRESS.PRS_USE_YN = 'N'.
+
+    /** 어드민이 누를 수 있는 조치 */
+    public static final List<String> DM_REPORT_ACTIONS =
+            Collections.unmodifiableList(Arrays.asList("SUSPEND", "RESOLVED", "DISMISSED"));
+
+    /** 조치 → 신고 상태. SUSPEND는 계정을 내리고 신고는 처리완료가 된다. 모르는 조치는 null */
+    public static String reportActionToStatus(String action) {
+        if ("SUSPEND".equals(action) || "RESOLVED".equals(action)) {
+            return "RESOLVED";
+        }
+        if ("DISMISSED".equals(action)) {
+            return "DISMISSED";
+        }
+        return null;
+    }
+
+    public static boolean isSuspendAction(String action) {
+        return "SUSPEND".equals(action);
+    }
+
+    public List<Map<String, Object>> getDmReportList(String status) throws Exception {
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("status", status);
+        return dao.selectList("super.selectDmReportList", param);
+    }
+
+    public Map<String, Object> getDmReportCounts() throws Exception {
+        return dao.selectOne("super.selectDmReportCounts");
+    }
+
+    public Map<String, Object> getDmReport(long rptId) throws Exception {
+        return dao.selectOne("super.selectDmReportOne", rptId);
+    }
+
+    /**
+     * 신고 처리.
+     *
+     * 신고 상태와 계정 상태를 함께 바꾼다. 정지에 실패하면 신고 상태도 되돌린다 —
+     * "처리완료"로 표시됐는데 계정은 멀쩡히 살아 있으면 관리자가 알아챌 방법이 없다.
+     *
+     * @return 실제로 처리됐으면 true. 이미 처리된 건이면 false(중복 클릭)
+     */
+    public boolean handleDmReport(long rptId, String action, String adminId, String memo) throws Exception {
+        String toStatus = reportActionToStatus(action);
+        if (toStatus == null) {
+            throw new IllegalArgumentException("알 수 없는 처리입니다.");
+        }
+
+        Map<String, Object> report = getDmReport(rptId);
+        if (report == null || !"OPEN".equals(String.valueOf(report.get("STATUS")))) {
+            return false;
+        }
+
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("rptId", rptId);
+        param.put("status", toStatus);
+        param.put("fromStatus", "OPEN");
+        param.put("adminId", adminId);
+        param.put("memo", memo);
+
+        int updated = dao.update("super.updateDmReportStatus", param);
+        if (updated == 0) {
+            return false;
+        }
+
+        if (isSuspendAction(action)) {
+            try {
+                Map<String, Object> star = new HashMap<String, Object>();
+                star.put("PRS_ID", report.get("TARGET_PRS_ID"));
+                star.put("TARGET_STATUS", "N");
+                dao.update("super.updateStarStatus", star);
+            } catch (Exception e) {
+                Map<String, Object> rollback = new HashMap<String, Object>();
+                rollback.put("rptId", rptId);
+                rollback.put("status", "OPEN");
+                rollback.put("fromStatus", toStatus);
+                rollback.put("adminId", adminId);
+                rollback.put("memo", memo);
+                dao.update("super.updateDmReportStatus", rollback);
+                throw e;
+            }
+        }
+
+        // 처리 이력은 이미지 검수와 같은 테이블을 쓴다 (TARGET_TYPE으로 구분)
+        Map<String, Object> log = new HashMap<String, Object>();
+        log.put("TARGET_TYPE", "DM_REPORT");
+        log.put("TARGET_ID", String.valueOf(rptId));
+        log.put("ACTION", action);
+        log.put("REASON", memo);
+        log.put("ADMIN_ID", adminId);
+        dao.insert("super.insertModerationLog", log);
+
+        return true;
+    }
+
     public void insertAdminFeed(Map<String, Object> params) throws Exception {
         dao.insert("super.insertAdminFeed", params);
     }
