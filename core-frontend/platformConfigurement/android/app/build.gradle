@@ -54,12 +54,7 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     implementation "com.kakao.sdk:v2-user:2.18.0" // 카카오 로그인
     implementation "com.android.installreferrer:installreferrer:2.2" // 디퍼드 딥링크 (Play Install Referrer)
-    // AdMob. 버전은 AppLovin 어댑터가 인증된 짝(25.4.0)에 맞춘다 —
-    // 어댑터 POM이 play-services-ads:25.4.0을 요구해 어차피 끌어올려지므로 명시해 둔다
-    implementation 'com.google.android.gms:play-services-ads:25.4.0'
-    // AppLovin Bidding 어댑터 (2-28차). AppLovin SDK 13.6.4를 의존성으로 함께 가져온다.
-    // 앱 코드는 이 클래스를 참조하지 않는다 — AdMob이 이름으로 찾아 올린다
-    implementation 'com.google.ads.mediation:applovin:13.6.4.1'
+    implementation 'com.google.android.gms:play-services-ads:25.2.0' // AdMob
     implementation 'com.google.android.gms:play-services-auth:21.5.1'
     implementation project(':nativetemplates')
     implementation "androidx.core:core-splashscreen:1.0.0"

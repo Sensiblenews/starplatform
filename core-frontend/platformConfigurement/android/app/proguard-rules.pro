@@ -48,23 +48,6 @@
 # --- Google 네이티브 광고 템플릿 모듈 (레이아웃 XML에서 클래스 이름으로 참조) ---
 -keep class com.google.android.ads.nativetemplates.** { *; }
 
-# --- 미디에이션 어댑터 (AppLovin, 2-28차) ---
-# 앱 코드는 어댑터를 한 번도 참조하지 않는다. AdMob이 서버에서 받은 미디에이션 설정의
-# 클래스 이름 문자열로 찾아 인스턴스를 만든다. R8에게는 "아무도 안 쓰는 클래스"로 보여
-# 지우거나 이름을 바꾸는데, 그러면 크래시 없이 AppLovin 광고만 조용히 안 채워진다.
-# 확인 결과 어댑터 AAR에는 consumer 규칙이 없고 play-services-ads 규칙도 어댑터를
-# 다루지 않는다(AppLovin SDK 본체만 자체 규칙으로 보호된다) → 여기서 직접 지킨다.
--keep class com.google.ads.mediation.** { *; }
--dontwarn com.google.ads.mediation.**
-
-# AppLovin이 번들한 IAB Open Measurement SDK가 Amazon PrivacyPass를 참조한다.
-# Amazon Publisher Services를 쓰지 않으므로 클래스가 없는 게 정상이고, 해당 코드 경로는
-# Amazon SDK가 있을 때만 돈다. 이 세 줄이 없으면 R8이 "Missing class"로 빌드를 세운다
-# (R8이 missing_rules.txt에 제안한 내용 그대로)
--dontwarn com.amazon.privacypass.PrivacyPass
--dontwarn com.amazon.privacypass.VerificationContext
--dontwarn com.amazon.privacypass.callback.AttestAPICallback
-
 # --- Kotlin 메타데이터 (카카오·AndroidX 내부에서 리플렉션) ---
 -keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**

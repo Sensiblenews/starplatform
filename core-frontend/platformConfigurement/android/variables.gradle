@@ -1,9 +1,5 @@
 ext {
-    // AppLovin 미디에이션 어댑터(applovin-13.6.4.1.aar)가 minSdkVersion 24를 선언한다.
-    // 23으로 두면 매니페스트 병합 단계에서 빌드가 깨진다. tools:overrideLibrary로 우회하면
-    // 빌드는 통과하지만 API 23 기기에서 런타임 크래시가 되므로 쓰지 않는다.
-    // 대가: Android 6.0(API 23) 단말이 빠진다 (2-28차, 클라이언트 결정)
-    minSdkVersion = 24
+    minSdkVersion = 23
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.8.0'
