@@ -48,6 +48,15 @@
 # --- Google 네이티브 광고 템플릿 모듈 (레이아웃 XML에서 클래스 이름으로 참조) ---
 -keep class com.google.android.ads.nativetemplates.** { *; }
 
+# --- AdMob 미디에이션 어댑터 (2-29차 Liftoff Monetize) ---
+# AdMob이 어댑터를 클래스 이름 문자열로 찾아 리플렉션으로 올리므로 난독화되면 No Fill이 된다.
+# 어댑터 jar의 패키지가 두 갈래다 — com.google.ads.mediation.vungle(Bidding 구현체),
+# com.vungle.mediation(Waterfall 진입점). 콘솔 설정에 따라 어느 쪽이든 조회될 수 있어 둘 다 지킨다.
+# SDK 본체(com.vungle.ads)와 OMID는 vungle-ads AAR의 consumer 규칙이 이미 지킨다.
+-keep class com.google.ads.mediation.** { *; }
+-dontwarn com.google.ads.mediation.**
+-keep class com.vungle.mediation.** { *; }
+
 # --- Kotlin 메타데이터 (카카오·AndroidX 내부에서 리플렉션) ---
 -keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**

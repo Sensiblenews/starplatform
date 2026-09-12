@@ -54,7 +54,13 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     implementation "com.kakao.sdk:v2-user:2.18.0" // 카카오 로그인
     implementation "com.android.installreferrer:installreferrer:2.2" // 디퍼드 딥링크 (Play Install Referrer)
-    implementation 'com.google.android.gms:play-services-ads:25.2.0' // AdMob
+    implementation 'com.google.android.gms:play-services-ads:25.4.0' // AdMob
+    // Liftoff Monetize(구 Vungle) Bidding 어댑터 (2-29차).
+    // com.vungle:vungle-ads:7.7.8을 전이로 가져온다. 어댑터·SDK 모두 네이티브 .so가 없어
+    // AppLovin을 막았던 16KB 페이지 정렬 문제가 없고 minSdk도 23 그대로다.
+    // 앱 코드는 이 어댑터를 참조하지 않는다 — AdMob이 클래스 이름으로 찾아 올린다.
+    // play-services-ads 25.4.0은 어댑터 POM이 요구하는 짝이다.
+    implementation 'com.google.ads.mediation:vungle:7.7.8.1'
     implementation 'com.google.android.gms:play-services-auth:21.5.1'
     implementation project(':nativetemplates')
     implementation "androidx.core:core-splashscreen:1.0.0"
