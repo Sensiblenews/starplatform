@@ -48,14 +48,20 @@
 # --- Google 네이티브 광고 템플릿 모듈 (레이아웃 XML에서 클래스 이름으로 참조) ---
 -keep class com.google.android.ads.nativetemplates.** { *; }
 
-# --- AdMob 미디에이션 어댑터 (2-29차 Liftoff Monetize) ---
+# --- AdMob 미디에이션 어댑터 (2-29차 Liftoff Monetize, Meta Audience Network) ---
 # AdMob이 어댑터를 클래스 이름 문자열로 찾아 리플렉션으로 올리므로 난독화되면 No Fill이 된다.
-# 어댑터 jar의 패키지가 두 갈래다 — com.google.ads.mediation.vungle(Bidding 구현체),
+# Liftoff 어댑터 jar의 패키지가 두 갈래다 — com.google.ads.mediation.vungle(Bidding 구현체),
 # com.vungle.mediation(Waterfall 진입점). 콘솔 설정에 따라 어느 쪽이든 조회될 수 있어 둘 다 지킨다.
-# SDK 본체(com.vungle.ads)와 OMID는 vungle-ads AAR의 consumer 규칙이 이미 지킨다.
+# Meta 어댑터(com.google.ads.mediation.facebook[.rtb])는 consumer 규칙이 없지만 아래
+# com.google.ads.mediation.** 한 줄에 그대로 걸린다 — 따로 추가할 것이 없다.
+# SDK 본체(com.vungle.ads / com.facebook.ads)는 각 SDK AAR의 consumer 규칙이 이미 지킨다.
 -keep class com.google.ads.mediation.** { *; }
 -dontwarn com.google.ads.mediation.**
 -keep class com.vungle.mediation.** { *; }
+# Meta SDK가 컴파일 전용 애노테이션(Nullsafe)을 참조하는데 런타임 아티팩트에는 없다.
+# 없으면 minifyReleaseWithR8이 missing class로 실패한다. AGP가 만들어 준 규칙 그대로다.
+-dontwarn com.facebook.infer.annotation.Nullsafe
+-dontwarn com.facebook.infer.annotation.Nullsafe$Mode
 
 # --- Kotlin 메타데이터 (카카오·AndroidX 내부에서 리플렉션) ---
 -keep class kotlin.Metadata { *; }
