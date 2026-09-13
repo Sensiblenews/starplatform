@@ -56,8 +56,10 @@ platforms:
               - SKAdNetworkItems:
                   - SKAdNetworkIdentifier: cstr6suwn9.skadnetwork
 
+              # NSAppTransportSecurity는 딕셔너리다. 항목 앞에 대시를 붙이면 배열로 생성돼
+              # GTMSessionFetcher가 objectForKey:를 보낼 때 unrecognized selector로 죽는다.
               - NSAppTransportSecurity:
-                - NSAllowsArbitraryLoads: true
+                  NSAllowsArbitraryLoads: true
 
               - LSApplicationQueriesSchemes:
                   - mailto
