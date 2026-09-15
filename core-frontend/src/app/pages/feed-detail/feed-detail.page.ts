@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { environment } from 'src/environments/environment';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
+import { AdMobService } from '../../services/ad-mob.service';
 
 @Component({
   selector: 'app-feed-detail',
@@ -29,8 +30,27 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private http: HttpService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private admob: AdMobService
   ) {}
+
+  /**
+   * 뒤로 나갈 때 전면 광고를 시도한다.
+   *
+   * 이 화면에서 앞으로 나가는 경로가 없어 ionViewWillLeave 는 곧 "뒤로가기"와 같다.
+   * 헤더의 ion-back-button, 스와이프 백, 안드로이드 하드웨어 백을 한 번에 덮으므로
+   * 버튼에 (click)을 다는 것보다 빠짐이 없다.
+   *
+   * 여기에 호출을 넣는 이유: 기존 전면 광고 호출 4곳 중 상세 화면 담당은
+   * detail-page(tutorial/:tutorialId, contents/:contentId)뿐이었는데, 로비·스타페이지에서
+   * 글을 열면 실제로는 이 feed-detail 로 온다. 가장 왕래가 잦은 화면에 트리거가 없었다.
+   *
+   * 노출 여부는 AdMobService 의 빈도 정책이 판단한다 — 여기서는 조건을 따지지 않는다.
+   * 웹·봇은 showInterstitial() 첫 줄의 isNativePlatform() 검사에서 걸러진다.
+   */
+  ionViewWillLeave() {
+    this.admob.showInterstitial('피드 상세 뒤로가기');
+  }
 
   ngOnInit() {
     this.paramSub = this.route.paramMap.subscribe(params => {

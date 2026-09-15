@@ -126,7 +126,7 @@ export class WitchPage {
         break;
     }
 
-    await this.admob.showInterstitial();
+    await this.admob.showInterstitial('위치 탭 전환');
   }
 
   loadFollowers(keyword){

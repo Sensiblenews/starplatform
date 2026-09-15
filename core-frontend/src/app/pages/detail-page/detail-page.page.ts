@@ -171,7 +171,7 @@ export class DetailPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   async onClickBack(): Promise<void> {
     this.moveBack();
-    await this.admob.showInterstitial();
+    await this.admob.showInterstitial('상세(구) 뒤로가기');
   }
 
   openPictureURL(picURL: string): void {

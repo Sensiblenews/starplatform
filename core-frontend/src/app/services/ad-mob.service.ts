@@ -26,8 +26,17 @@ import {
 
 /** 노출 간 최소 간격 3분. 세션을 넘어 지켜져야 하므로 localStorage에 남긴다 */
 const INTERSTITIAL_MIN_INTERVAL_MS = 3 * 60 * 1000;
-/** 세션당 최대 노출 횟수 */
-const INTERSTITIAL_MAX_PER_SESSION = 2;
+/**
+ * 세션당 최대 노출 횟수.
+ *
+ * 2-29차 요청서는 2회였으나 5회로 올렸다(2026-09-15). 2회는 10분 남짓의 보통 세션에서
+ * 실질적인 상한으로 작동해, 3분 간격 게이트가 일하기도 전에 광고가 멈췄다.
+ * 5회에 닿으려면 60초 유예 + 3분 간격 × 4 = 최소 13분을 써야 하므로,
+ * 실질 상한은 간격 게이트가 쥐고 이 값은 안전장치로만 남는다.
+ *
+ * 요청서 명시값에서 벗어난 값이므로 클라이언트와 합의된 숫자로 유지할 것.
+ */
+export const INTERSTITIAL_MAX_PER_SESSION = 5;
 /** 앱(또는 세션) 시작 후 이 시간 동안은 노출하지 않는다 */
 const INTERSTITIAL_COLD_START_GRACE_MS = 60 * 1000;
 /** 세션 시작 후 이 횟수만큼 화면을 옮기기 전에는 노출하지 않는다 */
@@ -64,6 +73,7 @@ export class AdMobService {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
         this.pageMoveCount++;
+        this.logGate(`화면 이동 → ${event.urlAfterRedirects}`);
       }
     });
   }
@@ -75,24 +85,35 @@ export class AdMobService {
 
     // 서비스 생성 시점과 초기화 시점이 다를 수 있으므로 세션 시작을 여기서 다시 잡는다
     this.startNewSession(Date.now());
+    this.exposeDebugHelper();
+    this.logGate('광고 초기화 — 새 세션 시작');
     await this.registerAppStateListener();
 
-    const [trackingInfo, consentInfo] = await Promise.all([
-      AdMob.trackingAuthorizationStatus(),
-      AdMob.requestConsentInfo(),
-    ]);
+    // ATT·동의 절차는 실패해도 광고 로드를 막지 않는다.
+    // 이전에는 try/catch가 없어 이 구간에서 reject가 하나만 나와도 아래
+    // loadInterstitial()이 통째로 건너뛰어졌다. 그 뒤로는 showInterstitial()의
+    // 실패 경로가 재장전할 때까지 전면 광고가 한 장도 준비되지 않았다.
+    // requestConsentInfo/showConsentForm은 네트워크와 UMP 설정에 의존해 실패가 잦다.
+    try {
+      const [trackingInfo, consentInfo] = await Promise.all([
+        AdMob.trackingAuthorizationStatus(),
+        AdMob.requestConsentInfo(),
+      ]);
 
-    if (trackingInfo.status === 'notDetermined') {
-      await AdMob.requestTrackingAuthorization();
-    }
+      if (trackingInfo.status === 'notDetermined') {
+        await AdMob.requestTrackingAuthorization();
+      }
 
-    const authorizationStatus = await AdMob.trackingAuthorizationStatus();
-    if (
-      authorizationStatus.status === 'authorized' &&
-      consentInfo.isConsentFormAvailable &&
-      consentInfo.status === AdmobConsentStatus.REQUIRED
-    ) {
-      await AdMob.showConsentForm();
+      const authorizationStatus = await AdMob.trackingAuthorizationStatus();
+      if (
+        authorizationStatus.status === 'authorized' &&
+        consentInfo.isConsentFormAvailable &&
+        consentInfo.status === AdmobConsentStatus.REQUIRED
+      ) {
+        await AdMob.showConsentForm();
+      }
+    } catch (e) {
+      console.error('[AD] ATT/동의 절차 실패 — 광고 로드는 그대로 진행한다', e);
     }
 
     await this.loadInterstitial();
@@ -119,9 +140,43 @@ export class AdMobService {
     try {
       // prepareInterstitial은 광고를 로드만 하고 메모리에 올려둔다
       await AdMob.prepareInterstitial({ adId });
+      // "로드된 적이 없음"과 "로드는 됐는데 노출이 실패함"을 로그로 구분하기 위해 남긴다
+      console.log('[AD] 전면 광고 로드 완료 (재고 있음)');
     } catch (e) {
-      console.error('전면 광고 로드 실패', e);
+      console.error('[AD] 전면 광고 로드 실패', e);
     }
+  }
+
+  // ==========================================
+  // 진단 로그 (chrome://inspect 콘솔에서 확인)
+  // ==========================================
+  // canShowInterstitial은 첫 번째로 걸린 게이트만 돌려준다. 그것만으로는
+  // "지금 뭐가 얼마나 모자란지"를 알 수 없어, 네 게이트의 현재값을 한 줄로 같이 찍는다.
+  // 로그는 전부 '[AD]' 로 시작하므로 콘솔 필터에 AD 를 넣으면 이것만 보인다.
+
+  /** 네 게이트의 현재값을 사람이 읽을 수 있는 한 줄로 만든다 */
+  private gateSnapshot(now: number): string {
+    const lastShown = this.readLastShownAt(now);
+    const sinceShown = lastShown === Number.NEGATIVE_INFINITY
+      ? '없음'
+      : `${Math.round((now - lastShown) / 1000)}s`;
+
+    return [
+      `세션 ${this.sessionImpressionCount}/${INTERSTITIAL_MAX_PER_SESSION}회`,
+      `경과 ${Math.round((now - this.sessionStartedAt) / 1000)}s/${INTERSTITIAL_COLD_START_GRACE_MS / 1000}s`,
+      `이동 ${this.pageMoveCount}/${INTERSTITIAL_MIN_PAGE_MOVES}회`,
+      `직전노출 ${sinceShown}/${INTERSTITIAL_MIN_INTERVAL_MS / 1000}s`,
+    ].join(' · ');
+  }
+
+  /**
+   * 지금 전면 광고를 띄울 수 있는지 콘솔에 한 줄 남긴다.
+   * label 에는 무슨 행동 뒤인지 적는다(화면 이동, 노출 시도 등).
+   */
+  logGate(label: string, now: number = Date.now()): void {
+    const gate = this.canShowInterstitial(now);
+    const verdict = gate.allowed ? '노출 가능 ✅' : `차단 ❌ ${gate.reason}`;
+    console.log(`[AD] ${label} | ${verdict} | ${this.gateSnapshot(now)}`);
   }
 
   /**
@@ -151,15 +206,17 @@ export class AdMobService {
     return { allowed: true, reason: 'ok' };
   }
 
-  async showInterstitial(): Promise<boolean> {
-    if (!Capacitor.isNativePlatform()) return false;
+  /** @param trigger 어느 행동이 호출했는지. 로그에만 쓴다 */
+  async showInterstitial(trigger: string = '알 수 없는 지점'): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) {
+      console.log(`[AD] 노출 시도 (${trigger}) | 차단 ❌ 네이티브 앱이 아님`);
+      return false;
+    }
 
     const now = Date.now();
     const gate = this.canShowInterstitial(now);
-    if (!gate.allowed) {
-      console.log(`전면 광고 스킵 (${gate.reason})`);
-      return false;
-    }
+    this.logGate(`노출 시도 (${trigger})`, now);
+    if (!gate.allowed) return false;
 
     try {
       await AdMob.showInterstitial();
@@ -171,10 +228,16 @@ export class AdMobService {
       // 다음 회차를 위해 곧바로 재장전
       this.loadInterstitial();
 
+      // 노출 직후 상태를 같이 남긴다. 이동 카운터가 0으로 리셋되고 간격 3분이
+      // 새로 시작하므로, 바로 다음 로그가 차단으로 바뀌는 것이 정상이다.
+      this.logGate('노출 성공 🎬 — 이후 상태', Date.now());
+
       return true;
     } catch (e) {
-      // 노출에 실패했으면 세션 카운터를 소모하지 않는다. 화면 흐름도 막지 않는다
-      console.log('전면 광고가 준비되지 않아 건너뛴다. 재장전 시도.');
+      // 노출에 실패했으면 세션 카운터를 소모하지 않는다. 화면 흐름도 막지 않는다.
+      // e를 반드시 같이 찍는다 — AdMob 에러(no fill·미준비·잘못된 광고 단위)를
+      // 구분할 단서가 여기밖에 없다.
+      console.warn('[AD] 노출 실패 — 재고 없음으로 보고 재장전한다', e);
       this.loadInterstitial();
       return false;
     }
@@ -198,6 +261,7 @@ export class AdMobService {
       this.startNewSession(now);
       // 오래 묵은 캐시 광고는 만료됐을 수 있으므로 재장전
       this.loadInterstitial();
+      this.logGate('백그라운드 30분 초과 복귀 — 새 세션 시작', now);
     }
 
     this.backgroundedAt = null;
@@ -222,6 +286,17 @@ export class AdMobService {
     return isUsable ? parsed : Number.NEGATIVE_INFINITY;
   }
 
+  /**
+   * chrome://inspect 콘솔에서 아무 때나 상태를 확인할 수 있게 전역 함수를 심는다.
+   * 콘솔에 adDebug() 를 입력하면 현재 게이트 현황이 한 줄 찍히고 판정 객체가 반환된다.
+   */
+  private exposeDebugHelper(): void {
+    (window as any).adDebug = () => {
+      this.logGate('수동 확인 (adDebug)');
+      return this.canShowInterstitial();
+    };
+  }
+
   private async registerAppStateListener(): Promise<void> {
     if (this.appStateListener) return; // 리스너 중복 등록 방지
 
@@ -231,7 +306,7 @@ export class AdMobService {
       });
     } catch (e) {
       // 리스너 등록에 실패해도 콜드스타트 기준 세션은 그대로 동작한다
-      console.error('앱 상태 리스너 등록 실패', e);
+      console.error('[AD] 앱 상태 리스너 등록 실패', e);
     }
   }
 }

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { NavigationEnd, NavigationStart, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 
-import { AdMobService } from './ad-mob.service';
+import { AdMobService, INTERSTITIAL_MAX_PER_SESSION } from './ad-mob.service';
 
 const LAST_SHOWN_KEY = 'last_interstitial_time';
 const MINUTE = 60 * 1000;
@@ -115,24 +115,28 @@ describe('AdMobService', () => {
     });
   });
 
-  describe('세션당 최대 2회', () => {
-    it('2회까지는 통과하고 3회째는 막는다', () => {
+  describe('세션당 최대 노출 횟수', () => {
+    it('상한 직전까지는 통과하고 상한에 닿으면 막는다', () => {
       move(5);
       const now = sessionStart + 10 * MINUTE;
 
       expect(service.canShowInterstitial(now).allowed).toBeTrue();
 
-      service['sessionImpressionCount'] = 1;
+      service['sessionImpressionCount'] = INTERSTITIAL_MAX_PER_SESSION - 1;
       expect(service.canShowInterstitial(now).allowed).toBeTrue();
 
-      service['sessionImpressionCount'] = 2;
+      service['sessionImpressionCount'] = INTERSTITIAL_MAX_PER_SESSION;
       expect(service.canShowInterstitial(now).reason).toBe('session-cap');
+    });
+
+    it('상한은 1회 이상이다 (0이면 광고가 영영 안 나간다)', () => {
+      expect(INTERSTITIAL_MAX_PER_SESSION).toBeGreaterThan(0);
     });
   });
 
   describe('세션 경계', () => {
     beforeEach(() => {
-      service['sessionImpressionCount'] = 2;
+      service['sessionImpressionCount'] = INTERSTITIAL_MAX_PER_SESSION;
       move(5);
     });
 
@@ -141,7 +145,7 @@ describe('AdMobService', () => {
       service.handleAppStateChange(false, out);
       service.handleAppStateChange(true, out + 29 * MINUTE);
 
-      expect(service['sessionImpressionCount']).toBe(2);
+      expect(service['sessionImpressionCount']).toBe(INTERSTITIAL_MAX_PER_SESSION);
       expect(service.canShowInterstitial(out + 29 * MINUTE).reason).toBe('session-cap');
     });
 
