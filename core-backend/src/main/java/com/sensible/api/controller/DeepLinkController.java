@@ -197,8 +197,6 @@ public class DeepLinkController {
 	// response 라는 이름으로 쓰고 있어서다
 	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request,
 			HttpServletResponse httpResponse, Model model) {
-		System.out.println("DeepLink Triggered");
-
 		String uri = request.getRequestURI();
 		String baseUrl = getBaseUrl(request);
 		

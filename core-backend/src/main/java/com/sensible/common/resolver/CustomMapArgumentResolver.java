@@ -10,6 +10,8 @@ import java.util.Iterator;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -27,6 +29,9 @@ import com.sensible.common.domain.CommandMap;
  *
  */
 public class CustomMapArgumentResolver implements HandlerMethodArgumentResolver {
+
+	private static final Logger logger = LoggerFactory.getLogger(CustomMapArgumentResolver.class);
+
 	@Override
 	public boolean supportsParameter(MethodParameter parameter) {
 		return CommandMap.class.isAssignableFrom(parameter.getParameterType());
@@ -47,7 +52,12 @@ public class CustomMapArgumentResolver implements HandlerMethodArgumentResolver 
 			objectMapper.configure(Feature.AUTO_CLOSE_SOURCE, true);
 			
 			String body = getBody(request);
-			System.out.println("body ::::::: "+body);
+			// 요청 본문을 매 호출마다 stdout 에 찍고 있었다. catalina.out 증가의 큰 축이면서,
+			// 채팅 내용·이메일·토큰 같은 값이 그대로 로그에 남는 경로이기도 했다.
+			// 진단이 필요하면 로거 레벨로 켠다 (com.sensible.common.resolver = debug).
+			if (logger.isDebugEnabled()) {
+				logger.debug("request body: {}", body);
+			}
 			//HashMap<String, Object> result = new ObjectMapper().readValue(body, HashMap.class);
 			HashMap<String, Object> result = objectMapper.readValue(body, HashMap.class);
 			Iterator<String> keys = result.keySet().iterator();

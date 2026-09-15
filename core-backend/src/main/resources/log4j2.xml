@@ -1,35 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ⚠️ 이 파일은 log4j2 설정이다. log4j 1.x 문법을 쓰면 조용히 무시된다.
+
+  2026-09-16 이전까지 로거들이 이렇게 적혀 있었다.
+
+      <logger name="jdbc.resultset" additivity="false">
+          <level value="error" />
+          <appender-ref ref="console" />
+      </logger>
+
+  log4j2 에서 레벨은 Logger 의 "속성"(level="error")이어야 하고, 자식 엘리먼트
+  <level value="..."/> 는 인식되지 않는다. 그래서 끄려고 적어둔 설정이 한 번도
+  적용되지 않았고, 전부 <Root level="info"> 로 떨어져 log4jdbc 가 INFO 로
+  쏟아졌다. 실측(앱 기동 + 요청 20여 개, 324KB)에서 전체 2,244줄 중 1,386줄
+  (61%)이 jdbc.* 였다 — resultset 963줄, audit 264줄. 이게 catalina.out 이
+  디스크를 채우는 주된 경로다.
+
+  게다가 데이터소스 프록시(context-datasource.xml 의 Log4jdbcProxyDataSource)가
+  loggingType=MULTI_LINE 이라 한 건이 여러 줄로 늘어난다.
+
+  로거 이름을 바꿀 때는 log4jdbc 쪽 이름 규칙을 그대로 쓸 것:
+  jdbc.sqlonly / jdbc.sqltiming / jdbc.audit / jdbc.resultset /
+  jdbc.resultsettable / jdbc.connection
+-->
 <Configuration>
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
-            <PatternLayout pattern="[%X{LogPrimaryKey}][%d{yyyy-MM-dd hh:mm:ss.SSS zzz}][%5p][%c]%m%n" />        
+            <PatternLayout pattern="[%X{LogPrimaryKey}][%d{yyyy-MM-dd hh:mm:ss.SSS zzz}][%5p][%c]%m%n" />
         </Console>
-
     </Appenders>
-    
-    <Loggers>        
-        <!-- Application Loggers -->
-		<!-- <logger name="jdbc.sqltiming" additivity="false">
-			<level value="error" />
-			<appender-ref ref="console" />
-		</logger>	 -->
-	
-		<logger name="jdbc.resultset" additivity="false">
-			<level value="error" />
-			<appender-ref ref="console" />	
-		</logger>
-		 
-		 <logger name="jdbc.audit" additivity="false">
-			<level value="error" />		
-			<appender-ref ref="console" />
-		</logger> 
-		
-		<logger name="org.mybatis" additivity="false">
-			<level value="debug" />
-			<appender-ref ref="console" />
-		</logger>
-        
-        
+
+    <Loggers>
+        <!-- ===== log4jdbc =====
+             운영에서는 전부 닫는다. 진단이 필요하면 해당 로거만 일시적으로 info 로
+             올리고, 끝나면 되돌릴 것. 되돌리지 않으면 디스크가 다시 찬다. -->
+
+        <!-- 매 ResultSet 호출·결과 데이터. 압도적으로 양이 많다 -->
+        <Logger name="jdbc.resultset" level="error" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+        <Logger name="jdbc.resultsettable" level="error" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
+        <!-- ResultSet 을 뺀 모든 JDBC 호출 (commit/close/isReadOnly 등) -->
+        <Logger name="jdbc.audit" level="error" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
+        <!-- 커넥션 열기·닫기 -->
+        <Logger name="jdbc.connection" level="error" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
+        <!-- 실행 SQL. sqltiming 이 같은 내용에 소요시간까지 담으므로 이쪽은 닫는다 -->
+        <Logger name="jdbc.sqlonly" level="error" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
+        <!-- 실행 SQL + 소요시간.
+             warn 으로 두면 평시에는 조용하고, 아래 시스템 속성을 주면 느린 쿼리만
+             WARN 으로 남는다 (원하는 경계값을 ms 로):
+               -Dlog4jdbc.sqltiming.warn.threshold=1000
+             전체 쿼리를 보려면 이 로거만 info 로 올릴 것 -->
+        <Logger name="jdbc.sqltiming" level="warn" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
+        <!-- ===== 애플리케이션 =====
+             기존 선언은 debug 였지만 위 문법 문제로 적용되지 않아 실제로는 info 로
+             동작해왔다. 지금 문법을 고치면서 debug 를 그대로 살리면 로그가 늘어나므로,
+             그동안의 실제 동작인 info 를 명시한다. -->
+        <Logger name="org.mybatis" level="info" additivity="false">
+            <AppenderRef ref="console" />
+        </Logger>
+
         <Root level="info">
             <AppenderRef ref="console" />
         </Root>
