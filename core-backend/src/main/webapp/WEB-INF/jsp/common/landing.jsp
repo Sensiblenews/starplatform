@@ -74,13 +74,20 @@
     .faq-item p { font-size: 14px; color: #94a3b8; }
 
     /* 최근 포스트·인기 스타 카드: 크롤러의 콘텐츠 발견 경로이자 실제 방문자용 목차 */
-    .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-top: 30px; text-align: left; }
-    .post-card { display: flex; gap: 12px; align-items: center; background: #1e293b; border-radius: 12px; padding: 14px; text-decoration: none; color: inherit; }
+    .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; margin-top: 30px; text-align: left; }
+    .post-card { display: flex; gap: 12px; align-items: flex-start; background: #1e293b; border-radius: 12px; padding: 14px; text-decoration: none; color: inherit; }
     .post-card:hover { background: #263449; }
-    .post-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #0f172a; }
-    .post-info { min-width: 0; }
-    .post-author { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 2px; }
+    .post-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #0f172a; }
+    .post-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .post-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .post-author { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+    /* 직군 뱃지: 작성자가 어떤 유형의 스타인지 카드에서 바로 드러낸다 */
+    .post-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #cbd5f5; background: #334155; border-radius: 999px; padding: 2px 8px; }
     .post-snippet { font-size: 13px; color: #94a3b8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+    /* 메타 줄: 본문이 짧은 글이 대부분이라 날짜·사진 수·반응 수로 읽을 거리를 채운다 */
+    .post-meta { font-size: 11px; color: #64748b; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+    .post-meta span { white-space: nowrap; }
+    .post-meta span + span::before { content: "\00b7"; margin-right: 6px; color: #475569; }
     .star-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 30px; }
     .star-card { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; text-decoration: none; color: inherit; }
     .star-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #1e293b; }
@@ -124,11 +131,23 @@
       <c:forEach var="p" items="${recentPosts}">
         <a class="post-card" href="${pageContext.request.contextPath}/post/${p.conId}">
           <c:if test="${not empty p.image}">
-            <img class="post-thumb" src="${p.image}" alt="" loading="lazy" onerror="this.style.display='none'">
+            <img class="post-thumb" src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.display='none'">
           </c:if>
           <span class="post-info">
-            <span class="post-author">${p.author}</span>
-            <span class="post-snippet">${p.snippet}</span>
+            <span class="post-head">
+              <span class="post-author">${p.author}</span>
+              <c:if test="${not empty p.category}"><span class="post-badge">${p.category}</span></c:if>
+            </span>
+            <c:if test="${not empty p.snippet}"><span class="post-snippet">${p.snippet}</span></c:if>
+            <span class="post-meta">
+              <%-- 항목 사이 가운뎃점은 CSS로 넣는다. 마크업에 박으면 앞 항목이 비었을 때 점이 홀로 남는다 --%>
+              <c:if test="${not empty p.date}"><span>${p.date}</span></c:if>
+              <c:if test="${p.mediaCnt gt 1}"><span><c:out value="${p.mediaCnt}"/> photos</span></c:if>
+              <%-- 반응이 0인 글이 대부분이라 0은 감춘다 — 표시해봐야 정보가 아니라 잡음이다 --%>
+              <c:if test="${p.likeCnt gt 0}"><span><c:out value="${p.likeCnt}"/> likes</span></c:if>
+              <c:if test="${p.commentCnt gt 0}"><span><c:out value="${p.commentCnt}"/> comments</span></c:if>
+              <c:if test="${p.followerCnt gt 0}"><span><c:out value="${p.followerCnt}"/> followers</span></c:if>
+            </span>
           </span>
         </a>
       </c:forEach>

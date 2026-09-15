@@ -69,6 +69,27 @@ public class DeepLinkController {
 		return escapeHtml(trimmed.substring(0, endIndex)) + "...";
 	}
 
+	// 스타 직군 코드 -> 카드에 노출할 영문 라벨. 미분류(GENERAL)와 미지정은 빈 문자열로 돌려 뱃지를 숨긴다.
+	private String categoryLabel(Object rawCode) {
+		if (rawCode == null) return "";
+		String code = String.valueOf(rawCode);
+		if ("STAR".equals(code)) return "Star";
+		if ("CELEB".equals(code)) return "Celebrity";
+		if ("BRAND".equals(code)) return "Brand";
+		if ("ORG".equals(code)) return "Organization";
+		if ("UNIV".equals(code)) return "University";
+		if ("CITY".equals(code)) return "City";
+		if ("MEDIA".equals(code)) return "Media";
+		return "";
+	}
+
+	// 썸네일 대체 텍스트. 본문이 있으면 본문을, 없으면 작성자 기준 문구를 쓴다.
+	// 사진만 올라온 글이 많아 alt가 비면 크롤러가 읽을 텍스트가 사라진다.
+	private String thumbAlt(String escapedSnippet, String escapedAuthor) {
+		if (escapedSnippet != null && !escapedSnippet.isEmpty()) return escapedSnippet;
+		return "Photo posted by " + escapedAuthor;
+	}
+
 	// JSON-LD description용: 본문 앞부분을 코드포인트 기준으로 잘라 반환 (이스케이프는 escapeJson에서 별도 수행)
 	private String cutPlain(String s, int maxCodePoints) {
 		if (s == null) return "";
@@ -534,9 +555,20 @@ public class DeepLinkController {
 			List<Map<String, Object>> postCards = new java.util.ArrayList<>();
 			for (Map<String, Object> post : posts) {
 				Map<String, Object> card = new HashMap<>();
+				String author = escapeHtml(String.valueOf(post.get("PRS_NAME")));
+				String body = snippet((String) post.get("CON_BODY"), 90);
 				card.put("conId", post.get("CON_ID"));
-				card.put("author", escapeHtml(String.valueOf(post.get("PRS_NAME"))));
-				card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
+				card.put("starId", post.get("PRS_ID"));
+				card.put("author", author);
+				card.put("snippet", body);
+				// 본문이 한 줄뿐인 사진 글이 대부분이라, 카드가 읽을 거리를 갖도록 부가 정보를 함께 내린다
+				card.put("date", toDatePart(post.get("CREATED_DATE")));
+				card.put("category", categoryLabel(post.get("STAR_CATEGORY")));
+				card.put("likeCnt", post.get("LIKE_CNT"));
+				card.put("commentCnt", post.get("COMMENT_CNT"));
+				card.put("followerCnt", post.get("FOLLOWER_CNT"));
+				card.put("mediaCnt", post.get("MEDIA_CNT"));
+				card.put("alt", thumbAlt(body, author));
 				String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
 				card.put("image", toAbsoluteUrl(image, baseUrl));
 				postCards.add(card);
