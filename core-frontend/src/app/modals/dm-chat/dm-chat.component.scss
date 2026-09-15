@@ -92,6 +92,13 @@
     background: #fff;
     color: #222;
     border-bottom-left-radius: 4px;
+
+    // 길게 눌러 신고 메뉴를 띄우므로 iOS 기본 선택·복사 콜아웃을 막는다 (2-28차).
+    // 이걸 두지 않으면 사파리 자체 메뉴가 먼저 떠서 롱프레스를 가로챈다.
+    // 대신 상대 메시지는 복사할 수 없게 된다 — 콜아웃을 살리면 제스처 자체가 불가능하다
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
 }

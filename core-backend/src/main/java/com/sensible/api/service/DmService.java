@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -23,9 +24,11 @@ import org.jcodec.common.model.Picture;
 import com.sensible.common.util.AWTUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import com.google.firebase.messaging.Notification;
+import com.sensible.common.Constants;
 import com.sensible.common.dao.DefaultDAO;
 import com.sensible.common.util.ImageModerationUtil;
 
@@ -62,6 +65,18 @@ public class DmService {
 	/** 파일 토큰 종류 (MediaAccessService.Grant.targetType) */
 	public static final String GRANT_FILE = "DM_FILE";
 	public static final String GRANT_THUMB = "DM_THUMB";
+
+	/** 신고 사유 화이트리스트 (2-28차). 앱 라디오 항목과 1:1로 맞춘다 */
+	public static final List<String> REPORT_REASONS = Collections.unmodifiableList(
+			Arrays.asList("ABUSE", "SEXUAL", "SPAM", "FRAUD", "THREAT", "OTHER"));
+	/** 신고 도배 상한 (신고자 1인·24시간). 신고당 최대 30MB가 복사되므로 디스크를 지킨다 */
+	public static final int REPORT_DAILY_LIMIT = 20;
+	/**
+	 * 신고 실패 공통 문구.
+	 * 메시지가 없을 때와 내 대화가 아닐 때 같은 문구를 쓴다 — 응답이 갈리면
+	 * msgId를 하나씩 넣어보며 남의 대화 존재 여부를 캐낼 수 있다.
+	 */
+	private static final String REPORT_UNAVAILABLE = "This message is no longer available.";
 
 	private static final String PUSH_CHANNEL = "dm_channel";
 
@@ -279,6 +294,152 @@ public class DmService {
 		return result;
 	}
 
+	/**
+	 * 상대 메시지 신고 (2-28차).
+	 *
+	 * 원본은 발송 5분·읽음 1분 뒤 purgeExpired()가 행과 파일을 함께 지운다.
+	 * 따라서 신고는 "나중에 원본을 찾아본다"가 아니라 지금 스냅샷을 뜨는 일이다.
+	 * 텍스트는 컬럼에 복사하고, 첨부는 신고 전용 디렉터리로 파일을 복사한다.
+	 *
+	 * 첨부 복사에 실패해도 접수는 성공으로 본다 — 가장 흔한 원인이 스케줄러와의
+	 * 정상 경합이고, 파일을 못 건져도 누가·누구를·언제·왜는 남기 때문이다.
+	 * 피신고자에게는 아무것도 알리지 않는다.
+	 */
+	public Map<String, Object> reportMessage(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		long msgId = parsePositiveId(params.get("msgId"));
+		if (msgId < 1) return fail(result, "Invalid request.");
+
+		String reason;
+		try {
+			reason = normalizeReason(params.get("reason"));
+		} catch (IllegalArgumentException e) {
+			return fail(result, e.getMessage());
+		}
+
+		// 다른 DM 조회와 달리 EXPIRE_AT 조건이 없다. 폭파 예정 시각이 지나도 스케줄러(60초)가
+		// 아직 지우기 전이면 파일이 디스크에 남아 있어 증거를 건질 수 있다. 의도적 예외다
+		Map<String, Object> msg = dao.selectOne("superapp.selectDmMessageForReport", msgId);
+		if (msg == null) return fail(result, REPORT_UNAVAILABLE);
+
+		String senderId = str(msg.get("senderId"));
+		if (!isReportable(starId, senderId, str(msg.get("receiverId")))) {
+			return fail(result, REPORT_UNAVAILABLE);
+		}
+
+		// 중복은 파일을 복사하기 "전"에 거른다. 연타해도 사본이 두 번 생기지 않는다
+		Map<String, Object> dup = new HashMap<>();
+		dup.put("msgId", msgId);
+		dup.put("starId", starId);
+		Integer already = dao.selectOne("superapp.selectDmReportExists", dup);
+		if (already != null && already > 0) {
+			return fail(result, "You have already reported this message.");
+		}
+
+		Integer today = dao.selectOne("superapp.selectDmReportCountToday", starId);
+		if (today != null && today >= REPORT_DAILY_LIMIT) {
+			return fail(result, "You have reached the daily report limit. Please try again tomorrow.");
+		}
+
+		String contentType = str(msg.get("contentType"));
+		String content = str(msg.get("content"));
+		String thumbNm = str(msg.get("thumbNm"));
+
+		Map<String, Object> row = new HashMap<>();
+		row.put("msgId", msgId);
+		row.put("reporterId", starId);
+		row.put("targetId", senderId);
+		row.put("targetName", lookupStarName(senderId));
+		row.put("reason", reason);
+		row.put("contentType", contentType);
+		row.put("msgSendDate", msg.get("sendDate"));
+
+		String copiedFile = null;
+		String copiedThumb = null;
+		if ("TEXT".equals(contentType)) {
+			row.put("contentSnapshot", content);
+		} else {
+			// 첨부 메시지는 CONTENT 컬럼에 본문이 아니라 저장 파일명이 들어 있다
+			if (copyEvidence(content)) copiedFile = content;
+			// 썸네일은 원본에 없을 수도 있다(발송 때 추출 실패). 있으면 같이 건진다
+			if (copiedFile != null && !thumbNm.isEmpty() && copyEvidence(thumbNm)) copiedThumb = thumbNm;
+			row.put("contentSnapshot", null);
+		}
+		row.put("fileNm", copiedFile);
+		row.put("thumbNm", copiedThumb);
+
+		try {
+			dao.insert("superapp.insertDmReport", row);
+		} catch (DuplicateKeyException e) {
+			// 위 중복 검사와 INSERT 사이에 같은 신고가 들어온 경우. 방금 만든 사본을 되돌린다
+			String dir = reportDirPath();
+			deleteQuietly(dir, copiedFile);
+			deleteQuietly(dir, copiedThumb);
+			return fail(result, "You have already reported this message.");
+		}
+
+		result.put("result", "OK");
+		return result;
+	}
+
+	/**
+	 * 사용자 차단 (2-28차).
+	 *
+	 * 저장은 단방향이지만 효과는 양방향이다 — 차단하면 둘 중 누구도 상대에게 전달되지 않는다.
+	 * 차단당한 쪽에는 알리지 않는다(보복·마찰 방지). 상대가 보낸 메시지는 평소대로 저장되지만
+	 * 내 조회에서 걸러지고 푸시도 가지 않는다. 자세한 근거는 db/dm-block.sql 주석 참조.
+	 */
+	public Map<String, Object> blockPeer(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		String peerId = str(params.get("peerId"));
+		if (peerId.isEmpty()) return fail(result, "Invalid request.");
+		if (!isBlockable(starId, peerId)) return fail(result, "You cannot block yourself.");
+
+		Map<String, Object> param = new HashMap<>();
+		param.put("starId", starId);
+		param.put("peerId", peerId);
+		// 이미 차단한 상대를 다시 눌러도 오류로 보지 않는다 (INSERT IGNORE)
+		dao.insert("superapp.insertDmBlock", param);
+
+		result.put("result", "OK");
+		return result;
+	}
+
+	/** 차단 해제 */
+	public Map<String, Object> unblockPeer(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		String peerId = str(params.get("peerId"));
+		if (peerId.isEmpty()) return fail(result, "Invalid request.");
+
+		Map<String, Object> param = new HashMap<>();
+		param.put("starId", starId);
+		param.put("peerId", peerId);
+		dao.delete("superapp.deleteDmBlock", param);
+
+		result.put("result", "OK");
+		return result;
+	}
+
+	/** 내가 차단한 사람 목록. 해제 화면용이라 정지·탈퇴한 계정도 그대로 보여준다 */
+	public Map<String, Object> getBlockedList(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = str(params.get("starId"));
+		if (!isOwner(starId, params.get("starToken"))) return fail(result, "Please sign in again.");
+
+		result.put("result", "OK");
+		result.put("blocked", dao.selectList("superapp.selectDmBlockedList", starId));
+		return result;
+	}
+
 	/** 파일 토큰 → 실제 파일. 만료됐거나 없으면 null */
 	public File resolveFile(String grantType, String targetId) {
 		long msgId;
@@ -301,6 +462,7 @@ public class DmService {
 		if (expired == null || expired.isEmpty()) return 0;
 
 		List<Object> ids = new ArrayList<>();
+		// 업로드 디렉터리만 훑는다. 신고 증거 사본은 파일명이 같아도 다른 디렉터리에 있어 지워지지 않는다 (2-28차)
 		String dir = uploadDirPath();
 		for (Map<String, Object> row : expired) {
 			ids.add(row.get("msgId"));
@@ -323,6 +485,45 @@ public class DmService {
 			throw new IllegalArgumentException("Message is too long (max " + TEXT_MAX_LENGTH + " characters).");
 		}
 		return text;
+	}
+
+	/** 신고 사유 정규화. 화이트리스트 밖이면 IllegalArgumentException (메시지는 앱 노출용 영어) */
+	public static String normalizeReason(Object reasonObj) {
+		String reason = reasonObj == null ? "" : String.valueOf(reasonObj).trim().toUpperCase();
+		if (!REPORT_REASONS.contains(reason)) {
+			throw new IllegalArgumentException("Please select a reason for the report.");
+		}
+		return reason;
+	}
+
+	/**
+	 * 차단 가능 조건: 자기 자신은 차단할 수 없다.
+	 * 자기 차단을 허용하면 selectDmRooms의 NOT EXISTS가 자기 대화를 전부 지워
+	 * 스스로 메신저를 못 쓰게 만들 수 있다
+	 */
+	public static boolean isBlockable(String starId, String peerId) {
+		if (starId == null || starId.isEmpty()) return false;
+		if (peerId == null || peerId.isEmpty()) return false;
+		return !starId.equals(peerId);
+	}
+
+	/** 신고 가능 조건: 내가 받은 메시지여야 하고, 내가 보낸 메시지는 신고할 수 없다 */
+	public static boolean isReportable(String starId, String senderId, String receiverId) {
+		if (starId == null || starId.isEmpty()) return false;
+		if (senderId == null || senderId.isEmpty()) return false;
+		if (starId.equals(senderId)) return false;
+		return starId.equals(receiverId);
+	}
+
+	/** 앱·어드민이 보낸 식별자(msgId, rptId) 파싱. 숫자가 아니거나 0 이하면 -1 */
+	public static long parsePositiveId(Object idObj) {
+		if (idObj == null) return -1;
+		try {
+			long id = Long.parseLong(String.valueOf(idObj).trim());
+			return id > 0 ? id : -1;
+		} catch (NumberFormatException e) {
+			return -1;
+		}
 	}
 
 	/** 영상 검사: 크기 상한·MIME 화이트리스트. 통과하면 저장 확장자 반환 */
@@ -414,9 +615,40 @@ public class DmService {
 		}
 	}
 
-	/** 상대 스타 확인. 자기 자신에게는 보낼 수 없다 */
+	/**
+	 * 두 사람 사이에 차단이 있는지 (방향 무관).
+	 *
+	 * 확인에 실패하면 차단으로 본다(fail-closed). 발송을 막는 판정이라 열어두면
+	 * DB가 흔들리는 동안 차단이 무력화된다.
+	 *
+	 * 이 판정이 발송 경로에 있으므로 WH_DM_BLOCK 테이블이 없으면 메신저 발송이 멈춘다.
+	 * 대화 목록·내용 쿼리도 같은 테이블을 참조해 어차피 함께 깨지므로,
+	 * 여기만 열어둔다고 앱이 살아나지는 않는다.
+	 * → db/dm-block.sql은 WAR 배포 "전"에 반드시 적용할 것.
+	 */
+	private boolean isBlockedPair(String aId, String bId) {
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("starId", aId);
+			param.put("peerId", bId);
+			Integer blocked = dao.selectOne("superapp.checkDmBlockPair", param);
+			return blocked != null && blocked > 0;
+		} catch (Exception e) {
+			logger.warn("[DM] block check failed: {}", e.getMessage());
+			return true;
+		}
+	}
+
+	/**
+	 * 상대 스타 확인. 자기 자신에게는 보낼 수 없다.
+	 *
+	 * 차단 관계도 여기서 막는다 (2-28차). 호출부가 null을 "This star is not available."로
+	 * 옮기므로, 차단당한 쪽은 상대가 계정을 내린 경우와 똑같은 응답을 받는다 —
+	 * 차단당했다는 사실 자체가 드러나지 않는다.
+	 */
 	private Map<String, Object> findPeer(String starId, String peerId) {
 		if (peerId == null || peerId.isEmpty() || peerId.equals(starId)) return null;
+		if (isBlockedPair(starId, peerId)) return null;
 		return dao.selectOne("superapp.selectDmPeer", peerId);
 	}
 
@@ -460,6 +692,53 @@ public class DmService {
 			throw new IOException("cannot create upload dir: " + dir);
 		}
 		return dir;
+	}
+
+	/** 신고 증거 보관소. 웹앱 밖이라 URL로는 열리지 않는다 (2-28차) */
+	private String reportDirPath() {
+		String path = Constants._DM_REPORT_SAVE_PATH;
+		return path.endsWith("/") ? path : path + "/";
+	}
+
+	private File reportDir() throws IOException {
+		File dir = new File(reportDirPath());
+		if (!dir.exists() && !dir.mkdirs()) {
+			throw new IOException("cannot create report dir: " + dir);
+		}
+		return dir;
+	}
+
+	/**
+	 * 첨부를 신고 보관소로 복사한다 (이동이 아니다 — 원본은 아직 대화 상대에게 보여야 한다).
+	 * 원본이 이미 폭파됐으면 false를 돌려주고 예외는 던지지 않는다. 정상적인 경합이다.
+	 * 로그 레벨을 원인별로 나눠 둔다. 안 나누면 디렉터리 권한이 깨져도 아무도 모른다
+	 */
+	private boolean copyEvidence(String name) {
+		if (name == null || name.isEmpty() || !isSafeFileName(name)) return false;
+		File src = new File(uploadDirPath(), name);
+		if (!src.isFile()) {
+			logger.warn("[DM] evidence already purged: {}", name);
+			return false;
+		}
+		try {
+			File dst = new File(reportDir(), name);
+			Files.copy(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			return true;
+		} catch (Exception e) {
+			// 권한·디스크 문제. 신고 자체는 살리되 운영이 알아챌 수 있게 error로 남긴다
+			logger.error("[DM] evidence copy failed {}: {}", name, e.getMessage());
+			return false;
+		}
+	}
+
+	/** 피신고자 이름 스냅샷. 못 찾아도 신고는 접수한다 (어드민 화면이 ID로 대체 표시) */
+	private String lookupStarName(String prsId) {
+		try {
+			return dao.selectOne("superapp.selectDmReportTargetName", prsId);
+		} catch (Exception e) {
+			logger.warn("[DM] target name lookup failed {}: {}", prsId, e.getMessage());
+			return null;
+		}
 	}
 
 	private void deleteQuietly(String dir, String name) {

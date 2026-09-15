@@ -1,6 +1,12 @@
 <ion-header class="ion-no-border">
   <ion-toolbar color="light">
     <ion-title>Messages</ion-title>
+    <ion-buttons slot="start">
+      <!-- 차단 목록·해제 (스토어 심사 요구 항목) -->
+      <ion-button (click)="openBlocked()" title="Blocked users">
+        <ion-icon slot="icon-only" name="ban-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
     <ion-buttons slot="end">
       <ion-button (click)="dismiss()">Close</ion-button>
     </ion-buttons>

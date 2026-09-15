@@ -82,6 +82,11 @@
                 </a>
             </li>
             <li class="nav-item mb-1">
+                <a href="/super/dm-report/list.do" class="nav-link <c:if test="${activeMenu eq 'dm_report'}">active</c:if>" style="color: #ff8a65;">
+                    <i class="fas fa-comment-slash me-2"></i> 채팅 신고
+                </a>
+            </li>
+            <li class="nav-item mb-1">
                 <a href="/super/moderation/list.do" class="nav-link <c:if test="${activeMenu eq 'moderation'}">active</c:if>" style="color: #ffd54f;">
                     <i class="fas fa-image me-2"></i> 이미지 검수
                 </a>

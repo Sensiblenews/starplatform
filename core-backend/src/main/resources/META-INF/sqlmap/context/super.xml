@@ -894,4 +894,66 @@
 		WHERE NEWS_ID = #{newsId}
 	</update>
 
+	<!-- ==========================================
+	     🌟 [신규] 채팅 신고 관리 (WH_DM_REPORT, 2-28차)
+	     원본 메시지는 이미 폭파됐을 수 있으므로 WH_DM_MESSAGE와 조인하지 않는다.
+	     이 테이블 자체가 신고 시점의 스냅샷이다
+	     ========================================== -->
+
+	<select id="selectDmReportList" parameterType="map" resultType="map">
+		SELECT
+			R.RPT_ID,
+			R.MSG_ID,
+			R.REASON,
+			R.CONTENT_TYPE,
+			R.CONTENT_SNAPSHOT,
+			R.FILE_NM,
+			R.THUMB_NM,
+			R.STATUS,
+			R.ADMIN_ID,
+			R.ADMIN_MEMO,
+			R.REPORTER_PRS_ID,
+			IFNULL(RP.PRS_NAME, R.REPORTER_PRS_ID) AS REPORTER_NAME,
+			R.TARGET_PRS_ID,
+			IFNULL(TP.PRS_NAME, IFNULL(R.TARGET_PRS_NAME, R.TARGET_PRS_ID)) AS TARGET_NAME,
+			-- 계정이 아예 사라졌으면 'X' (정지와 구분해서 표시한다)
+			IFNULL(TP.PRS_USE_YN, 'X') AS TARGET_USE_YN,
+			DATE_FORMAT(R.MSG_SEND_DATE, '%Y-%m-%d %H:%i') AS SEND_TEXT,
+			DATE_FORMAT(R.CREATED_DATE,  '%Y-%m-%d %H:%i') AS CREATED_TEXT,
+			DATE_FORMAT(R.HANDLED_DATE,  '%Y-%m-%d %H:%i') AS HANDLED_TEXT,
+			(SELECT COUNT(*) FROM WH_DM_REPORT A WHERE A.TARGET_PRS_ID = R.TARGET_PRS_ID) AS TARGET_REPORT_CNT
+		FROM WH_DM_REPORT R
+		LEFT JOIN WH_PRESS RP ON RP.PRS_ID = R.REPORTER_PRS_ID
+		LEFT JOIN WH_PRESS TP ON TP.PRS_ID = R.TARGET_PRS_ID
+		WHERE R.STATUS = #{status}
+		ORDER BY R.CREATED_DATE DESC
+	</select>
+
+	<select id="selectDmReportCounts" resultType="map">
+		SELECT
+			SUM(CASE WHEN STATUS = 'OPEN'      THEN 1 ELSE 0 END) AS OPEN_CNT,
+			SUM(CASE WHEN STATUS = 'RESOLVED'  THEN 1 ELSE 0 END) AS RESOLVED_CNT,
+			SUM(CASE WHEN STATUS = 'DISMISSED' THEN 1 ELSE 0 END) AS DISMISSED_CNT
+		FROM WH_DM_REPORT
+	</select>
+
+	<!-- 미리보기·처리용 1건. 첨부 파일명은 반드시 이 조회 결과에서만 가져온다 (쿼리 파라미터 신뢰 금지) -->
+	<select id="selectDmReportOne" parameterType="long" resultType="map">
+		SELECT RPT_ID, MSG_ID, REPORTER_PRS_ID, TARGET_PRS_ID, TARGET_PRS_NAME,
+		       REASON, CONTENT_TYPE, CONTENT_SNAPSHOT, FILE_NM, THUMB_NM, STATUS
+		FROM WH_DM_REPORT
+		WHERE RPT_ID = #{rptId}
+	</select>
+
+	<!-- 현재 상태를 조건에 넣어 두 관리자가 동시에 누르는 경우를 막는다 (이미지 검수와 같은 방식) -->
+	<update id="updateDmReportStatus" parameterType="map">
+		UPDATE WH_DM_REPORT
+		SET STATUS = #{status},
+			ADMIN_ID = #{adminId},
+			ADMIN_MEMO = #{memo},
+			HANDLED_DATE = NOW()
+		WHERE RPT_ID = #{rptId}
+		  AND STATUS = #{fromStatus}
+	</update>
+
 </mapper>

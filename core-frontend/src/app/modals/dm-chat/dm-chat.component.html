@@ -20,8 +20,15 @@
   <div class="chat-wrapper">
     <div *ngIf="loaded && messages.length === 0" class="empty">Say hello 👋</div>
 
+    <!-- 상대 메시지를 길게 누르면 신고 메뉴 (2-28차).
+         핸들러는 행 래퍼에 둔다 — 터치가 위로 올라오므로 아래 사진·영상의 (click)은 그대로 동작한다 -->
     <div *ngFor="let msg of messages; trackBy: trackByMsg"
-         [ngClass]="isMine(msg) ? 'bubble-row me' : 'bubble-row other'">
+         [ngClass]="isMine(msg) ? 'bubble-row me' : 'bubble-row other'"
+         (touchstart)="onPressStart(msg, $event)"
+         (touchmove)="onPressMove($event)"
+         (touchend)="onPressEnd()"
+         (touchcancel)="onPressEnd()"
+         (contextmenu)="onContextMenu(msg, $event)">
       <div class="profile-wrapper" *ngIf="!isMine(msg)">
         <img class="profile-image" [src]="peerImage || defaultAvatar" (error)="handleImageError($event)" />
       </div>

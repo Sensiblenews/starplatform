@@ -32,6 +32,14 @@ export interface DmPeer {
   image: string | null;
 }
 
+// 차단 목록 한 줄 (2-28차). 정지·탈퇴한 계정도 나오므로 이름이 없으면 서버가 ID로 채운다
+export interface DmBlocked {
+  peerId: string;
+  peerName: string;
+  peerImage: string | null;
+  blockedDate: number | string;
+}
+
 /**
  * 1:1 메신저 API + 미읽음 상태 (2-29차).
  * 모든 요청은 localStorage의 starId·starToken을 body에 실어 보내고, 서버가 본인 여부를 검증한다.
@@ -109,6 +117,24 @@ export class DmService {
 
   markRead(peerId: string): Observable<any> {
     return this.post('/api/super/dm/read', { peerId });
+  }
+
+  // 상대 메시지 신고 (2-28차). 본문은 보내지 않는다 — 서버가 msgId로 원문을 찾아 스냅샷을 뜬다
+  report(msgId: number, reason: string): Observable<any> {
+    return this.post('/api/super/dm/report', { msgId, reason });
+  }
+
+  // 사용자 차단 (2-28차). 차단당한 쪽에는 알리지 않는다
+  block(peerId: string): Observable<any> {
+    return this.post('/api/super/dm/block', { peerId });
+  }
+
+  unblock(peerId: string): Observable<any> {
+    return this.post('/api/super/dm/unblock', { peerId });
+  }
+
+  blockedList(): Observable<any> {
+    return this.post('/api/super/dm/blocked-list', {});
   }
 
   private post(path: string, body: any): Observable<any> {

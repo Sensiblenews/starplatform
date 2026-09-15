@@ -1,7 +1,7 @@
 import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, ModalController, PopoverController, AlertController, ActionSheetController, IonSearchbar } from '@ionic/angular';
+import { Platform, ModalController, PopoverController, AlertController, IonSearchbar } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
@@ -10,8 +10,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
-import { FirebaseAuthService } from 'src/app/services/oauth/firebase-auth.service';
-import { PushNotifications } from '@capacitor/push-notifications';
+import { CreatorLoginService } from 'src/app/services/creator-login.service';
 import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-modal.component';
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
@@ -174,8 +173,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private popoverCtrl: PopoverController,
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
-    private actionSheetCtrl: ActionSheetController, // 🌟 추가
-    private firebaseAuth: FirebaseAuthService,
+    private creatorLogin: CreatorLoginService,
     private writeModalService: WriteModalService,
     private adProtection: AdProtectionService,
     private ngZone: NgZone,
@@ -384,42 +382,11 @@ export class LobbyPage implements OnInit, OnDestroy {
     }
   }
 
-  // 🌟 [신규] FCM 토큰 발급 및 서버 전송
+  // FCM 토큰 발급·서버 전송. 구현은 CreatorLoginService로 옮겼다 (2-28차).
+  // 스타페이지에서 로그인해도 같은 등록이 돌아야 푸시를 받는다.
+  // 호출부가 세 곳이라 메서드는 남기고 위임만 한다
   async registerFCMToken(targetStarId: string) {
-    console.log("registerFCMToken called for starId:", targetStarId);
-    if (this.platform.is('capacitor')) {
-      let permStatus = await PushNotifications.checkPermissions();
-
-      // 처음 묻는 거라면 권한 팝업 띄우기
-      if (permStatus.receive === 'prompt') {
-        permStatus = await PushNotifications.requestPermissions();
-      }
-
-      // 유저가 '허용'을 누르면 기기 등록 실행
-      if (permStatus.receive === 'granted') {
-        await PushNotifications.register();
-
-        // 🔴 [Critical Fix] registration 이벤트 미발생 대비:
-        // 이미 캐싱된 토큰이 있으면 직접 서버에 전송.
-        // 2회(1.5초·4초) 전송하는 이유: 로그아웃 시 fcmToken:'' 초기화 요청이 지연 도착해
-        // 재로그인 직후 올린 토큰을 덮어쓰는 레이스가 있어, 두 번째 전송으로 복구한다 (동일 값 UPDATE라 부작용 없음)
-        const sendCachedToken = () => {
-          const cachedToken = localStorage.getItem('fcmToken');
-          if (cachedToken && targetStarId) {
-            console.log('🌟 Sending cached FCM token to server for starId:', targetStarId);
-            this.http.post('/api/super/star/push/token', {
-              starId: targetStarId,
-              fcmToken: cachedToken
-            }).subscribe({
-              next: () => console.log('✅ FCM token sent to server successfully'),
-              error: (err: any) => console.error('❌ FCM token send failed:', err)
-            });
-          }
-        };
-        setTimeout(sendCachedToken, 1500);
-        setTimeout(sendCachedToken, 4000);
-      }
-    }
+    await this.creatorLogin.registerFCMToken(targetStarId);
   }
 
   // 🌟 [신규] 4초마다 상단 6명 카드 스와이프
@@ -985,67 +952,22 @@ export class LobbyPage implements OnInit, OnDestroy {
     }
   }
 
+  // 크리에이터 로그인 흐름은 CreatorLoginService로 옮겼다 (2-28차).
+  // 스타페이지 글쓰기 버튼도 같은 로그인 유도를 쓰기 때문이다.
+  // 여기서는 로그인 성공 후 로비 상태만 갱신한다.
   async openCreatorLogin() {
-    const actionSheet = await this.actionSheetCtrl.create({
-      header: 'Creator Login',
-      buttons: [
-        {
-          text: 'Continue with Apple',
-          icon: 'logo-apple',
-          handler: () => { this.processSocialLogin('apple'); }
-        },
-        {
-          text: 'Continue with Google',
-          icon: 'logo-google',
-          handler: () => { this.processSocialLogin('google'); }
-        },
-        // {
-        //   text: 'Login with ID / PW',
-        //   icon: 'mail-outline',
-        //   handler: () => { this.showLogin('STAR'); } // 기존 ID/PW 알럿창
-        // },
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        }
-      ]
-    });
-    await actionSheet.present();
+    const res = await this.creatorLogin.promptLogin();
+    if (res.ok) {
+      this.isStar = true;
+      this.starId = res.starId;
+    }
   }
 
-  // 3. 실제 소셜 인증 및 백엔드 로그인 처리
   async processSocialLogin(provider: string) {
-    try {
-      // 🌟 새로 만든 파이어베이스 서비스 호출
-      const user = provider === 'google'
-        ? await this.firebaseAuth.signInWithGoogle()
-        : await this.firebaseAuth.signInWithApple();
-
-      if (user && user.email) {
-        // 백엔드의 소셜 로그인 엔드포인트 호출 (🌟 uid 파라미터 추가)
-        this.http.post('/api/super/star/login/social', {
-          email: user.email,
-          uid: user.uid  // 🌟 [핵심] 백엔드에서 비밀번호처럼 검증할 값
-        }).subscribe({
-          next: (res: any) => {
-            if (res.result === 'OK') {
-              this.isStar = true;
-              this.starId = res.starId;
-              localStorage.setItem('isStar', 'true');
-              localStorage.setItem('starId', res.starId);
-              localStorage.setItem('starToken', res.starToken);
-        this.dm.refreshUnread();
-              // this.globalFeedback.startPolling();
-              this.registerFCMToken(this.starId); // 로그인 성공한 스타의 ID로 FCM 토큰 등록
-              this.showSimpleAlert('Login successful! Welcome back.');
-            } else {
-              this.showSimpleAlert(res.msg || 'Account not found. Please create a page first.');
-            }
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Social login error', e);
+    const res = await this.creatorLogin.processSocialLogin(provider);
+    if (res.ok) {
+      this.isStar = true;
+      this.starId = res.starId;
     }
   }
 

@@ -108,4 +108,91 @@ public class DmServiceTest {
 				DmService.imageRejectionMessage(ImageModerationUtil.Rejection.SIGNATURE));
 		assertEquals("Upload failed.", DmService.imageRejectionMessage(null));
 	}
+
+	// ===== 신고 (2-28차) =====
+
+	@Test
+	public void 신고_사유는_화이트리스트만_통과한다() {
+		assertEquals("SPAM", DmService.normalizeReason("spam"));
+		assertEquals("ABUSE", DmService.normalizeReason("  ABUSE  "));
+		assertEquals("THREAT", DmService.normalizeReason("Threat"));
+		for (String reason : DmService.REPORT_REASONS) {
+			assertEquals(reason, DmService.normalizeReason(reason));
+		}
+	}
+
+	@Test
+	public void 모르는_신고_사유는_거부된다() {
+		for (Object bad : new Object[] { "HACK", "", "   ", null }) {
+			try {
+				DmService.normalizeReason(bad);
+				fail("should reject: " + bad);
+			} catch (IllegalArgumentException e) {
+				assertTrue(e.getMessage().contains("reason"));
+			}
+		}
+	}
+
+	@Test
+	public void 내가_받은_메시지만_신고할_수_있다() {
+		// 내가 b, 보낸 사람이 a, 받는 사람이 나
+		assertTrue(DmService.isReportable("b", "a", "b"));
+	}
+
+	@Test
+	public void 자기가_보낸_메시지는_신고할_수_없다() {
+		assertFalse(DmService.isReportable("a", "a", "b"));
+	}
+
+	@Test
+	public void 대화_당사자가_아니면_신고할_수_없다() {
+		// 남의 대화에 msgId만 넣어보는 경우
+		assertFalse(DmService.isReportable("c", "a", "b"));
+		assertFalse(DmService.isReportable(null, "a", "b"));
+		assertFalse(DmService.isReportable("", "a", "b"));
+		assertFalse(DmService.isReportable("b", null, "b"));
+		assertFalse(DmService.isReportable("b", "", "b"));
+		assertFalse(DmService.isReportable("b", "a", null));
+	}
+
+	@Test
+	public void 식별자는_양의_정수만_받는다() {
+		assertEquals(12L, DmService.parsePositiveId(" 12 "));
+		assertEquals(12L, DmService.parsePositiveId(12L));
+		assertEquals(12L, DmService.parsePositiveId(Integer.valueOf(12)));
+		assertEquals(-1L, DmService.parsePositiveId("abc"));
+		assertEquals(-1L, DmService.parsePositiveId(null));
+		assertEquals(-1L, DmService.parsePositiveId("0"));
+		assertEquals(-1L, DmService.parsePositiveId("-3"));
+		assertEquals(-1L, DmService.parsePositiveId("1.5"));
+	}
+
+	// ===== 차단 (2-28차) =====
+
+	@Test
+	public void 자기_자신은_차단할_수_없다() {
+		// 허용하면 selectDmRooms가 자기 대화를 전부 지워 스스로 메신저를 못 쓰게 된다
+		assertFalse(DmService.isBlockable("a", "a"));
+	}
+
+	@Test
+	public void 다른_사람은_차단할_수_있다() {
+		assertTrue(DmService.isBlockable("a", "b"));
+	}
+
+	@Test
+	public void 빈_값으로는_차단할_수_없다() {
+		assertFalse(DmService.isBlockable("", "b"));
+		assertFalse(DmService.isBlockable("a", ""));
+		assertFalse(DmService.isBlockable(null, "b"));
+		assertFalse(DmService.isBlockable("a", null));
+	}
+
+	@Test
+	public void 증거_파일명은_업로드와_같은_규칙으로_검사한다() {
+		// 신고 디렉터리 복사와 어드민 미리보기가 둘 다 이 규칙에 기대고 있다
+		assertTrue(DmService.isSafeFileName(DmService.newFileName("jpg")));
+		assertFalse(DmService.isSafeFileName("../../etc/passwd"));
+		assertFalse(DmService.isSafeFileName("dm/../img/a.jpg"));
+	}
 }

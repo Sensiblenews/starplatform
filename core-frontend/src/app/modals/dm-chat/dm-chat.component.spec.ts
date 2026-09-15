@@ -56,4 +56,45 @@ describe('DmChatComponent 폴링 병합', () => {
     expect(merged[0].msgId).toBe(2);
     expect(merged[0].fileUrl).toBe('/f?t=CCC');
   });
+
+  // 신고는 메시지 객체가 아니라 msgId를 들고 다닌다. 아래가 그 이유다 (2-28차)
+  it('읽음 갱신으로 객체가 바뀌어도 msgId는 그대로다', () => {
+    const prev = [msg(1, '/f?t=AAA')];
+    const merged = DmChatComponent.mergeMessages(prev, [msg(1, '/f?t=BBB', 999)]);
+    expect(merged[0]).not.toBe(prev[0]);
+    expect(merged[0].msgId).toBe(prev[0].msgId);
+  });
+});
+
+
+// 롱프레스 신고 (2-28차). 내 메시지는 신고 대상이 아니고,
+// 손가락이 움직이면 스크롤로 보고 메뉴를 띄우지 않아야 한다
+describe('DmChatComponent 신고 롱프레스', () => {
+
+  const from = (senderId: string): DmMessage => ({
+    msgId: 1, senderId, contentType: 'TEXT', text: 'hi',
+    sendDate: 1, readDate: null, expireAt: 2,
+  });
+
+  it('내가 보낸 메시지는 신고할 수 없다', () => {
+    expect(DmChatComponent.canReport(from('me'), 'me')).toBe(false);
+    expect(DmChatComponent.canReport(from('you'), 'me')).toBe(true);
+  });
+
+  it('로그인 정보가 없으면 신고 대상으로 보지 않는다', () => {
+    expect(DmChatComponent.canReport(from('you'), '')).toBe(false);
+    expect(DmChatComponent.canReport(null as any, 'me')).toBe(false);
+  });
+
+  it('임계값 안에서 흔들리는 것은 롱프레스로 인정한다', () => {
+    expect(DmChatComponent.movedTooFar({ x: 0, y: 0 }, { x: 0, y: 0 }, 10)).toBe(false);
+    expect(DmChatComponent.movedTooFar({ x: 0, y: 0 }, { x: 5, y: 5 }, 10)).toBe(false);
+  });
+
+  it('임계값을 넘게 움직이면 스크롤로 보고 취소한다', () => {
+    expect(DmChatComponent.movedTooFar({ x: 0, y: 0 }, { x: 11, y: 0 }, 10)).toBe(true);
+    expect(DmChatComponent.movedTooFar({ x: 0, y: 0 }, { x: 0, y: -11 }, 10)).toBe(true);
+    // 대각선은 축별 거리가 아니라 직선 거리로 재야 한다 (7,7 → 9.9)
+    expect(DmChatComponent.movedTooFar({ x: 0, y: 0 }, { x: 8, y: 8 }, 10)).toBe(true);
+  });
 });
