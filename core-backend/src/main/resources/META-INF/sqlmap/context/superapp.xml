@@ -517,6 +517,37 @@
 
 	<!-- [신규] sitemap.xml용: 활성 스타의 게시물 전체 (CREATED_DATE는 lastmod 표기용).
 	     승인된 글만 — 미승인 글은 렌더 목록에도 없으므로 사이트맵과 실제 노출을 일치시킨다 -->
+	<!-- 공개 포스트 목록 페이지(/posts). 허브 카드와 같은 컬럼을 쓰되 페이지 단위로 끊어 온다 -->
+	<select id="selectPublicPosts" parameterType="map" resultType="map">
+		SELECT
+			M.CON_ID,
+			M.CON_BODY,
+			M.CREATED_DATE,
+			IFNULL(M.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
+			P.PRS_ID,
+			P.PRS_NAME,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+			IFNULL(P.STAR_CATEGORY, 'GENERAL') AS STAR_CATEGORY,
+			D.THUMB_URL,
+			D.MEDIA_URL,
+			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) AS MEDIA_CNT
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		WHERE M.MDR_STATUS = 'APPROVED'
+		ORDER BY M.CREATED_DATE DESC
+		LIMIT #{offset}, #{size}
+	</select>
+
+	<!-- 목록 페이지네이션용 총 건수. 카드 조회와 같은 조건이어야 마지막 페이지가 비지 않는다 -->
+	<select id="selectPublicPostCount" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		WHERE M.MDR_STATUS = 'APPROVED'
+	</select>
+
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
 		SELECT M.CON_ID, M.CREATED_DATE
 		FROM WH_STAR_CONTENT M

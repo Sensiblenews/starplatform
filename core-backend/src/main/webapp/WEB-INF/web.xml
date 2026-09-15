@@ -122,9 +122,11 @@
     <exception-type>java.lang.Throwable</exception-type>
     <location>/error/exception.do</location>
   </error-page>
+  <!-- 404는 공개 사이트용 페이지로 보낸다. 관리자 경로(/adm, /super, /login)는
+       그 안에서 기존 어드민 에러 화면으로 분기한다 (PublicWebController.notFoundPage) -->
   <error-page>
     <error-code>404</error-code>
-    <location>/error/404Error.do</location>
+    <location>/error/not-found</location>
   </error-page>
   <error-page>
     <error-code>500</error-code>

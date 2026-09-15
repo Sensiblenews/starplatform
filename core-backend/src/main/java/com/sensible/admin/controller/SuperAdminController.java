@@ -32,6 +32,10 @@ public class SuperAdminController {
     @Resource(name = "superAdminService")
     private SuperAdminService superAdminService;
 
+    // 공개 웹 문의함(2-29차). 접수는 공개 사이트(/contact)가 하고 여기서는 읽기·처리만 한다
+    @Resource(name = "contactService")
+    private com.sensible.api.service.ContactService contactService;
+
     // 시스템 모니터링용 기존 빈 재사용 주입 (신규 연결 생성 금지)
     @Resource(name = "config")
     private java.util.Properties config;
@@ -2278,6 +2282,61 @@ public class SuperAdminController {
             result.put("status", "fail");
             result.put("msg", e.getMessage());
         }
+        return result;
+    }
+
+    // ==========================================
+    // 🌟 [신규] 공개 웹 문의함 (2-29차, SM 전용)
+    // witch-hunting.com/contact 로 들어온 문의를 확인한다.
+    // 접수 즉시 관리자 메일로도 발송되지만, 메일이 유실돼도 여기 남는다.
+    // ==========================================
+
+    /**
+     * [화면] 문의 목록
+     */
+    @RequestMapping(value = "/super/contact/list.do")
+    public String webContactList(HttpServletRequest request,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            return "redirect:/super/dashboard.do";
+        }
+
+        int length = 30;
+        if (page < 1) page = 1;
+        int start = (page - 1) * length;
+
+        int totalCount = contactService.count();
+        List<Map<String, Object>> contactList = contactService.list(start, length);
+
+        int totalPages = (int) Math.ceil((double) totalCount / length);
+        if (totalPages == 0) totalPages = 1;
+
+        model.addAttribute("contactList", contactList);
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("activeMenu", "web_contact");
+        return "super/web_contact";
+    }
+
+    /**
+     * [API] 처리 완료 표시
+     */
+    @RequestMapping(value = "/super/contact/done.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> webContactDone(HttpServletRequest request,
+            @RequestParam("contactId") String contactId) {
+        Map<String, Object> result = new HashMap<>();
+        UserVO user = getLoginUser(request);
+        if (user == null || !"SM".equals(user.getPRS_AUTH())) {
+            result.put("status", "fail");
+            result.put("msg", "권한이 없습니다.");
+            return result;
+        }
+
+        result.put("status", contactService.markDone(contactId) ? "success" : "fail");
         return result;
     }
 }

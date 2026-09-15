@@ -1679,6 +1679,36 @@ public class SuperAppService {
 	}
 
 	/**
+	 * 공개 포스트 목록 페이지(/posts)용: 승인된 글을 최신순으로 한 페이지 분량만 조회한다.
+	 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size) {
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("offset", offset);
+			param.put("size", size);
+			return dao.selectList("superapp.selectPublicPosts", param);
+		} catch (Exception e) {
+			// 목록 조회가 실패해도 페이지 골격(헤더·안내문·푸터)은 렌더링돼야 한다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 공개 포스트 총 건수. 페이지 수 계산에만 쓴다.
+	 * 조회 실패 시 0을 돌려 페이지네이션을 감추고 첫 페이지만 보여준다.
+	 */
+	public int getPublicPostCount() {
+		try {
+			Object count = dao.selectOne("superapp.selectPublicPostCount", new HashMap<>());
+			return count == null ? 0 : ((Number) count).intValue();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return 0;
+		}
+	}
+
+	/**
 	 * 🌟 [신규] 루트 허브 페이지용: 팔로워순 상위 스타 조회 (최대 10명)
 	 */
 	public List<Map<String, Object>> getHomeTopStars() {
