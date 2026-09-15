@@ -78,10 +78,15 @@ public class DeepLinkControllerJsonLdTest {
 
 	@SuppressWarnings("unchecked")
 	private String buildSitemapXml(String baseUrl, Object stars, Object posts) throws Exception {
+		return buildSitemapXml(baseUrl, stars, posts, 1);
+	}
+
+	@SuppressWarnings("unchecked")
+	private String buildSitemapXml(String baseUrl, Object stars, Object posts, int postListPages) throws Exception {
 		Method m = DeepLinkController.class.getDeclaredMethod("buildSitemapXml",
-				String.class, java.util.List.class, java.util.List.class);
+				String.class, java.util.List.class, java.util.List.class, int.class);
 		m.setAccessible(true);
-		return (String) m.invoke(controller, baseUrl, stars, posts);
+		return (String) m.invoke(controller, baseUrl, stars, posts, postListPages);
 	}
 
 	@Test
@@ -110,7 +115,31 @@ public class DeepLinkControllerJsonLdTest {
 		String xml = buildSitemapXml("https://witch-hunting.com", null, new java.util.ArrayList<>());
 		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
 		assertFalse(xml.contains("/star/"));
+		// /posts 목록 페이지는 항상 들어가므로 게시물 상세 URL만 없어야 한다
 		assertFalse(xml.contains("/post/"));
+	}
+
+	@Test
+	public void buildSitemapXml_공개_독립_페이지를_포함한다() throws Exception {
+		String xml = buildSitemapXml("https://witch-hunting.com", null, null);
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/about</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/faq</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/contact</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/terms</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/privacy</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts</loc>"));
+	}
+
+	@Test
+	public void buildSitemapXml_포스트_목록은_페이지마다_넣는다() throws Exception {
+		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
+		String xml = buildSitemapXml("https://witch-hunting.com", null, null, 3);
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=2</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=3</loc>"));
+		assertFalse(xml.contains("page=4"));
+		// 첫 페이지는 ?page=1 이 아니라 /posts 여야 한다 (중복 URL 방지)
+		assertFalse(xml.contains("page=1"));
 	}
 
 	@Test

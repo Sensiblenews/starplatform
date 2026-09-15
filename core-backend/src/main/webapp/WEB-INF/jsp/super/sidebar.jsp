@@ -96,6 +96,12 @@
                     <i class="fas fa-server me-2"></i> 시스템 관리
                 </a>
             </li>
+            <!-- 🌟 공개 웹 문의함 (2-29차) — witch-hunting.com/contact 접수분 -->
+            <li class="nav-item mb-1">
+                <a href="/super/contact/list.do" class="nav-link <c:if test="${activeMenu eq 'web_contact'}">active</c:if>" style="color: #80cbc4;">
+                    <i class="fas fa-envelope-open-text me-2"></i> 웹 문의함
+                </a>
+            </li>
             <!-- 🌟 약관/개인정보처리방침 수정 (좌측 탭 맨 하단 배치 — 클라이언트 요청) -->
             <li class="nav-item mb-1">
                 <a href="/super/policy/edit.do" class="nav-link <c:if test="${activeMenu eq 'policy'}">active</c:if>" style="color: #a5d6a7;">

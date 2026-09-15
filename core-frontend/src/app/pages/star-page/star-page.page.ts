@@ -7,7 +7,7 @@ import { AdMobService } from 'src/app/services/ad-mob.service';
 import { AdProtectionService } from 'src/app/services/ad-protection.service';
 import { StarMenuComponent } from './star-menu.component';
 import { Share } from '@capacitor/share';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from 'src/app/services/haptic.service';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { DeepLinkService } from 'src/app/services/deep-link.service';
@@ -124,6 +124,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private deviceIdService: DeviceIdService,
     private perf: PerfTraceService,
     private dm: DmService,
+    private haptic: HapticService,
   ) { }
 
   // 로그인한 스타가 다른 스타 페이지를 볼 때만 채팅 아이콘 (2-29차 메신저, 스타 소유자끼리 1:1)
@@ -134,7 +135,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   async openDm(event?: Event) {
     if (event) event.stopPropagation();
     if (!this.canMessage) return;
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    this.haptic.tap();
     await openDmChat(this.modalCtrl, this.dm, {
       peerId: this.starId,
       peerName: this.starInfo?.name || '',
@@ -281,12 +282,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       if (!this.isGoingToDetail && !isBot) {
         console.log("Leaving to Lobby/Home -> Check Interstitial Conditions");
 
-        if (!this.isAdLocked) {
-          const isShown = await this.adMobService.showInterstitial();
+        // isAdLocked(네이티브 광고 24시간 클릭 잠금)는 여기서 보지 않는다.
+        // 그 잠금은 이 페이지에 붙는 네이티브 광고의 부정클릭 방어용이고,
+        // 전면 광고는 AdMobService의 빈도 정책(3분 간격·세션당 2회)이 따로 통제한다.
+        // 둘을 묶어 두면 네이티브 광고를 한 번 누른 스타 페이지에서 24시간 동안
+        // 전면 광고까지 사라졌다.
+        const isShown = await this.adMobService.showInterstitial('스타페이지 이탈');
 
-          if (isShown) {
-            this.sendAdLog('INTERSTITIAL', 'IMPRESSION');
-          }
+        if (isShown) {
+          this.sendAdLog('INTERSTITIAL', 'IMPRESSION');
         }
       } else {
         this.isGoingToDetail = false;
@@ -646,9 +650,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   async shareContent(id: string | number, type: 'star' | 'feed', event?: Event) {
     if (event) event.stopPropagation();
 
-    try {
-      await Haptics.impact({ style: ImpactStyle.Light });
-    } catch (e) { }
+    await this.haptic.tap();
 
     const baseUrl = 'https://witch-hunting.com';
     const link = type === 'star' ? `${baseUrl}/star/${id}` : `${baseUrl}/post/${id}`;
@@ -833,9 +835,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async goDetail(conId: number) {
-    try {
-      await Haptics.impact({ style: ImpactStyle.Light });
-    } catch (e) { }
+    await this.haptic.tap();
 
     // 🎬 모든 동영상 일시 정지
     this.pauseAllVideos();
@@ -955,11 +955,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         audio.volume = 0.65;
         audio.play().catch(e => console.log('Audio playback error:', e));
 
-        try {
-          import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => {
-            Haptics.impact({ style: ImpactStyle.Light });
-          });
-        } catch (e) { }
+        this.haptic.tap();
 
         this.runSlotMachineEffect(this.viewCount);
 
@@ -1191,7 +1187,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
   async goNextPage() {
     if (this.recommendedPages.length > 0) {
-      try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+      await this.haptic.tap();
 
       const nextStarId = this.recommendedPages[0].PRS_ID;
 

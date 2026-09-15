@@ -12,6 +12,10 @@
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <meta name="apple-itunes-app" content="app-id=1188195403">
+            <%-- 앱 전환 전용 중간 화면이다. 읽을 내용이 없으므로 색인 대상에서 뺀다.
+                 (robots.txt 차단만으로는 이미 알려진 URL의 색인이 지워지지 않아 메타로 건다.
+                  follow는 남겨 이 페이지의 링크는 계속 따라가게 한다) --%>
+            <meta name="robots" content="noindex, follow">
             <title>${not empty ogTitle ? ogTitle : 'StarPlatform SuperApp'}</title>
 
             <!-- Twitter Card Meta Tags (X 공유 최적화) -->

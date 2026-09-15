@@ -6,6 +6,8 @@ import KakaoSDKAuth
 import Firebase
 import GoogleMobileAds
 import FBSDKCoreKit
+import FBAudienceNetwork
+import AppTrackingTransparency
 import FirebaseAuth
 
 @UIApplicationMain
@@ -15,6 +17,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+
+        // Meta Audience Network 광고 추적 플래그 (2-29차).
+        // Meta는 iOS 14+에서 이 값을 퍼블리셔가 직접, 그것도 GMA 초기화 전에 넘기라고 요구한다.
+        // ATT 요청 자체는 웹 쪽(ad-mob.service.ts)이 AdMob 초기화 뒤에 하므로 이 시점에 알 수
+        // 있는 것은 지난 실행에서 결정된 상태뿐이다. 첫 실행은 notDetermined → false가 정상이고,
+        // 사용자가 허용하면 다음 실행부터 true로 입찰 요청이 나간다.
+        // 앱 타깃 배포 대상이 13.0이라 ATT는 가용성 확인이 필요하다. iOS 13에는 ATT 자체가
+        // 없고 IDFA가 그대로 나가므로 true로 둔다.
+        if #available(iOS 14, *) {
+            FBAdSettings.setAdvertiserTrackingEnabled(
+                ATTrackingManager.trackingAuthorizationStatus == .authorized
+            )
+        } else {
+            FBAdSettings.setAdvertiserTrackingEnabled(true)
+        }
+
         MobileAds.shared.start(completionHandler: nil)
         
         // initialize FB

@@ -1,11 +1,14 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${policyTitle} | Star Platform</title>
+    <%-- 약관·방침 본문은 영문으로 등록돼 있다 (lang="en"). 번역본이 생기면 언어별로 나눌 것 --%>
+    <meta name="robots" content="index, follow">
+    <c:if test="${not empty canonicalUrl}"><link rel="canonical" href="${canonicalUrl}"></c:if>
     <style>
         body { font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.7; color: #333; padding: 40px 20px; max-width: 900px; margin: 0 auto; background-color: #f4f7f9; }
         .container { background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
@@ -17,6 +20,9 @@
         table th, table td { border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 0.95rem; }
         table th { background-color: #f8f9fa; }
         .footer-info { margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.9rem; color: #888; }
+        .footer-links { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.85rem; }
+        .footer-links a { color: #6b7785; text-decoration: none; }
+        .footer-links a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -30,6 +36,17 @@
         <c:if test="${not empty policyUpdated}">
             <div class="footer-info">Last updated: ${policyUpdated}</div>
         </c:if>
+
+        <%-- 정책 페이지가 막다른 길이 되지 않도록 공개 페이지로 돌아가는 링크를 둔다 --%>
+        <div class="footer-links">
+            <a href="${pageContext.request.contextPath}/">Home</a>
+            <a href="${pageContext.request.contextPath}/about">About</a>
+            <a href="${pageContext.request.contextPath}/posts">Public Posts</a>
+            <a href="${pageContext.request.contextPath}/faq">FAQ</a>
+            <a href="${pageContext.request.contextPath}/contact">Contact</a>
+            <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>
+            <a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a>
+        </div>
     </div>
 </body>
 </html>

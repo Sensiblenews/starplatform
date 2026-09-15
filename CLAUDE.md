@@ -68,10 +68,34 @@ DB·Redis 접속 정보는 `core-backend/src/main/resources/META-INF/props/globa
 
 ### 프런트엔드
 
-- `npm run build-android` / `npm run build-ios`: 네이티브 프로젝트를 삭제 후 재생성(trapeze + cordova-res)하고 빌드. 프로덕션은 `-prod` 접미사
-- JS 변경만 반영: `ionic capacitor build <platform>` (android/ios)
+**앱 빌드는 `ionic capacitor build <platform>` (android/ios) 로만 한다.**
+
 - IDE 열기: `ionic capacitor open <platform>`, 즉시 실행: `ionic capacitor run <platform>`
 - 빌드 산출물은 수동 배포
+
+> ⛔ **`npm run build-android` / `build-ios` / `clean-build-*` 를 실행하지 말 것.**
+>
+> 이 스크립트들은 `npx rimraf android`(또는 `ios`)로 시작한다. 해당 디렉터리는 gitignore
+> 대상이지만 **`platformConfigurement/` 에 사본이 없는 파일들이 거기에만 존재**해서, 지우면
+> 되돌릴 곳이 없다. 2026-09-13에 실제로 날아갔고 `android.zip` 백업으로 겨우 복구했다.
+>
+> `android/` 에만 있는 것 (현재 기준):
+> - `app/google-services.json` — 프로젝트 루트의 `core-frontend/google-services.json` 은
+>   2024년 2월자 구버전이라 **대체 불가**. OAuth 클라이언트 수와 서명 인증서 해시가 달라
+>   그걸로 덮으면 구글 로그인이 깨진다
+> - `app/src/main/res/raw/tick.mp3`
+> - `ic_launcher*` 런처 아이콘 전 밀도 — 재생성 도구 `cordova-res` 가 Node 24에서
+>   sharp 네이티브 모듈 오류로 죽어 복구 불가
+>
+> 부수 함정: trapeze(`set-projects-*`)는 멱등하지 않다. 반복 실행하면 AndroidManifest 에
+> 항목이 중복 주입돼 깨진다. 클린 재생성 후에는 Capacitor 기본 아이콘(`ic_launcher*.png`)과
+> 실제 아이콘(`*.webp`)이 같은 이름으로 충돌해 `Duplicate resources` 가 난다.
+
+**릴리스 버전(versionCode/versionName)의 소스 오브 트루스는 `core-frontend/trapeze-android.yml` 이다.**
+trapeze 는 `android/app/build.gradle` 의 현재 값을 무시하고 이 파일의 선언값을 쓴다.
+릴리스마다 여기 두 줄을 올리고 커밋한다. Play Console 의 최고 versionCode 보다 커야 한다.
+`incrementVersionCode` 키는 쓰지 않는다 — `true` 는 선언값 +1(누적 아님), `false` 는 무시돼
+역시 +1 이 된다. 키를 빼야 선언값이 그대로 나간다.
 
 ### 백엔드
 
@@ -173,3 +197,6 @@ DB·Redis 접속 정보는 `core-backend/src/main/resources/META-INF/props/globa
 - `package.json` 의존성 변경 금지. 추가가 필요하면 먼저 승인 여부를 확인할 것
 - 사용자 확인 없이 DB 마이그레이션 금지
 - `core-frontend/keystore/`, `*.pem`, `*.ppk`, `google-services.json`, `GoogleService-Info.plist` 등 서명 키·자격 증명 파일 수정·이동 금지
+- **`npm run build-android` / `build-ios` / `clean-build-*` 실행 금지.** `rimraf` 가 `android/`·`ios/` 를
+  통째로 지우는데, 거기에만 있는 파일(`google-services.json`, `tick.mp3`, 런처 아이콘)은 복구할 곳이 없다.
+  앱 빌드는 `ionic capacitor build <platform>` 으로만 한다 — 상세는 "빌드 및 배포" 참조

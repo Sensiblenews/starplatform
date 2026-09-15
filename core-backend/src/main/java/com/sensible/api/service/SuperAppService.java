@@ -40,6 +40,9 @@ public class SuperAppService {
 	@Autowired
 	private FirebaseService firebaseService;
 
+	@Resource(name = "dailyRankService")
+	private DailyRankService dailyRankService;
+
 	@Resource(name = "starRankService")
 	private StarRankService starRankService;
 
@@ -365,16 +368,16 @@ public class SuperAppService {
 				}
 			}
 
-			// 3. 🌟 [신규] Redis ZSET 실시간 스코어 가산 로직
-			if (starId != null && !starId.trim().isEmpty()) {
-				try {
-					// 글로벌 랭킹 조회수 1 가산
-					redisTemplate.opsForZSet().incrementScore("leaderboard:global", starId, 1.0);
-					// 수익 랭킹 0.1원 가산
-					redisTemplate.opsForZSet().incrementScore("leaderboard:revenue", starId, 0.1);
-				} catch (Exception e) {
-					System.out.println("Redis ZSET score increment failed: " + e.getMessage());
-				}
+			// 3. 오늘 랭킹(날짜별 ZSET)에 실시간 가산.
+			//
+			// 이전에는 `leaderboard:global`·`leaderboard:revenue` 누적 ZSET에 가산했는데
+			// 그 키를 읽는 코드가 저장소 어디에도 없어 쓰기만 버려지고 있었다.
+			// 게다가 날짜 구분도 만료도 없어 영구히 누적되기만 했다.
+			//
+			// 가산 위치를 IMPRESSION 조건 안으로 옮긴 것도 의도적이다. 기존 코드는
+			// try 블록 최상단에 있어 CLICK 등 모든 액션에서 "조회수"가 올랐다.
+			if ("IMPRESSION".equals(action)) {
+				dailyRankService.incrementToday(starId);
 			}
 
 			resultMap.put("result", "OK");
@@ -1017,14 +1020,50 @@ public class SuperAppService {
 	// [신규] 명예의 전당 (Hall of Fame) 서비스
 	// ==========================================
 
-	// 1. 역대 오늘의 왕 (일자별 1위)
-	@Cacheable(value = "hallOfFame", key = "'dailyKings:' + #params.toString()", unless = "#result == null")
+	/**
+	 * 1. 역대 오늘의 왕 (일자별 1위)
+	 *
+	 * 기존에는 오늘까지 포함한 결과를 12시간 캐시에 넣어, 오늘의 왕이 최대 12시간 묵은
+	 * 값으로 나왔다. 어제까지(불변)는 12시간 캐시를 유지하고 오늘 행만 실시간으로 얹는다.
+	 */
 	public Map<String, Object> getDailyKings(Map<String, Object> params) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
-		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyKings", params);
+		Map<String, Object> safeParams = params == null ? new HashMap<String, Object>() : params;
+
+		List<Map<String, Object>> list = new ArrayList<>();
+
+		// 오늘 행은 조회 대상 기간에 오늘이 포함될 때만 얹는다
+		if (includesToday(safeParams.get("targetMonth"))) {
+			Map<String, Object> todayKing = dailyRankService.getTodayKing();
+			if (todayKing == null) {
+				// Redis 사용 불가 — 오늘 행이 통째로 빠지면 변경 전보다 나빠지므로 DB로 뽑는다
+				todayKing = dailyRankService.getTodayKingFromDb();
+			}
+			if (todayKing != null && !todayKing.isEmpty()) {
+				list.add(todayKing);
+			}
+		}
+
+		List<Map<String, Object>> past = dailyRankService.getPastDailyKings(safeParams);
+		if (past != null) {
+			list.addAll(past);
+		}
+
 		resultMap.put("result", "OK");
 		resultMap.put("list", list);
 		return resultMap;
+	}
+
+	/** targetMonth가 비었거나 이번 달이면 오늘이 조회 범위에 든다 */
+	static boolean includesToday(Object rawTargetMonth) {
+		if (rawTargetMonth == null) {
+			return true;
+		}
+		String targetMonth = String.valueOf(rawTargetMonth).trim();
+		if (targetMonth.isEmpty()) {
+			return true;
+		}
+		return targetMonth.equals(new java.text.SimpleDateFormat("yyyy-MM").format(new java.util.Date()));
 	}
 
 	// 2. 역대 TOP 100 (현재 통합 랭킹 쿼리 재사용)
@@ -1163,16 +1202,41 @@ public class SuperAppService {
 		return resultMap;
 	}
 
-	@Cacheable(value = "dailyLeaderboard", key = "'dailyLeaderboard:' + #params.toString()", unless = "#result == null")
+	/** 오늘 랭킹 응답 상한. 기존 selectDailyLeaderboard의 LIMIT 500과 맞춘다 */
+	private static final int DAILY_RANK_LIMIT = 500;
+
+	/**
+	 * 오늘(또는 지정 날짜) 클릭수 랭킹.
+	 *
+	 * 오늘은 캐시를 쓰지 않고 날짜별 ZSET에서 바로 읽는다 — 클릭이 곧바로 순위에 반영돼야
+	 * 하는데 기존 10분 캐시가 그걸 막고 있었다. Redis를 쓸 수 없으면 기존 DB 집계로
+	 * 폴백하므로 최악의 경우에도 도입 이전과 같은 동작이 된다.
+	 *
+	 * 지난 날짜는 결과가 더 바뀌지 않으므로 기존 캐시 경로를 그대로 쓴다.
+	 */
 	public Map<String, Object> getDailyLeaderboard(Map<String, Object> params) throws Exception {
+		boolean isToday = DailyRankService.isToday(params == null ? null : params.get("date"));
+
+		if (isToday) {
+			List<Map<String, Object>> realtime = dailyRankService.getTodayRanking(DAILY_RANK_LIMIT);
+			if (realtime != null) {
+				return listResult(realtime);
+			}
+			// Redis 사용 불가. 오늘 분은 캐시를 타지 않는 집계로 내려간다 —
+			// 캐시 경로로 보내면 최대 10분 묵은 값이 나가고 그게 다시 10분 굳는다
+			return listResult(dailyRankService.getTodayLeaderboardUncached(params));
+		}
+
+		// 지난 날짜는 결과가 바뀌지 않으므로 기존 캐시 경로를 쓴다.
+		// 캐시를 타려면 다른 빈을 거쳐야 한다 — 같은 빈에서 this로 부르면
+		// 프록시를 타지 않아 @Cacheable이 조용히 무시된다.
+		return listResult(dailyRankService.getDailyLeaderboardByDate(params));
+	}
+
+	private Map<String, Object> listResult(List<Map<String, Object>> list) {
 		Map<String, Object> resultMap = new HashMap<>();
-
-		// date 파라미터 유무에 따른 동적 날짜 조회 (최대 100명)
-		List<Map<String, Object>> list = dao.selectList("superapp.selectDailyLeaderboard", params);
-
 		resultMap.put("result", "OK");
-		resultMap.put("list", list);
-
+		resultMap.put("list", list == null ? new ArrayList<Map<String, Object>>() : list);
 		return resultMap;
 	}
 
@@ -1675,6 +1739,36 @@ public class SuperAppService {
 			// 허브 카드 조회가 실패해도 허브 페이지 골격은 렌더링돼야 한다
 			e.printStackTrace();
 			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 공개 포스트 목록 페이지(/posts)용: 승인된 글을 최신순으로 한 페이지 분량만 조회한다.
+	 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size) {
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("offset", offset);
+			param.put("size", size);
+			return dao.selectList("superapp.selectPublicPosts", param);
+		} catch (Exception e) {
+			// 목록 조회가 실패해도 페이지 골격(헤더·안내문·푸터)은 렌더링돼야 한다
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * 공개 포스트 총 건수. 페이지 수 계산에만 쓴다.
+	 * 조회 실패 시 0을 돌려 페이지네이션을 감추고 첫 페이지만 보여준다.
+	 */
+	public int getPublicPostCount() {
+		try {
+			Object count = dao.selectOne("superapp.selectPublicPostCount", new HashMap<>());
+			return count == null ? 0 : ((Number) count).intValue();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return 0;
 		}
 	}
 

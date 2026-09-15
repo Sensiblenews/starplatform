@@ -15,9 +15,25 @@ vars:
 platforms:
   android:
     packageName: $PACKAGE_NAME
-    versionName: 8.4.8
-    versionCode: 84435
-    incrementVersionCode: true
+    # ⚠️ 릴리스 버전의 유일한 소스 오브 트루스다. 여기 적힌 값이 최종적으로 이긴다.
+    #
+    # trapeze는 android/app/build.gradle의 현재 값을 "무시하고" 아래 선언값을 쓴다.
+    # 그래서 클린 빌드(npm run build-android → set-projects-android)를 돌리면
+    # build.gradle에 뭐가 적혀 있든 여기 값으로 덮어써진다.
+    # 2026-09-13 이전에는 이 값이 84435로 방치돼 있어, 클린 빌드를 돌리는 순간
+    # 운영(100067)보다 한참 낮은 84436이 나오는 상태였다. 그동안은 trapeze를 거치지 않는
+    # 경로(Android Studio 직접 빌드 등)로 릴리스해 문제가 드러나지 않았다.
+    #
+    # incrementVersionCode 키는 일부러 뺐다. 실측 결과:
+    #   true  → 선언값 +1 (누적 아님. 몇 번을 돌려도 같은 값)
+    #   false → 무시된다. 여전히 선언값 +1 이 나간다
+    #   줄 없음 → 선언값이 그대로 나간다  ← 우리가 쓰는 방식
+    # false로 끌 수 있다고 생각하면 번호가 1씩 어긋난다. 되살리지 말 것.
+    #
+    # 릴리스할 때마다 아래 두 줄을 올리고 커밋할 것. Play Console의 최고 versionCode보다
+    # 반드시 커야 한다.
+    versionName: 10.0.69
+    versionCode: 100069
 
     manifest:
       # SNS LOGIN MANIFEST

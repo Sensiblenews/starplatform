@@ -8,8 +8,8 @@ android {
             applicationId "kr.co.sensiblenews.witchHuntingVU2D7F2P7E"
           minSdkVersion rootProject.ext.minSdkVersion
           targetSdkVersion rootProject.ext.targetSdkVersion
-            versionCode 100049
-            versionName '10.0.49'
+            versionCode 100069
+            versionName '10.0.69'
             multiDexEnabled true
             testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
             aaptOptions {
@@ -54,7 +54,27 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     implementation "com.kakao.sdk:v2-user:2.18.0" // 카카오 로그인
     implementation "com.android.installreferrer:installreferrer:2.2" // 디퍼드 딥링크 (Play Install Referrer)
-    implementation 'com.google.android.gms:play-services-ads:25.2.0' // AdMob
+    implementation 'com.google.android.gms:play-services-ads:25.4.0' // AdMob
+    // Liftoff Monetize(구 Vungle) Bidding 어댑터 (2-29차).
+    // com.vungle:vungle-ads:7.7.8을 전이로 가져온다. 어댑터·SDK 모두 네이티브 .so가 없어
+    // AppLovin을 막았던 16KB 페이지 정렬 문제가 없고 minSdk도 23 그대로다.
+    // 앱 코드는 이 어댑터를 참조하지 않는다 — AdMob이 클래스 이름으로 찾아 올린다.
+    // play-services-ads 25.4.0은 어댑터 POM이 요구하는 짝이다.
+    implementation 'com.google.ads.mediation:vungle:7.7.8.1'
+    // Meta Audience Network Bidding 어댑터 (2-29차).
+    // com.facebook.android:audience-network-sdk:6.21.0을 전이로 가져온다. 어댑터 AAR도
+    // SDK도 .so가 없어 16KB 페이지 문제가 없고, 어댑터 매니페스트가 minSdk 23을 선언해
+    // 현재 값 그대로 쓸 수 있다(Google 문서 요구치도 23).
+    // play-services-ads 25.4.0은 어댑터 POM이 요구하는 짝이라 위 선언과 그대로 맞는다.
+    // Meta App ID는 이미 AndroidManifest에 있다 — 페이스북 로그인이 쓰는 값을 공유한다.
+    //
+    // 최신 6.22.0.1은 쓸 수 없다. 그쪽이 끌고 오는 SDK 6.22.0이 androidx.browser 1.9.0을
+    // 요구하는데, 이 AAR이 AGP 8.9.1 이상을 요구해 현재 AGP 8.2.1에서 빌드가 막힌다
+    // (checkDebugAarMetadata 실패). SDK 6.21.0까지는 androidx.browser 의존이 아예 없다.
+    // AGP·Gradle 상향은 별건이라 여기서는 6.21.0.4로 둔다.
+    //
+    // SDK 구현체가 assets/audience_network/classes*.dex(5.2MB)로 들어와 앱이 그만큼 커진다.
+    implementation 'com.google.ads.mediation:facebook:6.21.0.4'
     implementation 'com.google.android.gms:play-services-auth:21.5.1'
     implementation project(':nativetemplates')
     implementation "androidx.core:core-splashscreen:1.0.0"

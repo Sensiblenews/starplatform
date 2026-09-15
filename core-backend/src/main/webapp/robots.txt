@@ -1,4 +1,23 @@
 User-agent: *
 Allow: /
 
+# 관리자·인증 화면 (읽을 내용이 없고 색인될 이유가 없다)
+Disallow: /adm/
+Disallow: /super/
+Disallow: /login/
+Disallow: /error/
+
+# API 응답 (JSON)
+Disallow: /api/
+
+# 앱 전환 중간 화면. 해당 페이지에는 noindex 메타도 함께 걸려 있다
+# (robots.txt 차단만으로는 이미 알려진 URL의 색인이 지워지지 않는다)
+Disallow: /feed-detail/
+Disallow: /witch/feed-detail/
+
+# 이미지 프록시 (원본과 중복되는 URL)
+Disallow: /image/proxy
+
+# 광고 인증 파일(/ads.txt, /app-ads.txt)은 어떤 봇에도 막지 않는다
+
 Sitemap: https://witch-hunting.com/sitemap.xml

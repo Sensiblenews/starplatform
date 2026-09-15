@@ -198,7 +198,7 @@ export class WriteModalPage {
       this.helper.toast(`게시글이 ${resultMsg} 되었습니다!`, 'middle');
 
       try{
-        await this.admob.showInterstitial();
+        await this.admob.showInterstitial('글 작성 완료');
       }
       catch(error){
       }

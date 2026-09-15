@@ -4,6 +4,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+
+import com.sensible.common.util.WebCardUtil;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import javax.annotation.Resource;
@@ -30,43 +32,26 @@ public class DeepLinkController {
 	@Resource(name = "superAdminService")
 	private SuperAdminService superAdminService;
 
+	// 아래 뷰 가공 헬퍼들은 /posts 목록 페이지와 공유하느라 WebCardUtil로 옮겼다.
+	// 호출부가 많아 이름은 그대로 두고 위임만 한다.
 	private String getBaseUrl(HttpServletRequest request) {
-		String serverName = request.getServerName();
-		int serverPort = request.getServerPort();
-		String scheme = request.getScheme();
-
-		if (serverName.equals("localhost") || serverName.equals("127.0.0.1") || serverName.startsWith("192.168.")) {
-			String portStr = "";
-			if (("http".equals(scheme) && serverPort != 80) || ("https".equals(scheme) && serverPort != 443)) {
-				portStr = ":" + serverPort;
-			}
-			return scheme + "://" + serverName + portStr;
-		}
-
-		return "https://witch-hunting.com";
+		return WebCardUtil.getBaseUrl(request);
 	}
 
-	// HTML 특수문자 이스케이프 (JSP에 미리보기 텍스트를 출력하기 전 서버에서 처리)
 	private String escapeHtml(String s) {
-		if (s == null) return "";
-		return s.replace("&", "&amp;")
-				.replace("<", "&lt;")
-				.replace(">", "&gt;")
-				.replace("\"", "&quot;")
-				.replace("'", "&#39;");
+		return WebCardUtil.escapeHtml(s);
 	}
 
-	// 관련 콘텐츠 카드용 요약: 본문 앞부분만 코드포인트 기준으로 잘라 이스케이프해 반환
 	private String snippet(String body, int maxCodePoints) {
-		if (body == null) return "";
-		String trimmed = body.trim();
-		if (trimmed.isEmpty()) return "";
-		int total = trimmed.codePointCount(0, trimmed.length());
-		if (total <= maxCodePoints) {
-			return escapeHtml(trimmed);
-		}
-		int endIndex = trimmed.offsetByCodePoints(0, maxCodePoints);
-		return escapeHtml(trimmed.substring(0, endIndex)) + "...";
+		return WebCardUtil.snippet(body, maxCodePoints);
+	}
+
+	private String categoryLabel(Object rawCode) {
+		return WebCardUtil.categoryLabel(rawCode);
+	}
+
+	private String thumbAlt(String escapedSnippet, String escapedAuthor) {
+		return WebCardUtil.thumbAlt(escapedSnippet, escapedAuthor);
 	}
 
 	// JSON-LD description용: 본문 앞부분을 코드포인트 기준으로 잘라 반환 (이스케이프는 escapeJson에서 별도 수행)
@@ -127,11 +112,7 @@ public class DeepLinkController {
 
 	// DB의 날짜 문자열(yyyy-MM-dd HH:mm:ss 등)에서 날짜 부분만 잘라낸다. 형식이 짧으면 빈 문자열.
 	private String toDatePart(Object rawDate) {
-		if (rawDate == null) {
-			return "";
-		}
-		String s = String.valueOf(rawDate);
-		return s.length() >= 10 ? s.substring(0, 10) : "";
+		return WebCardUtil.toDatePart(rawDate);
 	}
 
 	private String encodeUrlParams(String urlStr) {
@@ -212,9 +193,10 @@ public class DeepLinkController {
 	// "/witch/..." 매핑은 하위호환용: ROOT 컨텍스트 단독 배포에서도 기존에 공유된 /witch/... 링크가 404가 되지 않게 한다
 	@RequestMapping(value = { "/post/{id}", "/star/{id}", "/feed-detail/{id}",
 			"/witch/post/{id}", "/witch/star/{id}", "/witch/feed-detail/{id}" })
-	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request, Model model) {
-		System.out.println("DeepLink Triggered");
-
+	// 파라미터 이름이 httpResponse 인 것은 메서드 안에서 서비스 응답 Map 을 이미
+	// response 라는 이름으로 쓰고 있어서다
+	public String deeplinkTrampoline(@PathVariable String id, HttpServletRequest request,
+			HttpServletResponse httpResponse, Model model) {
 		String uri = request.getRequestURI();
 		String baseUrl = getBaseUrl(request);
 		
@@ -515,7 +497,21 @@ public class DeepLinkController {
 			e.printStackTrace();
 		}
 
-		// 🌟 4. 콘텐츠 조회 성공 시 웹 랜딩(content_landing), 실패·미지원 링크는 기존 트램폴린(deeplink_redirect)
+		// 🌟 4. 콘텐츠 조회 성공 시 웹 랜딩(content_landing)
+		if (!"/common/deeplink_redirect".equals(view)) {
+			return view;
+		}
+
+		// 조회에 실패한 /post/{id}·/star/{id}는 없는 콘텐츠다. 트램폴린 화면을 200으로 주면
+		// 검색엔진에는 "정상 페이지"로 보이는 Soft 404가 된다 — 상태 코드까지 404로 돌려준다.
+		if (uri.contains("/post/") || uri.contains("/star/")) {
+			httpResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+			model.addAttribute("baseUrl", baseUrl);
+			return "/common/web_404";
+		}
+
+		// 그 밖의 앱 전용 링크(/feed-detail 등)는 기존 트램폴린 유지.
+		// 색인 대상이 아니므로 JSP에서 noindex를 건다.
 		return view;
 	}
 	
@@ -527,21 +523,13 @@ public class DeepLinkController {
 	public String rootHub(HttpServletRequest request, Model model) {
 		String baseUrl = getBaseUrl(request);
 		model.addAttribute("canonicalUrl", baseUrl + "/");
+		model.addAttribute("activeNav", "home");
 
 		try {
 			// 최근 포스트 카드: 크롤러가 광고·콘텐츠가 있는 /post/*를 발견하는 내부 링크 경로
 			List<Map<String, Object>> posts = superAppService.getHomeRecentPosts();
-			List<Map<String, Object>> postCards = new java.util.ArrayList<>();
-			for (Map<String, Object> post : posts) {
-				Map<String, Object> card = new HashMap<>();
-				card.put("conId", post.get("CON_ID"));
-				card.put("author", escapeHtml(String.valueOf(post.get("PRS_NAME"))));
-				card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
-				String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
-				card.put("image", toAbsoluteUrl(image, baseUrl));
-				postCards.add(card);
-			}
-			model.addAttribute("recentPosts", postCards);
+			// 카드 가공은 /posts 목록과 공유한다 (WebCardUtil)
+			model.addAttribute("recentPosts", WebCardUtil.toPostCards(posts, baseUrl));
 
 			// 인기 스타 카드: /star/* 내부 링크 경로
 			List<Map<String, Object>> stars = superAppService.getHomeTopStars();
@@ -570,20 +558,35 @@ public class DeepLinkController {
 		String baseUrl = getBaseUrl(request);
 		List<Map<String, Object>> stars = superAppService.getSitemapStars();
 		List<Map<String, Object>> posts = superAppService.getSitemapPosts();
+		// /posts 목록 페이지 수. PublicWebController 의 페이지 크기와 같아야 한다
+		int total = superAppService.getPublicPostCount();
+		int postListPages = total <= 0 ? 1 : ((total - 1) / PublicWebController.POSTS_PER_PAGE) + 1;
 
 		response.setContentType("application/xml");
 		response.setCharacterEncoding("UTF-8");
 		// 콘텐츠 등록 주기를 고려한 1시간 캐시 (엣지 캐시 회복 주기는 ads.txt 매핑과 동일 기준)
 		response.setHeader("Cache-Control", "public, max-age=3600");
-		response.getWriter().write(buildSitemapXml(baseUrl, stars, posts));
+		response.getWriter().write(buildSitemapXml(baseUrl, stars, posts, postListPages));
 	}
 
 	// 사이트맵 XML 조립. lastmod는 CREATED_DATE 앞 10자리(yyyy-MM-dd)만 사용
-	private String buildSitemapXml(String baseUrl, List<Map<String, Object>> stars, List<Map<String, Object>> posts) {
+	private String buildSitemapXml(String baseUrl, List<Map<String, Object>> stars, List<Map<String, Object>> posts,
+			int postListPages) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 		sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
 		appendSitemapUrl(sb, baseUrl + "/", null);
+		// 공개 독립 페이지. 앱 전환·로그인·관리자 URL은 넣지 않는다
+		appendSitemapUrl(sb, baseUrl + "/about", null);
+		appendSitemapUrl(sb, baseUrl + "/faq", null);
+		appendSitemapUrl(sb, baseUrl + "/contact", null);
+		appendSitemapUrl(sb, baseUrl + "/terms", null);
+		appendSitemapUrl(sb, baseUrl + "/privacy", null);
+		// 포스트 목록은 페이지마다 다른 글을 담으므로 전 페이지를 넣는다.
+		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
+		for (int page = 1; page <= postListPages; page++) {
+			appendSitemapUrl(sb, page == 1 ? baseUrl + "/posts" : baseUrl + "/posts?page=" + page, null);
+		}
 		if (stars != null) {
 			for (Map<String, Object> star : stars) {
 				Object id = star.get("PRS_ID");
@@ -615,21 +618,20 @@ public class DeepLinkController {
 
 	// 상대 경로 이미지 URL을 절대 경로로 변환 (허브 카드용. null이면 빈 문자열)
 	private String toAbsoluteUrl(String url, String baseUrl) {
-		if (url == null || url.trim().isEmpty()) return "";
-		if (url.startsWith("http://") || url.startsWith("https://")) return url;
-		if (url.startsWith("/")) return baseUrl + url;
-		return baseUrl + "/" + url;
+		return WebCardUtil.toAbsoluteUrl(url, baseUrl);
 	}
 	
 	// 🌟 2. 개인정보 처리방침 페이지 매핑
     @RequestMapping(value = "/privacy")
-    public String privacyPolicy(Model model) {
+    public String privacyPolicy(HttpServletRequest request, Model model) {
+        model.addAttribute("canonicalUrl", getBaseUrl(request) + "/privacy");
         return renderPolicy(model, true);
     }
 
     // 🌟 3. 이용약관 페이지 매핑
     @RequestMapping(value = "/terms")
-    public String termsOfService(Model model) {
+    public String termsOfService(HttpServletRequest request, Model model) {
+        model.addAttribute("canonicalUrl", getBaseUrl(request) + "/terms");
         return renderPolicy(model, false);
     }
 

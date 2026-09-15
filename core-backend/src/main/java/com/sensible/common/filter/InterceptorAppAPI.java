@@ -30,10 +30,14 @@ public class InterceptorAppAPI extends HandlerInterceptorAdapter{
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)throws Exception
 	{
 		 
-		System.out.println("=====================APP AUTH KEY SESSION CHECK =================");	
-		
-		String appAuthKey = request.getHeader("app_authorization");		
-		System.out.println("[appAuthKey] =========== "+appAuthKey);
+		String appAuthKey = request.getHeader("app_authorization");
+
+		// 매 요청마다 구분선 한 줄 + 인증키 값을 stdout 에 찍고 있었다.
+		// 인증키는 그대로 들고 다니면 세션을 가져올 수 있는 값이라 로그에 남기지 않는다.
+		// 키 유무만으로도 이 지점의 분기는 추적된다.
+		if (logger.isDebugEnabled()) {
+			logger.debug("app auth key {}", (appAuthKey != null && appAuthKey.length() > 0) ? "present" : "absent");
+		}
 	
 		if (appAuthKey != null && appAuthKey.length() > 0) 
 		{

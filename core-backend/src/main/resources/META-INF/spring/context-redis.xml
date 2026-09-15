@@ -7,8 +7,13 @@
                            http://www.springframework.org/schema/cache 
                            http://www.springframework.org/schema/cache/spring-cache.xsd">
 
-    <!-- @Cacheable, @CacheEvict 등 캐시 어노테이션 활성화 -->
-    <cache:annotation-driven cache-manager="cacheManager" />
+    <!-- @Cacheable, @CacheEvict 등 캐시 어노테이션 활성화.
+         error-handler: 캐시(=Redis) 접근이 실패해도 요청을 죽이지 않고 원본 메서드로
+         내려간다. 기본 동작은 예외를 그대로 던져서, Redis가 잠깐 끊기면 @Cacheable이
+         붙은 모든 API(로비·랭킹 포함)가 500을 냈다. 상세는 CacheFailSoftHandler 주석. -->
+    <cache:annotation-driven cache-manager="cacheManager" error-handler="cacheErrorHandler" />
+
+    <bean id="cacheErrorHandler" class="com.sensible.common.config.CacheFailSoftHandler" />
 
     <!-- 1. Jedis Pool Config 설정 -->
     <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">

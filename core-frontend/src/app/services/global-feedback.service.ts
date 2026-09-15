@@ -1,7 +1,7 @@
 // src/app/services/global-feedback.service.ts
 import { Injectable } from '@angular/core';
 import { HttpService } from './http.service'; // 기존에 쓰시는 HTTP 서비스
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from './haptic.service';
 
 @Injectable({ providedIn: 'root' })
 export class GlobalFeedbackService {
@@ -13,7 +13,7 @@ export class GlobalFeedbackService {
   private audio = new Audio('assets/sounds/tick.mp3'); 
   private lastPlay = 0;
 
-  constructor(private http: HttpService) {
+  constructor(private http: HttpService, private haptic: HapticService) {
     this.audio.volume = 0.65; // 귀에 거슬리지 않는 볼륨
   }
 
@@ -71,11 +71,9 @@ export class GlobalFeedbackService {
     const hapticOn = localStorage.getItem('hapticOn') !== 'false';
     const soundOn = localStorage.getItem('soundOn') !== 'false';
 
-    // 1. 진동
+    // 1. 진동 (iOS 미동작 대응으로 HapticService 경유 — 해당 파일 주석 참조)
     if (hapticOn) {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      } catch (e) {}
+      await this.haptic.tap(now);
     }
 
     // 2. 소리

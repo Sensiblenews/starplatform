@@ -416,6 +416,50 @@
         .footer a {
             color: #aaa;
         }
+
+        /* [2-29차] 공개 사이트 공통 동선.
+           공통 include(web-nav/web-footer)는 다크 테마라 이 라이트 페이지에는 쓰지 않고,
+           같은 링크 구성을 이 페이지 팔레트로 따로 그린다. 링크가 바뀌면 양쪽을 함께 고칠 것. */
+        .top-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow-x: auto;
+            /* 폭이 좁으면 가로로 밀어서 본다 — 링크 4개라 햄버거까지는 필요 없다 */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .top-nav a {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #555;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .top-nav a:hover {
+            background: #f1f1f1;
+            color: #111;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px 14px;
+            margin-bottom: 10px;
+        }
+
+        .footer-links a {
+            color: #888;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -423,6 +467,12 @@
     <!-- [2-27차] 브랜드를 홈 링크로 — 랜딩 → 허브 역방향 내부 링크 확보 -->
     <div class="top-bar">
         <a class="brand" href="${pageContext.request.contextPath}/">StarPlatform</a>
+        <nav class="top-nav" aria-label="Site">
+            <a href="${pageContext.request.contextPath}/posts">Posts</a>
+            <a href="${pageContext.request.contextPath}/about">About</a>
+            <a href="${pageContext.request.contextPath}/faq">FAQ</a>
+            <a href="${pageContext.request.contextPath}/contact">Contact</a>
+        </nav>
     </div>
 
     <div class="container">
@@ -579,9 +629,16 @@
         </div>
 
         <div class="footer">
-            <a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a>
-            &middot;
-            <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>
+            <div class="footer-links">
+                <a href="${pageContext.request.contextPath}/">Home</a>
+                <a href="${pageContext.request.contextPath}/about">About</a>
+                <a href="${pageContext.request.contextPath}/posts">Public Posts</a>
+                <a href="${pageContext.request.contextPath}/faq">FAQ</a>
+                <a href="${pageContext.request.contextPath}/contact">Contact</a>
+                <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>
+                <a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a>
+            </div>
+            &copy; 2026 StarPlatform
         </div>
     </div>
 
