@@ -1,7 +1,7 @@
 import { Component, OnInit, Input } from '@angular/core';
 import { Router } from '@angular/router';
 import { ModalController } from '@ionic/angular';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from 'src/app/services/haptic.service';
 import { HttpService } from '../../../../services/http.service';
 
 @Component({
@@ -52,7 +52,8 @@ export class HallOfFameModalComponent implements OnInit {
   constructor(
     private modalCtrl: ModalController,
     private router: Router,
-    private http: HttpService
+    private http: HttpService,
+    private haptic: HapticService
   ) {
     const now = new Date();
     this.selectedYear = now.getFullYear();
@@ -206,7 +207,7 @@ export class HallOfFameModalComponent implements OnInit {
   }
 
   async goToStarPage(starId: string) {
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) {}
+    await this.haptic.tap();
     if (!this.isInline) {
       this.modalCtrl.dismiss();
     }

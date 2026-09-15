@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ModalController } from '@ionic/angular';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from 'src/app/services/haptic.service';
 
 @Component({
   selector: 'app-daily-ranking-modal',
@@ -14,7 +14,8 @@ export class DailyRankingModalComponent implements OnInit {
 
   constructor(
     private modalCtrl: ModalController,
-    private router: Router
+    private router: Router,
+    private haptic: HapticService
   ) {}
 
   ngOnInit() {}
@@ -43,7 +44,7 @@ export class DailyRankingModalComponent implements OnInit {
   }
 
   async goToStarPage(starId: string) {
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) {}
+    await this.haptic.tap();
     this.modalCtrl.dismiss();
     this.router.navigate(['/star', starId]);
   }
