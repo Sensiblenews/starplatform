@@ -15,9 +15,20 @@ platforms:
     targets:
       App:
         bundleId: $BUNDLE_ID
-        version: 8.0.5
-        buildNumber: 6
-        incrementBuildNumber: true
+        # ⚠️ iOS 릴리스 버전의 유일한 소스 오브 트루스다 (Android는 trapeze-android.yml).
+        #
+        # trapeze는 ios/App/App.xcodeproj/project.pbxproj의 현재 값을 무시하고 아래 선언값을
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION 에 써넣는다.
+        # 2026-09-13 이전에는 8.0.5 / 6 으로 방치돼 있어, trapeze를 한 번만 돌려도
+        # 실제 출시본(10.0.49 / 100049)보다 한참 낮은 값이 프로젝트에 박혔다.
+        #
+        # incrementBuildNumber 키는 일부러 뺐다. Android의 incrementVersionCode와 같은 함정으로,
+        # true면 선언값 +1이 나가고 false로 꺼지지도 않는다. 키가 없어야 선언값이 그대로 나간다.
+        #
+        # 릴리스할 때마다 아래 두 줄을 올리고 커밋할 것.
+        # App Store Connect에 올라간 최고 빌드 번호보다 반드시 커야 한다.
+        version: 10.0.69
+        buildNumber: 100069
         productName: earthLotto
         displayName: 스타플랫폼
 
