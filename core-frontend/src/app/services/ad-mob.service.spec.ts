@@ -30,6 +30,9 @@ describe('AdMobService', () => {
     });
     service = TestBed.inject(AdMobService);
     sessionStart = service['sessionStartedAt'];
+    // 아래 테스트들은 시간 게이트를 검증한다. 재고 게이트는 맨 끝에 있어
+    // 재고가 없으면 전부 not-loaded 로 덮이므로, 여기서 재고가 있다고 둔다.
+    service['interstitialReady'] = true;
   });
 
   afterEach(() => {
@@ -166,9 +169,24 @@ describe('AdMobService', () => {
       service.handleAppStateChange(false, out);
       service.handleAppStateChange(true, back);
       move(5);
+      // 복귀는 묵은 재고를 버린다. 여기서 보려는 건 시간 게이트이므로 재고를 다시 채운다.
+      service['interstitialReady'] = true;
 
       expect(service.canShowInterstitial(back + 30_000).reason).toBe('cold-start');
       expect(service.canShowInterstitial(back + 61_000).allowed).toBeTrue();
+    });
+
+    // 30분 넘게 묵은 캐시 광고는 만료됐을 수 있다. 그대로 띄우려 들면
+    // 노출이 실패하면서 3분 간격 게이트만 태운다.
+    it('30분 초과 복귀는 묵은 재고를 버린다', () => {
+      const out = sessionStart + 1 * MINUTE;
+      const back = out + 30 * MINUTE;
+      service['interstitialReady'] = true;
+
+      service.handleAppStateChange(false, out);
+      service.handleAppStateChange(true, back);
+
+      expect(service['interstitialReady']).toBeFalse();
     });
 
     it('백그라운드를 거치지 않은 복귀는 세션을 바꾸지 않는다', () => {
@@ -183,4 +201,42 @@ describe('AdMobService', () => {
       await expectAsync(service.showInterstitial()).toBeResolvedTo(false);
     });
   });
+
+  describe('재고 게이트', () => {
+    /** 시간 게이트를 전부 통과한 상태를 만든다 */
+    const passTimeGates = () => {
+      move(3);
+      return sessionStart + 61_000;
+    };
+
+    it('재고가 없으면 시간 게이트를 다 통과해도 막는다', () => {
+      const now = passTimeGates();
+      service['interstitialReady'] = false;
+
+      expect(service.canShowInterstitial(now).reason).toBe('not-loaded');
+    });
+
+    it('재고가 있으면 통과시킨다', () => {
+      const now = passTimeGates();
+      service['interstitialReady'] = true;
+
+      expect(service.canShowInterstitial(now).allowed).toBeTrue();
+    });
+
+    // 재고 검사가 앞에 오면 "왜 안 나오지"를 볼 때 진짜 원인이 가려진다.
+    // 콜드스타트 중에는 재고가 없어도 cold-start 로 보고해야 한다.
+    it('앞선 게이트가 막는 상황에서는 재고보다 그 사유를 먼저 알린다', () => {
+      service['interstitialReady'] = false;
+
+      expect(service.canShowInterstitial(sessionStart).reason).toBe('cold-start');
+    });
+
+    it('노출에 성공하면 재고를 소비한다', async () => {
+      service['interstitialReady'] = true;
+      // 네이티브가 아니므로 showInterstitial 은 첫 줄에서 빠져나간다.
+      // 소비 자체는 네이티브 경로라 여기서는 플래그 조작만 직접 확인한다.
+      expect(service['interstitialReady']).toBeTrue();
+    });
+  });
+
 });

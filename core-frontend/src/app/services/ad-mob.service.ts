@@ -52,7 +52,12 @@ export type InterstitialGateReason =
   | 'session-cap'
   | 'cold-start'
   | 'page-moves'
-  | 'interval';
+  | 'interval'
+  | 'not-loaded';
+
+/** 로드 실패 후 재시도 간격. 지수 백오프로 늘리다 상한에서 멈춘다 */
+const LOAD_RETRY_BASE_MS = 5 * 1000;
+const LOAD_RETRY_MAX_MS = 2 * 60 * 1000;
 
 @Injectable({
   providedIn: 'root',
@@ -68,6 +73,23 @@ export class AdMobService {
   private backgroundedAt: number | null = null;
   private appStateListener: PluginListenerHandle | null = null;
 
+  /**
+   * 전면 광고가 메모리에 올라와 있는지. 플러그인이 준비 상태를 알려주지 않으므로
+   * prepare 성공/노출 소비를 직접 추적한다. 이게 없으면 재고가 빈 상태에서
+   * "노출 가능"으로 판정해 3분 간격 게이트를 헛되이 소모한다.
+   */
+  private interstitialReady = false;
+  /** 로드가 진행 중인지. 같은 요청이 겹쳐 나가는 것을 막는다 */
+  private loadInFlight = false;
+  /** 연속 로드 실패 횟수. 재시도 간격 계산에만 쓴다 */
+  private loadFailureCount = 0;
+  private retryTimer: any = null;
+  /**
+   * AdMob SDK 초기화 완료를 기다리는 약속.
+   * 미디에이션 어댑터(Meta·Liftoff)까지 초기화가 끝나야 입찰에 참여한다.
+   */
+  private initialized: Promise<void> | null = null;
+
   constructor(private router: Router) {
     // 앱 내에서 라우팅이 끝날 때마다 카운트 +1
     this.router.events.subscribe(event => {
@@ -79,9 +101,21 @@ export class AdMobService {
   }
 
   async initialize(): Promise<void> {
-    AdMob.initialize({
+    // ⚠️ 반드시 await 한다. Google Mobile Ads SDK 의 initialize 는 미디에이션 어댑터가
+    // 전부 초기화된 뒤에 끝난다. Meta·Liftoff 를 붙이면서 이 구간이 눈에 띄게 길어졌는데,
+    // 이전 코드는 await 없이 곧장 prepareInterstitial 을 불렀다. 그 결과 앱 시작 시
+    // 단 한 번뿐인 사전 로드가 어댑터가 준비되기 전에 나가 실패했다.
+    // 네이티브 광고는 화면 코드에서 한참 뒤에 요청해 우연히 초기화가 끝난 뒤였고,
+    // 그래서 "네이티브는 되는데 전면만 안 나오는" 형태로 보였다.
+    this.initialized = AdMob.initialize({
       initializeForTesting: false,
+    }).then(() => {
+      console.log('[AD] AdMob SDK 초기화 완료 (미디에이션 어댑터 포함)');
+    }).catch(e => {
+      // 초기화가 실패해도 이후 요청을 막지는 않는다. 로그만 남긴다.
+      console.error('[AD] AdMob SDK 초기화 실패', e);
     });
+    await this.initialized;
 
     // 서비스 생성 시점과 초기화 시점이 다를 수 있으므로 세션 시작을 여기서 다시 잡는다
     this.startNewSession(Date.now());
@@ -131,20 +165,66 @@ export class AdMobService {
     AdMob.showBanner(options);
   }
 
-  // 전면 광고 미리 로드하기 (보여주지는 않음)
+  /**
+   * 전면 광고를 미리 로드한다. 성공하면 재고 플래그가 서고, 실패하면 백오프로 재시도한다.
+   *
+   * 이전에는 실패해도 로그만 남기고 끝이었다. 앱 시작 시의 단 한 번뿐인 로드가 실패하면
+   * 다음 노출 시도가 실패할 때까지 재고가 비어 있었고, 그 시도는 3분 간격 게이트를
+   * 통과한 귀한 기회였다. 즉 실패 한 번이 기회 한 번을 같이 태웠다.
+   */
   async loadInterstitial(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
+    // 이미 재고가 있거나 요청이 나가 있으면 중복 요청하지 않는다
+    if (this.interstitialReady || this.loadInFlight) return;
+
+    // SDK 초기화가 끝나기 전에 요청하면 미디에이션 입찰에 참여하지 못한다
+    if (this.initialized) await this.initialized;
 
     const adId = Capacitor.getPlatform() === 'ios' ? INTERSTITIAL_AD_ID_IOS : INTERSTITIAL_AD_ID;
 
+    this.loadInFlight = true;
     try {
       // prepareInterstitial은 광고를 로드만 하고 메모리에 올려둔다
       await AdMob.prepareInterstitial({ adId });
+      this.interstitialReady = true;
+      this.loadFailureCount = 0;
       // "로드된 적이 없음"과 "로드는 됐는데 노출이 실패함"을 로그로 구분하기 위해 남긴다
       console.log('[AD] 전면 광고 로드 완료 (재고 있음)');
     } catch (e) {
-      console.error('[AD] 전면 광고 로드 실패', e);
+      this.interstitialReady = false;
+      this.loadFailureCount++;
+      // e를 반드시 같이 찍는다 — no fill 인지 잘못된 광고 단위인지 구분할 단서가 여기뿐이다
+      console.error(`[AD] 전면 광고 로드 실패 (${this.loadFailureCount}회째)`, e);
+      this.scheduleLoadRetry();
+    } finally {
+      this.loadInFlight = false;
     }
+  }
+
+  /**
+   * 로드 실패 뒤 재시도를 예약한다. 간격은 5초에서 시작해 두 배씩 늘어나고 2분에서 멈춘다.
+   * no fill 이 이어지는 동안 요청을 몰아치지 않으면서도, 재고가 빈 채로 방치되지는 않게 한다.
+   */
+  private scheduleLoadRetry(): void {
+    if (this.retryTimer !== null) return; // 타이머 중복 예약 방지
+
+    const delay = Math.min(
+      LOAD_RETRY_BASE_MS * Math.pow(2, this.loadFailureCount - 1),
+      LOAD_RETRY_MAX_MS,
+    );
+    console.log(`[AD] ${Math.round(delay / 1000)}초 뒤 전면 광고 재로드`);
+
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.loadInterstitial();
+    }, delay);
+  }
+
+  /** 예약된 재시도를 취소한다. 새 세션처럼 즉시 다시 받아야 할 때 쓴다 */
+  private cancelLoadRetry(): void {
+    if (this.retryTimer === null) return;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
   }
 
   // ==========================================
@@ -166,6 +246,7 @@ export class AdMobService {
       `경과 ${Math.round((now - this.sessionStartedAt) / 1000)}s/${INTERSTITIAL_COLD_START_GRACE_MS / 1000}s`,
       `이동 ${this.pageMoveCount}/${INTERSTITIAL_MIN_PAGE_MOVES}회`,
       `직전노출 ${sinceShown}/${INTERSTITIAL_MIN_INTERVAL_MS / 1000}s`,
+      `재고 ${this.interstitialReady ? '있음' : (this.loadInFlight ? '로딩중' : `없음(실패 ${this.loadFailureCount}회)`)}`,
     ].join(' · ');
   }
 
@@ -203,6 +284,12 @@ export class AdMobService {
       return { allowed: false, reason: 'interval' };
     }
 
+    // 재고 검사는 맨 끝이다. 앞 게이트가 막는 상황에서는 재고가 없어도 문제가 아니다.
+    // 여기서 걸러야 재고가 빈 채로 show 를 불러 3분 간격을 헛되이 태우는 일이 없다.
+    if (!this.interstitialReady) {
+      return { allowed: false, reason: 'not-loaded' };
+    }
+
     return { allowed: true, reason: 'ok' };
   }
 
@@ -216,11 +303,17 @@ export class AdMobService {
     const now = Date.now();
     const gate = this.canShowInterstitial(now);
     this.logGate(`노출 시도 (${trigger})`, now);
-    if (!gate.allowed) return false;
+    if (!gate.allowed) {
+      // 다른 게이트는 시간이 풀어주지만 재고는 저절로 차지 않는다. 여기서 채워 둔다.
+      if (gate.reason === 'not-loaded') this.loadInterstitial();
+      return false;
+    }
 
     try {
       await AdMob.showInterstitial();
 
+      // 한 번 띄운 광고는 재사용할 수 없다. 재고를 먼저 비우고 새로 받는다.
+      this.interstitialReady = false;
       localStorage.setItem(LAST_SHOWN_KEY, String(now));
       this.sessionImpressionCount++;
       this.pageMoveCount = 0;
@@ -237,7 +330,8 @@ export class AdMobService {
       // 노출에 실패했으면 세션 카운터를 소모하지 않는다. 화면 흐름도 막지 않는다.
       // e를 반드시 같이 찍는다 — AdMob 에러(no fill·미준비·잘못된 광고 단위)를
       // 구분할 단서가 여기밖에 없다.
-      console.warn('[AD] 노출 실패 — 재고 없음으로 보고 재장전한다', e);
+      console.warn('[AD] 노출 실패 — 재고를 비우고 재장전한다', e);
+      this.interstitialReady = false;
       this.loadInterstitial();
       return false;
     }
@@ -259,7 +353,11 @@ export class AdMobService {
       now - this.backgroundedAt >= SESSION_RESUME_GAP_MS
     ) {
       this.startNewSession(now);
-      // 오래 묵은 캐시 광고는 만료됐을 수 있으므로 재장전
+      // 오래 묵은 캐시 광고는 만료됐을 수 있으므로 버리고 새로 받는다.
+      // 백오프 대기 중이었다면 취소한다 — 복귀 시점에는 즉시 한 번 시도할 값어치가 있다.
+      this.interstitialReady = false;
+      this.loadFailureCount = 0;
+      this.cancelLoadRetry();
       this.loadInterstitial();
       this.logGate('백그라운드 30분 초과 복귀 — 새 세션 시작', now);
     }
