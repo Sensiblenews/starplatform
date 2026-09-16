@@ -19,6 +19,27 @@ import {
 } from './../constants/Keys/AdMob';
 
 // ==========================================
+// 전면 광고 진단용 테스트 단위
+// ==========================================
+// 구글 공식 테스트 광고 단위는 재고가 항상 차므로, no fill 이 이어질 때
+// "앱 코드 문제" 와 "콘솔 설정·수요 문제" 를 가르는 확실한 실험이 된다.
+//
+//   테스트 단위로 나온다   → 로드·표시 코드는 정상. 원인은 AdMob 콘솔 설정이나 수요.
+//   테스트 단위로도 안 나온다 → 앱 코드나 어댑터 문제.
+//
+// ⚠️ 진단할 때만 true 로 바꾸고 반드시 되돌린다. 켠 채로 배포하면 수익이 0 이 된다.
+//
+// 이 플래그를 상수 파일(constants/Keys/AdMob.ts)이 아니라 여기에 두는 이유:
+// 그 파일은 .gitignore 대상이라 저장소에 없다. 거기에 새 export 를 추가하면
+// 다른 사람의 로컬 사본에는 그 심볼이 없어 빌드가 깨진다.
+//
+// environment 로 자동 분기하지 않는 이유: 이 프로젝트는 environment 와
+// environment.prod 가 둘 다 production: true 라 릴리스 빌드를 가려내지 못한다.
+const USE_TEST_INTERSTITIAL = false;
+const TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+const TEST_INTERSTITIAL_AD_ID_IOS = 'ca-app-pub-3940256099942544/4411468910';
+
+// ==========================================
 // [2-29차] 전면 광고 노출 정책
 // ==========================================
 // 기존 정책(30초 간격 + 화면 전환 6회, 세션 상한 없음)을 요청서 기준으로 교체한다.
@@ -180,7 +201,12 @@ export class AdMobService {
     // SDK 초기화가 끝나기 전에 요청하면 미디에이션 입찰에 참여하지 못한다
     if (this.initialized) await this.initialized;
 
-    const adId = Capacitor.getPlatform() === 'ios' ? INTERSTITIAL_AD_ID_IOS : INTERSTITIAL_AD_ID;
+    const isIos = Capacitor.getPlatform() === 'ios';
+    let adId = isIos ? INTERSTITIAL_AD_ID_IOS : INTERSTITIAL_AD_ID;
+    if (USE_TEST_INTERSTITIAL) {
+      adId = isIos ? TEST_INTERSTITIAL_AD_ID_IOS : TEST_INTERSTITIAL_AD_ID;
+      console.warn('[AD] ⚠️ 테스트 전면 광고 단위로 요청한다 — 배포 전 USE_TEST_INTERSTITIAL 을 false 로 되돌릴 것');
+    }
 
     this.loadInFlight = true;
     try {
