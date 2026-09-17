@@ -27,8 +27,8 @@ platforms:
         #
         # 릴리스할 때마다 아래 두 줄을 올리고 커밋할 것.
         # App Store Connect에 올라간 최고 빌드 번호보다 반드시 커야 한다.
-        version: 10.0.69
-        buildNumber: 100069
+        version: 10.0.72
+        buildNumber: 100072
         productName: earthLotto
         displayName: 스타플랫폼
 
