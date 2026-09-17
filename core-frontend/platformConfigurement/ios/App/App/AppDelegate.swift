@@ -23,8 +23,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // ATT 요청 자체는 웹 쪽(ad-mob.service.ts)이 AdMob 초기화 뒤에 하므로 이 시점에 알 수
         // 있는 것은 지난 실행에서 결정된 상태뿐이다. 첫 실행은 notDetermined → false가 정상이고,
         // 사용자가 허용하면 다음 실행부터 true로 입찰 요청이 나간다.
-        // 앱 타깃 배포 대상이 13.0이라 ATT는 가용성 확인이 필요하다. iOS 13에는 ATT 자체가
-        // 없고 IDFA가 그대로 나가므로 true로 둔다.
+        // 배포 대상이 iOS 17이라 ATT는 항상 존재하지만, 가용성 검사는 그대로 둔다 —
+        // 이 분기를 지우면 배포 대상을 다시 낮출 때 조용히 깨진다.
         if #available(iOS 14, *) {
             FBAdSettings.setAdvertiserTrackingEnabled(
                 ATTrackingManager.trackingAuthorizationStatus == .authorized
@@ -52,18 +52,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FirebaseApp.configure()
         // initialize Firebase END
         
-        // web inspector settings
-        #if DEBUG
-          if #available(macOS 13.3, iOS 16.4, tvOS 16.4, *) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                      if let vc = self.window?.rootViewController as? CAPBridgeViewController {
-                          vc.bridge?.webView?.isInspectable = true;
-                      }
-                }
-          }
-        #endif
-        
+        // 웹 인스펙터 설정은 SceneDelegate 로 옮겼다 — 이제 window 를 씬이 갖는다
+
         return true
+    }
+
+    /**
+     * UIScene 생명주기 진입점 (Xcode 27 / iOS 26 SDK 필수).
+     * 실제 처리는 Info.plist 의 UISceneDelegateClassName 이 가리키는 SceneDelegate 가 한다.
+     */
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        return UISceneConfiguration(name: "Default Configuration",
+                                    sessionRole: connectingSceneSession.role)
     }
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -144,8 +146,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
 
-        let statusBarRect = UIApplication.shared.statusBarFrame
-        guard let touchPoint = event?.allTouches?.first?.location(in: self.window) else { return }
+        // 씬 구조에서는 AppDelegate.window 가 비어 있다. 연결된 씬에서 찾는다.
+        let keyWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+
+        let statusBarRect = keyWindow?.windowScene?.statusBarManager?.statusBarFrame ?? .zero
+        guard let touchPoint = event?.allTouches?.first?.location(in: keyWindow) else { return }
 
         if statusBarRect.contains(touchPoint) {
             NotificationCenter.default.post(name: .capacitorStatusBarTapped, object: nil)
