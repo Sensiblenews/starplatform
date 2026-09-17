@@ -4,10 +4,12 @@ import {
   AdMob,
   AdMobBannerSize,
   AdmobConsentStatus,
+  AdMobError,
   BannerAdOptions,
   BannerAdPluginEvents,
   BannerAdPosition,
   BannerAdSize,
+  InterstitialAdPluginEvents,
 } from '@capacitor-community/admob';
 import { App } from '@capacitor/app';
 import { Capacitor, PluginListenerHandle } from '@capacitor/core';
@@ -93,6 +95,8 @@ export class AdMobService {
   /** 백그라운드로 내려간 시각. 포그라운드 상태면 null */
   private backgroundedAt: number | null = null;
   private appStateListener: PluginListenerHandle | null = null;
+  /** 전면 광고 로드·표시 결과 리스너 핸들 */
+  private interstitialListeners: PluginListenerHandle[] = [];
 
   /**
    * 전면 광고가 메모리에 올라와 있는지. 플러그인이 준비 상태를 알려주지 않으므로
@@ -104,6 +108,13 @@ export class AdMobService {
   private loadInFlight = false;
   /** 연속 로드 실패 횟수. 재시도 간격 계산에만 쓴다 */
   private loadFailureCount = 0;
+  /**
+   * 직전 로드 실패의 사유 메시지. 리스너가 채우고 catch 경로가 읽는다.
+   *
+   * 안드로이드는 reject 에 실제 메시지가 실려 오지만 iOS 는 "Loading failed" 고정이다.
+   * 두 경로를 모두 보려고 리스너가 받은 값을 따로 들고 있는다.
+   */
+  private lastLoadErrorMessage = '';
   private retryTimer: any = null;
   /**
    * AdMob SDK 초기화 완료를 기다리는 약속.
@@ -143,6 +154,7 @@ export class AdMobService {
     this.exposeDebugHelper();
     this.logGate('광고 초기화 — 새 세션 시작');
     await this.registerAppStateListener();
+    await this.registerInterstitialListeners();
 
     // ATT·동의 절차는 실패해도 광고 로드를 막지 않는다.
     // 이전에는 try/catch가 없어 이 구간에서 reject가 하나만 나와도 아래
@@ -209,6 +221,7 @@ export class AdMobService {
     }
 
     this.loadInFlight = true;
+    this.lastLoadErrorMessage = '';
     try {
       // prepareInterstitial은 광고를 로드만 하고 메모리에 올려둔다
       await AdMob.prepareInterstitial({ adId });
@@ -216,15 +229,38 @@ export class AdMobService {
       this.loadFailureCount = 0;
       // "로드된 적이 없음"과 "로드는 됐는데 노출이 실패함"을 로그로 구분하기 위해 남긴다
       console.log('[AD] 전면 광고 로드 완료 (재고 있음)');
-    } catch (e) {
+    } catch (e: any) {
       this.interstitialReady = false;
-      this.loadFailureCount++;
-      // e를 반드시 같이 찍는다 — no fill 인지 잘못된 광고 단위인지 구분할 단서가 여기뿐이다
-      console.error(`[AD] 전면 광고 로드 실패 (${this.loadFailureCount}회째)`, e);
-      this.scheduleLoadRetry();
+
+      if (AdMobService.isFrequencyCapped(e?.message, this.lastLoadErrorMessage)) {
+        // 재시도하지 않는다. 간격 게이트가 풀린 뒤 showInterstitial 의 not-loaded 경로가
+        // 다시 받아온다 — 그 시점이면 빈도 제한도 함께 풀려 있을 가능성이 높다.
+        this.loadFailureCount = 0;
+        this.cancelLoadRetry();
+        console.log('[AD] 빈도 제한이라 재시도하지 않는다 — 간격 게이트가 풀릴 때 다시 받는다');
+      } else {
+        this.loadFailureCount++;
+        // e를 반드시 같이 찍는다 — no fill 인지 잘못된 광고 단위인지 구분할 단서가 여기뿐이다
+        console.error(`[AD] 전면 광고 로드 실패 (${this.loadFailureCount}회째)`, e);
+        this.scheduleLoadRetry();
+      }
     } finally {
       this.loadInFlight = false;
     }
+  }
+
+  /**
+   * 빈도 제한(frequency cap)에 걸린 실패인지 판정한다.
+   *
+   * AdMob 광고 단위에 설정해 둔 노출 빈도 제한이며 결함이 아니다. 방금 한 장 띄웠으니
+   * 당분간 안 주는 것이 정상 동작이다. 시간이 지나면 저절로 풀리고, 그 사이에는 저희
+   * 3분 간격 게이트가 어차피 노출을 막고 있으므로 재시도해봐야 헛돈다.
+   *
+   * 오류 코드로는 구분되지 않는다 — 진짜 no fill 과 똑같이 3번으로 온다. 메시지를 봐야 한다.
+   * 부수효과가 없어 그대로 단위 테스트한다.
+   */
+  static isFrequencyCapped(...messages: Array<string | undefined | null>): boolean {
+    return messages.some(m => (m ?? '').toLowerCase().includes('frequency cap'));
   }
 
   /**
@@ -419,6 +455,43 @@ export class AdMobService {
       this.logGate('수동 확인 (adDebug)');
       return this.canShowInterstitial();
     };
+  }
+
+  /**
+   * 전면 광고 로드 결과 리스너.
+   *
+   * prepareInterstitial 이 실패하면 플러그인은 "Loading failed" 라는 고정 문자열로만
+   * reject 한다(iOS AdInterstitialExecutor.swift). 진짜 사유 — no fill 인지, 광고 단위가
+   * 잘못됐는지, 네트워크 오류인지 — 는 이 이벤트의 message 로만 나온다.
+   * 리스너를 붙이지 않으면 "왜 안 되는지" 를 알 방법이 아예 없다.
+   */
+  private async registerInterstitialListeners(): Promise<void> {
+    if (this.interstitialListeners.length > 0) return; // 중복 등록 방지
+
+    try {
+      this.interstitialListeners.push(
+        await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (e: AdMobError) => {
+          this.lastLoadErrorMessage = e?.message ?? '';
+          console.error(`[AD] 전면 광고 로드 실패 사유 — code=${e?.code} message=${e?.message}`);
+        }),
+        await AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
+          console.log('[AD] 전면 광고 로드 이벤트 수신');
+        }),
+        await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, (e: AdMobError) => {
+          // 로드는 됐는데 표시가 실패하는 경우. 재고를 비워 다음 회차를 새로 받게 한다.
+          console.error(`[AD] 전면 광고 표시 실패 — code=${e?.code} message=${e?.message}`);
+          this.interstitialReady = false;
+          this.loadInterstitial();
+        }),
+        await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
+          // 사용자가 닫은 시점. 한 번 쓴 광고는 재사용할 수 없으므로 바로 다음 것을 받는다.
+          this.interstitialReady = false;
+          this.loadInterstitial();
+        }),
+      );
+    } catch (e) {
+      console.error('[AD] 전면 광고 리스너 등록 실패', e);
+    }
   }
 
   private async registerAppStateListener(): Promise<void> {

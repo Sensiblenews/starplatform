@@ -239,4 +239,35 @@ describe('AdMobService', () => {
     });
   });
 
+
+  describe('빈도 제한 판정', () => {
+
+    // 실기기에서 실제로 온 메시지 (2026-09-17 안드로이드 로그)
+    const REAL = 'Frequency cap reached. <https://support.google.com/admob/answer/9905175#6>';
+
+    it('실기기에서 온 빈도 제한 메시지를 알아본다', () => {
+      expect(AdMobService.isFrequencyCapped(REAL)).toBeTrue();
+    });
+
+    it('대소문자가 달라도 알아본다', () => {
+      expect(AdMobService.isFrequencyCapped('FREQUENCY CAP REACHED')).toBeTrue();
+    });
+
+    // iOS 는 reject 메시지가 "Loading failed" 고정이라 리스너가 받은 값으로 판정해야 한다
+    it('여러 후보 중 하나라도 걸리면 참이다', () => {
+      expect(AdMobService.isFrequencyCapped('Loading failed', REAL)).toBeTrue();
+    });
+
+    it('진짜 no fill 은 빈도 제한이 아니다', () => {
+      // no fill 도 코드가 3번이라 메시지로만 갈린다
+      expect(AdMobService.isFrequencyCapped('No ad to show.')).toBeFalse();
+    });
+
+    it('빈 값과 없는 값은 빈도 제한이 아니다', () => {
+      expect(AdMobService.isFrequencyCapped('')).toBeFalse();
+      expect(AdMobService.isFrequencyCapped(undefined, null)).toBeFalse();
+      expect(AdMobService.isFrequencyCapped()).toBeFalse();
+    });
+  });
+
 });
