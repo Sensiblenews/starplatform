@@ -4,8 +4,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 /** 연속 호출을 억제하는 최소 간격 */
 const COOLDOWN_MS = 400;
-/** iOS에서 재생할 진동 길이. 안드로이드 impact(LIGHT)의 50ms와 체감을 맞춘 값 */
-const IOS_VIBRATE_MS = 60;
+/**
+ * iOS 선택 피드백 생성기를 다시 예열하는 간격.
+ * 마지막 재생 후 이만큼 지나면 Taptic Engine 이 식었다고 보고 새로 예열한다.
+ */
+const IOS_REARM_AFTER_MS = 30 * 1000;
 
 /**
  * 햅틱 피드백 단일 창구.
@@ -34,10 +37,21 @@ const IOS_VIBRATE_MS = 60;
 @Injectable({ providedIn: 'root' })
 export class HapticService {
   private lastFiredAt = 0;
+  /** iOS 선택 피드백 생성기를 예열해 둔 시각. 0이면 아직 예열 전 */
+  private iosArmedAt = 0;
 
   /** 쿨다운 판정. 부수효과가 없어 그대로 단위 테스트한다 */
   static isWithinCooldown(lastFiredAt: number, now: number, cooldownMs: number = COOLDOWN_MS): boolean {
     return now - lastFiredAt < cooldownMs;
+  }
+
+  /**
+   * iOS 선택 피드백 생성기를 다시 예열해야 하는지. 부수효과가 없어 그대로 단위 테스트한다.
+   * armedAt 이 0이면 아직 한 번도 예열하지 않은 상태다.
+   */
+  static needsRearm(armedAt: number, now: number, rearmAfterMs: number = IOS_REARM_AFTER_MS): boolean {
+    if (armedAt === 0) return true;
+    return now - armedAt > rearmAfterMs;
   }
 
   /**
@@ -61,13 +75,38 @@ export class HapticService {
    *
    * 안드로이드는 impact 가 정상 동작하므로 기존 체감을 그대로 둔다.
    */
-  private fire(): Promise<void> {
-    const call = Capacitor.getPlatform() === 'ios'
-      ? Haptics.vibrate({ duration: IOS_VIBRATE_MS })
-      : Haptics.impact({ style: ImpactStyle.Light });
+  /**
+   * iOS 는 selectionStart + selectionChanged 를 쓴다.
+   *
+   * 이 플러그인에서 iOS 쪽 경로가 셋인데, 제대로 동작하는 것은 이 하나뿐이다.
+   *
+   * - impact: generator 를 지역 변수로 만들고 prepare() 없이 바로 쏜 뒤 해제한다.
+   *   Taptic Engine 이 식어 있으면 깨어나기 전에 generator 가 사라진다.
+   * - vibrate(duration): CHHapticEngine 과 player 를 지역 변수로 만들고 start() 한 뒤
+   *   함수가 끝난다. engine 은 resetHandler 클로저의 순환 참조로 겨우 살아남지만
+   *   player 를 붙잡는 곳이 없어, 짧은 패턴은 재생을 마치기 전에 풀려난다.
+   *   (2-29차에 impact 대신 이걸로 바꿨다가 여전히 안 울려서 다시 짚었다)
+   * - selectionStart/selectionChanged: generator 를 프로퍼티로 보관하고 prepare() 를
+   *   부른다. 재생할 때마다 prepare() 를 다시 불러 예열 상태를 유지한다.
+   *
+   * 안드로이드 impact 는 Vibrator 를 직접 돌려 예열 개념이 없으므로 그대로 둔다.
+   */
+  private async fire(): Promise<void> {
+    try {
+      if (Capacitor.getPlatform() !== 'ios') {
+        await Haptics.impact({ style: ImpactStyle.Light });
+        return;
+      }
 
-    return call.catch(e => {
+      // 오래 쉬었으면 엔진이 식었다고 보고 다시 예열한다.
+      // selectionChanged 는 보관된 generator 가 없으면 조용히 아무것도 하지 않는다.
+      if (HapticService.needsRearm(this.iosArmedAt, this.lastFiredAt)) {
+        await Haptics.selectionStart();
+        this.iosArmedAt = this.lastFiredAt;
+      }
+      await Haptics.selectionChanged();
+    } catch (e) {
       console.warn('[Haptic] 진동 재생 실패', e);
-    });
+    }
   }
 }

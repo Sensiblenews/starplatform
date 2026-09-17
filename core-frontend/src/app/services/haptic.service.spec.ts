@@ -34,4 +34,25 @@ describe('HapticService', () => {
       await expectAsync(service.tap()).toBeResolved();
     });
   });
+
+  describe('needsRearm', () => {
+
+    it('한 번도 예열하지 않았으면 예열한다', () => {
+      expect(HapticService.needsRearm(0, 1_000, 30_000)).toBeTrue();
+    });
+
+    it('예열한 지 얼마 안 됐으면 다시 하지 않는다', () => {
+      expect(HapticService.needsRearm(1_000, 11_000, 30_000)).toBeFalse();
+    });
+
+    it('경계값에서는 다시 하지 않는다', () => {
+      expect(HapticService.needsRearm(1_000, 31_000, 30_000)).toBeFalse();
+    });
+
+    // 오래 쉬면 Taptic Engine 이 식는다. 그 뒤 첫 진동이 묻히지 않게 다시 예열한다.
+    it('오래 쉬었으면 다시 예열한다', () => {
+      expect(HapticService.needsRearm(1_000, 31_001, 30_000)).toBeTrue();
+    });
+  });
+
 });

@@ -7,6 +7,7 @@ import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } f
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { HapticService } from '../../services/haptic.service';
+import { TickSoundService } from '../../services/tick-sound.service';
 import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
@@ -182,6 +183,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private helper: HelperService,
     private dm: DmService,
     private haptic: HapticService,
+    private tickSound: TickSoundService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -1008,10 +1010,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     setTimeout(() => star.showPlus = false, 800);
 
     await this.haptic.tap();
-
-    const audio = new Audio('assets/sounds/tick.mp3');
-    audio.volume = 0.65;
-    audio.play().catch(e => console.log('Audio playback error:', e));
+    void this.tickSound.play();
 
     this.runSlotMachineEffect(star);
   }
@@ -1151,9 +1150,7 @@ export class LobbyPage implements OnInit, OnDestroy {
             setTimeout(() => star.showPlus = true, 50);
             setTimeout(() => star.showPlus = false, 800);
 
-            const audio = new Audio('assets/sounds/tick.mp3');
-            audio.volume = 0.65;
-            audio.play().catch(e => console.log('Audio playback error:', e));
+            void this.tickSound.play();
 
             this.haptic.tap();
 
