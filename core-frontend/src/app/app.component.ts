@@ -42,6 +42,17 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
   private entry = 'root';
   private checked = false;
   private backButtonSubscription: any;
+  /**
+   * 푸시 권한 요청이 끝났음을 알리는 약속. 배지를 지우기 전에 반드시 기다린다.
+   *
+   * iOS 는 앱 생애 첫 requestAuthorization 의 옵션으로 프롬프트를 만들고, 사용자가 허용하면
+   * 그 옵션만 저장한다. 프롬프트가 떠 있는 동안 더 넓은 옵션으로 다시 요청해도 늘어나지 않는다.
+   * @capawesome/capacitor-badge 의 clear() 는 내부에서 .badge 하나짜리 요청을 먼저 보내므로,
+   * 이 앱은 그동안 iOS 에서 "배지만 허용"으로 굳어져 푸시가 소리·진동 없이 조용히 왔다
+   * (시뮬레이터 시스템 로그로 확인: options 1 → 프롬프트 → 저장된 권한 [s:B--]).
+   * 결정이 끝난 뒤의 넓은 요청은 프롬프트 없이 조용히 권한을 넓힌다 — 아래 granted 분기가 그 경로다.
+   */
+  private pushPermissionSettled: Promise<void> = Promise.resolve();
 
   constructor(
     private platform: Platform,
@@ -79,7 +90,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       this.setupBackButtonExit();
       await this.limitTextZoom();
 
-      this.setupPushNotifications(); // 🌟 [신규 추가] 앱 시작 시 1회만 등록되는 전역 푸시 리스너
+      // 앱 시작 시 1회만 등록되는 전역 푸시 리스너.
+      // 기다리지 않되, 권한 요청이 끝나야만 배지를 지우도록 약속만 붙잡아 둔다 (필드 주석 참조)
+      this.pushPermissionSettled = this.setupPushNotifications();
 
       // 🌟 [신규 추가] 앱 활성화(포그라운드 복귀) 시 뱃지 및 알림 초기화 (iOS 전용)
       App.addListener('appStateChange', (state) => {
@@ -268,6 +281,12 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       if (permStatus.receive === 'granted') {
         console.log('[starfcm] ✅ 권한 이미 허용됨 — register() 호출');
         try {
+          // 이미 허용된 기기에서도 iOS 는 전체 옵션(경고·소리·배지)으로 한 번 더 요청한다.
+          // 결정이 끝난 앱에는 프롬프트가 다시 뜨지 않고, 배지만 허용으로 굳은 기존 설치는
+          // 이 요청 한 번으로 [s:B--] → [s:BSA] 로 넓어진다 (시뮬레이터 로그로 확인, 재설치 불필요).
+          if (this.platform.is('ios')) {
+            await PushNotifications.requestPermissions();
+          }
           await PushNotifications.register();
           console.log('[starfcm] ✅ register() 호출 성공 (토큰 대기 중...)');
         } catch (error) {
@@ -599,6 +618,9 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     } catch (error) {
       console.error('[Badge/Notification] Failed to clear notifications:', error);
     }
+    // Badge.clear() 는 .badge 전용 권한 요청을 먼저 보낸다. 그것이 앱 생애 첫 요청이 되면
+    // iOS 권한이 배지만으로 굳는다. 푸시 권한 요청이 끝난 뒤에만 부른다 (필드 주석 참조)
+    await this.pushPermissionSettled;
     try {
       await Badge.clear();
       console.log('[Badge/Notification] Cleared badge and notifications');
