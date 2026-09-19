@@ -16,15 +16,15 @@ const UNLOCK_EVENTS = ['touchend', 'click', 'keydown'];
  * 조회수 틱 효과음 단일 창구.
  *
  * 이전에는 로비·스타페이지가 재생할 때마다 `new Audio(...)` 로 새 엘리먼트를 만들고
- * 바로 play() 했다. iOS 웹뷰는 사용자 조작 없이 시작하는 오디오 재생을 막기 때문에,
- * 터치 직후에 나는 소리는 재생되고 조회수 자동 증가처럼 최대 29초 뒤 타이머로 터지는
- * 소리는 차단됐다. 클라이언트가 보고한 "소리가 났다 안 났다" 가 이 둘의 차이다.
+ * 바로 play() 했다. 실패는 console.log 한 줄로 삼켜져 남지 않았고, soundOn 토글도
+ * 로비·스타페이지에서는 무시되고 있었다. 판정과 재생을 여기로 모은다.
  *
- * 해결: 엘리먼트를 하나만 만들어 재사용하고, 사용자의 첫 조작 때 그 엘리먼트를 한 번
- * 무음으로 재생해 잠금을 풀어둔다. iOS 의 제약은 엘리먼트 단위라, 한 번 풀린 엘리먼트는
- * 이후 타이머에서 재생해도 막히지 않는다. 매번 새로 만들면 이 효과를 볼 수 없다.
- *
- * ⚠️ 무음 모드에서는 여전히 소리가 나지 않는다. 웹뷰 오디오의 한계이며 코드로 못 넘는다.
+ * ⚠️ 진단 정정. 처음에는 "iOS 웹뷰가 사용자 조작 없는 재생을 막아서 타이머 재생이
+ * 차단된다"고 보고 아래 잠금 해제 로직을 넣었다. 그러나 Capacitor iOS 는 웹뷰를 만들 때
+ * mediaTypesRequiringUserActionForPlayback 을 비워 두므로(CAPBridgeViewController.swift)
+ * 자동재생 차단은 애초에 없었다. 잠금 해제는 무해해서 남겨 두지만, 클라이언트가 보고한
+ * "소리가 났다 안 났다"의 원인은 아니다. 남은 후보는 무음 스위치와, 네이티브 동영상
+ * 광고 재생 시 AdMob SDK 가 오디오 세션을 점유하는 경우다. 둘 다 실기기 확인이 필요하다.
  */
 @Injectable({ providedIn: 'root' })
 export class TickSoundService {
@@ -72,7 +72,7 @@ export class TickSoundService {
     }
   }
 
-  /** 사용자의 첫 조작을 기다렸다가 잠금을 푼다 */
+  /** 사용자의 첫 조작을 기다렸다가 잠금을 푼다 (위 정정 참조 — 현재 iOS 에서는 불필요하지만 무해) */
   private armUnlock(): void {
     if (typeof document === 'undefined') return;
 
@@ -84,8 +84,8 @@ export class TickSoundService {
   }
 
   /**
-   * 같은 엘리먼트를 무음으로 한 번 재생했다 멈춰 iOS 의 재생 잠금을 푼다.
-   * 실패하면 리스너를 남겨 다음 조작 때 다시 시도한다.
+   * 같은 엘리먼트를 무음으로 한 번 재생했다 멈춘다. 자동재생을 막는 환경(일반 모바일
+   * 브라우저)에서만 의미가 있다. 실패하면 리스너를 남겨 다음 조작 때 다시 시도한다.
    */
   private async unlock(): Promise<void> {
     if (this.unlocked) return;
