@@ -54,14 +54,14 @@ const INTERSTITIAL_MIN_INTERVAL_MS = 3 * 60 * 1000;
  *
  * 2-29차 요청서는 2회였으나 5회로 올렸다(2026-09-15). 2회는 10분 남짓의 보통 세션에서
  * 실질적인 상한으로 작동해, 3분 간격 게이트가 일하기도 전에 광고가 멈췄다.
- * 5회에 닿으려면 60초 유예 + 3분 간격 × 4 = 최소 13분을 써야 하므로,
+ * 5회에 닿으려면 3분 간격 × 4 = 최소 12분을 써야 하므로,
  * 실질 상한은 간격 게이트가 쥐고 이 값은 안전장치로만 남는다.
  *
  * 요청서 명시값에서 벗어난 값이므로 클라이언트와 합의된 숫자로 유지할 것.
  */
 export const INTERSTITIAL_MAX_PER_SESSION = 5;
-/** 앱(또는 세션) 시작 후 이 시간 동안은 노출하지 않는다 */
-const INTERSTITIAL_COLD_START_GRACE_MS = 60 * 1000;
+// "앱 시작 후 60초 유예" 게이트는 2026-09-20 클라이언트 요청으로 뺐다.
+// 첫 노출은 화면 전환 횟수 게이트(아래)만 막는다. sessionStartedAt은 세션 경계 기록용으로만 남긴다.
 /** 세션 시작 후 이 횟수만큼 화면을 옮기기 전에는 노출하지 않는다 */
 const INTERSTITIAL_MIN_PAGE_MOVES = 3;
 /** 백그라운드 체류가 이 시간을 넘기면 복귀 시 새 세션으로 본다 (Firebase Analytics 기본값과 동일) */
@@ -73,7 +73,6 @@ const LAST_SHOWN_KEY = 'last_interstitial_time';
 export type InterstitialGateReason =
   | 'ok'
   | 'session-cap'
-  | 'cold-start'
   | 'page-moves'
   | 'interval'
   | 'not-loaded';
@@ -293,10 +292,10 @@ export class AdMobService {
   // 진단 로그 (chrome://inspect 콘솔에서 확인)
   // ==========================================
   // canShowInterstitial은 첫 번째로 걸린 게이트만 돌려준다. 그것만으로는
-  // "지금 뭐가 얼마나 모자란지"를 알 수 없어, 네 게이트의 현재값을 한 줄로 같이 찍는다.
+  // "지금 뭐가 얼마나 모자란지"를 알 수 없어, 모든 게이트의 현재값을 한 줄로 같이 찍는다.
   // 로그는 전부 '[AD]' 로 시작하므로 콘솔 필터에 AD 를 넣으면 이것만 보인다.
 
-  /** 네 게이트의 현재값을 사람이 읽을 수 있는 한 줄로 만든다 */
+  /** 모든 게이트의 현재값을 사람이 읽을 수 있는 한 줄로 만든다 */
   private gateSnapshot(now: number): string {
     const lastShown = this.readLastShownAt(now);
     const sinceShown = lastShown === Number.NEGATIVE_INFINITY
@@ -305,7 +304,7 @@ export class AdMobService {
 
     return [
       `세션 ${this.sessionImpressionCount}/${INTERSTITIAL_MAX_PER_SESSION}회`,
-      `경과 ${Math.round((now - this.sessionStartedAt) / 1000)}s/${INTERSTITIAL_COLD_START_GRACE_MS / 1000}s`,
+      `경과 ${Math.round((now - this.sessionStartedAt) / 1000)}s`,
       `이동 ${this.pageMoveCount}/${INTERSTITIAL_MIN_PAGE_MOVES}회`,
       `직전노출 ${sinceShown}/${INTERSTITIAL_MIN_INTERVAL_MS / 1000}s`,
       `재고 ${this.interstitialReady ? '있음' : (this.loadInFlight ? '로딩중' : `없음(실패 ${this.loadFailureCount}회)`)}`,
@@ -332,10 +331,6 @@ export class AdMobService {
   } {
     if (this.sessionImpressionCount >= INTERSTITIAL_MAX_PER_SESSION) {
       return { allowed: false, reason: 'session-cap' };
-    }
-
-    if (now - this.sessionStartedAt < INTERSTITIAL_COLD_START_GRACE_MS) {
-      return { allowed: false, reason: 'cold-start' };
     }
 
     if (this.pageMoveCount < INTERSTITIAL_MIN_PAGE_MOVES) {
@@ -437,7 +432,7 @@ export class AdMobService {
   /**
    * 마지막 노출 시각을 읽는다. 기록이 없거나 깨졌거나 미래 시각이면
    * "아직 노출한 적 없음"으로 보고 간격 게이트를 통과시킨다.
-   * (첫 노출은 cold-start와 page-moves 게이트가 막는다)
+   * (첫 노출은 page-moves 게이트가 막는다)
    */
   private readLastShownAt(now: number): number {
     const raw = localStorage.getItem(LAST_SHOWN_KEY);

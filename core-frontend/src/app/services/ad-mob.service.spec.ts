@@ -56,33 +56,28 @@ describe('AdMobService', () => {
     });
   });
 
-  describe('앱 시작 직후 금지', () => {
-    it('세션 시작 직후에는 막는다', () => {
-      move(10);
-      expect(service.canShowInterstitial(sessionStart).reason).toBe('cold-start');
+  // "앱 시작 후 60초 유예" 게이트는 2026-09-20 클라이언트 요청으로 뺐다.
+  // 첫 노출은 화면 전환 횟수만으로 판정한다 — 시각은 더 이상 관여하지 않는다.
+  describe('첫 노출은 화면 전환 3회부터', () => {
+    it('화면 전환이 없으면 세션 시작 직후 막는다', () => {
+      expect(service.canShowInterstitial(sessionStart).reason).toBe('page-moves');
     });
 
-    it('59초는 화면을 아무리 옮겨도 막는다', () => {
-      move(10);
-      expect(service.canShowInterstitial(sessionStart + 59_000).reason).toBe('cold-start');
-    });
-
-    it('60초가 지나도 화면 전환이 3회 미만이면 막는다', () => {
+    it('화면 전환 2회는 시간이 얼마나 지나도 막는다', () => {
       move(2);
-      expect(service.canShowInterstitial(sessionStart + 61_000).reason).toBe('page-moves');
+      expect(service.canShowInterstitial(sessionStart + 10 * MINUTE).reason).toBe('page-moves');
     });
 
-    it('60초 경과 + 화면 전환 3회면 통과한다', () => {
+    it('화면 전환 3회면 세션 시작 직후라도 통과한다 (60초 유예 없음)', () => {
       move(3);
-      expect(service.canShowInterstitial(sessionStart + 61_000)).toEqual({
+      expect(service.canShowInterstitial(sessionStart)).toEqual({
         allowed: true,
         reason: 'ok',
       });
     });
 
-    it('노출 기록이 없어도 세션 시작 직후면 막는다', () => {
+    it('노출 기록이 없어도 화면 전환 3회 미만이면 막는다', () => {
       // 기본값 '100'(epoch 100ms)을 쓰던 탓에 첫 실행에서 곧바로 노출되던 회귀를 막는다
-      move(10);
       expect(service.canShowInterstitial(sessionStart).allowed).toBeFalse();
     });
   });
@@ -163,17 +158,17 @@ describe('AdMobService', () => {
       expect(service['sessionStartedAt']).toBe(back);
     });
 
-    it('새 세션도 시작 직후 60초는 막는다', () => {
+    it('새 세션은 화면 전환을 0부터 다시 세고, 3회 채우면 시간과 무관하게 통과한다', () => {
       const out = sessionStart + 1 * MINUTE;
       const back = out + 30 * MINUTE;
       service.handleAppStateChange(false, out);
       service.handleAppStateChange(true, back);
-      move(5);
-      // 복귀는 묵은 재고를 버린다. 여기서 보려는 건 시간 게이트이므로 재고를 다시 채운다.
+      // 복귀는 묵은 재고를 버린다. 여기서 보려는 건 화면 전환 게이트이므로 재고를 다시 채운다.
       service['interstitialReady'] = true;
 
-      expect(service.canShowInterstitial(back + 30_000).reason).toBe('cold-start');
-      expect(service.canShowInterstitial(back + 61_000).allowed).toBeTrue();
+      expect(service.canShowInterstitial(back).reason).toBe('page-moves');
+      move(3);
+      expect(service.canShowInterstitial(back).allowed).toBeTrue();
     });
 
     // 30분 넘게 묵은 캐시 광고는 만료됐을 수 있다. 그대로 띄우려 들면
@@ -224,11 +219,11 @@ describe('AdMobService', () => {
     });
 
     // 재고 검사가 앞에 오면 "왜 안 나오지"를 볼 때 진짜 원인이 가려진다.
-    // 콜드스타트 중에는 재고가 없어도 cold-start 로 보고해야 한다.
+    // 화면 전환이 모자랄 때는 재고가 없어도 page-moves 로 보고해야 한다.
     it('앞선 게이트가 막는 상황에서는 재고보다 그 사유를 먼저 알린다', () => {
       service['interstitialReady'] = false;
 
-      expect(service.canShowInterstitial(sessionStart).reason).toBe('cold-start');
+      expect(service.canShowInterstitial(sessionStart).reason).toBe('page-moves');
     });
 
     it('노출에 성공하면 재고를 소비한다', async () => {
