@@ -1,7 +1,7 @@
 import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, ModalController, PopoverController, AlertController, IonSearchbar } from '@ionic/angular';
+import { Platform, ModalController, PopoverController, AlertController, IonSearchbar, ScrollDetail } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
@@ -18,6 +18,7 @@ import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-moda
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
+import { shouldRevealTopMeta } from './lobby-reveal';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { HelperService } from 'src/app/services/helper.service';
@@ -144,6 +145,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   liveNews: LiveNewsItem[] = [];
   private liveNewsIntervalId: any;
   private static readonly LIVE_NEWS_REFRESH_MS = 60000;
+
+  // 🌟 Today's TOP 순위·조회수 줄 펼침 (2-29차). 판정 규칙은 lobby-reveal.ts
+  isTopMetaRevealed = false;
 
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
@@ -560,7 +564,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
 
-        // 캐러셀 최초 등장(0 → 46vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
+        // 캐러셀 최초 등장(0 → 43vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
         if (!hadCards && this.vsCards.length > 0) {
           setTimeout(() => this.sendAdSlotPosition());
         }
@@ -1088,7 +1092,16 @@ export class LobbyPage implements OnInit, OnDestroy {
     NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
   }
 
-  onLobbyScroll() {
+  // 세로 스크롤 시작 시 Today's TOP의 순위·조회수 줄을 펼친다(2-29차 첫 화면 공간 확보).
+  // 한 번 펼치면 페이지 인스턴스가 살아 있는 동안 유지한다 — 다시 접으면 사용자가 보는 중에 카드 높이가 흔들리고
+  // 광고 슬롯 위치도 매번 바뀐다. 콜드 스타트마다 초기화되므로 "첫 화면" 인상에는 충분하다.
+  onLobbyScroll(ev?: CustomEvent<ScrollDetail>) {
+    const scrollTop = ev && ev.detail ? ev.detail.scrollTop : 0;
+    if (!this.isTopMetaRevealed && shouldRevealTopMeta(scrollTop)) {
+      this.isTopMetaRevealed = true;
+      // 펼침 트랜지션(0.35초)이 끝난 뒤 광고 슬롯 위치를 다시 보낸다
+      setTimeout(() => this.sendAdSlotPosition(), 400);
+    }
     this.sendAdSlotPosition();
   }
 

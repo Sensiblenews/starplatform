@@ -44,14 +44,16 @@
 .vs-card {
   background: #0d1117;
   border-radius: 16px;
-  padding: 16px 16px 18px;
+  // 상·하 여백을 조금 줄여 로비 첫 화면에 My Global Ranking 카드 자리를 확보한다(2-29차, 기존 16/18)
+  padding: 12px 16px 14px;
   color: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 
   // 화면 세로의 절반 수준으로 확대 (클라이언트 요청 — 기존 약 1/3).
   // 세로 플렉스로 본문을 가운데 채우고 게이지를 하단에 붙인다.
+  // 2-29차: 하트·별·pts·Gap 줄을 빼면서 46vh → 43vh로 소폭 축소.
   // 값을 바꾸면 skeleton.component.scss의 .sk-vs도 같이 맞출 것
-  min-height: 46vh;
+  min-height: 43vh;
   display: flex;
   flex-direction: column;
 }
@@ -140,7 +142,7 @@
     overflow: hidden;
   }
 
-  // 이름과 총점 사이 지표 3종 (👁️ 노출 / ❤️ 좋아요 ⭐ 팔로워)
+  // 이름 아래 지표 — 👁️ 노출 한 줄만 (❤️·⭐·pts 줄은 2-29차에 제거)
   .side-stats {
     margin-top: 6px;
 
@@ -151,13 +153,6 @@
       line-height: 1.6;
       white-space: nowrap;
     }
-  }
-
-  .side-score {
-    font-size: 15px;
-    font-weight: 800;
-    color: #ffd54f;
-    margin-top: 6px;
   }
 
   &.waiting .side-name {
@@ -219,7 +214,7 @@
 
 .vs-center {
   flex: 1;
-  min-width: 0; // 큰 글꼴에서 Gap 텍스트(nowrap)가 좌우 컬럼을 밀어내지 않게
+  min-width: 0; // 플렉스 기본값(auto)이면 좌우 컬럼을 밀어낼 수 있어 0으로 고정
   text-align: center;
   cursor: pointer;
   align-self: center; // 좌우가 상단 정렬이어도 VS 로고는 세로 중앙 유지
@@ -233,14 +228,6 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 14px rgba(255, 64, 129, 0.35);
-  }
-
-  .score-gap {
-    font-size: 12px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.65);
-    margin-top: 3px;
-    white-space: nowrap;
   }
 }
 
