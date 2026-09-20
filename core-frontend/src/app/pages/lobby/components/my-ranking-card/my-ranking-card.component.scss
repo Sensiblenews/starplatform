@@ -45,9 +45,23 @@ $mr-live: #2ecc71;
   gap: 6px;
   margin-bottom: 6px;
 
+  // 파란 원 안의 흰 선 지구본. 원 크기는 제목 글자 높이와 비슷하게(13px 폰트, 줄 높이 15px → 18px 원)
   .mr-globe {
-    font-size: 14px;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: $mr-blue;
+    color: #fff;
+
+    svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
   }
 
   .mr-title {
@@ -142,7 +156,7 @@ $mr-live: #2ecc71;
   // 목업(약 44px)보다 작게(클라이언트 요청) → 카드 66% 축소에 맞춰 24px
   font-size: 24px;
   font-weight: 900;
-  color: $mr-gold;
+  color: #fff; // 순위 숫자는 흰색(사용자 요청). 골드는 pts와 아바타 링에만 남긴다
   line-height: 1;
   letter-spacing: -0.5px;
   transition: color 0.3s ease;
@@ -190,6 +204,7 @@ $mr-live: #2ecc71;
 
 .mr-stats {
   flex-shrink: 0;
+  margin-right: 12px; // 카드 오른쪽 가장자리에서 약간 안쪽으로(사용자 요청)
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;

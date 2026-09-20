@@ -4,7 +4,17 @@
   <ng-container *ngIf="loggedIn; else guestTpl">
     <!-- 헤더: 지구본 · 제목 · LIVE -->
     <div class="mr-head">
-      <span class="mr-globe">🌎</span>
+      <!-- 선형 지구본(경선 2·위선 3) — 파란 원 안에 흰 선. 이모지 대신 SVG라 플랫폼마다 모양이 같다 -->
+      <span class="mr-globe" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10" />
+          <ellipse cx="12" cy="12" rx="4.5" ry="10" />
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <line x1="3.6" y1="7.4" x2="20.4" y2="7.4" />
+          <line x1="3.6" y1="16.6" x2="20.4" y2="16.6" />
+        </svg>
+      </span>
       <span class="mr-title">My Global Ranking</span>
       <span class="mr-live"><span class="mr-live-dot"></span>LIVE</span>
     </div>
