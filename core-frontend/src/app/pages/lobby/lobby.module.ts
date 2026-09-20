@@ -15,6 +15,7 @@ import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-moda
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
+import { MyRankingCardComponent } from './components/my-ranking-card/my-ranking-card.component';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 
 @NgModule({
@@ -38,6 +39,7 @@ import { SkeletonComponent } from '../../components/skeleton/skeleton.component'
     HallOfFameModalComponent,
     VsCarouselComponent,
     LiveNewsTickerComponent,
+    MyRankingCardComponent,
   ],
 })
 export class LobbyPageModule {}

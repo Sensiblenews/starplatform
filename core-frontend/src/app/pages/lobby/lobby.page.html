@@ -363,6 +363,13 @@
     <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards" [news]="liveNews"
       (focusRequest)="onTickerFocus($event)"></app-live-news-ticker>
 
+    <!-- 🌟 My Global Ranking 카드 (2-29차) — 로그인(스타): 내 순위·변동·pts·지표 / 비로그인·관리자: 페이지 만들기 유도.
+         버튼은 기존 동작에 연결한다: My Star Page → 내 스타 페이지, Top Rankings → 상단 트로피와 같은 랭킹 화면 -->
+    <app-my-ranking-card [loggedIn]="isStar && !!starId" [data]="myRank" [loading]="isLoadingMyRank"
+      [delta]="myRankDelta" [avatar]="myImage || (myRank && myRank.image) || defaultAvatar"
+      (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()">
+    </app-my-ranking-card>
+
     <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).
          첫 화면에는 사진+이름만 보이고, 세로 스크롤을 시작하면 순위·조회수 줄이 펼쳐진다(2-29차 공간 확보) -->
     <div class="section-container today-top-section" [class.meta-revealed]="isTopMetaRevealed">

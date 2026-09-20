@@ -1,0 +1,86 @@
+<div class="mr-card" [class.flash-up]="flash && delta.dir === 'up'" [class.flash-down]="flash && delta.dir === 'down'">
+
+  <!-- 헤더: 지구본 · 제목 · LIVE — 로그인/비로그인 공통 -->
+  <div class="mr-head">
+    <span class="mr-globe">🌎</span>
+    <span class="mr-title">My Global Ranking</span>
+    <span class="mr-live"><span class="mr-live-dot"></span>LIVE</span>
+  </div>
+
+  <ng-container *ngIf="loggedIn; else guestTpl">
+    <ng-container *ngIf="!showSkeleton; else skeletonTpl">
+
+      <div class="mr-body">
+        <!-- 좌: 아바타 + 순위 -->
+        <div class="mr-left">
+          <div class="mr-avatar">
+            <img [src]="avatar" (error)="onAvatarError($event)" decoding="async" />
+            <span class="mr-crown">👑</span>
+          </div>
+
+          <div class="mr-rank-block">
+            <div class="mr-rank-row">
+              <span class="mr-rank-no" [class.pop]="flash" [class.up]="flash && delta.dir === 'up'"
+                [class.down]="flash && delta.dir === 'down'">{{ rankLabel }}</span>
+              <span class="mr-rank-total">/ {{ formatWithCommas(data?.totalStars) }}</span>
+            </div>
+            <!-- 변동은 실제로 바뀌었을 때만, 숫자만 (클라이언트 확정) -->
+            <div class="mr-delta up" *ngIf="delta.dir === 'up'">▲ {{ delta.amount }}</div>
+            <div class="mr-delta down" *ngIf="delta.dir === 'down'">▼ {{ delta.amount }}</div>
+            <div class="mr-score">⭐ {{ formatWithCommas(data?.score) }} pts</div>
+          </div>
+        </div>
+
+        <!-- 우: 지표 3종 -->
+        <div class="mr-stats">
+          <div class="mr-stat">👁️ {{ formatCompact(data?.viewCount) }}</div>
+          <div class="mr-stat">❤️ {{ formatCompact(data?.likeCnt) }}</div>
+          <div class="mr-stat">⭐ {{ formatCompact(data?.followerCnt) }}</div>
+        </div>
+      </div>
+
+      <div class="mr-actions">
+        <button type="button" class="mr-btn primary" (click)="myPage.emit()">
+          <span class="mr-btn-icon">↗</span>My Star Page
+        </button>
+        <button type="button" class="mr-btn outline" (click)="topRankings.emit()">
+          <span class="mr-btn-icon">🏆</span>Top Rankings
+        </button>
+      </div>
+
+    </ng-container>
+  </ng-container>
+
+  <!-- 비로그인·관리자: 같은 셸, 순위 대신 페이지 만들기 유도. 로그인 팝업은 띄우지 않는다 -->
+  <ng-template #guestTpl>
+    <div class="mr-guest">
+      <div class="mr-guest-headline">Where do you rank in the world?</div>
+      <div class="mr-guest-sub">Create your Star Page and claim your place in the global ranking.</div>
+      <button type="button" class="mr-btn primary wide" (click)="createPage.emit()">
+        <span class="mr-btn-icon">✨</span>Create My Star Page
+      </button>
+    </div>
+  </ng-template>
+
+  <!-- 첫 로드 스켈레톤 — 본문과 같은 높이라 로딩 해제 시 레이아웃이 튀지 않는다 -->
+  <ng-template #skeletonTpl>
+    <div class="mr-body mr-skeleton">
+      <div class="mr-left">
+        <div class="sk sk-avatar"></div>
+        <div class="mr-rank-block">
+          <div class="sk sk-line w-60"></div>
+          <div class="sk sk-line w-40"></div>
+        </div>
+      </div>
+      <div class="mr-stats sk-stats">
+        <div class="sk sk-line w-100"></div>
+        <div class="sk sk-line w-100"></div>
+        <div class="sk sk-line w-100"></div>
+      </div>
+    </div>
+    <div class="mr-actions">
+      <div class="sk sk-btn"></div>
+      <div class="sk sk-btn"></div>
+    </div>
+  </ng-template>
+</div>

@@ -19,6 +19,7 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
+import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { HelperService } from 'src/app/services/helper.service';
@@ -148,6 +149,16 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   // 🌟 Today's TOP 순위·조회수 줄 펼침 (2-29차). 판정 규칙은 lobby-reveal.ts
   isTopMetaRevealed = false;
+
+  // 🌟 My Global Ranking 카드 (2-29차). 로비 진입·당겨서 새로 고침·화면에 보이는 동안 30초 간격으로 갱신.
+  // VS 카드의 3초 폴링에 얹지 않는다 — 로그인 사용자마다 요청이 3초에 한 번씩 늘어나는 것은 과하다
+  private static readonly MY_RANK_REFRESH_MS = 30000;
+  myRank: MyRankData | null = null;
+  myRankDelta: RankDelta = { dir: 'none', amount: 0 };
+  isLoadingMyRank = false;
+  private myRankPollIntervalId: any = null;
+  // 응답이 도착하기 전에 계정이 바뀌면(로그아웃·다른 스타 로그인) 늦게 온 응답을 버리기 위한 표식
+  private myRankStarId = '';
 
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
@@ -312,6 +323,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoSlide();
     this.stopAutoShuffle();
     this.stopVsPolling();
+    this.stopMyRankPolling();
     this.removeAppStateListener();
     this.unbindDmState();
     window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
@@ -348,6 +360,9 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
     if (this.newsTicker) this.newsTicker.start();
 
+    // 🌟 My Global Ranking 카드: 진입 즉시 1회 + 30초 갱신 (2-29차)
+    this.startMyRankPolling();
+
     // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
     this.updateLobbyAd();
 
@@ -381,6 +396,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     // 🌟 VS 배틀필드: 폴링·자동 순환 정지
     this.stopVsPolling();
+    this.stopMyRankPolling();
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
 
@@ -604,6 +620,93 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
   }
 
+  // ==========================================
+  // 🌟 [2-29차] My Global Ranking 카드
+  // ==========================================
+
+  // 즉시 1회 + 30초 간격. VS 폴링과 같은 생명주기(ionViewDidEnter/WillLeave, 앱 상태)로 켜고 끈다
+  startMyRankPolling() {
+    this.stopMyRankPolling();
+    this.loadMyRank();
+    this.myRankPollIntervalId = setInterval(() => this.loadMyRank(), LobbyPage.MY_RANK_REFRESH_MS);
+  }
+
+  stopMyRankPolling() {
+    if (this.myRankPollIntervalId) {
+      clearInterval(this.myRankPollIntervalId);
+      this.myRankPollIntervalId = null;
+    }
+  }
+
+  loadMyRank() {
+    // 비로그인·관리자는 요청하지 않는다 — 카드는 페이지 만들기 유도 변형을 보인다
+    if (!this.isStar || !this.starId) {
+      this.myRank = null;
+      this.isLoadingMyRank = false;
+      return;
+    }
+
+    // 계정이 바뀌었으면 이전 계정의 값·변동을 지운다
+    if (this.myRankStarId !== this.starId) {
+      this.myRankStarId = this.starId;
+      this.myRank = null;
+      this.myRankDelta = { dir: 'none', amount: 0 };
+    }
+
+    // 첫 로드만 스켈레톤. 30초 갱신은 기존 값을 그대로 두고 조용히 바꾼다
+    if (!this.myRank) this.isLoadingMyRank = true;
+
+    const starToken = localStorage.getItem('starToken') || '';
+    this.http.get(`/api/super/ranking/my-rank?starId=${encodeURIComponent(this.starId)}&starToken=${encodeURIComponent(starToken)}`).pipe(
+      finalize(() => {
+        this.isLoadingMyRank = false;
+        // 스켈레톤 → 본문 교체로 카드 높이가 바뀌면 광고 슬롯 위치도 밀리므로 렌더 후 재전송
+        setTimeout(() => this.sendAdSlotPosition());
+      })
+    ).subscribe({
+      next: (res: any) => this.applyMyRank(res),
+      // 실패(토큰 만료·네트워크)하면 기존 값을 유지한다. 순위를 지어내지 않는다
+      error: () => { }
+    });
+  }
+
+  /**
+   * 응답 반영 + 순위 변동 판정.
+   *
+   * 기기에는 "변동을 마지막으로 보여준 시점의 순위"를 starId별로 저장한다(서버에 순위 이력이 없다 — 클라이언트 확정안).
+   * - 저장값이 없고 순위가 있으면 기준점만 저장하고 표시하지 않는다
+   * - 상승·하락이 감지되면 새 delta 객체를 넘겨(카드가 1회 플래시) 그 순위를 새 기준점으로 저장한다
+   * - 유지·판정 불가일 때는 delta를 덮어쓰지 않는다 → 화살표는 다음 변동까지 30초 틱·재진입에도 남고,
+   *   다음 콜드 스타트에서는 저장값 == 현재라 표시되지 않는다("유지면 표시 없음")
+   */
+  private applyMyRank(res: any) {
+    if (!res || res.result !== 'OK' || this.myRankStarId !== this.starId) return;
+
+    const data: MyRankData = {
+      globalRank: res.globalRank == null ? null : Number(res.globalRank),
+      totalStars: Number(res.totalStars) || 0,
+      score: Number(res.score) || 0,
+      viewCount: Number(res.viewCount) || 0,
+      likeCnt: Number(res.likeCnt) || 0,
+      followerCnt: Number(res.followerCnt) || 0,
+      name: res.name || '',
+      image: res.image || ''
+    };
+
+    const key = MyRankingCardComponent.lastSeenKey(this.starId);
+    const prev = MyRankingCardComponent.parseStoredRank(localStorage.getItem(key));
+    const delta = MyRankingCardComponent.computeDelta(prev, data.globalRank);
+
+    if (delta.dir === 'up' || delta.dir === 'down') {
+      this.myRankDelta = delta;
+      localStorage.setItem(key, String(data.globalRank));
+    } else if (prev === null && data.globalRank !== null) {
+      localStorage.setItem(key, String(data.globalRank));
+    }
+
+    this.myRank = data;
+  }
+
   setVsRankMode(mode: 'GLOBAL' | 'DAILY') {
     if (this.vsRankMode === mode) return;
     this.vsRankMode = mode;
@@ -693,6 +796,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   doRefresh(event: any) {
     this.loadLobbyData(event);
+    this.loadMyRank(); // My Global Ranking 카드도 함께 갱신 (2-29차)
   }
 
   toggleFavoriteList() {
@@ -967,6 +1071,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (res.ok) {
       this.isStar = true;
       this.starId = res.starId;
+      if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
     }
   }
 
@@ -975,6 +1080,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (res.ok) {
       this.isStar = true;
       this.starId = res.starId;
+      if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
     }
   }
 
@@ -991,6 +1097,8 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.isStar = localStorage.getItem('isStar') === 'true';
       this.starId = localStorage.getItem('starId') || '';
 
+      // 페이지 생성·클레임 직후 My Global Ranking 카드를 내 순위로 교체 (2-29차)
+      if (this.isViewActive) this.startMyRankPolling();
 
       if (this.isShowingFavorites) {
         this.loadFavoriteStars();
@@ -1126,6 +1234,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startAutoShuffle();
           this.loadVsCards(); // VS 카드 즉시 갱신 (폴링 첫 틱은 3초 뒤)
           this.startVsPolling();
+          this.startMyRankPolling(); // My Global Ranking 카드 즉시 갱신 + 30초 재개
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
           if (this.newsTicker) this.newsTicker.start();
         }
@@ -1135,6 +1244,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         this.stopAutoSlide();
         this.stopAutoShuffle();
         this.stopVsPolling();
+        this.stopMyRankPolling();
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
@@ -1244,6 +1354,7 @@ export class LobbyPage implements OnInit, OnDestroy {
                     localStorage.setItem('starPw', data.pw);
                     localStorage.setItem('starToken', res.starToken);
         this.dm.refreshUnread();
+                    if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
                   }
 
                   if (type === 'STAR') {
@@ -1290,6 +1401,11 @@ export class LobbyPage implements OnInit, OnDestroy {
             localStorage.removeItem('starId');
             localStorage.removeItem('starPw');
             localStorage.removeItem('fcmToken'); // 로컬 토큰 캐시도 정리
+
+            // My Global Ranking 카드를 비로그인 변형으로 되돌린다 (lastSeen 키는 starId별이라 그대로 둔다)
+            this.myRank = null;
+            this.myRankDelta = { dir: 'none', amount: 0 };
+            this.myRankStarId = '';
 
             // this.globalFeedback.stopPolling();
 
