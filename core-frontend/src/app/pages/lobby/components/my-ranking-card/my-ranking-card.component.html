@@ -1,13 +1,14 @@
-<div class="mr-card" [class.flash-up]="flash && delta.dir === 'up'" [class.flash-down]="flash && delta.dir === 'down'">
-
-  <!-- 헤더: 지구본 · 제목 · LIVE — 로그인/비로그인 공통 -->
-  <div class="mr-head">
-    <span class="mr-globe">🌎</span>
-    <span class="mr-title">My Global Ranking</span>
-    <span class="mr-live"><span class="mr-live-dot"></span>LIVE</span>
-  </div>
+<div class="mr-card" [class.guest]="!loggedIn" [class.flash-up]="flash && delta.dir === 'up'"
+  [class.flash-down]="flash && delta.dir === 'down'">
 
   <ng-container *ngIf="loggedIn; else guestTpl">
+    <!-- 헤더: 지구본 · 제목 · LIVE -->
+    <div class="mr-head">
+      <span class="mr-globe">🌎</span>
+      <span class="mr-title">My Global Ranking</span>
+      <span class="mr-live"><span class="mr-live-dot"></span>LIVE</span>
+    </div>
+
     <ng-container *ngIf="!showSkeleton; else skeletonTpl">
 
       <div class="mr-body">
@@ -51,14 +52,33 @@
     </ng-container>
   </ng-container>
 
-  <!-- 비로그인·관리자: 같은 셸, 순위 대신 페이지 만들기 유도. 로그인 팝업은 띄우지 않는다 -->
+  <!-- 비로그인·관리자: 같은 셸·같은 높이. 왼쪽 문구+버튼, 오른쪽 장식(지구본·왕관·별). 로그인 팝업은 띄우지 않는다 -->
   <ng-template #guestTpl>
     <div class="mr-guest">
-      <div class="mr-guest-headline">Where do you rank in the world?</div>
-      <div class="mr-guest-sub">Create your Star Page and claim your place in the global ranking.</div>
-      <button type="button" class="mr-btn primary wide" (click)="createPage.emit()">
-        <span class="mr-btn-icon">✨</span>Create My Star Page
-      </button>
+      <div class="mr-guest-text">
+        <div class="mr-guest-title-row">
+          <span class="mr-guest-globe">🌐</span>
+          <span class="mr-guest-title">Global Ranking</span>
+          <span class="mr-guest-info" aria-hidden="true">i</span>
+        </div>
+        <div class="mr-guest-headline">Find out where you stand in the world!</div>
+        <div class="mr-guest-sub">Create your StarPage and join the global ranking!</div>
+        <button type="button" class="mr-guest-btn" (click)="createPage.emit()">
+          <span class="mr-guest-btn-plus">+</span>
+          <span class="mr-guest-btn-label">Create Your StarPage</span>
+          <span class="mr-guest-btn-chevron">›</span>
+        </button>
+      </div>
+
+      <!-- 장식 — 조작 대상이 아니므로 접근성 트리에서 숨긴다 -->
+      <div class="mr-guest-art" aria-hidden="true">
+        <div class="art-globe"></div>
+        <span class="art-spark s1">✦</span>
+        <span class="art-spark s2">✦</span>
+        <span class="art-spark s3">✦</span>
+        <span class="art-crown">👑</span>
+        <div class="art-caption">Be the next<br />Global Star!<span class="art-caption-star">⭐</span></div>
+      </div>
     </div>
   </ng-template>
 
