@@ -73,14 +73,7 @@
     .faq-item h3 { font-size: 16px; margin-bottom: 6px; }
     .faq-item p { font-size: 14px; color: #94a3b8; }
 
-    /* 최근 포스트·인기 스타 카드: 크롤러의 콘텐츠 발견 경로이자 실제 방문자용 목차 */
-    .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-top: 30px; text-align: left; }
-    .post-card { display: flex; gap: 12px; align-items: center; background: #1e293b; border-radius: 12px; padding: 14px; text-decoration: none; color: inherit; }
-    .post-card:hover { background: #263449; }
-    .post-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #0f172a; }
-    .post-info { min-width: 0; }
-    .post-author { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 2px; }
-    .post-snippet { font-size: 13px; color: #94a3b8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+    /* 포스트 카드 스타일은 include/web-card-style.jsp 로 옮겼다 (/posts 목록과 공유) */
     .star-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 30px; }
     .star-card { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; text-decoration: none; color: inherit; }
     .star-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #1e293b; }
@@ -98,12 +91,13 @@
     footer a:hover { text-decoration: underline; }
     @media (max-width: 600px) { .hero h1 { font-size: 30px; } .hero p { font-size: 16px; } }
   </style>
+  <%-- 헤더 내비게이션·푸터·포스트 카드는 공개 페이지 전체가 공유한다 --%>
+  <%@ include file="/WEB-INF/jsp/common/include/web-chrome-style.jsp"%>
+  <%@ include file="/WEB-INF/jsp/common/include/web-card-style.jsp"%>
 </head>
 <body>
+<%@ include file="/WEB-INF/jsp/common/include/web-nav.jsp"%>
 <div class="container">
-  <header>
-    <div class="logo" onclick="window.location.href='/'">StarPlatform</div>
-  </header>
   
   <section class="hero">
     <h1>Create. Grow. Earn.</h1>
@@ -120,19 +114,10 @@
   <c:if test="${not empty recentPosts}">
   <section class="section">
     <h2>Latest Posts</h2>
-    <div class="post-grid">
-      <c:forEach var="p" items="${recentPosts}">
-        <a class="post-card" href="${pageContext.request.contextPath}/post/${p.conId}">
-          <c:if test="${not empty p.image}">
-            <img class="post-thumb" src="${p.image}" alt="" loading="lazy" onerror="this.style.display='none'">
-          </c:if>
-          <span class="post-info">
-            <span class="post-author">${p.author}</span>
-            <span class="post-snippet">${p.snippet}</span>
-          </span>
-        </a>
-      </c:forEach>
-    </div>
+    <%-- 카드 마크업은 /posts 목록과 공유한다. include가 보는 변수명에 맞춰 넘긴다 --%>
+    <c:set var="postCards" value="${recentPosts}"/>
+    <%@ include file="/WEB-INF/jsp/common/include/web-post-cards.jsp"%>
+    <p style="margin-top: 22px;"><a class="btn btn-secondary" href="${pageContext.request.contextPath}/posts">See all public posts</a></p>
   </section>
   </c:if>
 
@@ -238,7 +223,7 @@
     <h2>Already have the app?</h2>
     <p>Open StarPlatform to follow stars, join conversations, and get real-time updates.</p>
     <div class="buttons">
-      <a onclick="openApp()" class="btn btn-primary">Open in StarPlatform App</a>
+      <a onclick="spOpenApp()" class="btn btn-primary">Open in StarPlatform App</a>
     </div>
   </section>
 
@@ -255,30 +240,13 @@
     </div>
   </section>
 
-  <footer>
-    <p>© 2026 StarPlatform. All rights reserved.</p>
-    <div>
-      <a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a> |
-      <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>
-    </div>
-  </footer>
 </div>
+<%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 
 <script>
-  // 루트 허브는 자동 앱 실행·스토어 강제 이동을 하지 않는다 (클라이언트 확정).
-  // 앱 전환은 사용자가 Open in App 버튼을 눌렀을 때만 시도하고,
-  // 미설치라면 스토어로 보내지 않고 허브에 남긴다 (스토어는 Google Play 버튼으로 직접 선택).
-  function openApp() {
-    var ua = navigator.userAgent.toLowerCase();
-    if (ua.indexOf("android") > -1) {
-      // intent://: 앱이 있으면 실행, 없으면 fallback URL(현재 허브)로 복귀
-      var fallback = encodeURIComponent(window.location.href);
-      window.location.href = "intent://home#Intent;scheme=witchhunting;package=kr.co.sensiblenews.witchHuntingVU2D7F2P7E;S.browser_fallback_url=" + fallback + ";end";
-    } else {
-      // iOS: 커스텀 스킴 1회 시도, 실패해도 추가 이동 없음
-      window.location.href = "witchhunting://home";
-    }
-  }
+  // 앱 전환(spOpenApp)은 공통 내비게이션 include에 있다.
+  // 자동 실행·스토어 강제 이동은 하지 않는다 (클라이언트 확정) — 버튼을 눌렀을 때만 시도하고,
+  // 미설치라면 스토어로 보내지 않고 허브에 남긴다.
 
   // Download App 버튼: OS에 맞는 스토어로 이동. 데스크톱 등 판별 불가 환경은 하단 뱃지 섹션으로 스크롤
   function goStore() {

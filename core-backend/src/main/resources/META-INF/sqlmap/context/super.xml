@@ -956,4 +956,42 @@
 		  AND STATUS = #{fromStatus}
 	</update>
 
+	<!-- ===== 공개 웹 문의 접수 (2-29차) =====
+	     DDL: core-backend/db/web-contact.sql 을 배포 전에 수동 실행할 것 -->
+
+	<!-- useGeneratedKeys: 알림 메일 발송 표시(updateWebContactMailSent)에 쓰려면
+	     채번된 CONTACT_ID 가 파라미터 맵으로 되돌아와야 한다 -->
+	<insert id="insertWebContact" parameterType="map" useGeneratedKeys="true" keyProperty="contactId">
+		INSERT INTO WH_WEB_CONTACT (
+			CONTACT_TYPE, SENDER_NAME, SENDER_EMAIL, SUBJECT, MESSAGE_BODY, CLIENT_IP, USER_AGENT
+		) VALUES (
+			#{contactType}, #{senderName}, #{senderEmail}, #{subject}, #{message}, #{clientIp}, #{userAgent}
+		)
+	</insert>
+
+	<update id="updateWebContactMailSent" parameterType="map">
+		UPDATE WH_WEB_CONTACT
+		   SET MAIL_SENT_YN = 'Y'
+		 WHERE CONTACT_ID = #{contactId}
+	</update>
+
+	<!-- 어드민 목록: 미처리를 위로, 그 안에서 최신순 -->
+	<select id="selectWebContactList" parameterType="map" resultType="map">
+		SELECT CONTACT_ID, CONTACT_TYPE, SENDER_NAME, SENDER_EMAIL, SUBJECT, MESSAGE_BODY,
+		       CLIENT_IP, STATUS, MAIL_SENT_YN, CREATED_DATE
+		  FROM WH_WEB_CONTACT
+		 ORDER BY (STATUS = 'NEW') DESC, CREATED_DATE DESC
+		 LIMIT #{offset}, #{size}
+	</select>
+
+	<select id="selectWebContactCount" parameterType="map" resultType="int">
+		SELECT COUNT(*) FROM WH_WEB_CONTACT
+	</select>
+
+	<update id="updateWebContactDone" parameterType="map">
+		UPDATE WH_WEB_CONTACT
+		   SET STATUS = 'DONE'
+		 WHERE CONTACT_ID = #{contactId}
+	</update>
+
 </mapper>

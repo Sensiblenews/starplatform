@@ -44,6 +44,17 @@ target 'App' do
   # Add your Pods here
   pod 'Firebase/Messaging'
   pod 'Google-Mobile-Ads-SDK'
+  # Liftoff Monetize(구 Vungle) Bidding 어댑터 (2-29차). VungleAds SDK를 함께 가져온다.
+  # 앱 코드는 참조하지 않는다 — AdMob이 이름으로 찾아 올린다.
+  # 버전 핀 필수: @capacitor-community/admob@6이 Google-Mobile-Ads-SDK를 11.3.0으로
+  # 정확히 핀하므로, GMA ~> 11.0을 요구하는 마지막 어댑터인 7.4.4.0을 써야 한다.
+  # (7.4.4.1부터 ~> 12.0, 7.7.x는 ~> 13.x라 pod install이 충돌로 실패한다)
+  pod 'GoogleMobileAdsMediationVungle', '7.4.4.0'
+  # Meta Audience Network Bidding 어댑터 (2-29차). FBAudienceNetwork SDK를 함께 가져온다.
+  # Liftoff와 같은 이유로 버전을 못박는다 — GMA ~> 11.0을 요구하는 마지막 어댑터가 6.16.0.0이다.
+  # (6.16.0.1부터 ~> 12.0, 6.22.0.0은 ~> 13.3이라 GMA 11.3.0 핀과 충돌한다)
+  # FBAudienceNetwork는 아래 FBSDKCoreKit(로그인용)에 의존하지 않는다 — 버전이 서로 얽히지 않는다.
+  pod 'GoogleMobileAdsMediationFacebook', '6.16.0.0'
   pod 'FBSDKCoreKit'
   pod 'GoogleUserMessagingPlatform', '2.1.0'
   pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'

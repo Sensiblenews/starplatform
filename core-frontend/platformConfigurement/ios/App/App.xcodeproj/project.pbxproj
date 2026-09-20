@@ -415,7 +415,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 100035;
+				CURRENT_PROJECT_VERSION = 100069;
 				DEVELOPMENT_TEAM = VU2D7F2P7E;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Star Platform";
@@ -424,7 +424,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 10.0.35;
+				MARKETING_VERSION = 10.0.69;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = kr.co.sensiblenews.witchHunting;
 				PRODUCT_NAME = "Star Platform";
@@ -441,7 +441,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 100035;
+				CURRENT_PROJECT_VERSION = 100069;
 				DEVELOPMENT_TEAM = VU2D7F2P7E;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Star Platform";
@@ -450,7 +450,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 10.0.35;
+				MARKETING_VERSION = 10.0.69;
 				PRODUCT_BUNDLE_IDENTIFIER = kr.co.sensiblenews.witchHunting;
 				PRODUCT_NAME = "Star Platform";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";

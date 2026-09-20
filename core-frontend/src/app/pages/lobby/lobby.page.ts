@@ -6,7 +6,7 @@ import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from '../../services/haptic.service';
 import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
@@ -181,6 +181,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private perf: PerfTraceService,
     private helper: HelperService,
     private dm: DmService,
+    private haptic: HapticService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -201,7 +202,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   // 💬 아이콘 → 대화 목록 (헤더 순서: 🔍 💬 ⊕ ☆ 🏆 👤)
   async openDmRoomsList() {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    this.haptic.tap();
     await openDmRooms(this.modalCtrl, this.dm);
   }
 
@@ -905,7 +906,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async goToStarPage(starId: string) {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    this.haptic.tap();
 
     this.perf.start('스타페이지 진입');
 
@@ -923,7 +924,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   async goToContentPage(contentId: string) {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    this.haptic.tap();
     this.router.navigate([`/feed-detail/${contentId}`]);
   }
 
@@ -1006,7 +1007,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     star.showPlus = true;
     setTimeout(() => star.showPlus = false, 800);
 
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    await this.haptic.tap();
 
     const audio = new Audio('assets/sounds/tick.mp3');
     audio.volume = 0.65;
@@ -1154,11 +1155,7 @@ export class LobbyPage implements OnInit, OnDestroy {
             audio.volume = 0.65;
             audio.play().catch(e => console.log('Audio playback error:', e));
 
-            try {
-              import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => {
-                Haptics.impact({ style: ImpactStyle.Light });
-              });
-            } catch (e) { }
+            this.haptic.tap();
 
             this.runSlotMachineEffect(star);
           }, randomDelay);
@@ -1364,11 +1361,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   async goToMyStarPage() {
     if (this.isStar && this.starId) {
-      // 가벼운 햅틱(진동) 피드백 (선택사항)
-      try {
-        const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
-        Haptics.impact({ style: ImpactStyle.Light });
-      } catch (e) { }
+      await this.haptic.tap();
 
       // 내 스타페이지로 라우팅
       this.router.navigate(['/star', this.starId]);
@@ -1388,7 +1381,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   async openMessageModal() {
     // 햅틱 피드백
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    await this.haptic.tap();
 
     const modal = await this.modalCtrl.create({
       component: MessageModalComponent, // 대화창 컴포넌트

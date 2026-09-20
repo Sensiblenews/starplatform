@@ -468,9 +468,16 @@
 			M.CON_ID,
 			M.CON_BODY,
 			M.CREATED_DATE,
+			IFNULL(M.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
+			P.PRS_ID,
 			P.PRS_NAME,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+			IFNULL(P.STAR_CATEGORY, 'GENERAL') AS STAR_CATEGORY,
 			D.THUMB_URL,
-			D.MEDIA_URL
+			D.MEDIA_URL,
+			-- 사진 중심 게시물은 본문이 한 줄뿐이라 첨부 장수를 카드 정보량으로 보탠다
+			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) AS MEDIA_CNT
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
@@ -510,6 +517,37 @@
 
 	<!-- [신규] sitemap.xml용: 활성 스타의 게시물 전체 (CREATED_DATE는 lastmod 표기용).
 	     승인된 글만 — 미승인 글은 렌더 목록에도 없으므로 사이트맵과 실제 노출을 일치시킨다 -->
+	<!-- 공개 포스트 목록 페이지(/posts). 허브 카드와 같은 컬럼을 쓰되 페이지 단위로 끊어 온다 -->
+	<select id="selectPublicPosts" parameterType="map" resultType="map">
+		SELECT
+			M.CON_ID,
+			M.CON_BODY,
+			M.CREATED_DATE,
+			IFNULL(M.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
+			P.PRS_ID,
+			P.PRS_NAME,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+			IFNULL(P.STAR_CATEGORY, 'GENERAL') AS STAR_CATEGORY,
+			D.THUMB_URL,
+			D.MEDIA_URL,
+			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) AS MEDIA_CNT
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
+		WHERE M.MDR_STATUS = 'APPROVED'
+		ORDER BY M.CREATED_DATE DESC
+		LIMIT #{offset}, #{size}
+	</select>
+
+	<!-- 목록 페이지네이션용 총 건수. 카드 조회와 같은 조건이어야 마지막 페이지가 비지 않는다 -->
+	<select id="selectPublicPostCount" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_STAR_CONTENT M
+		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
+		WHERE M.MDR_STATUS = 'APPROVED'
+	</select>
+
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
 		SELECT M.CON_ID, M.CREATED_DATE
 		FROM WH_STAR_CONTENT M
@@ -1011,6 +1049,100 @@
 	</select>
 
 	<!-- 지정된 날짜(Daily) 조회수 기준 상위 500위 크리에이터 조회 -->
+	<!-- ===== 오늘 랭킹 실시간화 (2-29차) =====
+	     오늘 집계는 Redis ZSET(rank:daily:yyyy-MM-dd)이 들고 있고, 아래 쿼리는
+	     그 ZSET을 처음 만들거나 주기적으로 DB 기준으로 다시 맞출 때만 쓴다.
+	     DB가 원본이고 ZSET은 실시간 반영용 사본이다. -->
+
+	<!-- ZSET 시딩·재동기화용: 오늘 IMPRESSION 건수를 스타별로 집계한다.
+	     활성 스타만 담아 ZSET에 비활성 스타가 섞이지 않게 한다 -->
+	<select id="selectTodayImpressionCounts" resultType="map">
+		SELECT A.PRS_ID, COUNT(*) AS viewCount
+		  FROM WH_AD_LOG A
+		  JOIN WH_PRESS P ON A.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		 WHERE A.ACTION = 'IMPRESSION'
+		   AND A.CREATED_DATE >= CURDATE()
+		 GROUP BY A.PRS_ID
+	</select>
+
+	<!-- 실시간 랭킹 응답 조립용 스타 메타데이터. 순서는 ZSET이 정하므로 여기서는 정렬하지 않는다.
+	     PK(IN) 조회라 오늘 집계 GROUP BY보다 훨씬 싸다 -->
+	<select id="selectStarsByIds" parameterType="map" resultType="map">
+		SELECT
+			P.PRS_ID AS id,
+			P.PRS_NAME AS name,
+			P.STORED_FILE_NM AS image,
+			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+			(SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE PRS_ID = P.PRS_ID) AS TOTAL_STARS
+		  FROM WH_PRESS P
+		 WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		   AND P.PRS_ID IN
+			<foreach collection="ids" item="starId" open="(" close=")" separator=",">#{starId}</foreach>
+	</select>
+
+	<!-- 오늘의 1위 한 명. Redis를 쓸 수 없을 때 오늘의 왕 행을 채우는 폴백이다.
+	     ZSET이 정상이면 호출되지 않는다 -->
+	<select id="selectTodayKing" resultType="map">
+		SELECT
+			DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS rankDate,
+			A.viewCount,
+			P.PRS_ID AS id,
+			P.PRS_NAME AS name,
+			P.STORED_FILE_NM AS image
+		  FROM (
+			SELECT PRS_ID, COUNT(*) AS viewCount
+			  FROM WH_AD_LOG
+			 WHERE ACTION = 'IMPRESSION'
+			   AND CREATED_DATE >= CURDATE()
+			 GROUP BY PRS_ID
+		  ) A
+		  JOIN WH_PRESS P ON A.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		 ORDER BY A.viewCount DESC, P.PRS_ID ASC
+		 LIMIT 1
+	</select>
+
+	<!-- 역대 오늘의 왕에서 "오늘"을 뺀 것. 어제까지의 결과는 더 바뀌지 않으므로
+	     12시간 캐시가 안전하다. 오늘 행은 ZSET에서 실시간으로 얹는다.
+	     (기존 selectDailyKings는 오늘까지 포함한 채 12시간 캐시에 들어가 오늘의 왕이
+	      최대 12시간 묵은 값으로 나왔다) -->
+	<select id="selectDailyKingsBeforeToday" parameterType="map" resultType="map">
+	    WITH DailyCounts AS (
+	        SELECT
+	            DATE(A.CREATED_DATE) as rank_date,
+	            A.PRS_ID,
+	            COUNT(*) as viewCount
+	        FROM WH_AD_LOG A
+	        WHERE A.ACTION = 'IMPRESSION'
+	          AND A.CREATED_DATE &lt; CURDATE()
+	        <if test="targetMonth != null and targetMonth != ''">
+	            AND DATE_FORMAT(A.CREATED_DATE, '%Y-%m') = #{targetMonth}
+	        </if>
+	        GROUP BY DATE(A.CREATED_DATE), A.PRS_ID
+	    ),
+	    RankedDaily AS (
+	        SELECT
+	            rank_date,
+	            PRS_ID,
+	            viewCount,
+	            ROW_NUMBER() OVER(PARTITION BY rank_date ORDER BY viewCount DESC) as rn
+	        FROM DailyCounts
+	    )
+	    SELECT
+	        DATE_FORMAT(R.rank_date, '%Y-%m-%d') as rankDate,
+	        R.viewCount,
+	        P.PRS_ID as id,
+	        P.PRS_NAME as name,
+	        P.STORED_FILE_NM as image
+	    FROM RankedDaily R
+	    JOIN WH_PRESS P ON R.PRS_ID = P.PRS_ID
+	    WHERE R.rn = 1
+	      AND P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+	    ORDER BY R.rank_date DESC
+	    <if test="targetMonth == null or targetMonth == ''">
+	        LIMIT 30
+	    </if>
+	</select>
+
 	<select id="selectDailyLeaderboard" parameterType="map" resultType="map">
 	    SELECT * FROM (
 	        SELECT 
