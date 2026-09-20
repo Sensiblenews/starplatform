@@ -20,6 +20,8 @@ import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carouse
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
+import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
+import { OpeningOverlayService } from '../../services/opening-overlay.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { HelperService } from 'src/app/services/helper.service';
@@ -139,6 +141,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
   @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
   @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
+  // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
+  @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
   private vsPollIntervalId: any;
 
@@ -199,6 +203,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private dm: DmService,
     private haptic: HapticService,
     private tickSound: TickSoundService,
+    private opening: OpeningOverlayService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -324,6 +329,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoShuffle();
     this.stopVsPolling();
     this.stopMyRankPolling();
+    if (this.openingOverlay) this.openingOverlay.stop(false);
     this.removeAppStateListener();
     this.unbindDmState();
     window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
@@ -366,6 +372,9 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
     this.updateLobbyAd();
 
+    // 🌟 오프닝 오버레이 — 앱을 켠 뒤 첫 로비 진입에서만 1회 (2-29차)
+    this.maybePlayOpening();
+
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, (processNextHandler) => {
       if (this.isShowingFavorites) {
         this.isShowingFavorites = false;
@@ -397,6 +406,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 VS 배틀필드: 폴링·자동 순환 정지
     this.stopVsPolling();
     this.stopMyRankPolling();
+    // 1.5초 안에 다른 화면으로 넘어가면 오버레이도 함께 끊는다 (재생 완료 이벤트 없음)
+    if (this.openingOverlay) this.openingOverlay.stop(false);
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
 
@@ -705,6 +716,19 @@ export class LobbyPage implements OnInit, OnDestroy {
     }
 
     this.myRank = data;
+  }
+
+  // ==========================================
+  // 🌟 [2-29차] 오프닝 오버레이 — 앱을 켠 뒤 첫 로비 진입에서 1회
+  // ==========================================
+
+  // 뒤로 가기·탭 복귀로 로비에 다시 와도 서비스 플래그가 막는다. 백그라운드 복귀도 재생하지 않는다(클라이언트 확정).
+  // 딥링크로 스타 페이지에 먼저 들어온 뒤 로비로 오면 그때 1회 재생된다.
+  private maybePlayOpening() {
+    if (!this.openingOverlay) return;
+    if (this.opening.consumeFirstPlay(this.appForeground)) {
+      this.openingOverlay.play();
+    }
   }
 
   setVsRankMode(mode: 'GLOBAL' | 'DAILY') {
@@ -1245,6 +1269,8 @@ export class LobbyPage implements OnInit, OnDestroy {
         this.stopAutoShuffle();
         this.stopVsPolling();
         this.stopMyRankPolling();
+        // 오프닝 오버레이가 도는 중에 백그라운드로 가면 즉시 중단 (클라이언트 10단계안)
+        if (this.openingOverlay) this.openingOverlay.stop(false);
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김

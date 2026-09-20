@@ -1,0 +1,172 @@
+// 로비 오프닝 오버레이 (2-29차). 지구본·별빛·얇은 파동·문구 2줄 — 화려한 파티클 대신 미니멀하게.
+$op-navy: #0b1a3a;
+$op-gold: #ffd54f;
+$op-blue: #40c4ff;
+
+:host {
+  display: contents;
+}
+
+.op-overlay {
+  // 페이지 호스트의 형제로 놓이므로 뷰포트 전체를 덮는다. ion-fab(999)보다 위.
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  // 조작을 막지 않는다 — 폭죽이 도는 동안에도 로비를 바로 쓸 수 있다
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: var(--ion-safe-area-top, 0);
+  // 로비는 흰 배경이라 흰 문구가 묻힌다 — 중앙에만 은은한 남색 플레이트를 깐다
+  background: radial-gradient(circle at center, rgba(11, 26, 58, 0.78) 0%, rgba(11, 26, 58, 0.55) 38%, rgba(11, 26, 58, 0) 72%);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+
+  &.fading {
+    opacity: 0;
+  }
+}
+
+.op-stage {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ===== 지구본: 약간 작게 시작 → 0.2초 확대 → 정착. 과한 회전 없음 =====
+.op-globe {
+  position: relative;
+  z-index: 2;
+  font-size: 64px;
+  line-height: 1;
+  transform: scale(0.2);
+  opacity: 0;
+  animation: op-globe-in 0.2s ease-out 0s 1 forwards;
+  filter: drop-shadow(0 0 14px rgba(64, 196, 255, 0.45));
+}
+
+// ===== 얇은 원형 빛 파동 1회 (0.4초 시작, 0.5초 동안 확대·소멸) =====
+.op-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  margin: -48px 0 0 -48px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 213, 79, 0.85);
+  box-shadow: 0 0 12px rgba(255, 213, 79, 0.35);
+  opacity: 0;
+  transform: scale(0.6);
+  animation: op-ring 0.5s ease-out 0.4s 1 forwards;
+}
+
+// ===== 별빛 4~6개: 투명 → 나타남 → 살짝 확대 → 반짝 → 사라짐 =====
+.op-star {
+  position: absolute;
+  // left/top은 스테이지 중앙 기준 오프셋(px)을 TS에서 넣는다 — 여기서 중앙 원점으로 옮긴다
+  margin-left: 110px;
+  margin-top: 110px;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: op-sparkle 0.7s ease-out 0s 1 forwards; // delay는 인라인 style로 별마다 다르게
+
+  &.gold {
+    background: $op-gold;
+    box-shadow: 0 0 8px rgba(255, 213, 79, 0.9);
+  }
+
+  &.white {
+    background: #fff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  }
+
+  &.blue {
+    background: $op-blue;
+    box-shadow: 0 0 8px rgba(64, 196, 255, 0.9);
+  }
+}
+
+// ===== 문구: 0.6초 등장, 종료와 함께 오버레이가 사라진다 =====
+.op-text {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 8px);
+  width: 280px;
+  text-align: center;
+  color: #fff;
+  opacity: 0;
+  animation: op-text 0.3s ease-out 0.6s 1 forwards;
+
+  .op-headline {
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  .op-sub {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.78);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  }
+}
+
+// ===== 모션 감소: 확대·파동·반짝임 없이 정적으로 =====
+.op-overlay.static {
+  .op-globe,
+  .op-star,
+  .op-text {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .op-text {
+    transform: translate(-50%, 8px);
+  }
+
+  .op-ring {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op-overlay {
+    transition: none;
+  }
+}
+
+// ===== 키프레임 =====
+@keyframes op-globe-in {
+  0% { transform: scale(0.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes op-ring {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes op-sparkle {
+  0% { transform: scale(0.3); opacity: 0; }
+  30% { transform: scale(1.25); opacity: 1; }
+  55% { transform: scale(0.95); opacity: 0.8; }
+  75% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.6); opacity: 0; }
+}
+
+@keyframes op-text {
+  0% { transform: translate(-50%, 16px); opacity: 0; }
+  100% { transform: translate(-50%, 8px); opacity: 1; }
+}
