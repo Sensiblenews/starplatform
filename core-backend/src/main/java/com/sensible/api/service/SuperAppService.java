@@ -125,18 +125,7 @@ public class SuperAppService {
 	 * 예전 쿼리에서도 그런 페이지의 GLOBAL_RANK는 NULL이었으므로 동작이 같다.
 	 */
 	private void applyGlobalRank(Map<String, Object> starInfo, String starId) {
-		List<Map<String, Object>> rankList;
-		try {
-			rankList = starRankService.getGlobalRankMap();
-		} catch (Exception e) {
-			// Redis 장애 시 fail-open — 캐시 도입 이전과 같은 비용으로 직접 계산한다
-			System.out.println("Star rank cache skipped (fail-open): " + e.getMessage());
-			try {
-				rankList = starRankService.getGlobalRankMapUncached();
-			} catch (Exception inner) {
-				rankList = null;
-			}
-		}
+		List<Map<String, Object>> rankList = loadGlobalRankList();
 
 		Map<String, Object> mine = null;
 		if (rankList != null) {
@@ -164,6 +153,25 @@ public class SuperAppService {
 				System.out.println("Star view count fallback failed: " + e.getMessage());
 			}
 			starInfo.put("viewCount", views == null ? 0 : views);
+		}
+	}
+
+	/**
+	 * 전체 스타 순위표를 가져온다. 캐시 → 실패 시 비캐시 직접 계산 → 그것도 실패하면 null.
+	 *
+	 * 스타 상세(applyGlobalRank)와 로비 My Global Ranking 카드(getMyRank)가 같은 폴백 규칙을 쓴다.
+	 */
+	private List<Map<String, Object>> loadGlobalRankList() {
+		try {
+			return starRankService.getGlobalRankMap();
+		} catch (Exception e) {
+			// Redis 장애 시 fail-open — 캐시 도입 이전과 같은 비용으로 직접 계산한다
+			System.out.println("Star rank cache skipped (fail-open): " + e.getMessage());
+			try {
+				return starRankService.getGlobalRankMapUncached();
+			} catch (Exception inner) {
+				return null;
+			}
 		}
 	}
 
@@ -2120,6 +2128,117 @@ public class SuperAppService {
 			e.printStackTrace();
 			resultMap.put("result", "FAIL");
 			resultMap.put("msg", "Failed to calculate revenue.");
+		}
+		return resultMap;
+	}
+
+	// Global Score 가중치 — selectGlobalRankMap / selectVsCards의 정렬식과 반드시 같아야 한다
+	public static final int SCORE_WEIGHT_VIEW = 1;
+	public static final int SCORE_WEIGHT_LIKE = 3;
+	public static final int SCORE_WEIGHT_FOLLOWER = 5;
+
+	/**
+	 * Global Score = 조회 ×1 + 좋아요 ×3 + 즐겨찾기 ×5.
+	 * 로비 My Global Ranking 카드의 pts와 VS 카드의 pts가 같은 단위가 되도록 SQL 정렬식을 그대로 옮겼다.
+	 */
+	public static long computeGlobalScore(long views, long likes, long followers) {
+		return views * SCORE_WEIGHT_VIEW + likes * SCORE_WEIGHT_LIKE + followers * SCORE_WEIGHT_FOLLOWER;
+	}
+
+	/**
+	 * MyBatis가 Integer / Long / BigInteger / BigDecimal / 문자열 어느 쪽으로 돌려주든 long으로 맞춘다.
+	 * null·비숫자는 0.
+	 */
+	public static long toLong(Object raw) {
+		if (raw == null) {
+			return 0L;
+		}
+		if (raw instanceof Number) {
+			return ((Number) raw).longValue();
+		}
+		try {
+			return Long.parseLong(String.valueOf(raw).trim());
+		} catch (NumberFormatException e) {
+			return 0L;
+		}
+	}
+
+	/**
+	 * 로비 My Global Ranking 카드 (2-29차) — 내 순위·전체 대상 수·Global Score·지표 3종.
+	 *
+	 * 스타 상세 API는 피드·갤러리까지 딸려 와 로비 진입마다 부르기엔 무겁다.
+	 * 순위·조회수는 캐시된 순위표에서, 좋아요·즐겨찾기는 WH_PRESS 한 행에서 읽는다.
+	 * 순위표 밖 페이지(IS_STAR='N' 등)는 globalRank를 null로 내려 프런트가 순위를 지어내지 않게 한다.
+	 *
+	 * 사용자별 데이터이므로 @Cacheable을 붙이지 않는다 — getMyRankingRevenue처럼 starId 단독 키로 캐시하면
+	 * 토큰 불일치 FAIL 응답까지 같은 키에 캐시되는 결함이 생긴다. 순위표 자체가 이미 Redis 캐시라 비용은 작다.
+	 */
+	public Map<String, Object> getMyRank(Map<String, Object> params) throws Exception {
+		Map<String, Object> resultMap = new HashMap<>();
+		try {
+			String starId = params.get("starId") == null ? null : String.valueOf(params.get("starId"));
+
+			// 1. 본인 확인 (null-safe, fail-closed)
+			if (!isStarOwner(starId, params.get("starToken"))) {
+				resultMap.put("result", "FAIL");
+				resultMap.put("msg", "Session expired. Please log in again.");
+				return resultMap;
+			}
+
+			// 2. 이름·사진·좋아요·즐겨찾기
+			Map<String, Object> counts = dao.selectOne("superapp.selectStarCounts", starId);
+			if (counts == null) {
+				resultMap.put("result", "FAIL");
+				resultMap.put("msg", "Star page not found.");
+				return resultMap;
+			}
+
+			// 3. 순위표에서 내 행 탐색
+			List<Map<String, Object>> rankList = loadGlobalRankList();
+			Map<String, Object> mine = null;
+			int totalStars = 0;
+			if (rankList != null) {
+				totalStars = rankList.size();
+				for (Map<String, Object> row : rankList) {
+					if (starId.equals(String.valueOf(row.get("PRS_ID")))) {
+						mine = row;
+						break;
+					}
+				}
+			}
+
+			// 4. 순위·조회수 — 순위표 밖이면 순위 없음, 조회수만 따로 센다
+			Object globalRank = null;
+			long viewCount;
+			if (mine != null) {
+				globalRank = mine.get("GLOBAL_RANK");
+				viewCount = toLong(mine.get("viewCount"));
+			} else {
+				Object views = null;
+				try {
+					views = dao.selectOne("superapp.selectStarViewCount", starId);
+				} catch (Exception e) {
+					System.out.println("Star view count fallback failed: " + e.getMessage());
+				}
+				viewCount = toLong(views);
+			}
+
+			long likeCnt = toLong(counts.get("LIKE_CNT"));
+			long followerCnt = toLong(counts.get("FOLLOWER_CNT"));
+
+			resultMap.put("globalRank", globalRank);
+			resultMap.put("totalStars", totalStars);
+			resultMap.put("score", computeGlobalScore(viewCount, likeCnt, followerCnt));
+			resultMap.put("viewCount", viewCount);
+			resultMap.put("likeCnt", likeCnt);
+			resultMap.put("followerCnt", followerCnt);
+			resultMap.put("name", counts.get("PRS_NAME"));
+			resultMap.put("image", counts.get("STORED_FILE_NM"));
+			resultMap.put("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+			resultMap.put("result", "FAIL");
+			resultMap.put("msg", "Failed to load your ranking.");
 		}
 		return resultMap;
 	}

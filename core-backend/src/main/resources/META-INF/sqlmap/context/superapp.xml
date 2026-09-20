@@ -383,6 +383,23 @@
 	    WHERE PRS_ID = #{starId} AND ACTION = 'IMPRESSION'
 	</select>
 
+	<!--
+	  로비 My Global Ranking 카드용 경량 조회 (2-29차).
+	  selectStarDetail은 deviceId 서브쿼리가 필요하고 갤러리까지 함께 내려가 로비 진입마다 부르기엔 무겁다.
+	  순위·조회수는 캐시된 순위표(selectGlobalRankMap)에서 채우므로 여기서는 이름·사진·좋아요·즐겨찾기만 읽는다.
+	-->
+	<select id="selectStarCounts" parameterType="string" resultType="hashmap">
+	    SELECT
+	        P.PRS_ID,
+	        P.PRS_NAME,
+	        P.STORED_FILE_NM,
+	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT
+	    FROM WH_PRESS P
+	    WHERE P.PRS_ID = #{starId}
+	      AND P.PRS_USE_YN = 'Y'
+	</select>
+
 	<select id="selectStarGallery" parameterType="map" resultType="map">
 		<!-- 페이징(2-26차): 예전에는 스타의 전체 피드 + 전체 공지를 한 번에 내려줬다.
 		     UNION 결과 전체를 정렬한 뒤 잘라야 하므로 서브쿼리로 감싼다. -->
