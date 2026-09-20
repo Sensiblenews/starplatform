@@ -54,7 +54,7 @@ public class SuperAppService {
 	public static final int DEFAULT_FEED_LIMIT = 20;
 	public static final int MAX_FEED_LIMIT = 100;
 
-	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 60초, context-redis.xml).
+	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 10초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
 	// usePrefix=true가 캐시명("lobby")을 접두어로 붙이므로 키에는 country만 둔다 → Redis 키: lobby:KR
 	// 주의: Today's TOP은 방문자 수 내림차순 그대로 내려보낸다(2-25차 — 셔플 제거).
@@ -1176,7 +1176,7 @@ public class SuperAppService {
 	}
 
 	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 (2-29차). 로비 진입 시 1회 + 60초 갱신.
-	// 어드민 저장 시 SuperAdminService가 캐시를 비우므로 TTL(30초)과 무관하게 즉시 반영된다.
+	// 어드민 저장 시 SuperAdminService가 캐시를 비우므로 TTL(10초)과 무관하게 즉시 반영된다.
 	@Cacheable(value = "liveNews", key = "'active'", unless = "#result == null")
 	public Map<String, Object> getLiveNews() throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();

@@ -60,25 +60,27 @@
         <!-- 캐시 키에 캐시명을 prefix로 붙인다. 끄면 @Cacheable(key="'leaderboard:global'")이
              SuperAppService의 ZINCRBY 대상 키와 정확히 충돌해 WRONGTYPE / 데이터 덮어쓰기가 발생한다. -->
         <property name="usePrefix" value="true" />
-        <!-- 기본 TTL 600초 (10분) 설정 -->
-        <property name="defaultExpiration" value="600" />
+        <!-- 기본 TTL 10초. vsCards 를 제외한 모든 캐시를 10초로 통일했다(2026-09-19 클라이언트 요청).
+             이전 값: 기본 600 / hallOfFame 43200 / dailyLeaderboard 600 / lobby·categoryLeaderboard·starRank 60 / liveNews 30.
+             캐시는 별도 갱신 스케줄러가 없고 TTL 만료 후 다음 요청 때 다시 계산한다. -->
+        <property name="defaultExpiration" value="10" />
         <!-- 캐시 영역별 커스텀 TTL 설정 -->
         <property name="expires">
             <map>
-                <!-- 명예의 전당 캐시는 12시간 (43200초) 설정 -->
-                <entry key="hallOfFame" value="43200" />
-                <!-- 일간 랭킹 캐시는 10분 (600초) 설정 -->
-                <entry key="dailyLeaderboard" value="600" />
-                <!-- 로비는 Today's TOP을 1분마다 재계산한다(클라이언트 확정). country별로 키 분리됨 -->
-                <entry key="lobby" value="60" />
-                <!-- VS 카드: 프론트 3초 폴링과 박자를 맞추기 위해 TTL 2초 (캐시 TTL < 폴링 주기) -->
+                <!-- 명예의 전당(역대 오늘의 왕·TOP100·월간·연간) -->
+                <entry key="hallOfFame" value="10" />
+                <!-- 지난 날짜 클릭수 랭킹. 오늘 랭킹은 캐시를 거치지 않고 ZSET 실시간이다(DailyRankService) -->
+                <entry key="dailyLeaderboard" value="10" />
+                <!-- 로비 데이터. country별로 키 분리됨 -->
+                <entry key="lobby" value="10" />
+                <!-- VS 카드: 프론트 3초 폴링과 박자를 맞추기 위해 TTL 2초 (캐시 TTL < 폴링 주기). 10초 통일에서 제외 -->
                 <entry key="vsCards" value="2" />
-                <!-- 카테고리 탭 TOP100: 탭 전환 시에만 요청되므로 1분 -->
-                <entry key="categoryLeaderboard" value="60" />
-                <!-- 스타 글로벌 순위표: 스타 페이지를 열 때마다 전체를 다시 매기지 않도록 1분 캐시 -->
-                <entry key="starRank" value="60" />
-                <!-- 로비 LIVE 티커 어드민 문구: 30초. 어드민 저장 시 @CacheEvict로 즉시 비운다 -->
-                <entry key="liveNews" value="30" />
+                <!-- 카테고리 탭 TOP100 -->
+                <entry key="categoryLeaderboard" value="10" />
+                <!-- 스타 글로벌 순위표: 스타 페이지를 열 때마다 전체를 다시 매기지 않도록 캐시 -->
+                <entry key="starRank" value="10" />
+                <!-- 로비 LIVE 티커 어드민 문구. 어드민 저장 시 @CacheEvict로 즉시 비운다 -->
+                <entry key="liveNews" value="10" />
             </map>
         </property>
     </bean>

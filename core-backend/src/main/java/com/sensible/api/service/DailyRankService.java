@@ -217,7 +217,7 @@ public class DailyRankService {
 	}
 
 	/**
-	 * 어제까지의 오늘의 왕. 이미 지난 날짜의 결과는 더 바뀌지 않으므로 12시간 캐시가 안전하다.
+	 * 어제까지의 오늘의 왕. 이미 지난 날짜의 결과는 더 바뀌지 않으므로 캐시가 안전하다(TTL은 context-redis.xml, 현재 10초).
 	 * (오늘 행은 getTodayKing이 실시간으로 얹는다)
 	 *
 	 * 별도 빈에 둔 이유는 StarRankService와 같다 — 같은 빈에서 this로 부르면
@@ -246,7 +246,7 @@ public class DailyRankService {
 	}
 
 	/**
-	 * 지난 날짜의 클릭수 랭킹. 이미 지난 날은 결과가 바뀌지 않으므로 기존 캐시(TTL 600초)를
+	 * 지난 날짜의 클릭수 랭킹. 이미 지난 날은 결과가 바뀌지 않으므로 기존 캐시(TTL은 context-redis.xml, 현재 10초)를
 	 * 그대로 쓴다. 오늘 분은 getTodayRanking이 실시간으로 처리한다.
 	 *
 	 * 이 메서드가 SuperAppService가 아니라 여기 있는 이유: 같은 빈 안에서 this로 호출하면
