@@ -51,9 +51,10 @@
 
   // 화면 세로의 절반 수준으로 확대 (클라이언트 요청 — 기존 약 1/3).
   // 세로 플렉스로 본문을 가운데 채우고 게이지를 하단에 붙인다.
-  // 2-29차: 하트·별·pts·Gap 줄을 빼면서 46vh → 43vh로 소폭 축소.
+  // 2-29차: 하트·별·pts·Gap 줄을 빼고(46 → 43vh), 이어서 아바타 80%·조회수 여백 제거와 함께
+  // 조회수 아래 빈 공간이 남지 않도록 30vh로 더 줄였다(내용 높이 약 245px이 하한이라 작은 화면에서는 내용이 높이를 정한다).
   // 값을 바꾸면 skeleton.component.scss의 .sk-vs도 같이 맞출 것
-  min-height: 43vh;
+  min-height: 30vh;
   display: flex;
   flex-direction: column;
 }
@@ -126,7 +127,7 @@
   .side-name {
     font-size: 14px;
     font-weight: 800;
-    margin-top: 10px;
+    margin-top: 6px;
     // 2줄 높이를 항상 확보 — 이름이 1줄이든 2줄이든 아래 지표·pts가 같은 높이에 온다
     // (14px × 1.25 × 2줄 = 35px. 대기 문구는 폰트가 작아 3줄도 이 안에 근접)
     line-height: 1.25;
@@ -142,15 +143,16 @@
     overflow: hidden;
   }
 
-  // 이름 아래 지표 — 👁️ 노출 한 줄만 (❤️·⭐·pts 줄은 2-29차에 제거)
+  // 이름 아래 지표 — 👁️ 노출 한 줄만 (❤️·⭐·pts 줄은 2-29차에 제거).
+  // 위아래 여백은 거의 없앤다(클라이언트 요청) — 이름과 붙여 세로 공간을 줄인다
   .side-stats {
-    margin-top: 6px;
+    margin-top: 0;
 
     .stat-line {
       font-size: 13px;
       font-weight: 600;
       color: rgba(255, 255, 255, 0.75);
-      line-height: 1.6;
+      line-height: 1.15;
       white-space: nowrap;
     }
   }
@@ -166,13 +168,13 @@
 }
 
 .avatar-ring {
-  // 클라이언트 요청으로 2배 확대 (58 → 116)
-  width: 116px;
-  // 화면 크기 확대(Display size) 기기에서는 40% 컬럼이 116px보다 좁아지는데,
+  // 2-26차 2배 확대(58 → 116) 후, 2-29차 로비 공간 확보로 80%(116 → 93)
+  width: 93px;
+  // 화면 크기 확대(Display size) 기기에서는 40% 컬럼이 93px보다 좁아질 수 있는데,
   // 고정폭이 컬럼을 넘치면 margin:auto가 0이 되어 오른쪽으로만 삐져나온다(우측 치우침의 원인).
   // 컬럼 폭을 상한으로 두고 aspect-ratio로 정원을 유지한다
   max-width: 100%;
-  height: 116px; // aspect-ratio 미지원(iOS 14) 폴백 — 좁은 화면에선 약간 타원이지만 치우침은 없음
+  height: 93px; // aspect-ratio 미지원(iOS 14) 폴백 — 좁은 화면에선 약간 타원이지만 치우침은 없음
   @supports (aspect-ratio: 1) {
     height: auto;
     aspect-ratio: 1 / 1;
