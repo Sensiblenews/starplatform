@@ -12,7 +12,8 @@ $mr-live: #2ecc71;
 }
 
 .mr-card {
-  margin: 8px 12px 0;
+  // 티커와의 간격 15px — VS↔티커↔카드↔Today's TOP 균등 간격(15/15/16)
+  margin: 15px 12px 0;
   padding: 10px 12px;
   border-radius: 16px;
   color: #fff;

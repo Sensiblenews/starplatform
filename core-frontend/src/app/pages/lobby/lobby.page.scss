@@ -51,9 +51,12 @@
 .section-container {
   padding-top: 12px;
 
-  // My Global Ranking 카드와 Today's TOP 사이 여백
+  // My Global Ranking 카드와 Today's TOP 사이 여백.
+  // 카드 하단 → "Today's TOP" 글자까지 16px = 여기 6px + .section-header 패딩 10px
+  // (VS↔티커↔카드↔Today's TOP 간격을 15/15/16으로 균등화, 총합 46 유지)
   &.today-top-section {
-    margin-top: 8px;
+    margin-top: 0;
+    padding-top: 6px;
 
     // 클라이언트 요청: 다른 섹션 제목보다 한 단계 작고 연하게
     .section-header {
