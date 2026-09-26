@@ -145,7 +145,8 @@
     .m-cat-ico { position: absolute; left: 12px; bottom: -18px; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #ffffff; display: inline-flex; align-items: center; justify-content: center; color: #ffffff; }
     .m-cat-ico svg { width: 18px; height: 18px; }
     .m-cat-STAR { background: #2f7cf6; } .m-cat-CELEB { background: #0ea5e9; } .m-cat-BRAND { background: #7c3aed; } .m-cat-UNIV { background: #0f766e; } .m-cat-CITY { background: #2563eb; }
-    .m-cat-text { display: block; padding: 24px 12px 12px 60px; }
+    /* 시안: 아이콘이 사진 아래 왼쪽에 걸치고, 글씨는 그 아래 왼쪽 정렬 (아이콘 옆이 아니라 아래) */
+    .m-cat-text { display: block; padding: 28px 12px 12px; text-align: left; }
     .m-cat-text strong { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
     .m-cat-text span { display: block; font-size: 11px; color: #2f7cf6; line-height: 1.3; }
     .m-cat[aria-current="true"] { border-color: #2f7cf6; box-shadow: 0 0 0 2px #bfdbfe; }
