@@ -1177,10 +1177,48 @@ public class SuperAppService {
 			cards.add(card);
 		}
 
+		// 좌·우 스타 이름 아래에 글로벌 순위(#N)를 보인다 — 조회수 줄을 대체 (클라이언트 요청, 2026-09-26).
+		// 랭킹형 카드의 행은 "카테고리 안 1·2위"라 글로벌 순위가 아니고, CUSTOM 카드 행에는 순위 자체가 없다.
+		// 그래서 캐시된 전체 순위표를 한 번만 읽어 PRS_ID → GLOBAL_RANK 색인으로 양쪽에 붙인다.
+		Map<String, Object> rankById = indexGlobalRank(loadGlobalRankList());
+		for (Map<String, Object> card : cards) {
+			attachGlobalRank(card.get("left"), rankById);
+			attachGlobalRank(card.get("right"), rankById);
+		}
+
 		resultMap.put("result", "OK");
 		resultMap.put("nextUpdateSec", 3); // 프론트 폴링 주기 안내값
 		resultMap.put("cards", cards);
 		return resultMap;
+	}
+
+	/** 순위표 행(PRS_ID, GLOBAL_RANK) → PRS_ID별 GLOBAL_RANK 색인. 순위표가 없으면(캐시·DB 모두 실패) 빈 맵 */
+	static Map<String, Object> indexGlobalRank(List<Map<String, Object>> rankList) {
+		Map<String, Object> index = new HashMap<>();
+		if (rankList == null) {
+			return index;
+		}
+		for (Map<String, Object> row : rankList) {
+			Object id = row.get("PRS_ID");
+			if (id != null && row.get("GLOBAL_RANK") != null) {
+				index.put(String.valueOf(id), row.get("GLOBAL_RANK"));
+			}
+		}
+		return index;
+	}
+
+	/**
+	 * VS 카드 한쪽(id 키를 가진 맵)에 globalRank를 넣는다.
+	 * 순위표 밖 페이지는 null — 프런트가 순위를 지어내지 않고 빈 표시를 한다 (my-rank와 같은 규칙).
+	 */
+	@SuppressWarnings("unchecked")
+	static void attachGlobalRank(Object sideObj, Map<String, Object> rankById) {
+		if (!(sideObj instanceof Map)) {
+			return;
+		}
+		Map<String, Object> side = (Map<String, Object>) sideObj;
+		Object id = side.get("id");
+		side.put("globalRank", id == null ? null : rankById.get(String.valueOf(id)));
 	}
 
 	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 (2-29차). 로비 진입 시 1회 + 60초 갱신.

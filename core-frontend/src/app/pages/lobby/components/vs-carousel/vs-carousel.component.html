@@ -24,9 +24,10 @@
             <img [src]="card.left.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
-          <!-- 지표는 👁️ 한 줄만 — 하트·별·pts는 로비 첫 화면 공간 확보로 뺐다(2-29차). 점수 비율은 아래 게이지가 보여준다 -->
+          <!-- 이름 아래는 글로벌 순위 한 줄 — Today's TOP 행과 같은 🌍 아이콘 (조회수 줄 대체, 2026-09-26).
+               점수 비율은 아래 게이지가 보여준다 -->
           <div class="side-stats">
-            <div class="stat-line">👁️ {{ formatScore(card.left.viewCount || 0) }}</div>
+            <div class="stat-line">🌍 {{ formatRank(card.left) }}</div>
           </div>
         </div>
 
@@ -41,9 +42,9 @@
             <img [src]="card.right.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
-          <!-- 지표는 👁️ 한 줄만 — 하트·별·pts는 로비 첫 화면 공간 확보로 뺐다(2-29차) -->
+          <!-- 이름 아래는 글로벌 순위 한 줄 (조회수 줄 대체, 2026-09-26) -->
           <div class="side-stats">
-            <div class="stat-line">👁️ {{ formatScore(card.right.viewCount || 0) }}</div>
+            <div class="stat-line">🌍 {{ formatRank(card.right) }}</div>
           </div>
         </div>
         <div class="vs-side right waiting" *ngIf="!card.right">
