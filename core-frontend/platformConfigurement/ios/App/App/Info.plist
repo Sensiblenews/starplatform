@@ -236,6 +236,8 @@
 		<dict>
 			<key>SKAdNetworkIdentifier</key>
 			<string>22mmun2rn5.skadnetwork</string>
+			<!-- Pangle (2026-09-26). 22mmun2rn5도 Pangle 것 — 이미 위에 있음 -->
+			<string>238da6jt44.skadnetwork</string>
 		</dict>
 		<dict>
 			<key>SKAdNetworkIdentifier</key>
