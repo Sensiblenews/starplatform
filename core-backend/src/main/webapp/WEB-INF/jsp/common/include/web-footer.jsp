@@ -18,7 +18,8 @@
         <h2>Service</h2>
         <ul>
           <li><a href="${pageContext.request.contextPath}/about">About StarPlatform</a></li>
-          <li><a href="${pageContext.request.contextPath}/posts">Public Posts</a></li>
+          <%-- [2-29차 후속] 공개 포스트 목록은 홈(/)이 됐다 --%>
+          <li><a href="${pageContext.request.contextPath}/">Public Posts</a></li>
           <li><a href="${pageContext.request.contextPath}/faq">FAQ</a></li>
         </ul>
       </div>

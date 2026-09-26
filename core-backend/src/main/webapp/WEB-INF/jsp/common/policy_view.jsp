@@ -41,7 +41,7 @@
         <div class="footer-links">
             <a href="${pageContext.request.contextPath}/">Home</a>
             <a href="${pageContext.request.contextPath}/about">About</a>
-            <a href="${pageContext.request.contextPath}/posts">Public Posts</a>
+            <a href="${pageContext.request.contextPath}/">Public Posts</a>
             <a href="${pageContext.request.contextPath}/faq">FAQ</a>
             <a href="${pageContext.request.contextPath}/contact">Contact</a>
             <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>

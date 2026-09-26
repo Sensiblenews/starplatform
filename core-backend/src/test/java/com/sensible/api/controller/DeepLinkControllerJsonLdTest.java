@@ -115,7 +115,7 @@ public class DeepLinkControllerJsonLdTest {
 		String xml = buildSitemapXml("https://witch-hunting.com", null, new java.util.ArrayList<>());
 		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
 		assertFalse(xml.contains("/star/"));
-		// /posts 목록 페이지는 항상 들어가므로 게시물 상세 URL만 없어야 한다
+		// 마케팅 페이지 /posts 는 항상 들어가므로 게시물 상세 URL만 없어야 한다
 		assertFalse(xml.contains("/post/"));
 	}
 
@@ -132,14 +132,16 @@ public class DeepLinkControllerJsonLdTest {
 
 	@Test
 	public void buildSitemapXml_포스트_목록은_페이지마다_넣는다() throws Exception {
-		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
+		// [2-29차 후속] 목록은 홈(/)이다. 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
 		String xml = buildSitemapXml("https://witch-hunting.com", null, null, 3);
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts</loc>"));
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=2</loc>"));
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=3</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/?page=2</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/?page=3</loc>"));
 		assertFalse(xml.contains("page=4"));
-		// 첫 페이지는 ?page=1 이 아니라 /posts 여야 한다 (중복 URL 방지)
+		// 첫 페이지는 ?page=1 이 아니라 / 여야 한다 (중복 URL 방지)
 		assertFalse(xml.contains("page=1"));
+		// 옛 목록 주소(/posts?page=N)는 301 대상이라 사이트맵에 넣지 않는다
+		assertFalse(xml.contains("/posts?page="));
 	}
 
 	@Test

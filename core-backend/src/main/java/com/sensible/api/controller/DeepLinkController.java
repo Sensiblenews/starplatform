@@ -32,7 +32,7 @@ public class DeepLinkController {
 	@Resource(name = "superAdminService")
 	private SuperAdminService superAdminService;
 
-	// 아래 뷰 가공 헬퍼들은 /posts 목록 페이지와 공유하느라 WebCardUtil로 옮겼다.
+	// 아래 뷰 가공 헬퍼들은 홈(/) 포스트 목록 페이지와 공유하느라 WebCardUtil로 옮겼다.
 	// 호출부가 많아 이름은 그대로 두고 위임만 한다.
 	private String getBaseUrl(HttpServletRequest request) {
 		return WebCardUtil.getBaseUrl(request);
@@ -515,41 +515,9 @@ public class DeepLinkController {
 		return view;
 	}
 	
-	// 🌟 루트: 서브 라우트 없이 진입한 전원(크롤러 포함)에게 콘텐츠 허브를 서버 렌더링한다.
-	// UA별 분기(PC=마케팅, 봇·모바일=빈 트램폴린)는 클로킹 오해 소지가 있고
-	// AdSense 심사 크롤러가 빈 페이지를 보게 되는 원인이라 제거 — 클라이언트 확정.
-	// 앱 전환은 자동 실행 없이 Open in App 버튼 클릭으로만 시도한다.
-	@RequestMapping(value = "/")
-	public String rootHub(HttpServletRequest request, Model model) {
-		String baseUrl = getBaseUrl(request);
-		model.addAttribute("canonicalUrl", baseUrl + "/");
-		model.addAttribute("activeNav", "home");
-
-		try {
-			// 최근 포스트 카드: 크롤러가 광고·콘텐츠가 있는 /post/*를 발견하는 내부 링크 경로
-			List<Map<String, Object>> posts = superAppService.getHomeRecentPosts();
-			// 카드 가공은 /posts 목록과 공유한다 (WebCardUtil)
-			model.addAttribute("recentPosts", WebCardUtil.toPostCards(posts, baseUrl));
-
-			// 인기 스타 카드: /star/* 내부 링크 경로
-			List<Map<String, Object>> stars = superAppService.getHomeTopStars();
-			List<Map<String, Object>> starCards = new java.util.ArrayList<>();
-			for (Map<String, Object> star : stars) {
-				Map<String, Object> card = new HashMap<>();
-				card.put("id", star.get("PRS_ID"));
-				card.put("name", escapeHtml(String.valueOf(star.get("PRS_NAME"))));
-				card.put("image", toAbsoluteUrl((String) star.get("STORED_FILE_NM"), baseUrl));
-				card.put("followerCnt", star.get("FOLLOWER_CNT"));
-				starCards.add(card);
-			}
-			model.addAttribute("topStars", starCards);
-		} catch (Exception e) {
-			// 목록 조회가 실패해도 허브 골격(히어로·소개·푸터)은 렌더링한다
-			e.printStackTrace();
-		}
-
-		return "/common/landing";
-	}
+	// 루트(/)와 마케팅 허브(/posts)는 PublicWebController 로 옮겼다.
+	// [2-29차 후속] Home(포스트 목록)·Posts(예전 루트 허브) 내용을 맞바꾸면서 두 화면이
+	// 서로의 페이지네이션·redirect 규칙을 공유하게 되어 한 컨트롤러에 모았다.
 
 	// 🌟 sitemap.xml 동적 생성: 실존하는 스타·포스트 URL을 나열한다.
 	// 기존 정적 파일은 존재하지 않는 /post/123을 담은 스텁이라 제거하고 이 매핑으로 교체 (mvc:resources 매핑도 제거)
@@ -558,9 +526,9 @@ public class DeepLinkController {
 		String baseUrl = getBaseUrl(request);
 		List<Map<String, Object>> stars = superAppService.getSitemapStars();
 		List<Map<String, Object>> posts = superAppService.getSitemapPosts();
-		// /posts 목록 페이지 수. PublicWebController 의 페이지 크기와 같아야 한다
+		// 홈(/) 목록 페이지 수. PublicWebController 의 페이지 크기와 같아야 한다
 		int total = superAppService.getPublicPostCount();
-		int postListPages = total <= 0 ? 1 : ((total - 1) / PublicWebController.POSTS_PER_PAGE) + 1;
+		int postListPages = PublicWebController.lastPage(total);
 
 		response.setContentType("application/xml");
 		response.setCharacterEncoding("UTF-8");
@@ -575,18 +543,19 @@ public class DeepLinkController {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 		sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-		appendSitemapUrl(sb, baseUrl + "/", null);
+		// 홈(/)은 공개 포스트 목록이다. 페이지마다 다른 글을 담으므로 전 페이지를 넣는다.
+		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다.
+		// URL 규칙(1페이지는 /, 이후는 /?page=N)은 PublicWebController.pageUrl 과 같다
+		for (int page = 1; page <= postListPages; page++) {
+			appendSitemapUrl(sb, PublicWebController.pageUrl(baseUrl, page), null);
+		}
 		// 공개 독립 페이지. 앱 전환·로그인·관리자 URL은 넣지 않는다
+		appendSitemapUrl(sb, baseUrl + "/posts", null);
 		appendSitemapUrl(sb, baseUrl + "/about", null);
 		appendSitemapUrl(sb, baseUrl + "/faq", null);
 		appendSitemapUrl(sb, baseUrl + "/contact", null);
 		appendSitemapUrl(sb, baseUrl + "/terms", null);
 		appendSitemapUrl(sb, baseUrl + "/privacy", null);
-		// 포스트 목록은 페이지마다 다른 글을 담으므로 전 페이지를 넣는다.
-		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
-		for (int page = 1; page <= postListPages; page++) {
-			appendSitemapUrl(sb, page == 1 ? baseUrl + "/posts" : baseUrl + "/posts?page=" + page, null);
-		}
 		if (stars != null) {
 			for (Map<String, Object> star : stars) {
 				Object id = star.get("PRS_ID");

@@ -46,8 +46,26 @@ public class PublicWebControllerTest {
 
 	@Test
 	public void 첫_페이지_URL에는_page_파라미터를_붙이지_않는다() throws Exception {
-		// /posts 와 /posts?page=1 이 각각 색인되면 같은 내용이 중복 URL로 잡힌다
-		assertEquals("https://witch-hunting.com/posts", pageUrl("https://witch-hunting.com", 1));
-		assertEquals("https://witch-hunting.com/posts?page=2", pageUrl("https://witch-hunting.com", 2));
+		// [2-29차 후속] 목록은 홈(/)이다. / 와 /?page=1 이 각각 색인되면 같은 내용이 중복 URL로 잡힌다
+		assertEquals("https://witch-hunting.com/", pageUrl("https://witch-hunting.com", 1));
+		assertEquals("https://witch-hunting.com/?page=2", pageUrl("https://witch-hunting.com", 2));
+	}
+
+	@Test
+	public void 옛_목록_URL은_홈_목록으로_영구_이동한다() throws Exception {
+		// /posts?page=N 은 이미 색인된 주소라 새 목록 주소로 301 시킨다. 잘못된 값은 1페이지(루트)로
+		assertEquals("https://witch-hunting.com/?page=2",
+				PublicWebController.legacyPostsRedirectUrl("https://witch-hunting.com", "2"));
+		assertEquals("https://witch-hunting.com/",
+				PublicWebController.legacyPostsRedirectUrl("https://witch-hunting.com", "1"));
+		assertEquals("https://witch-hunting.com/",
+				PublicWebController.legacyPostsRedirectUrl("https://witch-hunting.com", "abc"));
+	}
+
+	@Test
+	public void 마지막_페이지_번호는_글_수로_구한다() throws Exception {
+		assertEquals(1, PublicWebController.lastPage(0));
+		assertEquals(1, PublicWebController.lastPage(PublicWebController.POSTS_PER_PAGE));
+		assertEquals(2, PublicWebController.lastPage(PublicWebController.POSTS_PER_PAGE + 1));
 	}
 }

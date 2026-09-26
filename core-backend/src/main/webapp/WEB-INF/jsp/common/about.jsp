@@ -68,7 +68,7 @@
 
   <h2 id="posts">Public posts</h2>
   <p>Posts are the content of a star page: text, photos, and the comments and likes they collect. Public posts are published to the web as well as the app, which means they can be found in search engines, shared into group chats, and read by anyone who follows the link.</p>
-  <p>You can browse what has been published recently on the <a href="${pageContext.request.contextPath}/posts">public posts page</a>, and open any page or post from there.</p>
+  <p>You can browse what has been published recently on the <a href="${pageContext.request.contextPath}/">home page</a>, and open any page or post from there.</p>
 
   <h2 id="messages">Direct messages</h2>
   <p>Members can message each other directly in the app. Every conversation carries reporting and blocking controls: a message can be reported to the operators with its content preserved for review, and a member can be blocked so that no further messages arrive. Reported conversations are reviewed by the operations team, and accounts that break the rules are suspended.</p>
@@ -92,11 +92,12 @@
 
   <div class="panel" style="margin-top: 28px;">
     <h3>Next steps</h3>
-    <p>Browse the <a href="${pageContext.request.contextPath}/posts">latest public posts</a>, read the <a href="${pageContext.request.contextPath}/faq">frequently asked questions</a>, or <a href="${pageContext.request.contextPath}/contact">get in touch</a> if you have a question we have not answered.</p>
+    <p>Browse the <a href="${pageContext.request.contextPath}/">latest public posts</a>, read the <a href="${pageContext.request.contextPath}/faq">frequently asked questions</a>, or <a href="${pageContext.request.contextPath}/contact">get in touch</a> if you have a question we have not answered.</p>
     <p style="margin-top: 16px;"><a class="btn btn-primary" href="#" onclick="spOpenApp(); return false;">Open in App</a></p>
   </div>
 </main>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 </body>
 </html>

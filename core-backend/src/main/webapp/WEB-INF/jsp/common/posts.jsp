@@ -1,75 +1,275 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%--
-  공개 포스트 목록 (/posts).
+  Posts (/posts): 서비스 소개 허브.
 
-  루트 허브가 최근 8건만 보여주던 자리를 페이지 단위로 넓힌 화면이다.
-  크롤러에게는 승인된 글 전체로 가는 경로가 되고, 방문자에게는 목차가 된다.
+  [2-29차 후속] 예전 루트 허브(landing.jsp)를 그대로 /posts 로 옮긴 화면이다 (클라이언트가 Home 과
+  Posts 를 맞바꿈). 히어로·최근 포스트·인기 스타·Why·How·FAQ·앱 CTA·스토어 뱃지 구성은 그대로이고,
+  FAQPage JSON-LD 도 이 화면과 함께 왔다. 색상만 화이트 모드로 바꿨다.
+  공개 포스트 목록은 홈(/, home.jsp)에 있다.
 --%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title><c:choose><c:when test="${page gt 1}">Public Posts - Page ${page} | StarPlatform</c:when><c:otherwise>Public Posts on StarPlatform</c:otherwise></c:choose></title>
-  <meta name="description" content="Browse public posts published by stars, creators, brands, and organizations on StarPlatform. Open any post to read it in full, no account required." />
+  
+  <title>StarPlatform - Create. Grow. Earn.</title>
+  <meta name="description" content="StarPlatform is a global creator platform. Launch a page, follow your favorite stars, climb the global ranking, and earn through automated advertising." />
   <meta name="robots" content="index, follow" />
+
+  <%-- 애드센스 소유권 확인용 메타 태그 — 광고 코드가 아니므로 심사 중에도 유지 (구글 공식 확인 수단) --%>
   <meta name="google-adsense-account" content="ca-pub-9109251900558498" />
 
-  <meta property="og:title" content="Public Posts on StarPlatform" />
-  <meta property="og:description" content="The latest public posts from star pages around the world." />
+  <meta property="og:title" content="StarPlatform" />
+  <meta property="og:description" content="Create your page. Grow your audience. Earn globally." />
   <meta property="og:image" content="https://witch-hunting.com/resources/img/icon.png" />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="${canonicalUrl}" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:url" content="${not empty canonicalUrl ? canonicalUrl : 'https://witch-hunting.com/posts'}" />
 
-  <link rel="canonical" href="${canonicalUrl}" />
-  <%-- 페이지 관계를 명시해 2페이지 이후가 고아 페이지로 남지 않게 한다 --%>
-  <c:if test="${not empty prevUrl}"><link rel="prev" href="${prevUrl}" /></c:if>
-  <c:if test="${not empty nextUrl}"><link rel="next" href="${nextUrl}" /></c:if>
+  <link rel="canonical" href="${not empty canonicalUrl ? canonicalUrl : 'https://witch-hunting.com/posts'}" />
+
+  <%-- WebSite JSON-LD 는 사이트 루트인 홈(home.jsp)에 있다 --%>
+
+  <%-- [2-27차] FAQPage JSON-LD.
+       주의: 아래 문항·답변은 본문 FAQ 섹션의 화면 텍스트와 "완전히 동일"해야 한다 (불일치는 구조화 데이터 스팸 판정 소지).
+       FAQ 문구를 수정할 때는 반드시 이 블록과 본문 섹션을 함께 고칠 것. --%>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+    {"@type":"Question","name":"Can I use StarPlatform without the app?","acceptedAnswer":{"@type":"Answer","text":"Yes. Public star pages and posts on StarPlatform can be read in full right here on the web. The mobile app adds extra features such as real-time notifications, comments, and community participation."}},
+    {"@type":"Question","name":"What is StarPlatform?","acceptedAnswer":{"@type":"Answer","text":"StarPlatform is a global creator platform where stars, creators, and brands run public pages, share posts, and grow an audience worldwide."}},
+    {"@type":"Question","name":"How does the global ranking work?","acceptedAnswer":{"@type":"Answer","text":"Every star page competes in a single global ranking. The rank is calculated from real engagement such as page visits, likes, and followers, and is updated continuously."}},
+    {"@type":"Question","name":"How do creators earn on StarPlatform?","acceptedAnswer":{"@type":"Answer","text":"Creators earn through automated advertising based on the real traffic and engagement their pages generate."}},
+    {"@type":"Question","name":"Is StarPlatform free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Creating a page, following stars, and reading posts are all free."}}
+  ]}
+  </script>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <%@ include file="/WEB-INF/jsp/common/include/web-base-style.jsp"%>
+  <style>
+    /* [2-29차 후속] 화이트 모드. 헤더·푸터는 공통 크롬 include 가 그리므로 element 규칙(header/footer)은 두지 않는다 */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background: #ffffff; color: #0f172a; line-height: 1.6; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .hero { text-align: center; padding: 80px 20px; }
+    .hero h1 { font-size: 42px; margin-bottom: 20px; color: #0f172a; }
+    .hero p { font-size: 18px; color: #475569; margin-bottom: 15px; }
+    .buttons { margin-top: 30px; }
+    .btn { display: inline-block; padding: 12px 24px; margin: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #f1f5f9; }
+    /* [2-27차] 다운로드는 보조 동선 — 대형 버튼 대신 낮은 시각 비중의 텍스트 링크 */
+    .link-muted { display: inline-block; margin-top: 20px; font-size: 14px; color: #64748b; text-decoration: underline; cursor: pointer; }
+    .link-muted:hover { color: #0f172a; }
+    .section { padding: 60px 20px; text-align: center; }
+    .section h2 { font-size: 28px; margin-bottom: 20px; color: #0f172a; }
+    .section > p { color: #475569; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 40px; }
+    .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; }
+    .card h3 { color: #0f172a; margin-bottom: 6px; }
+    .card p { color: #475569; font-size: 14px; }
+
+    /* [2-27차] How StarPlatform Works: 서비스 이용 흐름 5단계 */
+    .steps { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-top: 40px; text-align: left; }
+    .step-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2563eb; color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+    .step-card h3 { font-size: 16px; margin-bottom: 6px; color: #0f172a; }
+    .step-card p { font-size: 14px; color: #475569; }
+
+    /* [2-27차] 메인 FAQ */
+    .faq-list { margin-top: 40px; text-align: left; max-width: 760px; margin-left: auto; margin-right: auto; }
+    .faq-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+    .faq-item h3 { font-size: 16px; margin-bottom: 6px; color: #0f172a; }
+    .faq-item p { font-size: 14px; color: #475569; }
+
+    /* 포스트 카드 스타일은 include/web-card-style.jsp 로 옮겼다 (홈 목록과 공유) */
+    .star-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 30px; }
+    .star-card { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; text-decoration: none; color: inherit; }
+    .star-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #f1f5f9; }
+    .star-name { font-size: 13px; font-weight: 600; color: #0f172a; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .star-followers { font-size: 11px; color: #64748b; }
+    /* 공식 스토어 뱃지: 구글 뱃지는 원본 PNG에 자체 여백이 있어 애플보다 크게 잡아 시각 크기를 맞춘다 */
+    .store-section { padding: 30px 20px 0; text-align: center; }
+    .store-caption { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; }
+    .store-badges { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
+    .store-badges img { display: block; }
+    .badge-google { height: 78px; }
+    .badge-apple { height: 54px; margin: 0 12px; }
+    @media (max-width: 600px) { .hero h1 { font-size: 30px; } .hero p { font-size: 16px; } }
+  </style>
+  <%-- 헤더 내비게이션·푸터·포스트 카드는 공개 페이지 전체가 공유한다 --%>
   <%@ include file="/WEB-INF/jsp/common/include/web-chrome-style.jsp"%>
   <%@ include file="/WEB-INF/jsp/common/include/web-card-style.jsp"%>
-  <style>
-    .pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 36px; }
-    .pager span { font-size: 14px; color: #64748b; }
-    .list-meta { font-size: 14px; color: #64748b; margin-top: 6px; }
-  </style>
 </head>
 <body>
-
 <%@ include file="/WEB-INF/jsp/common/include/web-nav.jsp"%>
+<div class="container">
+  
+  <section class="hero">
+    <h1>Create. Grow. Earn.</h1>
+    <p>StarPlatform is a global creator platform where anyone can launch a page, attract an audience, and generate revenue through automated advertising.</p>
+    <p>Compete in global rankings based on real engagement such as visits, likes, and bookmarks.</p>
+    <p>Turn your traffic into real opportunity — and become part of a new digital economy.</p>
 
-<main class="page-wrap page-wrap-wide">
-  <h1 class="page-title">Public posts</h1>
-  <p class="page-lead">Posts published on star pages across StarPlatform. Anyone can read them here — no account and no app required.</p>
-  <c:if test="${totalCount gt 0}">
-    <p class="list-meta"><c:out value="${totalCount}"/> posts published &middot; page <c:out value="${page}"/> of <c:out value="${lastPage}"/></p>
+    <!-- [2-27차] Hero의 Open in App 대형 버튼을 FAQ 아래 CTA 섹션으로 이동 (웹 콘텐츠를 먼저 읽게 하는 구조).
+         다운로드는 소형 텍스트 링크로 다운그레이드 — OS별 스토어 분기(goStore)는 유지 -->
+    <a onclick="goStore()" class="link-muted">Download the StarPlatform App</a>
+  </section>
+
+  <!-- 최근 포스트: 크롤러가 /post/*(광고·본문 랜딩)를 발견하는 내부 링크 -->
+  <c:if test="${not empty recentPosts}">
+  <section class="section">
+    <h2>Latest Posts</h2>
+    <%-- 카드 마크업은 홈 목록과 공유한다. include가 보는 변수명에 맞춰 넘긴다 --%>
+    <c:set var="postCards" value="${recentPosts}"/>
+    <%@ include file="/WEB-INF/jsp/common/include/web-post-cards.jsp"%>
+    <%-- [2-29차 후속] 전체 목록은 홈(/)이다 --%>
+    <p style="margin-top: 22px;"><a class="btn btn-secondary" href="${pageContext.request.contextPath}/">See all public posts</a></p>
+  </section>
   </c:if>
 
-  <c:choose>
-    <c:when test="${not empty postCards}">
-      <%@ include file="/WEB-INF/jsp/common/include/web-post-cards.jsp"%>
+  <!-- 인기 스타: /star/* 내부 링크 -->
+  <c:if test="${not empty topStars}">
+  <section class="section">
+    <h2>Popular Stars</h2>
+    <div class="star-grid">
+      <c:forEach var="s" items="${topStars}">
+        <a class="star-card" href="${pageContext.request.contextPath}/star/${s.id}">
+          <img class="star-avatar" src="${s.image}" alt="${s.name}" loading="lazy" onerror="this.style.visibility='hidden'">
+          <span class="star-name">${s.name}</span>
+          <span class="star-followers">${s.followerCnt} followers</span>
+        </a>
+      </c:forEach>
+    </div>
+  </section>
+  </c:if>
 
-      <nav class="pager" aria-label="Post pages">
-        <c:if test="${not empty prevUrl}"><a class="btn btn-secondary" href="${prevUrl}" rel="prev">&larr; Newer</a></c:if>
-        <span>Page <c:out value="${page}"/> of <c:out value="${lastPage}"/></span>
-        <c:if test="${not empty nextUrl}"><a class="btn btn-secondary" href="${nextUrl}" rel="next">Older &rarr;</a></c:if>
-      </nav>
-    </c:when>
-    <c:otherwise>
-      <%-- 목록 조회 실패나 승인된 글이 아직 없을 때. 빈 화면 대신 갈 곳을 준다 --%>
-      <div class="panel" style="margin-top: 28px;">
-        <h3>No posts to show yet</h3>
-        <p>Published posts appear here once they have been reviewed. In the meantime, read <a href="${pageContext.request.contextPath}/about">about StarPlatform</a> or browse the <a href="${pageContext.request.contextPath}/">home page</a>.</p>
+  <section class="section">
+    <h2>Why StarPlatform?</h2>
+    <div class="features">
+      <div class="card">
+        <h3>🌍 Global Reach</h3>
+        <p>Connect with users worldwide and grow without limits.</p>
       </div>
-    </c:otherwise>
-  </c:choose>
-</main>
+      <div class="card">
+        <h3>💰 Monetization</h3>
+        <p>Earn through automated advertising based on real engagement.</p>
+      </div>
+      <div class="card">
+        <h3>🏆 Ranking System</h3>
+        <p>Compete globally with transparent ranking metrics.</p>
+      </div>
+    </div>
+  </section>
 
+  <!-- [2-27차] How StarPlatform Works: 서비스 이용 흐름을 텍스트로 설명 (웹 자체 완결성 보강) -->
+  <section class="section">
+    <h2>How StarPlatform Works</h2>
+    <ol class="steps">
+      <li class="step-card">
+        <span class="step-num">1</span>
+        <h3>Create a Page</h3>
+        <p>Launch your own public star page in minutes and introduce yourself to the world.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">2</span>
+        <h3>Publish Content</h3>
+        <p>Share posts, photos, and updates that your audience can read on the web or in the app.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">3</span>
+        <h3>Build an Audience</h3>
+        <p>Attract followers and visitors from around the world as your page gets discovered.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">4</span>
+        <h3>Climb the Global Ranking</h3>
+        <p>Real engagement such as visits, likes, and bookmarks moves your page up the global ranking.</p>
+      </li>
+      <li class="step-card">
+        <span class="step-num">5</span>
+        <h3>Grow and Earn</h3>
+        <p>Turn your audience into revenue through automated advertising on your pages.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- [2-27차] 메인 FAQ.
+       주의: 문항·답변은 head의 FAQPage JSON-LD와 "완전히 동일"해야 한다 — 수정 시 두 곳을 함께 고칠 것 -->
+  <section class="section">
+    <h2>FAQ</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Can I use StarPlatform without the app?</h3>
+        <p>Yes. Public star pages and posts on StarPlatform can be read in full right here on the web.
+          The mobile app adds extra features such as real-time notifications, comments, and community participation.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What is StarPlatform?</h3>
+        <p>StarPlatform is a global creator platform where stars, creators, and brands run public pages,
+          share posts, and grow an audience worldwide.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How does the global ranking work?</h3>
+        <p>Every star page competes in a single global ranking. The rank is calculated from real engagement
+          such as page visits, likes, and followers, and is updated continuously.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How do creators earn on StarPlatform?</h3>
+        <p>Creators earn through automated advertising based on the real traffic and engagement their pages generate.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is StarPlatform free?</h3>
+        <p>Yes. Creating a page, following stars, and reading posts are all free.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- [2-27차] 앱 CTA: 콘텐츠·FAQ를 모두 지난 최하단 배치 (Hero에서 이동) -->
+  <section class="section">
+    <h2>Already have the app?</h2>
+    <p>Open StarPlatform to follow stars, join conversations, and get real-time updates.</p>
+    <div class="buttons">
+      <a onclick="spOpenApp()" class="btn btn-primary">Open in StarPlatform App</a>
+    </div>
+  </section>
+
+  <!-- 공식 스토어 뱃지: 구글·애플 브랜드 가이드에 따라 공식 아트워크(공식 URL)를 그대로 사용한다 -->
+  <section class="store-section">
+    <p class="store-caption">Don't have the app?</p>
+    <div class="store-badges">
+      <a href="https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E" target="_blank" rel="noopener noreferrer">
+        <img class="badge-google" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" loading="lazy">
+      </a>
+      <a href="https://apps.apple.com/app/id1188195403" target="_blank" rel="noopener noreferrer">
+        <img class="badge-apple" src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us" alt="Download on the App Store" loading="lazy">
+      </a>
+    </div>
+  </section>
+
+</div>
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
+
+<script>
+  // 앱 전환(spOpenApp)은 공통 내비게이션 include에 있다.
+  // 자동 실행·스토어 강제 이동은 하지 않는다 (클라이언트 확정) — 버튼을 눌렀을 때만 시도하고,
+  // 미설치라면 스토어로 보내지 않고 이 페이지에 남긴다.
+
+  // Download App 버튼: OS에 맞는 스토어로 이동. 데스크톱 등 판별 불가 환경은 하단 뱃지 섹션으로 스크롤
+  function goStore() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      window.location.href = "https://apps.apple.com/app/id1188195403";
+    } else if (ua.indexOf("android") > -1) {
+      window.location.href = "https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
+    } else {
+      var badges = document.querySelector(".store-badges");
+      if (badges) badges.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+</script>
 </body>
 </html>

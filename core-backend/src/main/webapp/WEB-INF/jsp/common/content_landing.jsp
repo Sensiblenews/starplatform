@@ -48,10 +48,10 @@
 
     <%-- [AdSense 승인 대기] 심사 신호를 깨끗하게 유지하기 위해 광고 스크립트를 임시 제거함.
          승인 메일 수신 후 아래 3곳을 함께 복원할 것 (이 파일 내 동일 표식 검색):
-           ① head 광고 스크립트(여기)  ② FAQ 아래 ins 슬롯  ③ 하단 광고 게이트 스크립트
+           ① head 광고 스크립트(여기)  ② 관련 콘텐츠 아래 ins 슬롯  ③ 하단 광고 게이트 스크립트
          복원 코드는 git 이력 참조 — JSP 주석이라 HTML 출력에는 노출되지 않는다.
          복원 시 클라이언트 권장안 반영: ins에 style="display:block;min-height:250px" 적용
-         (레이아웃 흔들림 방지). 위치는 기존과 동일하게 FAQ 아래·하단 버튼 위. --%>
+         (레이아웃 흔들림 방지). 위치는 관련 콘텐츠 아래·하단 버튼 위 (FAQ 섹션은 2-29차 후속에서 제거됨). --%>
 
     <%-- 애드센스 소유권 확인용 메타 태그 — 광고 코드가 아니므로 심사 중에도 유지 (구글 공식 확인 수단) --%>
     <meta name="google-adsense-account" content="ca-pub-9109251900558498">
@@ -319,42 +319,7 @@
             margin-top: 4px;
         }
 
-        /* FAQ: 페이지 고유 콘텐츠 보강 + h2/h3 계층 제공 (AdSense·SEO 대응) */
-        .faq-section {
-            margin-top: 24px;
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .faq-title {
-            font-size: 1rem;
-            font-weight: 700;
-            margin: 0 0 12px;
-        }
-
-        .faq-item {
-            margin-bottom: 12px;
-        }
-
-        .faq-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .faq-q {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #222;
-            margin: 0 0 4px;
-        }
-
-        .faq-a {
-            font-size: 0.85rem;
-            line-height: 1.5;
-            color: #666;
-            margin: 0;
-        }
+        /* [2-29차 후속] 스타·포스트 랜딩의 FAQ 섹션은 클라이언트 요청으로 제거했다 (스타일도 함께 삭제) */
 
         /* 광고 영역: 높이를 미리 확보해 레이아웃 밀림(CLS) 방지 */
         .ad-wrap {
@@ -579,47 +544,8 @@
             </div>
         </c:if>
 
-        <!-- FAQ: 광고 위·본문 아래 배치. 광고가 첫 화면에 노출되지 않게 밀어주는 역할도 겸함.
-             [2-27차] star/post 맥락에 맞게 문항 분리 (기존엔 공용 3문항이라 post에도 follow this star가 노출됐음) -->
-        <section class="faq-section">
-            <h2 class="faq-title">FAQ</h2>
-            <c:choose>
-                <c:when test="${landingType eq 'star'}">
-                    <div class="faq-item">
-                        <h3 class="faq-q">Can I view this star page without installing the app?</h3>
-                        <p class="faq-a">Yes. This star page and its posts are available right here on the web.
-                            Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
-                    </div>
-                    <div class="faq-item">
-                        <h3 class="faq-q">What does the Global Rank mean?</h3>
-                        <p class="faq-a">The Global Rank compares every star on StarPlatform.
-                            It is calculated from page visits, likes, and followers, and is updated continuously.</p>
-                    </div>
-                    <div class="faq-item">
-                        <h3 class="faq-q">How can I follow this star and get updates?</h3>
-                        <p class="faq-a">Open this page in the StarPlatform app and tap Follow.
-                            You will get a notification whenever a new post is shared.</p>
-                    </div>
-                </c:when>
-                <c:otherwise>
-                    <div class="faq-item">
-                        <h3 class="faq-q">Can I read this post without installing the app?</h3>
-                        <p class="faq-a">Yes. The full content of this post is available right here on the web.
-                            Installing the StarPlatform app adds real-time notifications, comments, and community features.</p>
-                    </div>
-                    <div class="faq-item">
-                        <h3 class="faq-q">What is StarPlatform?</h3>
-                        <p class="faq-a">StarPlatform is a fan community platform where stars share their latest posts and
-                            fans follow their favorite stars, join conversations, and support them.</p>
-                    </div>
-                    <div class="faq-item">
-                        <h3 class="faq-q">How can I follow the author of this post?</h3>
-                        <p class="faq-a">Visit the author's star page or open this post in the StarPlatform app and tap Follow.
-                            You will get a notification whenever a new post is shared.</p>
-                    </div>
-                </c:otherwise>
-            </c:choose>
-        </section>
+        <%-- [2-29차 후속] 이 자리에 있던 FAQ 섹션(스타/포스트 분기)은 클라이언트 요청으로 제거했다.
+             광고 슬롯 복원 위치는 그대로 '관련 콘텐츠 아래·하단 버튼 위'다 --%>
 
         <%-- [AdSense 승인 대기] ② 광고 슬롯 임시 제거 — 승인 후 복원 (표식: AdSense 승인 대기) --%>
 
@@ -632,7 +558,7 @@
             <div class="footer-links">
                 <a href="${pageContext.request.contextPath}/">Home</a>
                 <a href="${pageContext.request.contextPath}/about">About</a>
-                <a href="${pageContext.request.contextPath}/posts">Public Posts</a>
+                <a href="${pageContext.request.contextPath}/">Public Posts</a>
                 <a href="${pageContext.request.contextPath}/faq">FAQ</a>
                 <a href="${pageContext.request.contextPath}/contact">Contact</a>
                 <a href="${pageContext.request.contextPath}/terms">Terms of Service</a>

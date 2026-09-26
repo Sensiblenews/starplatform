@@ -40,7 +40,7 @@
 <%--
   spOpenApp: 설치돼 있으면 앱으로, 아니면 현재 페이지에 그대로 남는다.
   스토어로 강제 이동시키지 않는다 (클라이언트 확정 사항).
-  landing.jsp 의 openApp() 과 같은 동작이지만, 이 include 를 쓰는 모든 페이지가
+  content_landing.jsp 의 openApp() 과 같은 동작이지만, 이 include 를 쓰는 모든 페이지가
   각자 복사본을 들지 않도록 여기에 둔다. 이름이 겹치지 않게 sp 접두사를 붙였다.
 
   아래 스크립트 주석을 전부 JSP 주석으로 뺀 이유: include 조각에는 page 지시자가 없어

@@ -35,20 +35,21 @@
   <%@ include file="/WEB-INF/jsp/common/include/web-chrome-style.jsp"%>
   <style>
     .field { margin-bottom: 18px; }
-    .field label { display: block; font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+    /* [2-29차 후속] 화이트 모드 폼 색상 */
+    .field label { display: block; font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 6px; }
     .field .hint { font-size: 13px; color: #64748b; margin-top: 6px; }
     .field input[type="text"], .field input[type="email"], .field select, .field textarea {
-      width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid #334155;
-      background: #0b1220; color: #e2e8f0; font-size: 15px; font-family: inherit;
+      width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid #cbd5e1;
+      background: #ffffff; color: #0f172a; font-size: 15px; font-family: inherit;
     }
     .field textarea { min-height: 180px; resize: vertical; line-height: 1.6; }
-    .field-error input, .field-error select, .field-error textarea { border-color: #f87171; }
+    .field-error input, .field-error select, .field-error textarea { border-color: #dc2626; }
     .checkline { display: flex; align-items: flex-start; gap: 10px; }
     .checkline input { margin-top: 4px; flex-shrink: 0; }
-    .checkline label { font-weight: 400; color: #94a3b8; font-size: 14px; }
+    .checkline label { font-weight: 400; color: #475569; font-size: 14px; }
     .notice { border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; font-size: 14px; }
-    .notice-error { background: #3f1d1d; border: 1px solid #7f1d1d; color: #fecaca; }
-    .notice-ok { background: #0f2e1d; border: 1px solid #14532d; color: #bbf7d0; }
+    .notice-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .notice-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
     /* 허니팟: 봇만 채우도록 화면에서 완전히 뺀다. display:none 대신 화면 밖으로 밀어
        두는 편이, 숨김 필드를 걸러내는 봇에게도 평범한 입력칸으로 보인다 */
     .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
@@ -146,5 +147,6 @@
 </main>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 </body>
 </html>
