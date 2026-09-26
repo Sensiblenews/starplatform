@@ -26,7 +26,7 @@ export interface RankDelta {
  * 로비 My Global Ranking 카드 (2-29차).
  *
  * 로그인(스타) 사용자에게는 내 순위 / 전체 대상 수 / 변동 / Global Score / 지표 3종과 버튼 두 개,
- * 비로그인·관리자에게는 같은 셸 안에 페이지 만들기 유도 문구와 버튼 하나를 보인다.
+ * 비로그인·관리자에게는 클라이언트 배너 이미지 1장 위에 투명 클릭 영역 2개(페이지 만들기·Re-Login)를 보인다.
  * 데이터 요청·저장은 로비 페이지가 맡고, 이 컴포넌트는 표시와 변동 플래시만 담당한다.
  */
 @Component({
@@ -49,6 +49,8 @@ export class MyRankingCardComponent implements OnChanges, OnDestroy {
   @Output() myPage = new EventEmitter<void>();
   @Output() topRankings = new EventEmitter<void>();
   @Output() createPage = new EventEmitter<void>();
+  // 비로그인 배너의 Re-Login 영역. 로비가 스타페이지 ✏️ 버튼과 같은 크리에이터 로그인 시트를 띄운다 (2026-09-26)
+  @Output() reLogin = new EventEmitter<void>();
 
   // true인 동안 카드 테두리 강조 + 순위 숫자 pop. FLASH_MS 뒤 자동 해제
   flash = false;

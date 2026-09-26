@@ -367,7 +367,7 @@
          버튼은 기존 동작에 연결한다: My Star Page → 내 스타 페이지, Top Rankings → 상단 트로피와 같은 랭킹 화면 -->
     <app-my-ranking-card [loggedIn]="isStar && !!starId" [data]="myRank" [loading]="isLoadingMyRank"
       [delta]="myRankDelta" [avatar]="myImage || (myRank && myRank.image) || defaultAvatar"
-      (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()">
+      (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()" (reLogin)="openCreatorLogin()">
     </app-my-ranking-card>
 
     <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).

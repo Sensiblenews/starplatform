@@ -114,3 +114,22 @@ describe('MyRankingCardComponent 표시·플래시', () => {
     expect(c.flash).toBeTrue();
   });
 });
+
+describe('MyRankingCardComponent 비로그인 배너 (2026-09-26)', () => {
+
+  it('Re-Login 출력이 있고 구독자에게 전달된다', () => {
+    const c = new MyRankingCardComponent();
+    let fired = 0;
+    c.reLogin.subscribe(() => fired++);
+    c.reLogin.emit();
+    expect(fired).toBe(1);
+  });
+
+  it('페이지 만들기 출력도 그대로 유지된다', () => {
+    const c = new MyRankingCardComponent();
+    let fired = 0;
+    c.createPage.subscribe(() => fired++);
+    c.createPage.emit();
+    expect(fired).toBe(1);
+  });
+});

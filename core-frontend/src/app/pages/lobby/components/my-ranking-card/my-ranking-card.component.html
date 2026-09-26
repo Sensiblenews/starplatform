@@ -62,33 +62,14 @@
     </ng-container>
   </ng-container>
 
-  <!-- 비로그인·관리자: 같은 셸·같은 높이. 왼쪽 문구+버튼, 오른쪽 장식(지구본·왕관·별). 로그인 팝업은 띄우지 않는다 -->
+  <!-- 비로그인·관리자: 클라이언트가 준 배너 이미지 1장을 그대로 쓰고(2026-09-26, 2-29 "같은 셸" 결정 번복),
+       이미지에 그려진 두 버튼 자리에 투명 클릭 영역만 얹는다. 좌표는 2000×700 원본에서 잰 비율이다.
+       이미지 안 글자는 스크린리더가 못 읽으므로 aria-label로 같은 문구를 준다. 로그인 팝업은 띄우지 않는다 -->
   <ng-template #guestTpl>
-    <div class="mr-guest">
-      <div class="mr-guest-text">
-        <div class="mr-guest-title-row">
-          <span class="mr-guest-globe">🌐</span>
-          <span class="mr-guest-title">Global Ranking</span>
-          <span class="mr-guest-info" aria-hidden="true">i</span>
-        </div>
-        <div class="mr-guest-headline">Find out where you stand in the world!</div>
-        <div class="mr-guest-sub">Create your StarPage and join the global ranking!</div>
-        <button type="button" class="mr-guest-btn" (click)="createPage.emit()">
-          <span class="mr-guest-btn-plus">+</span>
-          <span class="mr-guest-btn-label">Create Your StarPage</span>
-          <span class="mr-guest-btn-chevron">›</span>
-        </button>
-      </div>
-
-      <!-- 장식 — 조작 대상이 아니므로 접근성 트리에서 숨긴다 -->
-      <div class="mr-guest-art" aria-hidden="true">
-        <div class="art-globe"></div>
-        <span class="art-spark s1">✦</span>
-        <span class="art-spark s2">✦</span>
-        <span class="art-spark s3">✦</span>
-        <span class="art-crown">👑</span>
-        <div class="art-caption">Be the next<br />Global Star!<span class="art-caption-star">⭐</span></div>
-      </div>
+    <div class="mr-banner">
+      <img class="mr-banner-img" src="assets/img/global-ranking.webp" alt="Global Ranking. Find out where you stand in the world! Create your StarPage and join the global ranking." decoding="async" />
+      <button type="button" class="mr-hit mr-hit-create" aria-label="Create Your StarPage" (click)="createPage.emit()"></button>
+      <button type="button" class="mr-hit mr-hit-relogin" aria-label="Re-Login" (click)="reLogin.emit()"></button>
     </div>
   </ng-template>
 
