@@ -54,31 +54,76 @@ public class PublicWebController {
 	 */
 	@RequestMapping(value = "/")
 	public String home(@RequestParam(value = "page", required = false) String pageParam,
+			@RequestParam(value = "q", required = false) String qParam,
 			HttpServletRequest request, HttpServletResponse response, Model model) {
 
 		String baseUrl = WebCardUtil.getBaseUrl(request);
 		int page = parsePage(pageParam);
-		int total = superAppService.getPublicPostCount();
+		// 헤더 돋보기 검색. 공백만 있으면 검색이 아닌 전체 목록으로 본다.
+		// GET 쿼리스트링의 한글은 커넥터 URIEncoding 설정에 따라 ISO-8859-1 로 잘못 풀릴 수 있어
+		// (톰캣 기본값) 바인딩된 값 대신 원문 쿼리스트링을 직접 UTF-8 로 푼다
+		String q = normalizeQuery(queryParamUtf8(request.getQueryString(), "q", qParam));
+		int total = superAppService.getPublicPostCount(q);
 		int lastPage = lastPage(total);
 
 		// 범위 밖 페이지는 빈 목록을 200으로 주지 않는다. 내용 없는 페이지가 색인되면
-		// 그 자체가 저품질 페이지로 잡힌다
+		// 그 자체가 저품질 페이지로 잡힌다. 검색 결과가 0건인 1페이지는 예외 — 빈 결과 안내를 보인다
 		if (page > lastPage) {
 			return notFound(response, model, baseUrl);
 		}
 
-		List<Map<String, Object>> posts = superAppService.getPublicPosts((page - 1) * POSTS_PER_PAGE, POSTS_PER_PAGE);
+		List<Map<String, Object>> posts = superAppService.getPublicPosts((page - 1) * POSTS_PER_PAGE, POSTS_PER_PAGE, q);
 
 		model.addAttribute("activeNav", "home");
 		model.addAttribute("postCards", WebCardUtil.toPostCards(posts, baseUrl));
 		model.addAttribute("page", page);
 		model.addAttribute("lastPage", lastPage);
 		model.addAttribute("totalCount", total);
-		// 페이지마다 canonical 이 달라야 2페이지 이후가 1페이지의 중복으로 취급되지 않는다
+		model.addAttribute("q", q);
+		// 페이지마다 canonical 이 달라야 2페이지 이후가 1페이지의 중복으로 취급되지 않는다.
+		// 검색 결과 URL 은 무한히 생길 수 있어 canonical 을 검색어 없는 목록으로 두고 noindex 를 건다 (home.jsp)
 		model.addAttribute("canonicalUrl", pageUrl(baseUrl, page));
-		model.addAttribute("prevUrl", page > 1 ? pageUrl(baseUrl, page - 1) : null);
-		model.addAttribute("nextUrl", page < lastPage ? pageUrl(baseUrl, page + 1) : null);
+		model.addAttribute("prevUrl", page > 1 ? pageUrl(baseUrl, page - 1, q) : null);
+		model.addAttribute("nextUrl", page < lastPage ? pageUrl(baseUrl, page + 1, q) : null);
 		return "/common/home";
+	}
+
+	/**
+	 * 원문 쿼리스트링에서 name 파라미터를 찾아 UTF-8 로 디코딩한다.
+	 * 서블릿 컨테이너의 URIEncoding 이 UTF-8 이 아니어도 한글 검색어가 깨지지 않게 하기 위한 것.
+	 * 못 찾으면 컨테이너가 바인딩한 값(fallback)을 그대로 쓴다.
+	 */
+	static String queryParamUtf8(String queryString, String name, String fallback) {
+		if (queryString == null || queryString.isEmpty()) {
+			return fallback;
+		}
+		for (String pair : queryString.split("&")) {
+			int eq = pair.indexOf('=');
+			String key = eq < 0 ? pair : pair.substring(0, eq);
+			if (!name.equals(key)) {
+				continue;
+			}
+			String raw = eq < 0 ? "" : pair.substring(eq + 1);
+			try {
+				return java.net.URLDecoder.decode(raw, "UTF-8");
+			} catch (Exception e) {
+				// 잘못된 % 인코딩 등 — 컨테이너 값으로 물러난다
+				return fallback;
+			}
+		}
+		return fallback;
+	}
+
+	/** 검색어 정리: 앞뒤 공백 제거, 빈 값은 null, 너무 긴 값은 잘라 LIKE 비용을 제한한다 */
+	static String normalizeQuery(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String q = raw.trim();
+		if (q.isEmpty()) {
+			return null;
+		}
+		return q.length() > 60 ? q.substring(0, 60) : q;
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -259,6 +304,20 @@ public class PublicWebController {
 	 */
 	static String pageUrl(String baseUrl, int page) {
 		return page <= 1 ? baseUrl + "/" : baseUrl + "/?page=" + page;
+	}
+
+	/** 검색어가 있으면 q 를 붙인 목록 URL. 검색어는 URL 인코딩한다 */
+	static String pageUrl(String baseUrl, int page, String q) {
+		if (q == null || q.isEmpty()) {
+			return pageUrl(baseUrl, page);
+		}
+		String encoded;
+		try {
+			encoded = java.net.URLEncoder.encode(q, "UTF-8");
+		} catch (java.io.UnsupportedEncodingException e) {
+			encoded = q;
+		}
+		return baseUrl + "/?q=" + encoded + (page <= 1 ? "" : "&page=" + page);
 	}
 
 	/** 옛 목록 URL(/posts?page=N)의 301 이동 대상. 잘못된 page 값은 1페이지(루트)로 보낸다 */

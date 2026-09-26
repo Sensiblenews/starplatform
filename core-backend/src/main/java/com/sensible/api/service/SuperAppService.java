@@ -1792,10 +1792,16 @@ public class SuperAppService {
 	 * 공개 포스트 목록 페이지(/posts)용: 승인된 글을 최신순으로 한 페이지 분량만 조회한다.
 	 */
 	public List<Map<String, Object>> getPublicPosts(int offset, int size) {
+		return getPublicPosts(offset, size, null);
+	}
+
+	/** 검색어가 있으면 본문·작성자 이름 부분 일치로 좁힌다 (웹 홈 헤더 검색). null·빈 문자열이면 전체 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size, String q) {
 		try {
 			Map<String, Object> param = new HashMap<>();
 			param.put("offset", offset);
 			param.put("size", size);
+			param.put("q", q);
 			return dao.selectList("superapp.selectPublicPosts", param);
 		} catch (Exception e) {
 			// 목록 조회가 실패해도 페이지 골격(헤더·안내문·푸터)은 렌더링돼야 한다
@@ -1809,8 +1815,15 @@ public class SuperAppService {
 	 * 조회 실패 시 0을 돌려 페이지네이션을 감추고 첫 페이지만 보여준다.
 	 */
 	public int getPublicPostCount() {
+		return getPublicPostCount(null);
+	}
+
+	/** 검색어 조건은 목록 조회와 같아야 마지막 페이지가 비지 않는다 */
+	public int getPublicPostCount(String q) {
 		try {
-			Object count = dao.selectOne("superapp.selectPublicPostCount", new HashMap<>());
+			Map<String, Object> param = new HashMap<>();
+			param.put("q", q);
+			Object count = dao.selectOne("superapp.selectPublicPostCount", param);
 			return count == null ? 0 : ((Number) count).intValue();
 		} catch (Exception e) {
 			e.printStackTrace();

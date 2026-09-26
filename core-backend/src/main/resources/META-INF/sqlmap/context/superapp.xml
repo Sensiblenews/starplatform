@@ -553,6 +553,10 @@
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 		WHERE M.MDR_STATUS = 'APPROVED'
+		<!-- 웹 홈 검색(헤더 돋보기): 본문 또는 작성자 이름에 검색어 포함. 비어 있으면 전체 목록 -->
+		<if test="q != null and q != ''">
+		  AND (M.CON_BODY LIKE CONCAT('%', #{q}, '%') OR P.PRS_NAME LIKE CONCAT('%', #{q}, '%'))
+		</if>
 		ORDER BY M.CREATED_DATE DESC
 		LIMIT #{offset}, #{size}
 	</select>
@@ -563,6 +567,9 @@
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		WHERE M.MDR_STATUS = 'APPROVED'
+		<if test="q != null and q != ''">
+		  AND (M.CON_BODY LIKE CONCAT('%', #{q}, '%') OR P.PRS_NAME LIKE CONCAT('%', #{q}, '%'))
+		</if>
 	</select>
 
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
