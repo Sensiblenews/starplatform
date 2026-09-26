@@ -123,28 +123,29 @@
     .m-sec-head .home-live { color: #2f7cf6; font-size: 12px; white-space: nowrap; }
     .m-sec-head .home-live::before { background: #2f7cf6; }
     .m-sec-head .m-view-all { margin-left: auto; font-size: 14px; font-weight: 600; color: #2f7cf6; text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; white-space: nowrap; }
-    /* scroll-padding: 스냅이 첫 카드를 스크롤포트 왼쪽 끝에 붙이면 padding 16px 이 화면에서 사라진다(왼쪽 여백 없음) */
-    .m-posts { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px; scroll-padding-right: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
-    .m-posts::-webkit-scrollbar { display: none; }
-    .m-post { flex: 0 0 82%; scroll-snap-align: start; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
-    .m-post-img { aspect-ratio: 16 / 10; background: #f1f5f9; position: relative; }
-    .m-post-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .m-post-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; }
+    /* 세로 한 줄에 카드 하나 (클라이언트 요청). 가로 스크롤은 카드가 옆 카드 높이에 끌려 늘어나고 아래가 비었다 */
+    .m-posts { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .m-post { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; display: block; }
+    /* 이미지 높이는 padding-top 비율로 고정한다. aspect-ratio 만으로는 세로 사진이 상자를 밀어 올려(min-height:auto) 카드가 길쭉해진다 */
+    .m-post-img { display: block; position: relative; padding-top: 62.5%; background: #f1f5f9; overflow: hidden; }
+    .m-post-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .m-post-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
     .m-post-author { display: flex; align-items: center; gap: 8px; }
     .m-post-author img, .m-post-author-empty { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #e2e8f0; flex-shrink: 0; }
     .m-post-author strong { font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
     .m-post-author small { display: block; font-size: 11px; color: #64748b; line-height: 1.2; }
-    .m-post-text { font-size: 15px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 3em; word-break: break-word; }
-    .m-post-stats { display: flex; gap: 18px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: auto; }
+    .m-post-text { font-size: 15px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+    .m-post-stats { display: flex; gap: 18px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; }
     .m-cats { display: flex; gap: 10px; overflow-x: auto; scroll-padding-left: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
     .m-cats::-webkit-scrollbar { display: none; }
-    .m-cat { flex: 0 0 150px; border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; }
-    .m-cat-img { height: 96px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); position: relative; }
-    .m-cat-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .m-cat { flex: 0 0 150px; display: block; border-radius: 14px; background: #ffffff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; }
+    /* span 은 인라인이라 height 가 먹지 않아 사진이 원본 크기로 늘어졌다 — block + 절대 배치 이미지로 96px 고정 */
+    .m-cat-img { display: block; height: 96px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); position: relative; border-radius: 14px 14px 0 0; }
+    .m-cat-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 14px 14px 0 0; }
     .m-cat-ico { position: absolute; left: 12px; bottom: -18px; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #ffffff; display: inline-flex; align-items: center; justify-content: center; color: #ffffff; }
     .m-cat-ico svg { width: 18px; height: 18px; }
     .m-cat-STAR { background: #2f7cf6; } .m-cat-CELEB { background: #0ea5e9; } .m-cat-BRAND { background: #7c3aed; } .m-cat-UNIV { background: #0f766e; } .m-cat-CITY { background: #2563eb; }
-    .m-cat-text { padding: 24px 12px 12px 60px; }
+    .m-cat-text { display: block; padding: 24px 12px 12px 60px; }
     .m-cat-text strong { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
     .m-cat-text span { display: block; font-size: 11px; color: #2f7cf6; line-height: 1.3; }
     .m-cat[aria-current="true"] { border-color: #2f7cf6; box-shadow: 0 0 0 2px #bfdbfe; }
@@ -168,6 +169,7 @@
       .home-main.is-expanded .post-grid { display: grid; }
       .home-main.is-expanded .pager { display: flex; }
       .home-main.is-expanded .m-posts { display: none; }
+      .home-main .post-grid { gap: 12px; }
       .home-chips { position: relative; z-index: 2; margin: -22px 16px 0; padding: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12); }
       .home-chip { min-width: 210px; background: #ffffff; border: 0; padding: 4px 6px; }
       .home-chip-dot { width: 38px; height: 38px; }

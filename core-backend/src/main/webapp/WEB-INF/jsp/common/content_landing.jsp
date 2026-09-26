@@ -125,8 +125,9 @@
         .st-posts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
         .st-post { display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; text-decoration: none; }
         .st-post:hover { border-color: #93c5fd; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06); }
-        .st-post-img { position: relative; aspect-ratio: 16 / 10; background: #f1f5f9; }
-        .st-post-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        /* 이미지 높이는 padding-top 비율로 고정 — aspect-ratio 만으로는 세로 사진이 상자를 밀어 올려 카드가 길쭉해진다 */
+        .st-post-img { display: block; position: relative; padding-top: 62.5%; background: #f1f5f9; overflow: hidden; }
+        .st-post-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
         .st-post-img .lp-media-cnt { position: absolute; right: 10px; top: 10px; font-size: 11px; font-weight: 600; color: #ffffff; background: rgba(15, 23, 42, 0.7); border-radius: 999px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; }
         .st-post-img .lp-media-cnt svg { width: 12px; height: 12px; }
         .st-post-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; }
@@ -138,8 +139,8 @@
         .st-post-stats { display: flex; gap: 16px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: auto; }
 
         .st-photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-        .st-photo { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: #f1f5f9; display: block; }
-        .st-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .st-photo { position: relative; padding-top: 100%; border-radius: 10px; overflow: hidden; background: #f1f5f9; display: block; }
+        .st-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
         .st-about { padding: 22px 24px; }
         .st-about h2 { font-size: 18px; margin-bottom: 10px; }
         .st-about p { font-size: 15px; color: #334155; white-space: pre-line; }
@@ -201,8 +202,8 @@
         .po-date { margin-left: auto; font-size: 13px; color: #64748b; white-space: nowrap; }
         .po-title { font-size: 26px; font-weight: 700; line-height: 1.3; margin-top: 18px; word-break: break-word; }
         .po-stats { display: flex; gap: 20px; font-size: 14px; color: #475569; margin: 14px 0 18px; }
-        .po-gallery { position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; aspect-ratio: 16 / 9; }
-        .po-gallery img { width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
+        .po-gallery { position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; padding-top: 56.25%; }
+        .po-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
         .po-gallery-single { background: #f1f5f9; }
         .po-gallery-single img { object-fit: cover; }
         .po-gal-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(15, 23, 42, 0.75); color: #ffffff; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
