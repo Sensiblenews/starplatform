@@ -123,7 +123,8 @@
     .m-sec-head .home-live { color: #2f7cf6; font-size: 12px; white-space: nowrap; }
     .m-sec-head .home-live::before { background: #2f7cf6; }
     .m-sec-head .m-view-all { margin-left: auto; font-size: 14px; font-weight: 600; color: #2f7cf6; text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; white-space: nowrap; }
-    .m-posts { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
+    /* scroll-padding: 스냅이 첫 카드를 스크롤포트 왼쪽 끝에 붙이면 padding 16px 이 화면에서 사라진다(왼쪽 여백 없음) */
+    .m-posts { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px; scroll-padding-right: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
     .m-posts::-webkit-scrollbar { display: none; }
     .m-post { flex: 0 0 82%; scroll-snap-align: start; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
     .m-post-img { aspect-ratio: 16 / 10; background: #f1f5f9; position: relative; }
@@ -135,7 +136,7 @@
     .m-post-author small { display: block; font-size: 11px; color: #64748b; line-height: 1.2; }
     .m-post-text { font-size: 15px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 3em; word-break: break-word; }
     .m-post-stats { display: flex; gap: 18px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: auto; }
-    .m-cats { display: flex; gap: 10px; overflow-x: auto; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
+    .m-cats { display: flex; gap: 10px; overflow-x: auto; scroll-padding-left: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
     .m-cats::-webkit-scrollbar { display: none; }
     .m-cat { flex: 0 0 150px; border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; }
     .m-cat-img { height: 96px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); position: relative; }
@@ -177,7 +178,8 @@
       /* 좁은 화면은 세로가 길어져 사진이 확대된다 — 지구 곡선이 보이도록 가운데 기준, 글자 뒤 어둡기는 위→아래로 */
       .home-hero { background-position: center 40%; }
       .home-hero::before { background: linear-gradient(180deg, rgba(5, 14, 36, 0.7) 0%, rgba(5, 14, 36, 0.35) 60%, rgba(5, 14, 36, 0.15) 100%); }
-      .home-chips { display: flex; gap: 10px; overflow-x: auto; padding: 14px 20px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      /* 여백은 위 카드 규칙(.home-chips 12px 균등)이 정한다 — 여기서 padding 을 다시 주면 위아래가 어긋나 칩이 아래로 처진다 */
+      .home-chips { display: flex; gap: 10px; overflow-x: auto; align-items: center; -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-padding-left: 12px; }
       .home-chips::-webkit-scrollbar { display: none; }
       .home-wrap { padding: 20px 16px 0; }
       .home-title { font-size: 26px; }
