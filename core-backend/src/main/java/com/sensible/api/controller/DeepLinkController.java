@@ -87,6 +87,27 @@ public class DeepLinkController {
 		return sb.toString();
 	}
 
+	/**
+	 * 본문을 [제목, 나머지] 로 나눈다. 첫 줄이 80자 이하면 제목으로 쓰고, 그보다 길거나
+	 * 줄바꿈이 없으면 제목 없이 전체를 본문으로 둔다 (잘린 문장을 제목으로 내걸지 않는다).
+	 */
+	static String[] splitHeadline(String body) {
+		if (body == null) {
+			return new String[] { "", "" };
+		}
+		String text = body.replace("\r\n", "\n").trim();
+		int nl = text.indexOf('\n');
+		if (nl < 0) {
+			return text.length() <= 80 ? new String[] { text, "" } : new String[] { "", text };
+		}
+		String first = text.substring(0, nl).trim();
+		String rest = text.substring(nl + 1).trim();
+		if (first.isEmpty() || first.length() > 80) {
+			return new String[] { "", text };
+		}
+		return new String[] { first, rest };
+	}
+
 	// 웹 랜딩 하단 관련 콘텐츠 카드(최근 게시물 최대 20건) 모델 구성.
 	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
 	// 반환값은 승인 게시물 건수 — 스타 랜딩의 noindex 판단(콘텐츠 유무 기준)에 쓴다.
@@ -98,6 +119,10 @@ public class DeepLinkController {
 			card.put("conId", post.get("CON_ID"));
 			card.put("snippet", snippet((String) post.get("CON_BODY"), 90));
 			card.put("date", toDatePart(post.get("CREATED_DATE")));
+			// 시안 카드의 반응 수 (하트·댓글·사진 수). 글 단위 조회수는 DB 에 없어 싣지 않는다
+			card.put("likeCnt", post.get("LIKE_CNT"));
+			card.put("commentCnt", post.get("COMMENT_CNT"));
+			card.put("mediaCnt", post.get("MEDIA_CNT"));
 
 			String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
 			if (image != null && image.startsWith("/")) {
@@ -308,6 +333,8 @@ public class DeepLinkController {
 						relatedCards.add(card);
 					}
 					model.addAttribute("relatedStars", relatedCards);
+					// 시안의 이름 옆 직군 뱃지 (STAR 등). 미분류면 빈 문자열이라 뱃지가 생략된다
+					model.addAttribute("starCategoryLabel", WebCardUtil.categoryLabel(categoryObj));
 
 					// 🌟 canonical: 레거시(/witch/star/..)·중복 경로가 모두 대표 URL 하나로 수렴하게 한다
 					String canonicalUrl = baseUrl + "/star/" + id;
@@ -418,6 +445,32 @@ public class DeepLinkController {
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
 
+					// [2-29차 후속] 시안 레이아웃용 부가 데이터
+					// 1) 사진 갤러리: 첨부 미디어 전부 (원본 우선, 썸네일은 하단 띠). 상대경로는 절대경로로
+					List<String> mediaUrls = new java.util.ArrayList<>();
+					List<String> mediaThumbs = new java.util.ArrayList<>();
+					if (medias != null) {
+						for (Map<String, Object> m : medias) {
+							String full = (String) m.get("MEDIA_URL");
+							String thumb = (String) m.get("THUMB_URL");
+							if (full == null && thumb == null) {
+								continue;
+							}
+							mediaUrls.add(toAbsoluteUrl(full != null ? full : thumb, baseUrl));
+							mediaThumbs.add(toAbsoluteUrl(thumb != null ? thumb : full, baseUrl));
+						}
+					}
+					model.addAttribute("mediaUrls", mediaUrls);
+					model.addAttribute("mediaThumbs", mediaThumbs);
+					// 2) 제목 = 본문 첫 줄, 나머지는 본문. 첫 줄이 너무 길면 제목이 아니라 본문으로 본다
+					String[] split = splitHeadline(fullBody);
+					model.addAttribute("postHeadline", escapeHtml(split[0]));
+					model.addAttribute("postBodyRest", escapeHtml(split[1]));
+					// 3) 반응 수 + 작성자 직군
+					model.addAttribute("postLikes", content.get("LIKE_CNT"));
+					model.addAttribute("postComments", content.get("COMMENT_CNT"));
+					model.addAttribute("authorCategoryLabel", WebCardUtil.categoryLabel(content.get("STAR_CATEGORY")));
+
 					// 🌟 canonical: /feed-detail/·/witch/post/ 등 중복 경로가 대표 URL(/post/{id}) 하나로 수렴하게 한다
 					String canonicalUrl = baseUrl + "/post/" + id;
 					model.addAttribute("canonicalUrl", canonicalUrl);
@@ -469,6 +522,15 @@ public class DeepLinkController {
 						model.addAttribute("authorName", escapeHtml(starName != null ? starName : "StarPlatform"));
 						model.addAttribute("authorImage", authorImage);
 						model.addAttribute("authorFollowers", content.get("FOLLOWER_CNT"));
+						// 사이드바 작성자 카드: 글로벌 순위·방문자·소개문 (경량 조회, 실패 시 빈 맵)
+						Map<String, Object> authorSummary = superAppService.getStarSummary(String.valueOf(feedPrsId));
+						model.addAttribute("authorRank", authorSummary.get("globalRank"));
+						model.addAttribute("authorTotalStars", authorSummary.get("totalStars"));
+						model.addAttribute("authorViews", authorSummary.get("viewCount"));
+						Object authorBio = authorSummary.get("bio");
+						if (authorBio != null && !String.valueOf(authorBio).trim().isEmpty()) {
+							model.addAttribute("authorBio", escapeHtml(String.valueOf(authorBio).trim()));
+						}
 					}
 					// 🌟 [2-27차] 관리자 공지는 작성자 카드 대신 배지로 표기 (스타 페이지 링크가 없으므로)
 					if (isAdminPost) {

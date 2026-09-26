@@ -1192,6 +1192,48 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	/**
+	 * 웹 포스트 랜딩의 작성자 카드용 요약 — 글로벌 순위·전체 대상 수·방문자 수·소개문.
+	 * getStarDetail 은 피드·갤러리까지 딸려 와 글 한 편 열 때마다 부르기엔 무겁다.
+	 * 순위·조회수는 캐시된 순위표에서, 소개문은 WH_PRESS 한 행에서 읽는다 (getMyRank 와 같은 경로).
+	 * 실패하면 빈 맵 — 사이드바 통계만 빠지고 페이지는 렌더링된다.
+	 */
+	public Map<String, Object> getStarSummary(String starId) {
+		Map<String, Object> summary = new HashMap<>();
+		if (starId == null || starId.isEmpty()) {
+			return summary;
+		}
+		try {
+			List<Map<String, Object>> rankList = loadGlobalRankList();
+			Map<String, Object> mine = null;
+			if (rankList != null) {
+				summary.put("totalStars", rankList.size());
+				for (Map<String, Object> row : rankList) {
+					if (starId.equals(String.valueOf(row.get("PRS_ID")))) {
+						mine = row;
+						break;
+					}
+				}
+			}
+			if (mine != null) {
+				summary.put("globalRank", mine.get("GLOBAL_RANK"));
+				summary.put("viewCount", toLong(mine.get("viewCount")));
+			} else {
+				Object views = dao.selectOne("superapp.selectStarViewCount", starId);
+				summary.put("viewCount", toLong(views));
+			}
+			Map<String, Object> counts = dao.selectOne("superapp.selectStarCounts", starId);
+			if (counts != null) {
+				summary.put("bio", counts.get("PRS_BIO"));
+				summary.put("followerCnt", toLong(counts.get("FOLLOWER_CNT")));
+				summary.put("category", counts.get("STAR_CATEGORY"));
+			}
+		} catch (Exception e) {
+			System.out.println("Star summary skipped: " + e.getMessage());
+		}
+		return summary;
+	}
+
 	/** 순위표 행(PRS_ID, GLOBAL_RANK) → PRS_ID별 GLOBAL_RANK 색인. 순위표가 없으면(캐시·DB 모두 실패) 빈 맵 */
 	static Map<String, Object> indexGlobalRank(List<Map<String, Object>> rankList) {
 		Map<String, Object> index = new HashMap<>();

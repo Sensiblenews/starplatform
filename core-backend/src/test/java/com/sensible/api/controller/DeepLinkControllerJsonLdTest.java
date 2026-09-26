@@ -171,4 +171,27 @@ public class DeepLinkControllerJsonLdTest {
 		assertEquals("", toDatePart("2026"));
 		assertEquals("", toDatePart(""));
 	}
+
+	@Test
+	public void 본문_첫_줄이_짧으면_제목이_된다() {
+		String[] r = DeepLinkController.splitHeadline("싱그러운 잎사귀\n자연은 언제나 우리에게 행복을 줍니다.");
+		assertEquals("싱그러운 잎사귀", r[0]);
+		assertEquals("자연은 언제나 우리에게 행복을 줍니다.", r[1]);
+	}
+
+	@Test
+	public void 줄바꿈이_없는_짧은_글은_전체가_제목이다() {
+		String[] r = DeepLinkController.splitHeadline("아름다운 꽃");
+		assertEquals("아름다운 꽃", r[0]);
+		assertEquals("", r[1]);
+	}
+
+	@Test
+	public void 첫_줄이_너무_길면_제목_없이_본문으로_둔다() {
+		String longLine = new String(new char[100]).replace('\0', 'a');
+		String[] r = DeepLinkController.splitHeadline(longLine + "\n둘째 줄");
+		assertEquals("", r[0]);
+		assertTrue(r[1].startsWith(longLine));
+		assertEquals("", DeepLinkController.splitHeadline(null)[0]);
+	}
 }
