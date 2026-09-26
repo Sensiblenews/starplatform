@@ -125,6 +125,8 @@ public final class WebCardUtil {
 		card.put("followerCnt", post.get("FOLLOWER_CNT"));
 		card.put("mediaCnt", post.get("MEDIA_CNT"));
 		card.put("alt", thumbAlt(body, author));
+		// 모바일 홈 큰 카드의 작성자 아바타 (없으면 빈 문자열 → 회색 원)
+		card.put("authorImage", toAbsoluteUrl((String) post.get("STORED_FILE_NM"), baseUrl));
 
 		String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
 		card.put("image", toAbsoluteUrl(image, baseUrl));

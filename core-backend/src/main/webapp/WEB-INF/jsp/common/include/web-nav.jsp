@@ -22,11 +22,6 @@
       <span>StarPlatform</span>
     </a>
 
-    <button type="button" class="site-nav-toggle" id="siteNavToggle"
-            aria-expanded="false" aria-controls="siteNavLinks">
-      <span class="site-nav-bars" aria-hidden="true"></span> Menu
-    </button>
-
     <ul class="site-nav-links" id="siteNavLinks">
       <li><a href="${pageContext.request.contextPath}/" ${activeNav eq 'home' ? 'aria-current="page"' : ''}>Home</a></li>
       <li><a href="${pageContext.request.contextPath}/about" ${activeNav eq 'about' ? 'aria-current="page"' : ''}>About</a></li>
@@ -40,6 +35,10 @@
     </ul>
 
     <div class="site-nav-tools">
+      <button type="button" class="site-nav-toggle site-nav-toggle-mobile" id="siteNavToggle" aria-label="Menu"
+              aria-expanded="false" aria-controls="siteNavLinks">
+        <span class="site-nav-bars" aria-hidden="true"></span>
+      </button>
       <form class="site-nav-search" id="siteNavSearch" action="${pageContext.request.contextPath}/" method="get" role="search">
         <input type="search" name="q" id="siteNavSearchInput" placeholder="Search posts" aria-label="Search posts" maxlength="60" value="<c:out value='${q}'/>">
       </form>

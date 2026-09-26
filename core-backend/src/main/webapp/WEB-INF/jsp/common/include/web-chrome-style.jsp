@@ -54,7 +54,13 @@
   }
   @media (max-width: 820px) {
     .site-nav-inner { padding: 10px 16px; }
-    .site-nav-toggle { display: inline-flex; align-items: center; gap: 6px; }
+    /* 모바일 시안: 햄버거는 아이콘만 (글자 없이). aria-label 로 이름은 유지 */
+    .site-nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 0; font-size: 0; }
+    .site-nav-toggle .site-nav-bars, .site-nav-toggle .site-nav-bars::before, .site-nav-toggle .site-nav-bars::after { width: 22px; height: 2.5px; border-radius: 2px; }
+    .site-nav-toggle .site-nav-bars::before { top: -7px; }
+    .site-nav-toggle .site-nav-bars::after { top: 7px; }
+    .site-nav-tools { gap: 2px; }
+    .site-nav-toggle-mobile { order: 10; }
     /* 모바일: 링크 목록을 세로 패널로 펼친다 */
     .site-nav-links { display: none; position: absolute; left: 0; right: 0; top: 100%; flex-direction: column; align-items: stretch; gap: 0; padding: 8px; background: #0b1730; border-bottom: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25); max-height: calc(100vh - 60px); overflow-y: auto; }
     .site-nav-links.is-open { display: flex; }

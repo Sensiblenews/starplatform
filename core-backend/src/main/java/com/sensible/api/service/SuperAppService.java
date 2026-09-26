@@ -1839,11 +1839,17 @@ public class SuperAppService {
 
 	/** 검색어가 있으면 본문·작성자 이름 부분 일치로 좁힌다 (웹 홈 헤더 검색). null·빈 문자열이면 전체 */
 	public List<Map<String, Object>> getPublicPosts(int offset, int size, String q) {
+		return getPublicPosts(offset, size, q, null);
+	}
+
+	/** 검색어 + 작성자 직군 필터 (모바일 홈 카테고리 타일). category 는 컨트롤러가 화이트리스트로 검증한 값 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size, String q, String category) {
 		try {
 			Map<String, Object> param = new HashMap<>();
 			param.put("offset", offset);
 			param.put("size", size);
 			param.put("q", q);
+			param.put("category", category);
 			return dao.selectList("superapp.selectPublicPosts", param);
 		} catch (Exception e) {
 			// 목록 조회가 실패해도 페이지 골격(헤더·안내문·푸터)은 렌더링돼야 한다
@@ -1862,9 +1868,14 @@ public class SuperAppService {
 
 	/** 검색어 조건은 목록 조회와 같아야 마지막 페이지가 비지 않는다 */
 	public int getPublicPostCount(String q) {
+		return getPublicPostCount(q, null);
+	}
+
+	public int getPublicPostCount(String q, String category) {
 		try {
 			Map<String, Object> param = new HashMap<>();
 			param.put("q", q);
+			param.put("category", category);
 			Object count = dao.selectOne("superapp.selectPublicPostCount", param);
 			return count == null ? 0 : ((Number) count).intValue();
 		} catch (Exception e) {
@@ -1888,6 +1899,31 @@ public class SuperAppService {
 	/**
 	 * 🌟 [신규 2-27차] 스타 랜딩 Related Stars 카드용: 승인 게시물 보유 스타 최대 6명 (같은 카테고리 우선)
 	 */
+	/**
+	 * 직군별 대표 사진 (모바일 홈 카테고리 타일). 직군 코드 → {image, starId, name}.
+	 * 직군 순으로 정렬돼 오므로 직군마다 첫 행(팔로워 최다)만 남긴다. 실패하면 빈 맵 — 타일은 사진 없이 그려진다
+	 */
+	@Cacheable(value = "lobby", key = "'web:categoryCovers'", unless = "#result == null")
+	public Map<String, Map<String, Object>> getCategoryCovers() {
+		Map<String, Map<String, Object>> covers = new java.util.LinkedHashMap<>();
+		try {
+			List<Map<String, Object>> rows = dao.selectList("superapp.selectCategoryCovers", new HashMap<String, Object>());
+			for (Map<String, Object> row : rows) {
+				String code = String.valueOf(row.get("STAR_CATEGORY"));
+				if (!covers.containsKey(code)) {
+					Map<String, Object> cover = new HashMap<>();
+					cover.put("image", row.get("STORED_FILE_NM"));
+					cover.put("starId", row.get("PRS_ID"));
+					cover.put("name", row.get("PRS_NAME"));
+					covers.put(code, cover);
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Category covers skipped: " + e.getMessage());
+		}
+		return covers;
+	}
+
 	public List<Map<String, Object>> getRelatedStars(String starId, String category) {
 		try {
 			Map<String, Object> params = new HashMap<>();

@@ -94,4 +94,34 @@ public class PublicWebControllerTest {
 		assertEquals("fb", PublicWebController.queryParamUtf8("q=%E", "q", "fb"));
 		assertNull(PublicWebController.queryParamUtf8(null, "q", null));
 	}
+
+	@Test
+	public void 카테고리_필터는_허용_코드만_통과한다() {
+		assertEquals("STAR", PublicWebController.normalizeCategory("star"));
+		assertEquals("UNIV", PublicWebController.normalizeCategory(" UNIV "));
+		assertNull(PublicWebController.normalizeCategory("HACKER"));
+		assertNull(PublicWebController.normalizeCategory(null));
+	}
+
+	@Test
+	public void 카테고리와_검색어를_유지한_페이지_URL을_만든다() {
+		assertEquals("https://witch-hunting.com/?category=STAR", PublicWebController.pageUrl("https://witch-hunting.com", 1, null, "STAR"));
+		assertEquals("https://witch-hunting.com/?category=STAR&page=3", PublicWebController.pageUrl("https://witch-hunting.com", 3, null, "STAR"));
+		assertEquals("https://witch-hunting.com/?q=flower&category=CITY&page=2", PublicWebController.pageUrl("https://witch-hunting.com", 2, "flower", "CITY"));
+	}
+
+	@Test
+	public void 카테고리_타일은_시안의_5개_직군을_순서대로_만들고_사진이_없으면_빈_값이다() {
+		java.util.Map<String, java.util.Map<String, Object>> covers = new java.util.HashMap<>();
+		java.util.Map<String, Object> star = new java.util.HashMap<>();
+		star.put("image", "/img/a.jpg");
+		covers.put("STAR", star);
+		java.util.List<java.util.Map<String, Object>> tiles = PublicWebController.buildCategoryTiles(covers, "https://witch-hunting.com");
+		assertEquals(5, tiles.size());
+		assertEquals("STAR", tiles.get(0).get("code"));
+		assertEquals("Star", tiles.get(0).get("label"));
+		assertEquals("https://witch-hunting.com/img/a.jpg", tiles.get(0).get("image"));
+		assertEquals("CITY", tiles.get(4).get("code"));
+		assertEquals("", tiles.get(4).get("image"));
+	}
 }

@@ -55,6 +55,7 @@ public class PublicWebController {
 	@RequestMapping(value = "/")
 	public String home(@RequestParam(value = "page", required = false) String pageParam,
 			@RequestParam(value = "q", required = false) String qParam,
+			@RequestParam(value = "category", required = false) String categoryParam,
 			HttpServletRequest request, HttpServletResponse response, Model model) {
 
 		String baseUrl = WebCardUtil.getBaseUrl(request);
@@ -63,7 +64,9 @@ public class PublicWebController {
 		// GET 쿼리스트링의 한글은 커넥터 URIEncoding 설정에 따라 ISO-8859-1 로 잘못 풀릴 수 있어
 		// (톰캣 기본값) 바인딩된 값 대신 원문 쿼리스트링을 직접 UTF-8 로 푼다
 		String q = normalizeQuery(queryParamUtf8(request.getQueryString(), "q", qParam));
-		int total = superAppService.getPublicPostCount(q);
+		// 모바일 홈 카테고리 타일 (?category=STAR). 허용 코드 밖이면 무시한다
+		String category = normalizeCategory(categoryParam);
+		int total = superAppService.getPublicPostCount(q, category);
 		int lastPage = lastPage(total);
 
 		// 범위 밖 페이지는 빈 목록을 200으로 주지 않는다. 내용 없는 페이지가 색인되면
@@ -72,7 +75,7 @@ public class PublicWebController {
 			return notFound(response, model, baseUrl);
 		}
 
-		List<Map<String, Object>> posts = superAppService.getPublicPosts((page - 1) * POSTS_PER_PAGE, POSTS_PER_PAGE, q);
+		List<Map<String, Object>> posts = superAppService.getPublicPosts((page - 1) * POSTS_PER_PAGE, POSTS_PER_PAGE, q, category);
 
 		model.addAttribute("activeNav", "home");
 		model.addAttribute("postCards", WebCardUtil.toPostCards(posts, baseUrl));
@@ -80,12 +83,48 @@ public class PublicWebController {
 		model.addAttribute("lastPage", lastPage);
 		model.addAttribute("totalCount", total);
 		model.addAttribute("q", q);
+		model.addAttribute("category", category);
+		model.addAttribute("categoryLabel", WebCardUtil.categoryLabel(category));
 		// 페이지마다 canonical 이 달라야 2페이지 이후가 1페이지의 중복으로 취급되지 않는다.
-		// 검색 결과 URL 은 무한히 생길 수 있어 canonical 을 검색어 없는 목록으로 두고 noindex 를 건다 (home.jsp)
+		// 검색·카테고리 결과 URL 은 canonical 을 필터 없는 목록으로 두고 noindex 를 건다 (home.jsp)
 		model.addAttribute("canonicalUrl", pageUrl(baseUrl, page));
-		model.addAttribute("prevUrl", page > 1 ? pageUrl(baseUrl, page - 1, q) : null);
-		model.addAttribute("nextUrl", page < lastPage ? pageUrl(baseUrl, page + 1, q) : null);
+		model.addAttribute("prevUrl", page > 1 ? pageUrl(baseUrl, page - 1, q, category) : null);
+		model.addAttribute("nextUrl", page < lastPage ? pageUrl(baseUrl, page + 1, q, category) : null);
+		// 모바일 "Explore by Category" 타일: 코드·표시명·설명·대표 사진(직군별 팔로워 최다 스타)
+		model.addAttribute("categoryTiles", buildCategoryTiles(superAppService.getCategoryCovers(), baseUrl));
 		return "/common/home";
+	}
+
+	/** 카테고리 타일에 보이는 5개 직군 (클라이언트 모바일 시안 순서). ORG·MEDIA 는 시안에 없어 타일을 만들지 않는다 */
+	static final String[][] CATEGORY_TILES = {
+			{ "STAR", "Stars & Creators" },
+			{ "CELEB", "Celebs & Public Figures" },
+			{ "BRAND", "Brands & Companies" },
+			{ "UNIV", "Universities & Students" },
+			{ "CITY", "Cities & Regions" },
+	};
+
+	static List<Map<String, Object>> buildCategoryTiles(Map<String, Map<String, Object>> covers, String baseUrl) {
+		List<Map<String, Object>> tiles = new java.util.ArrayList<>();
+		for (String[] def : CATEGORY_TILES) {
+			Map<String, Object> tile = new HashMap<>();
+			tile.put("code", def[0]);
+			tile.put("label", WebCardUtil.categoryLabel(def[0]));
+			tile.put("desc", def[1]);
+			Map<String, Object> cover = covers == null ? null : covers.get(def[0]);
+			tile.put("image", cover == null ? "" : WebCardUtil.toAbsoluteUrl((String) cover.get("image"), baseUrl));
+			tiles.add(tile);
+		}
+		return tiles;
+	}
+
+	/** 카테고리 파라미터: 허용 직군 코드만 통과, 나머지는 null (필터 없음) */
+	static String normalizeCategory(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String code = raw.trim().toUpperCase();
+		return com.sensible.common.Constants.STAR_CATEGORIES.contains(code) ? code : null;
 	}
 
 	/**
@@ -308,16 +347,28 @@ public class PublicWebController {
 
 	/** 검색어가 있으면 q 를 붙인 목록 URL. 검색어는 URL 인코딩한다 */
 	static String pageUrl(String baseUrl, int page, String q) {
-		if (q == null || q.isEmpty()) {
+		return pageUrl(baseUrl, page, q, null);
+	}
+
+	/** 검색어·카테고리 필터를 유지하는 목록 URL. 둘 다 없으면 기본 규칙(/, /?page=N) */
+	static String pageUrl(String baseUrl, int page, String q, String category) {
+		StringBuilder qs = new StringBuilder();
+		if (q != null && !q.isEmpty()) {
+			String encoded;
+			try {
+				encoded = java.net.URLEncoder.encode(q, "UTF-8");
+			} catch (java.io.UnsupportedEncodingException e) {
+				encoded = q;
+			}
+			qs.append("q=").append(encoded);
+		}
+		if (category != null && !category.isEmpty()) {
+			qs.append(qs.length() > 0 ? "&" : "").append("category=").append(category);
+		}
+		if (qs.length() == 0) {
 			return pageUrl(baseUrl, page);
 		}
-		String encoded;
-		try {
-			encoded = java.net.URLEncoder.encode(q, "UTF-8");
-		} catch (java.io.UnsupportedEncodingException e) {
-			encoded = q;
-		}
-		return baseUrl + "/?q=" + encoded + (page <= 1 ? "" : "&page=" + page);
+		return baseUrl + "/?" + qs + (page <= 1 ? "" : "&page=" + page);
 	}
 
 	/** 옛 목록 URL(/posts?page=N)의 301 이동 대상. 잘못된 page 값은 1페이지(루트)로 보낸다 */
