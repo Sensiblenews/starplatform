@@ -268,6 +268,7 @@ $mr-live: #2ecc71;
   min-height: 0;
   overflow: hidden; // 모서리 둥글기 밖으로 이미지가 나가지 않게
   background: #0b1a3a; // 이미지 로딩 전 자리색 (이미지 배경과 같은 네이비)
+  border: 0; // 이미지에 테두리가 그려져 있어 셸 테두리를 없앤다 (클라이언트 요청)
 }
 
 .mr-banner {
