@@ -4,8 +4,8 @@
   홈 (/): 공개 포스트 목록.
 
   [2-29차 후속] 예전 /posts 목록 화면을 홈으로 옮기고 클라이언트 시안대로 다시 짰다.
-   - 상단 히어로 배너 ("Your Page. Your World.") — 원본 지구 사진을 받지 못해 CSS 그라디언트로 그린다.
-     외부 이미지를 핫링크하지 않는다.
+   - 상단 히어로 배너 ("Your Page. Your World.") — 클라이언트가 준 지구 사진(resources/img/home-hero-earth.webp)을
+     배경으로 쓴다. 외부 이미지를 핫링크하지 않는다.
    - 모바일 전용 기능 칩 4개 (가로 스크롤)
    - Latest Posts 그리드 (카드 마크업·스타일은 include 로 공유) + PC 우측 사이드바 프로모
    - 하단 안내 카드 3개
@@ -48,9 +48,11 @@
   <%@ include file="/WEB-INF/jsp/common/include/web-card-style.jsp"%>
   <style>
     /* ── 히어로 배너: 짙은 남색 그라디언트 + CSS 로 그린 행성 광채 ── */
-    .home-hero { position: relative; overflow: hidden; color: #ffffff; background: radial-gradient(circle at 85% 30%, rgba(96, 165, 250, 0.35) 0, transparent 40%), linear-gradient(120deg, #0b1a3a 0%, #102a5c 55%, #143a7c 100%); }
-    .home-hero::before { content: ""; position: absolute; right: -140px; bottom: -300px; width: 560px; height: 560px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #60a5fa 0%, #2563eb 35%, #1e3a8a 65%, #0b1a3a 90%); box-shadow: 0 0 90px 30px rgba(59, 130, 246, 0.45); opacity: 0.95; pointer-events: none; }
-    .home-hero::after { content: ""; position: absolute; left: -80px; top: -120px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, rgba(59, 130, 246, 0.35) 0, transparent 70%); pointer-events: none; }
+    /* 배경은 클라이언트가 준 지구 사진(1774×246, resources/img/home-hero-earth.webp). 폭이 넓고 낮은 사진이라
+       cover 로 채우고 오른쪽(유럽·태양 광채)을 기준점으로 둔다. 사진이 못 뜰 때를 대비해 남색 그라디언트를 뒤에 깐다 */
+    .home-hero { position: relative; overflow: hidden; color: #ffffff; background: url('${pageContext.request.contextPath}/resources/img/home-hero-earth.webp') center right / cover no-repeat, linear-gradient(120deg, #0b1a3a 0%, #102a5c 55%, #143a7c 100%); }
+    /* 왼쪽 글자 뒤만 어둡게 — 사진의 별 하늘 위에 흰 글자가 묻히지 않게 한다 */
+    .home-hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5, 14, 36, 0.78) 0%, rgba(5, 14, 36, 0.45) 45%, rgba(5, 14, 36, 0) 75%); pointer-events: none; }
     .home-hero-inner { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 20px; min-height: 260px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
     .home-kicker { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd; margin-bottom: 12px; }
     .home-hero h1 { font-size: 40px; font-weight: 700; line-height: 1.15; color: #ffffff; margin-bottom: 14px; }
@@ -105,7 +107,9 @@
       .home-hero-inner { padding: 40px 20px; min-height: 0; }
       .home-hero h1 { font-size: 30px; }
       .home-hero-sub { font-size: 15px; }
-      .home-hero::before { width: 380px; height: 380px; right: -160px; bottom: -240px; }
+      /* 좁은 화면은 세로가 길어져 사진이 확대된다 — 지구 곡선이 보이도록 가운데 기준, 글자 뒤 어둡기는 위→아래로 */
+      .home-hero { background-position: center 40%; }
+      .home-hero::before { background: linear-gradient(180deg, rgba(5, 14, 36, 0.7) 0%, rgba(5, 14, 36, 0.35) 60%, rgba(5, 14, 36, 0.15) 100%); }
       .home-chips { display: flex; gap: 10px; overflow-x: auto; padding: 14px 20px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
       .home-chips::-webkit-scrollbar { display: none; }
       .home-body { padding-top: 20px; }
