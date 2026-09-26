@@ -177,6 +177,8 @@
       .home-chip-dot::after { left: 13px; top: 13px; }
       .home-hero-inner { padding: 36px 20px 56px; min-height: 0; }
       .home-hero h1 { font-size: 32px; }
+      /* 모바일: "Your World." 앞에서 줄을 바꾼다 (클라이언트 요청). PC 는 한 줄 그대로 */
+      .home-hero h1 .hl { display: block; }
       .home-hero-sub { font-size: 15px; }
       /* 좁은 화면은 세로가 길어져 사진이 확대된다 — 지구 곡선이 보이도록 가운데 기준, 글자 뒤 어둡기는 위→아래로 */
       .home-hero { background-position: center 40%; }
