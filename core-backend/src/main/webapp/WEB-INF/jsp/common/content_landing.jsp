@@ -220,6 +220,16 @@
         .po-body { font-size: 15px; color: #1e293b; white-space: pre-line; word-break: break-word; }
         .po-admin { display: inline-block; font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 3px 10px; margin-bottom: 12px; }
 
+        /* ── 광고 자리 ([AdSense 승인 대기][후속] 스타·포스트 페이지도 자리 확보. 규격은 참고 메일 수령 후 조정) ── */
+        .ad-slot { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .ad-slot-side { width: 300px; height: 600px; margin: 0 auto; }
+        .ad-slot-bottom { width: 100%; height: 90px; margin-top: 20px; }
+        .ad-slot-mobile { display: none; width: 100%; max-width: 320px; height: 100px; margin: 16px auto 0; }
+        @media (max-width: 1000px) {
+            .ad-slot-side, .ad-slot-bottom { display: none; }
+            .ad-slot-mobile { display: block; }
+        }
+
         /* ── 하단 앱 CTA ── */
         .lp-cta { display: flex; justify-content: center; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }
 
@@ -373,6 +383,9 @@
                         <dt>Visitors</dt><dd><c:out value="${empty statViews ? 0 : statViews}"/></dd>
                     </dl>
                 </div>
+
+                <div class="ad-slot ad-slot-bottom" aria-hidden="true" data-ad-slot="star-leaderboard"></div>
+                <div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="star-mobile"></div>
             </div>
 
             <aside class="lp-side">
@@ -382,6 +395,7 @@
                     <p class="sb-promo-sub">Your Page. Your World.</p>
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/about">Explore StarPlatform &rarr;</a>
                 </div>
+                <div class="ad-slot ad-slot-side" aria-hidden="true" data-ad-slot="star-halfpage"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -486,6 +500,8 @@
                     <c:when test="${not empty postBodyRest}"><p class="po-body">${postBodyRest}</p></c:when>
                     <c:when test="${empty postHeadline and not empty previewBody}"><p class="po-body">${previewBody}</p></c:when>
                 </c:choose>
+                <div class="ad-slot ad-slot-bottom" aria-hidden="true" data-ad-slot="post-leaderboard"></div>
+                <div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="post-mobile"></div>
             </article>
 
             <aside class="lp-side">
@@ -509,6 +525,7 @@
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/star/${authorId}" style="display:flex;margin-top:14px">View star page &rarr;</a>
                 </div>
                 </c:if>
+                <div class="ad-slot ad-slot-side" aria-hidden="true" data-ad-slot="post-halfpage"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -549,21 +566,32 @@
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
         function sharePage() {
             var url = window.location.href.split('#')[0];
-            if (navigator.share) {
-                navigator.share({ title: document.title, url: url }).catch(function () { });
-                return;
-            }
             var done = function () {
                 var el = document.getElementById('lpCopied');
                 if (!el) return;
                 el.classList.add('is-on');
                 setTimeout(function () { el.classList.remove('is-on'); }, 1600);
             };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link', url); });
-            } else {
-                window.prompt('Copy this link', url);
+            var copy = function () {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link', url); });
+                } else {
+                    window.prompt('Copy this link', url);
+                }
+            };
+            // [후속] 안드로이드 공유 오류 보고: navigator.share 가 있어도 브라우저·인앱 환경에 따라 예외를 던진다.
+            // 사용자가 취소한 것(AbortError)은 조용히 넘기고, 그 외 실패는 링크 복사로 대신한다
+            if (navigator.share) {
+                try {
+                    navigator.share({ title: document.title, url: url }).catch(function (err) {
+                        if (!err || err.name !== 'AbortError') copy();
+                    });
+                } catch (e) {
+                    copy();
+                }
+                return;
             }
+            copy();
         }
 
         // 스타 페이지 탭 (Posts / Photos / About) — 같은 데이터를 다른 모양으로 보이는 것이라 서버 왕복 없음
@@ -644,7 +672,14 @@
 
         function openApp() {
             if (isAOS) {
+                // [후속] 안드로이드에서 버튼이 안 먹는다는 보고: intent:// 는 크롬 외 브라우저(삼성 인터넷·인앱)에서
+                // 조용히 실패한다. 2.5초 뒤에도 화면이 그대로면 Play 스토어로 보낸다 (iOS 와 같은 방식)
                 location.href = androidIntent;
+                setTimeout(function () {
+                    if (!document.hidden) {
+                        goStore();
+                    }
+                }, 2500);
             } else {
                 // iOS: 커스텀 스킴 시도 후, 화면 전환이 없으면(앱 미설치) 스토어로 이동
                 location.href = schemeUrl;

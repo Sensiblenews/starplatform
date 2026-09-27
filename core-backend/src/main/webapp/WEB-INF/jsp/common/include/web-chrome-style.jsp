@@ -34,7 +34,8 @@
   .site-nav-search-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; border-radius: 8px; color: #ffffff; cursor: pointer; }
   .site-nav-search-btn svg { width: 22px; height: 22px; }
   .site-nav-search-btn:hover { background: rgba(255, 255, 255, 0.1); }
-  .site-nav-cta { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  /* [후속] PC 헤더에서는 Open In App 버튼을 뺀다 (클라이언트 요청). 모바일에서만 아이콘 아래 작은 버튼으로 보인다 */
+  .site-nav-cta { display: none; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .site-nav-cta svg { width: 16px; height: 16px; }
   .site-nav-cta:hover { background: #1d6ae8; }
   /* 키보드 포커스 링: 마우스 사용자에게만 숨기고 키보드 탐색에는 반드시 보이게 한다 */
@@ -66,8 +67,8 @@
     .site-nav-links.is-open { display: flex; }
     .site-nav-links a { padding: 12px; font-size: 15px; border-bottom: 0; }
     .site-nav-links a[aria-current="page"] { box-shadow: inset 3px 0 0 #facc15; border-radius: 6px; }
-    /* PC 전용 항목은 모바일 패널 안에서 일반 링크로 합류시킨다 */
-    .site-nav-cta { display: none; }
+    /* 모바일: 돋보기·햄버거 아이콘 아래 오른쪽에 작은 Open in App 버튼 (헤더 아래 띠 위에 얹힌다) */
+    .site-nav-cta { display: inline-flex; position: absolute; right: 16px; top: calc(100% + 8px); padding: 7px 14px; font-size: 13px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); z-index: 101; }
     .site-nav-links .site-nav-mobile-only { display: block; }
     .site-nav-search input { width: 140px; }
   }

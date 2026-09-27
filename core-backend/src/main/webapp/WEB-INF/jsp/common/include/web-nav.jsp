@@ -2,7 +2,7 @@
   공개 웹사이트 공통 헤더 내비게이션.
 
   [2-29차 후속] 클라이언트 PC 시안 그대로: 짙은 남색 바, 노란 별 로고, 가운데 메뉴(현재 항목 노란 밑줄),
-  오른쪽 돋보기(검색)와 파란 "Open In App" 버튼.
+  오른쪽 돋보기(검색). "Open In App" 버튼은 후속 요청으로 PC 에서 빼고 모바일 아이콘 아래에만 둔다.
 
   현재 페이지 표시는 컨트롤러가 넘기는 activeNav 값으로 한다 (home|about|posts|faq|contact).
   값이 없으면 어느 항목도 활성으로 표시하지 않는다 — 정책 페이지처럼 메뉴에 대응 항목이 없는 화면이 있다.
@@ -31,7 +31,6 @@
       <%-- 약관·정책은 PC에서는 푸터에만 두고, 메뉴를 펼쳐야 하는 모바일에서만 헤더에도 노출한다 --%>
       <li class="site-nav-mobile-only"><a href="${pageContext.request.contextPath}/terms">Terms of Service</a></li>
       <li class="site-nav-mobile-only"><a href="${pageContext.request.contextPath}/privacy">Privacy Policy</a></li>
-      <li class="site-nav-mobile-only"><a href="#" onclick="spOpenApp(); return false;">Open in App</a></li>
     </ul>
 
     <div class="site-nav-tools">
@@ -47,7 +46,7 @@
       </button>
       <a class="site-nav-cta" href="#" onclick="spOpenApp(); return false;">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg>
-        <span>Open In App</span>
+        <span>Open in App</span>
       </a>
     </div>
   </div>
@@ -60,11 +59,21 @@
   출력에 실려 나가는 // 주석에 한글을 두면 응답에 깨진 바이트가 섞인다.
 --%>
 <script>
+  <%-- 앱이 없으면 스토어로 보낸다 (후속 요청: 안드로이드에서 버튼이 안 먹힌다는 보고).
+       안드로이드 intent:// 는 크롬 외 브라우저에서 조용히 실패하므로, 2.5초 뒤에도 화면이 그대로면 Play 로.
+       iOS 는 커스텀 스킴 뒤 같은 방식으로 App Store 로 --%>
   function spOpenApp() {
     var ua = navigator.userAgent.toLowerCase();
-    if (ua.indexOf('android') > -1) {
-      var fallback = encodeURIComponent(window.location.href);
-      window.location.href = 'intent://home#Intent;scheme=witchhunting;package=kr.co.sensiblenews.witchHuntingVU2D7F2P7E;S.browser_fallback_url=' + fallback + ';end';
+    var isAndroid = ua.indexOf('android') > -1;
+    var store = isAndroid
+      ? 'https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E'
+      : 'https://apps.apple.com/app/id1188195403';
+    var start = Date.now();
+    setTimeout(function () {
+      if (!document.hidden && Date.now() - start < 4000) window.location.href = store;
+    }, 2500);
+    if (isAndroid) {
+      window.location.href = 'intent://home#Intent;scheme=witchhunting;package=kr.co.sensiblenews.witchHuntingVU2D7F2P7E;S.browser_fallback_url=' + encodeURIComponent(store) + ';end';
     } else {
       window.location.href = 'witchhunting://home';
     }
