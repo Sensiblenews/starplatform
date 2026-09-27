@@ -62,11 +62,16 @@
     .btn-hero { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35); }
     .btn-hero:hover { background: #1d6ae8; }
 
-    /* ── 광고 자리: 시안의 리더보드·하프페이지 위치에 크기만 잡아 둔 빈 상자 ── */
+    /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
+         PC: ① 히어로 우측 728×90 ② 사이드바 300×600 sticky ③ 페이지네이션 아래 728×90
+         모바일: ① 숨김, A 히어로 아래·칩 카드 위 320×100, B 피드 중간 300×250(2번째 카드 뒤, 이후 6장마다),
+                 C 목록 아래·탭바 위 320×100. 클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
     .ad-slot { background: rgba(241, 245, 249, 0.92); border: 1px solid #e2e8f0; border-radius: 8px; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
-    .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 76px; }
-    .ad-slot-bottom { width: 100%; max-width: 100%; height: 90px; margin-top: 16px; }
+    .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 84px; }
+    .ad-slot-bottom { width: 728px; max-width: 100%; height: 90px; margin: 24px auto 0; }
+    .ad-slot-mobile { width: 320px; max-width: 100%; height: 100px; margin: 20px auto 0; }
+    .ad-slot-infeed { width: 300px; max-width: 100%; height: 250px; margin: 0 auto; border-radius: 14px; }
 
     /* ── 모바일 기능 칩: 가로 스크롤 한 줄 ── */
     .home-chips { display: none; }
@@ -144,7 +149,6 @@
     .m-star-meta { font-size: 11px; color: #64748b; }
     .m-load-more { display: block; margin: 14px auto 0; width: 100%; text-align: center; padding: 13px; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1; color: #1d4ed8; font-size: 15px; font-weight: 600; text-decoration: none; }
     .m-load-more[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
-    .ad-slot-mobile { width: 100%; max-width: 320px; height: 100px; margin: 14px auto 0; }
     .m-network { display: flex; align-items: center; gap: 14px; background: #1e40af; background: linear-gradient(120deg, #1d4ed8, #1e3a8a); color: #ffffff; border-radius: 16px; padding: 16px 16px; text-decoration: none; margin-top: 22px; }
     .m-network-globe { width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .m-network-globe svg { width: 28px; height: 28px; }
@@ -197,6 +201,9 @@
     </div>
   </section>
 
+  <%-- [AdSense 승인 대기] 모바일 A: 히어로 아래·기능 칩 카드 위 320×100 (참고 메일) --%>
+  <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-top"></div></div>
+
   <%-- 모바일 전용 기능 칩. 항목은 클라이언트 모바일 시안 그대로이며 별도 데이터는 없다 --%>
   <div class="home-chips" aria-label="Highlights">
     <div class="home-chip"><span class="home-chip-dot home-chip-dot-1" aria-hidden="true"></span><span><strong>Global Ranking</strong><span>Worldwide ranking system</span></span></div>
@@ -204,9 +211,6 @@
     <div class="home-chip"><span class="home-chip-dot home-chip-dot-3" aria-hidden="true"></span><span><strong>Traffic Economy</strong><span>Opportunities created by traffic</span></span></div>
     <div class="home-chip"><span class="home-chip-dot home-chip-dot-4" aria-hidden="true"></span><span><strong>Personal Monetization</strong><span>Your own monetization system</span></span></div>
   </div>
-
-  <%-- [AdSense 승인 대기][후속] 모바일 광고 자리 ① 칩 카드 아래. 규격은 클라이언트 참고 메일 수령 후 조정 --%>
-  <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-top"></div></div>
 
   <div class="home-wrap">
     <div class="home-body">
@@ -230,7 +234,7 @@
           </div>
           <c:if test="${not empty postCards}">
           <div class="m-posts" id="mPosts">
-            <c:forEach var="p" items="${postCards}">
+            <c:forEach var="p" items="${postCards}" varStatus="ps">
               <a class="m-post" href="${pageContext.request.contextPath}/post/${p.conId}">
                 <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if></span>
                 <span class="m-post-body">
@@ -246,6 +250,8 @@
                   </span>
                 </span>
               </a>
+              <%-- [AdSense 승인 대기] 모바일 B: 피드 중간 300×250 — 2번째 카드 뒤, 이후 6장마다 (참고 메일) --%>
+              <c:if test="${ps.index mod 6 eq 1}"><div class="ad-slot ad-slot-infeed m-ad" aria-hidden="true" data-ad-slot="mobile-infeed"></div></c:if>
             </c:forEach>
           </div>
           <c:if test="${not empty nextUrl}">
@@ -300,8 +306,8 @@
         </c:if>
 
         <%-- ── 모바일: 글로벌 네트워크 배너 (시안 문구, 영어) ── --%>
-        <%-- [AdSense 승인 대기][후속] 모바일 광고 자리 ② 목록 아래 --%>
-        <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-bottom"></div></div>
+        <%-- [AdSense 승인 대기] 모바일 C: 목록 아래 320×100. 고정 탭바와는 body 하단 여백 + 이 상자의 여백으로 20px 이상 띄운다 (참고 메일) --%>
+        <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-bottom" style="margin-bottom: 20px;"></div></div>
 
         <a class="m-network m-only" href="${pageContext.request.contextPath}/about">
           <span class="m-network-globe" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
@@ -350,7 +356,7 @@
         .then(function (r) { return r.text(); })
         .then(function (html) {
           var doc = new DOMParser().parseFromString(html, 'text/html');
-          doc.querySelectorAll('#mPosts .m-post').forEach(function (card) { list.appendChild(card); });
+          doc.querySelectorAll('#mPosts .m-post, #mPosts .m-ad').forEach(function (card) { list.appendChild(card); });
           var next = doc.getElementById('mLoadMore');
           if (next) {
             btn.setAttribute('data-next', next.getAttribute('data-next'));

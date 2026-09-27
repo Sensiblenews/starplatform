@@ -216,18 +216,30 @@
         .po-thumb { flex: 0 0 auto; width: 96px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: #f1f5f9; padding: 0; cursor: pointer; }
         .po-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .po-thumb[aria-current="true"] { border-color: #2f7cf6; }
-        .po-actions { display: flex; gap: 10px; margin: 18px 0; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .po-actions { display: flex; gap: 10px; margin: 0; padding-top: 4px; flex-wrap: wrap; }
+        .po-body-top { margin-top: 18px; }
         .po-body { font-size: 15px; color: #1e293b; white-space: pre-line; word-break: break-word; }
         .po-admin { display: inline-block; font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 3px 10px; margin-bottom: 12px; }
 
-        /* ── 광고 자리 ([AdSense 승인 대기][후속] 스타·포스트 페이지도 자리 확보. 규격은 참고 메일 수령 후 조정) ── */
+        /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
+             스타: A 통계 카드 아래·탭 위(PC 728×90 / 모바일 320×100), B 사이드바 프로모 아래 300×600 sticky(PC),
+                   C 피드 중간 300×250(6장마다), 모바일 C' Join 배너 위 300×250.
+             포스트: D 본문 끝·Share 버튼 위(PC 728×90 / 모바일 300×250), E 사이드바 More posts 아래 300×600(PC),
+                     모바일 B' 작성자 카드와 More posts 사이 320×100, C' Join 위 300×250.
+             클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
         .ad-slot { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; }
-        .ad-slot-side { width: 300px; height: 600px; margin: 0 auto; }
-        .ad-slot-bottom { width: 100%; height: 90px; margin-top: 20px; }
-        .ad-slot-mobile { display: none; width: 100%; max-width: 320px; height: 100px; margin: 16px auto 0; }
+        .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
+        .ad-side { width: 300px; height: 600px; margin: 0 auto; position: sticky; top: 84px; }
+        .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
+        .ad-m-lb { display: none; width: 320px; max-width: 100%; height: 100px; margin: 20px auto; }
+        .ad-m-rect { display: none; width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
+        .ad-pc-only { display: block; }
         @media (max-width: 1000px) {
-            .ad-slot-side, .ad-slot-bottom { display: none; }
-            .ad-slot-mobile { display: block; }
+            .ad-side, .ad-pc-only { display: none; }
+            .ad-m-lb, .ad-m-rect { display: block; }
+            .ad-lb { width: 320px; height: 100px; }
+            /* 포스트 D 는 모바일에서 300×250 (참고 메일: 골든 존). 위 .ad-lb 규칙보다 뒤에, 더 높은 특이성으로 */
+            .ad-lb.ad-d { width: 300px; height: 250px; border-radius: 14px; }
         }
 
         /* ── 하단 앱 CTA ── */
@@ -321,6 +333,9 @@
                     </div>
                 </div>
 
+                <%-- [AdSense 승인 대기] 스타 A: 통계 카드 아래·탭 위 (PC 728×90 / 모바일 320×100) --%>
+                <div class="ad-slot ad-lb" aria-hidden="true" data-ad-slot="star-a"></div>
+
                 <div class="st-tabs" role="tablist" aria-label="Star page sections">
                     <button type="button" class="st-tab" role="tab" aria-selected="true" aria-controls="tabPosts" id="tabBtnPosts">Posts</button>
                     <button type="button" class="st-tab" role="tab" aria-selected="false" aria-controls="tabPhotos" id="tabBtnPhotos">Photos</button>
@@ -331,7 +346,7 @@
                     <c:choose>
                         <c:when test="${not empty relatedPosts}">
                             <div class="st-posts">
-                                <c:forEach var="rp" items="${relatedPosts}">
+                                <c:forEach var="rp" items="${relatedPosts}" varStatus="rs">
                                     <a class="st-post" href="${pageContext.request.contextPath}/post/${rp.conId}">
                                         <span class="st-post-img">
                                             <c:if test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
@@ -350,6 +365,8 @@
                                             </span>
                                         </span>
                                     </a>
+                                    <%-- [AdSense 승인 대기] 스타 C: 피드 중간 300×250, 6장마다 카드처럼 --%>
+                                    <c:if test="${rs.count mod 6 eq 0}"><div class="ad-slot ad-rect st-ad" aria-hidden="true" data-ad-slot="star-infeed"></div></c:if>
                                 </c:forEach>
                             </div>
                         </c:when>
@@ -384,8 +401,6 @@
                     </dl>
                 </div>
 
-                <div class="ad-slot ad-slot-bottom" aria-hidden="true" data-ad-slot="star-leaderboard"></div>
-                <div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="star-mobile"></div>
             </div>
 
             <aside class="lp-side">
@@ -395,7 +410,8 @@
                     <p class="sb-promo-sub">Your Page. Your World.</p>
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/about">Explore StarPlatform &rarr;</a>
                 </div>
-                <div class="ad-slot ad-slot-side" aria-hidden="true" data-ad-slot="star-halfpage"></div>
+                <%-- [AdSense 승인 대기] 스타 B: 프로모 아래 300×600 sticky (PC) --%>
+                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="star-b"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -426,6 +442,9 @@
                     </div>
                 </div>
                 </c:if>
+
+                <%-- [AdSense 승인 대기] 스타 모바일 C': Related stars 아래·Join 배너 위 300×250 --%>
+                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="star-mobile-c"></div>
 
                 <a class="sb-join" href="#" onclick="openApp(); return false;">
                     ${starIcon}
@@ -491,17 +510,18 @@
                     </c:when>
                 </c:choose>
 
+                <c:choose>
+                    <c:when test="${not empty postBodyRest}"><p class="po-body po-body-top">${postBodyRest}</p></c:when>
+                    <c:when test="${empty postHeadline and not empty previewBody}"><p class="po-body po-body-top">${previewBody}</p></c:when>
+                </c:choose>
+
+                <%-- [AdSense 승인 대기] 포스트 D: 이미지·본문 끝, Share 버튼 위 (PC 728×90 / 모바일 300×250). 버튼과 20px 이상 --%>
+                <div class="ad-slot ad-lb ad-d" aria-hidden="true" data-ad-slot="post-d"></div>
+
                 <div class="po-actions">
                     <button type="button" class="lp-btn lp-btn-secondary" onclick="sharePage()">${shareIcon}Share</button>
                     <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">${phoneIcon}Open in App</button>
                 </div>
-
-                <c:choose>
-                    <c:when test="${not empty postBodyRest}"><p class="po-body">${postBodyRest}</p></c:when>
-                    <c:when test="${empty postHeadline and not empty previewBody}"><p class="po-body">${previewBody}</p></c:when>
-                </c:choose>
-                <div class="ad-slot ad-slot-bottom" aria-hidden="true" data-ad-slot="post-leaderboard"></div>
-                <div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="post-mobile"></div>
             </article>
 
             <aside class="lp-side">
@@ -525,7 +545,8 @@
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/star/${authorId}" style="display:flex;margin-top:14px">View star page &rarr;</a>
                 </div>
                 </c:if>
-                <div class="ad-slot ad-slot-side" aria-hidden="true" data-ad-slot="post-halfpage"></div>
+                <%-- [AdSense 승인 대기] 포스트 모바일 B': 작성자 카드와 More posts 사이 320×100 --%>
+                <div class="ad-slot ad-m-lb" aria-hidden="true" data-ad-slot="post-mobile-b"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -541,6 +562,10 @@
                     </ul>
                 </div>
                 </c:if>
+
+                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250 --%>
+                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
+                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
 
                 <a class="sb-join" href="#" onclick="openApp(); return false;">
                     ${starIcon}
