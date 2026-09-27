@@ -1,0 +1,22 @@
+<!-- 로비 위에 얹는 오프닝 연출. 조작을 막지 않고(pointer-events: none) 1.5초 뒤 스스로 사라진다 -->
+<div class="op-overlay" *ngIf="visible" [class.fading]="fading" [class.static]="staticMode" aria-hidden="true">
+  <div class="op-stage">
+
+    <!-- 얇은 원형 빛 파동 1회 (0.4초 시작) -->
+    <div class="op-ring"></div>
+
+    <!-- 별빛 — 고정 위치, 시작 시차만 다르게 -->
+    <span class="op-star" *ngFor="let s of stars" [class]="'op-star ' + s.color"
+      [style.left.px]="s.x" [style.top.px]="s.y" [style.width.px]="s.size" [style.height.px]="s.size"
+      [style.animation-delay.s]="s.delay"></span>
+
+    <!-- 중앙 지구본 (0.2초 확대 후 정착) -->
+    <div class="op-globe">🌎</div>
+
+    <!-- 문구 (0.6초 등장) -->
+    <div class="op-text">
+      <div class="op-headline">GLOBAL RANKING IS LIVE</div>
+      <div class="op-sub">Your place in the world starts here.</div>
+    </div>
+  </div>
+</div>

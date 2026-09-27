@@ -54,7 +54,7 @@ public class SuperAppService {
 	public static final int DEFAULT_FEED_LIMIT = 20;
 	public static final int MAX_FEED_LIMIT = 100;
 
-	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 60초, context-redis.xml).
+	// 로비 데이터: country에만 의존하므로 country별로 캐시(TTL 10초, context-redis.xml).
 	// 키 정규화(null/공백 → KR)는 아래 메서드 본문과 동일하게 맞춰 중복 엔트리를 방지한다.
 	// usePrefix=true가 캐시명("lobby")을 접두어로 붙이므로 키에는 country만 둔다 → Redis 키: lobby:KR
 	// 주의: Today's TOP은 방문자 수 내림차순 그대로 내려보낸다(2-25차 — 셔플 제거).
@@ -125,18 +125,7 @@ public class SuperAppService {
 	 * 예전 쿼리에서도 그런 페이지의 GLOBAL_RANK는 NULL이었으므로 동작이 같다.
 	 */
 	private void applyGlobalRank(Map<String, Object> starInfo, String starId) {
-		List<Map<String, Object>> rankList;
-		try {
-			rankList = starRankService.getGlobalRankMap();
-		} catch (Exception e) {
-			// Redis 장애 시 fail-open — 캐시 도입 이전과 같은 비용으로 직접 계산한다
-			System.out.println("Star rank cache skipped (fail-open): " + e.getMessage());
-			try {
-				rankList = starRankService.getGlobalRankMapUncached();
-			} catch (Exception inner) {
-				rankList = null;
-			}
-		}
+		List<Map<String, Object>> rankList = loadGlobalRankList();
 
 		Map<String, Object> mine = null;
 		if (rankList != null) {
@@ -164,6 +153,25 @@ public class SuperAppService {
 				System.out.println("Star view count fallback failed: " + e.getMessage());
 			}
 			starInfo.put("viewCount", views == null ? 0 : views);
+		}
+	}
+
+	/**
+	 * 전체 스타 순위표를 가져온다. 캐시 → 실패 시 비캐시 직접 계산 → 그것도 실패하면 null.
+	 *
+	 * 스타 상세(applyGlobalRank)와 로비 My Global Ranking 카드(getMyRank)가 같은 폴백 규칙을 쓴다.
+	 */
+	private List<Map<String, Object>> loadGlobalRankList() {
+		try {
+			return starRankService.getGlobalRankMap();
+		} catch (Exception e) {
+			// Redis 장애 시 fail-open — 캐시 도입 이전과 같은 비용으로 직접 계산한다
+			System.out.println("Star rank cache skipped (fail-open): " + e.getMessage());
+			try {
+				return starRankService.getGlobalRankMapUncached();
+			} catch (Exception inner) {
+				return null;
+			}
 		}
 	}
 
@@ -1169,14 +1177,94 @@ public class SuperAppService {
 			cards.add(card);
 		}
 
+		// 좌·우 스타 이름 아래에 글로벌 순위(#N)를 보인다 — 조회수 줄을 대체 (클라이언트 요청, 2026-09-26).
+		// 랭킹형 카드의 행은 "카테고리 안 1·2위"라 글로벌 순위가 아니고, CUSTOM 카드 행에는 순위 자체가 없다.
+		// 그래서 캐시된 전체 순위표를 한 번만 읽어 PRS_ID → GLOBAL_RANK 색인으로 양쪽에 붙인다.
+		Map<String, Object> rankById = indexGlobalRank(loadGlobalRankList());
+		for (Map<String, Object> card : cards) {
+			attachGlobalRank(card.get("left"), rankById);
+			attachGlobalRank(card.get("right"), rankById);
+		}
+
 		resultMap.put("result", "OK");
 		resultMap.put("nextUpdateSec", 3); // 프론트 폴링 주기 안내값
 		resultMap.put("cards", cards);
 		return resultMap;
 	}
 
+	/**
+	 * 웹 포스트 랜딩의 작성자 카드용 요약 — 글로벌 순위·전체 대상 수·방문자 수·소개문.
+	 * getStarDetail 은 피드·갤러리까지 딸려 와 글 한 편 열 때마다 부르기엔 무겁다.
+	 * 순위·조회수는 캐시된 순위표에서, 소개문은 WH_PRESS 한 행에서 읽는다 (getMyRank 와 같은 경로).
+	 * 실패하면 빈 맵 — 사이드바 통계만 빠지고 페이지는 렌더링된다.
+	 */
+	public Map<String, Object> getStarSummary(String starId) {
+		Map<String, Object> summary = new HashMap<>();
+		if (starId == null || starId.isEmpty()) {
+			return summary;
+		}
+		try {
+			List<Map<String, Object>> rankList = loadGlobalRankList();
+			Map<String, Object> mine = null;
+			if (rankList != null) {
+				summary.put("totalStars", rankList.size());
+				for (Map<String, Object> row : rankList) {
+					if (starId.equals(String.valueOf(row.get("PRS_ID")))) {
+						mine = row;
+						break;
+					}
+				}
+			}
+			if (mine != null) {
+				summary.put("globalRank", mine.get("GLOBAL_RANK"));
+				summary.put("viewCount", toLong(mine.get("viewCount")));
+			} else {
+				Object views = dao.selectOne("superapp.selectStarViewCount", starId);
+				summary.put("viewCount", toLong(views));
+			}
+			Map<String, Object> counts = dao.selectOne("superapp.selectStarCounts", starId);
+			if (counts != null) {
+				summary.put("bio", counts.get("PRS_BIO"));
+				summary.put("followerCnt", toLong(counts.get("FOLLOWER_CNT")));
+				summary.put("category", counts.get("STAR_CATEGORY"));
+			}
+		} catch (Exception e) {
+			System.out.println("Star summary skipped: " + e.getMessage());
+		}
+		return summary;
+	}
+
+	/** 순위표 행(PRS_ID, GLOBAL_RANK) → PRS_ID별 GLOBAL_RANK 색인. 순위표가 없으면(캐시·DB 모두 실패) 빈 맵 */
+	static Map<String, Object> indexGlobalRank(List<Map<String, Object>> rankList) {
+		Map<String, Object> index = new HashMap<>();
+		if (rankList == null) {
+			return index;
+		}
+		for (Map<String, Object> row : rankList) {
+			Object id = row.get("PRS_ID");
+			if (id != null && row.get("GLOBAL_RANK") != null) {
+				index.put(String.valueOf(id), row.get("GLOBAL_RANK"));
+			}
+		}
+		return index;
+	}
+
+	/**
+	 * VS 카드 한쪽(id 키를 가진 맵)에 globalRank를 넣는다.
+	 * 순위표 밖 페이지는 null — 프런트가 순위를 지어내지 않고 빈 표시를 한다 (my-rank와 같은 규칙).
+	 */
+	@SuppressWarnings("unchecked")
+	static void attachGlobalRank(Object sideObj, Map<String, Object> rankById) {
+		if (!(sideObj instanceof Map)) {
+			return;
+		}
+		Map<String, Object> side = (Map<String, Object>) sideObj;
+		Object id = side.get("id");
+		side.put("globalRank", id == null ? null : rankById.get(String.valueOf(id)));
+	}
+
 	// 🌟 [신규] 로비 LIVE 티커 어드민 문구 (2-29차). 로비 진입 시 1회 + 60초 갱신.
-	// 어드민 저장 시 SuperAdminService가 캐시를 비우므로 TTL(30초)과 무관하게 즉시 반영된다.
+	// 어드민 저장 시 SuperAdminService가 캐시를 비우므로 TTL(10초)과 무관하게 즉시 반영된다.
 	@Cacheable(value = "liveNews", key = "'active'", unless = "#result == null")
 	public Map<String, Object> getLiveNews() throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();
@@ -1746,10 +1834,22 @@ public class SuperAppService {
 	 * 공개 포스트 목록 페이지(/posts)용: 승인된 글을 최신순으로 한 페이지 분량만 조회한다.
 	 */
 	public List<Map<String, Object>> getPublicPosts(int offset, int size) {
+		return getPublicPosts(offset, size, null);
+	}
+
+	/** 검색어가 있으면 본문·작성자 이름 부분 일치로 좁힌다 (웹 홈 헤더 검색). null·빈 문자열이면 전체 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size, String q) {
+		return getPublicPosts(offset, size, q, null);
+	}
+
+	/** 검색어 + 작성자 직군 필터 (모바일 홈 카테고리 타일). category 는 컨트롤러가 화이트리스트로 검증한 값 */
+	public List<Map<String, Object>> getPublicPosts(int offset, int size, String q, String category) {
 		try {
 			Map<String, Object> param = new HashMap<>();
 			param.put("offset", offset);
 			param.put("size", size);
+			param.put("q", q);
+			param.put("category", category);
 			return dao.selectList("superapp.selectPublicPosts", param);
 		} catch (Exception e) {
 			// 목록 조회가 실패해도 페이지 골격(헤더·안내문·푸터)은 렌더링돼야 한다
@@ -1763,8 +1863,20 @@ public class SuperAppService {
 	 * 조회 실패 시 0을 돌려 페이지네이션을 감추고 첫 페이지만 보여준다.
 	 */
 	public int getPublicPostCount() {
+		return getPublicPostCount(null);
+	}
+
+	/** 검색어 조건은 목록 조회와 같아야 마지막 페이지가 비지 않는다 */
+	public int getPublicPostCount(String q) {
+		return getPublicPostCount(q, null);
+	}
+
+	public int getPublicPostCount(String q, String category) {
 		try {
-			Object count = dao.selectOne("superapp.selectPublicPostCount", new HashMap<>());
+			Map<String, Object> param = new HashMap<>();
+			param.put("q", q);
+			param.put("category", category);
+			Object count = dao.selectOne("superapp.selectPublicPostCount", param);
 			return count == null ? 0 : ((Number) count).intValue();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1787,6 +1899,31 @@ public class SuperAppService {
 	/**
 	 * 🌟 [신규 2-27차] 스타 랜딩 Related Stars 카드용: 승인 게시물 보유 스타 최대 6명 (같은 카테고리 우선)
 	 */
+	/**
+	 * 직군별 대표 사진 (모바일 홈 카테고리 타일). 직군 코드 → {image, starId, name}.
+	 * 직군 순으로 정렬돼 오므로 직군마다 첫 행(팔로워 최다)만 남긴다. 실패하면 빈 맵 — 타일은 사진 없이 그려진다
+	 */
+	@Cacheable(value = "lobby", key = "'web:categoryCovers'", unless = "#result == null")
+	public Map<String, Map<String, Object>> getCategoryCovers() {
+		Map<String, Map<String, Object>> covers = new java.util.LinkedHashMap<>();
+		try {
+			List<Map<String, Object>> rows = dao.selectList("superapp.selectCategoryCovers", new HashMap<String, Object>());
+			for (Map<String, Object> row : rows) {
+				String code = String.valueOf(row.get("STAR_CATEGORY"));
+				if (!covers.containsKey(code)) {
+					Map<String, Object> cover = new HashMap<>();
+					cover.put("image", row.get("STORED_FILE_NM"));
+					cover.put("starId", row.get("PRS_ID"));
+					cover.put("name", row.get("PRS_NAME"));
+					covers.put(code, cover);
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Category covers skipped: " + e.getMessage());
+		}
+		return covers;
+	}
+
 	public List<Map<String, Object>> getRelatedStars(String starId, String category) {
 		try {
 			Map<String, Object> params = new HashMap<>();
@@ -2120,6 +2257,117 @@ public class SuperAppService {
 			e.printStackTrace();
 			resultMap.put("result", "FAIL");
 			resultMap.put("msg", "Failed to calculate revenue.");
+		}
+		return resultMap;
+	}
+
+	// Global Score 가중치 — selectGlobalRankMap / selectVsCards의 정렬식과 반드시 같아야 한다
+	public static final int SCORE_WEIGHT_VIEW = 1;
+	public static final int SCORE_WEIGHT_LIKE = 3;
+	public static final int SCORE_WEIGHT_FOLLOWER = 5;
+
+	/**
+	 * Global Score = 조회 ×1 + 좋아요 ×3 + 즐겨찾기 ×5.
+	 * 로비 My Global Ranking 카드의 pts와 VS 카드의 pts가 같은 단위가 되도록 SQL 정렬식을 그대로 옮겼다.
+	 */
+	public static long computeGlobalScore(long views, long likes, long followers) {
+		return views * SCORE_WEIGHT_VIEW + likes * SCORE_WEIGHT_LIKE + followers * SCORE_WEIGHT_FOLLOWER;
+	}
+
+	/**
+	 * MyBatis가 Integer / Long / BigInteger / BigDecimal / 문자열 어느 쪽으로 돌려주든 long으로 맞춘다.
+	 * null·비숫자는 0.
+	 */
+	public static long toLong(Object raw) {
+		if (raw == null) {
+			return 0L;
+		}
+		if (raw instanceof Number) {
+			return ((Number) raw).longValue();
+		}
+		try {
+			return Long.parseLong(String.valueOf(raw).trim());
+		} catch (NumberFormatException e) {
+			return 0L;
+		}
+	}
+
+	/**
+	 * 로비 My Global Ranking 카드 (2-29차) — 내 순위·전체 대상 수·Global Score·지표 3종.
+	 *
+	 * 스타 상세 API는 피드·갤러리까지 딸려 와 로비 진입마다 부르기엔 무겁다.
+	 * 순위·조회수는 캐시된 순위표에서, 좋아요·즐겨찾기는 WH_PRESS 한 행에서 읽는다.
+	 * 순위표 밖 페이지(IS_STAR='N' 등)는 globalRank를 null로 내려 프런트가 순위를 지어내지 않게 한다.
+	 *
+	 * 사용자별 데이터이므로 @Cacheable을 붙이지 않는다 — getMyRankingRevenue처럼 starId 단독 키로 캐시하면
+	 * 토큰 불일치 FAIL 응답까지 같은 키에 캐시되는 결함이 생긴다. 순위표 자체가 이미 Redis 캐시라 비용은 작다.
+	 */
+	public Map<String, Object> getMyRank(Map<String, Object> params) throws Exception {
+		Map<String, Object> resultMap = new HashMap<>();
+		try {
+			String starId = params.get("starId") == null ? null : String.valueOf(params.get("starId"));
+
+			// 1. 본인 확인 (null-safe, fail-closed)
+			if (!isStarOwner(starId, params.get("starToken"))) {
+				resultMap.put("result", "FAIL");
+				resultMap.put("msg", "Session expired. Please log in again.");
+				return resultMap;
+			}
+
+			// 2. 이름·사진·좋아요·즐겨찾기
+			Map<String, Object> counts = dao.selectOne("superapp.selectStarCounts", starId);
+			if (counts == null) {
+				resultMap.put("result", "FAIL");
+				resultMap.put("msg", "Star page not found.");
+				return resultMap;
+			}
+
+			// 3. 순위표에서 내 행 탐색
+			List<Map<String, Object>> rankList = loadGlobalRankList();
+			Map<String, Object> mine = null;
+			int totalStars = 0;
+			if (rankList != null) {
+				totalStars = rankList.size();
+				for (Map<String, Object> row : rankList) {
+					if (starId.equals(String.valueOf(row.get("PRS_ID")))) {
+						mine = row;
+						break;
+					}
+				}
+			}
+
+			// 4. 순위·조회수 — 순위표 밖이면 순위 없음, 조회수만 따로 센다
+			Object globalRank = null;
+			long viewCount;
+			if (mine != null) {
+				globalRank = mine.get("GLOBAL_RANK");
+				viewCount = toLong(mine.get("viewCount"));
+			} else {
+				Object views = null;
+				try {
+					views = dao.selectOne("superapp.selectStarViewCount", starId);
+				} catch (Exception e) {
+					System.out.println("Star view count fallback failed: " + e.getMessage());
+				}
+				viewCount = toLong(views);
+			}
+
+			long likeCnt = toLong(counts.get("LIKE_CNT"));
+			long followerCnt = toLong(counts.get("FOLLOWER_CNT"));
+
+			resultMap.put("globalRank", globalRank);
+			resultMap.put("totalStars", totalStars);
+			resultMap.put("score", computeGlobalScore(viewCount, likeCnt, followerCnt));
+			resultMap.put("viewCount", viewCount);
+			resultMap.put("likeCnt", likeCnt);
+			resultMap.put("followerCnt", followerCnt);
+			resultMap.put("name", counts.get("PRS_NAME"));
+			resultMap.put("image", counts.get("STORED_FILE_NM"));
+			resultMap.put("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+			resultMap.put("result", "FAIL");
+			resultMap.put("msg", "Failed to load your ranking.");
 		}
 		return resultMap;
 	}

@@ -24,21 +24,16 @@
             <img [src]="card.left.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.left.name }}</div>
-          <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
+          <!-- 이름 아래는 글로벌 순위 한 줄 — Today's TOP 행과 같은 🌍 아이콘 (조회수 줄 대체, 2026-09-26).
+               점수 비율은 아래 게이지가 보여준다 -->
           <div class="side-stats">
-            <div class="stat-line">👁️ {{ formatScore(card.left.viewCount || 0) }}</div>
-            <div class="stat-line">❤️ {{ formatScore(card.left.likeCnt || 0) }}</div>
-            <div class="stat-line">⭐ {{ formatScore(card.left.followerCnt || 0) }}</div>
+            <div class="stat-line">🌍 {{ formatRank(card.left) }}</div>
           </div>
-          <div class="side-score">{{ formatScore(card.left.score) }} {{ getScoreUnit(card) }}</div>
         </div>
 
-        <!-- 중앙: VS (탭 → 해당 카테고리 TOP100) -->
+        <!-- 중앙: VS (탭 → 해당 카테고리 TOP100). Gap 숫자는 2-29차에 제거 -->
         <div class="vs-center" (click)="onCenterClick(card)">
           <div class="vs-logo">VS</div>
-          <div class="score-gap" *ngIf="card.right">
-            Gap {{ formatScore(getScoreGap(card)) }}
-          </div>
         </div>
 
         <!-- 우측: 2위 또는 도전자 대기 -->
@@ -47,13 +42,10 @@
             <img [src]="card.right.image" (error)="handleImageError($event)" decoding="async" />
           </div>
           <div class="side-name">{{ card.right.name }}</div>
-          <!-- 지표 3종을 각각 한 줄씩 — 좁은 폭에서 하트·별이 한 줄에 붙으면 숫자가 서로 붙어 읽힌다 -->
+          <!-- 이름 아래는 글로벌 순위 한 줄 (조회수 줄 대체, 2026-09-26) -->
           <div class="side-stats">
-            <div class="stat-line">👁️ {{ formatScore(card.right.viewCount || 0) }}</div>
-            <div class="stat-line">❤️ {{ formatScore(card.right.likeCnt || 0) }}</div>
-            <div class="stat-line">⭐ {{ formatScore(card.right.followerCnt || 0) }}</div>
+            <div class="stat-line">🌍 {{ formatRank(card.right) }}</div>
           </div>
-          <div class="side-score">{{ formatScore(card.right.score) }} {{ getScoreUnit(card) }}</div>
         </div>
         <div class="vs-side right waiting" *ngIf="!card.right">
           <div class="avatar-ring gray">

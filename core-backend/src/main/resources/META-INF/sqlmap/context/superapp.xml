@@ -383,6 +383,25 @@
 	    WHERE PRS_ID = #{starId} AND ACTION = 'IMPRESSION'
 	</select>
 
+	<!--
+	  로비 My Global Ranking 카드용 경량 조회 (2-29차).
+	  selectStarDetail은 deviceId 서브쿼리가 필요하고 갤러리까지 함께 내려가 로비 진입마다 부르기엔 무겁다.
+	  순위·조회수는 캐시된 순위표(selectGlobalRankMap)에서 채우므로 여기서는 이름·사진·좋아요·즐겨찾기만 읽는다.
+	-->
+	<select id="selectStarCounts" parameterType="string" resultType="hashmap">
+	    SELECT
+	        P.PRS_ID,
+	        P.PRS_NAME,
+	        P.STORED_FILE_NM,
+	        IFNULL(P.LIKE_CNT, 0) AS LIKE_CNT,
+	        IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+	        P.PRS_BIO,
+	        P.STAR_CATEGORY
+	    FROM WH_PRESS P
+	    WHERE P.PRS_ID = #{starId}
+	      AND P.PRS_USE_YN = 'Y'
+	</select>
+
 	<select id="selectStarGallery" parameterType="map" resultType="map">
 		<!-- 페이징(2-26차): 예전에는 스타의 전체 피드 + 전체 공지를 한 번에 내려줬다.
 		     UNION 결과 전체를 정렬한 뒤 잘라야 하므로 서브쿼리로 감싼다. -->
@@ -527,6 +546,7 @@
 			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
 			P.PRS_ID,
 			P.PRS_NAME,
+			P.STORED_FILE_NM,
 			IFNULL(P.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
 			IFNULL(P.STAR_CATEGORY, 'GENERAL') AS STAR_CATEGORY,
 			D.THUMB_URL,
@@ -536,6 +556,14 @@
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		LEFT JOIN STAR_CONTENT_MEDIA D ON M.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 		WHERE M.MDR_STATUS = 'APPROVED'
+		<!-- 웹 홈 검색(헤더 돋보기): 본문 또는 작성자 이름에 검색어 포함. 비어 있으면 전체 목록 -->
+		<if test="q != null and q != ''">
+		  AND (M.CON_BODY LIKE CONCAT('%', #{q}, '%') OR P.PRS_NAME LIKE CONCAT('%', #{q}, '%'))
+		</if>
+		<!-- 모바일 홈 "Explore by Category" 타일: 작성자 직군으로 좁힌다 (컨트롤러가 화이트리스트 검증) -->
+		<if test="category != null and category != ''">
+		  AND P.STAR_CATEGORY = #{category}
+		</if>
 		ORDER BY M.CREATED_DATE DESC
 		LIMIT #{offset}, #{size}
 	</select>
@@ -546,6 +574,24 @@
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		WHERE M.MDR_STATUS = 'APPROVED'
+		<if test="q != null and q != ''">
+		  AND (M.CON_BODY LIKE CONCAT('%', #{q}, '%') OR P.PRS_NAME LIKE CONCAT('%', #{q}, '%'))
+		</if>
+		<if test="category != null and category != ''">
+		  AND P.STAR_CATEGORY = #{category}
+		</if>
+	</select>
+
+	<!-- 모바일 홈 "Explore by Category" 타일의 대표 사진: 직군별 팔로워 최다 스타의 프로필 사진.
+	     승인 게시물이 있는 스타만 — 빈 페이지의 사진으로 타일을 만들지 않는다 -->
+	<select id="selectCategoryCovers" parameterType="map" resultType="map">
+		SELECT P.STAR_CATEGORY, P.STORED_FILE_NM, P.PRS_ID, P.PRS_NAME
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y'
+		  AND P.STORED_FILE_NM IS NOT NULL AND P.STORED_FILE_NM != ''
+		  AND P.STAR_CATEGORY IN ('STAR', 'CELEB', 'BRAND', 'UNIV', 'CITY')
+		  AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
+		ORDER BY P.STAR_CATEGORY, IFNULL(P.FOLLOWER_CNT, 0) DESC, P.PRS_ID
 	</select>
 
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
@@ -564,6 +610,9 @@
 			M.CON_ID,
 			M.CON_BODY,
 			M.CREATED_DATE,
+			IFNULL(M.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(M.COMMENT_CNT, 0) AS COMMENT_CNT,
+			(SELECT COUNT(*) FROM STAR_CONTENT_MEDIA WHERE CON_ID = M.CON_ID) AS MEDIA_CNT,
 			D.THUMB_URL,
 			D.MEDIA_URL
 		FROM WH_STAR_CONTENT M
@@ -610,6 +659,9 @@
 			B.PRS_NAME,
 			B.STORED_FILE_NM,
 			IFNULL(B.FOLLOWER_CNT, 0) AS FOLLOWER_CNT,
+			B.STAR_CATEGORY,
+			IFNULL(A.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(A.COMMENT_CNT, 0) AS COMMENT_CNT,
 			A.MDR_STATUS,
 			'STAR' AS FEED_TYPE,
 			

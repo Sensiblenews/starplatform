@@ -32,8 +32,8 @@ platforms:
     #
     # 릴리스할 때마다 아래 두 줄을 올리고 커밋할 것. Play Console의 최고 versionCode보다
     # 반드시 커야 한다.
-    versionName: 10.0.69
-    versionCode: 100069
+    versionName: 10.0.72
+    versionCode: 100072
 
     manifest:
       # SNS LOGIN MANIFEST

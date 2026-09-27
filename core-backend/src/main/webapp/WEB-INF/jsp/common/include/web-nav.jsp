@@ -1,25 +1,26 @@
 <%--
   공개 웹사이트 공통 헤더 내비게이션.
 
+  [2-29차 후속] 클라이언트 PC 시안 그대로: 짙은 남색 바, 노란 별 로고, 가운데 메뉴(현재 항목 노란 밑줄),
+  오른쪽 돋보기(검색)와 파란 "Open In App" 버튼.
+
   현재 페이지 표시는 컨트롤러가 넘기는 activeNav 값으로 한다 (home|about|posts|faq|contact).
-  값이 없으면 어느 항목도 활성으로 표시하지 않는다 — 랜딩·정책 페이지처럼
-  메뉴에 대응 항목이 없는 화면이 있다.
+  값이 없으면 어느 항목도 활성으로 표시하지 않는다 — 정책 페이지처럼 메뉴에 대응 항목이 없는 화면이 있다.
+
+  검색: 돋보기를 누르면 입력칸이 펼쳐지고 GET /?q=검색어 로 홈 목록을 좁힌다 (PublicWebController.home).
 
   스타일은 web-chrome-style.jsp 에 있고 <head> 에서 include 해야 한다.
 
-  언어 선택 항목은 일부러 넣지 않았다. 번역된 페이지가 아직 없어서
-  링크를 걸면 전부 같은 영문 페이지로 가는 빈 링크가 된다.
+  include 조각에는 page 지시자가 없어 Jasper 가 기본 인코딩으로 읽는다. 출력 마크업에는
+  ASCII 만 쓴다 — 아이콘은 인라인 SVG(ASCII)로, 한글은 JSP 주석 안에만.
+  언어 선택 항목은 일부러 넣지 않았다. 번역된 페이지가 아직 없다.
 --%>
 <nav class="site-nav">
   <div class="site-nav-inner">
-    <a class="site-nav-brand" href="${pageContext.request.contextPath}/">StarPlatform</a>
-
-    <button type="button" class="site-nav-toggle" id="siteNavToggle"
-            aria-expanded="false" aria-controls="siteNavLinks">
-      <%-- 아이콘은 CSS 로 그린다. include 조각에는 page 지시자가 없어 Jasper 가 기본
-           인코딩으로 읽으므로, 출력 마크업에 비ASCII 문자를 두면 깨진다 --%>
-      <span class="site-nav-bars" aria-hidden="true"></span> Menu
-    </button>
+    <a class="site-nav-brand" href="${pageContext.request.contextPath}/">
+      <svg class="site-nav-star" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="#facc15" d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z"/></svg>
+      <span>StarPlatform</span>
+    </a>
 
     <ul class="site-nav-links" id="siteNavLinks">
       <li><a href="${pageContext.request.contextPath}/" ${activeNav eq 'home' ? 'aria-current="page"' : ''}>Home</a></li>
@@ -33,19 +34,30 @@
       <li class="site-nav-mobile-only"><a href="#" onclick="spOpenApp(); return false;">Open in App</a></li>
     </ul>
 
-    <a class="site-nav-cta" href="#" onclick="spOpenApp(); return false;">Open in App</a>
+    <div class="site-nav-tools">
+      <button type="button" class="site-nav-toggle site-nav-toggle-mobile" id="siteNavToggle" aria-label="Menu"
+              aria-expanded="false" aria-controls="siteNavLinks">
+        <span class="site-nav-bars" aria-hidden="true"></span>
+      </button>
+      <form class="site-nav-search" id="siteNavSearch" action="${pageContext.request.contextPath}/" method="get" role="search">
+        <input type="search" name="q" id="siteNavSearchInput" placeholder="Search posts" aria-label="Search posts" maxlength="60" value="<c:out value='${q}'/>">
+      </form>
+      <button type="button" class="site-nav-search-btn" id="siteNavSearchBtn" aria-label="Search" aria-expanded="false" aria-controls="siteNavSearch">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <a class="site-nav-cta" href="#" onclick="spOpenApp(); return false;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg>
+        <span>Open In App</span>
+      </a>
+    </div>
   </div>
 </nav>
 
 <%--
   spOpenApp: 설치돼 있으면 앱으로, 아니면 현재 페이지에 그대로 남는다.
   스토어로 강제 이동시키지 않는다 (클라이언트 확정 사항).
-  landing.jsp 의 openApp() 과 같은 동작이지만, 이 include 를 쓰는 모든 페이지가
-  각자 복사본을 들지 않도록 여기에 둔다. 이름이 겹치지 않게 sp 접두사를 붙였다.
-
-  아래 스크립트 주석을 전부 JSP 주석으로 뺀 이유: include 조각에는 page 지시자가 없어
-  Jasper 가 기본 인코딩으로 읽는다. 출력에 실려 나가는 // 주석에 한글을 두면
-  응답에 깨진 바이트가 섞인다.
+  아래 스크립트 주석을 전부 JSP 주석으로 뺀 이유: include 조각은 기본 인코딩으로 읽혀
+  출력에 실려 나가는 // 주석에 한글을 두면 응답에 깨진 바이트가 섞인다.
 --%>
 <script>
   function spOpenApp() {
@@ -61,29 +73,51 @@
   (function () {
     var toggle = document.getElementById('siteNavToggle');
     var links = document.getElementById('siteNavLinks');
-    if (!toggle || !links) return;
-
-    <%-- aria-expanded 를 같이 갱신해야 스크린리더에서 열림·닫힘이 전달된다 --%>
-    function setOpen(open) {
-      links.classList.toggle('is-open', open);
-      toggle.setAttribute('aria-expanded', String(open));
+    if (toggle && links) {
+      <%-- aria-expanded 를 같이 갱신해야 스크린리더에서 열림·닫힘이 전달된다 --%>
+      var setOpen = function (open) {
+        links.classList.toggle('is-open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+      };
+      toggle.addEventListener('click', function () {
+        setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+      });
+      <%-- Esc 로 닫고 포커스를 버튼으로 되돌린다 (키보드만 쓰는 이용자가 갇히지 않게) --%>
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+          setOpen(false);
+          toggle.focus();
+        }
+      });
+      <%-- 메뉴를 연 채 창을 넓히면 패널이 PC 레이아웃에 겹친 상태로 남는다 --%>
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 820) setOpen(false);
+      });
     }
 
-    toggle.addEventListener('click', function () {
-      setOpen(toggle.getAttribute('aria-expanded') !== 'true');
-    });
-
-    <%-- Esc 로 닫고 포커스를 버튼으로 되돌린다 (키보드만 쓰는 이용자가 갇히지 않게) --%>
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
-        setOpen(false);
-        toggle.focus();
-      }
-    });
-
-    <%-- 메뉴를 연 채 창을 넓히면 패널이 PC 레이아웃에 겹친 상태로 남는다 --%>
-    window.addEventListener('resize', function () {
-      if (window.innerWidth > 820) setOpen(false);
-    });
+    <%-- 검색: 돋보기 1회 = 입력칸 펼치기, 입력칸이 열려 있고 값이 있으면 제출 --%>
+    var sBtn = document.getElementById('siteNavSearchBtn');
+    var sForm = document.getElementById('siteNavSearch');
+    var sInput = document.getElementById('siteNavSearchInput');
+    if (sBtn && sForm && sInput) {
+      var searchOpen = sInput.value.length > 0;
+      var setSearch = function (open) {
+        searchOpen = open;
+        sForm.classList.toggle('is-open', open);
+        sBtn.setAttribute('aria-expanded', String(open));
+        if (open) sInput.focus();
+      };
+      if (searchOpen) setSearch(true);
+      sBtn.addEventListener('click', function () {
+        if (searchOpen && sInput.value.trim().length > 0) {
+          sForm.submit();
+        } else {
+          setSearch(!searchOpen);
+        }
+      });
+      sInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { sInput.value = ''; setSearch(false); sBtn.focus(); }
+      });
+    }
   })();
 </script>

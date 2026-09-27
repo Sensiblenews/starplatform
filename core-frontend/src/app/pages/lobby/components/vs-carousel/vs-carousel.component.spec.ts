@@ -60,6 +60,30 @@ describe('VsCarouselComponent', () => {
     });
   });
 
+  describe('formatRank (이름 아래 글로벌 순위 표기)', () => {
+    it('순위가 있으면 #N 으로 보인다', () => {
+      expect(component.formatRank({ id: 'star_1', name: 'A', image: '', score: 1, globalRank: 15 })).toBe('#15');
+    });
+
+    it('순위표 밖(null·undefined)이면 지어내지 않고 —', () => {
+      expect(component.formatRank({ id: 'star_1', name: 'A', image: '', score: 1, globalRank: null })).toBe('—');
+      expect(component.formatRank({ id: 'star_1', name: 'A', image: '', score: 1 })).toBe('—');
+      expect(component.formatRank(null)).toBe('—');
+    });
+
+    it('템플릿은 좌우 모두 🌍 #순위를 그리고 👁️ 조회수는 더 이상 없다', () => {
+      const card = makeCard(10, 5);
+      card.left.globalRank = 1;
+      card.right!.globalRank = 2;
+      component.cards = [card];
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent || '';
+      expect(text).toContain('🌍 #1');
+      expect(text).toContain('🌍 #2');
+      expect(text).not.toContain('👁️');
+    });
+  });
+
   describe('getLeftRatio (비율 게이지 예외 처리)', () => {
     it('둘 다 0점이면 50:50으로 나눈다 (0 나눗셈 방지)', () => {
       expect(component.getLeftRatio(makeCard(0, 0))).toBe(50);

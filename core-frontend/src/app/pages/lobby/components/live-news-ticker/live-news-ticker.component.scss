@@ -7,7 +7,9 @@
   display: flex;
   align-items: center;
   height: 36px;
-  margin: 8px 12px 0;
+  // VS 카드 ↔ 티커 ↔ My Global Ranking ↔ Today's TOP 사이 간격을 15/15/16으로 균등화(2-29차, 총합 46 유지).
+  // .vs-carousel의 margin-bottom 4px는 이 값 아래로 접힌다(마진 병합)
+  margin: 15px 12px 0;
   background: #17181c;
   border-radius: 8px;
   overflow: hidden;

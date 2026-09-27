@@ -1,6 +1,9 @@
 require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
 
-platform :ios, '14.0'
+# 배포 타겟은 이 한 줄이 기준이다. 아래 post_install 이 같은 값을 Pods 프로젝트에도 적용한다.
+IOS_DEPLOYMENT_TARGET = '17.0'
+
+platform :ios, IOS_DEPLOYMENT_TARGET
 use_frameworks!
 
 
@@ -55,6 +58,11 @@ target 'App' do
   # (6.16.0.1부터 ~> 12.0, 6.22.0.0은 ~> 13.3이라 GMA 11.3.0 핀과 충돌한다)
   # FBAudienceNetwork는 아래 FBSDKCoreKit(로그인용)에 의존하지 않는다 — 버전이 서로 얽히지 않는다.
   pod 'GoogleMobileAdsMediationFacebook', '6.16.0.0'
+  # Pangle Bidding 어댑터 (2026-09-26). PAGAdSDK(Pangle SDK)를 함께 가져온다.
+  # 같은 이유로 버전을 못박는다 — GMA ~> 11.0을 요구하는 마지막 어댑터가 5.8.0.7.0이다
+  # (그 뒤 버전은 GMA 12·13 요구). Pangle SDK 5.8.x가 구버전이라 Bidding 참여 여부는 Ad Inspector로 실측할 것.
+  # US/KR/ROW 세 Bidding 소스가 이 어댑터 하나를 쓴다 — 지역 분리는 AdMob 콘솔 매핑.
+  pod 'GoogleMobileAdsMediationPangle', '5.8.0.7.0'
   pod 'FBSDKCoreKit'
   pod 'GoogleUserMessagingPlatform', '2.1.0'
   pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
@@ -62,5 +70,14 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Capacitor 의 assertDeploymentTarget 은 13.0 "미만"인 Pod 만 13.0 으로 끌어올린다.
+  # 그래서 그대로 두면 Pod 대부분이 13.0 에 남고, Xcode 가 Pod 하나하나에 대해
+  # 지원 범위를 벗어난 배포 타겟이라는 경고를 낸다. 앱과 같은 값으로 통일한다.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = IOS_DEPLOYMENT_TARGET
+    end
+  end
 end
 

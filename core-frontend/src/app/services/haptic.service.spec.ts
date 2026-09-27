@@ -34,4 +34,5 @@ describe('HapticService', () => {
       await expectAsync(service.tap()).toBeResolved();
     });
   });
+
 });

@@ -64,5 +64,6 @@
 </main>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 </body>
 </html>

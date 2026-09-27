@@ -31,8 +31,8 @@
 
   <h2>Where to go next</h2>
   <ul>
-    <li><a href="${pageContext.request.contextPath}/">Home</a> — the latest posts and popular star pages</li>
-    <li><a href="${pageContext.request.contextPath}/posts">Public posts</a> — everything published so far</li>
+    <li><a href="${pageContext.request.contextPath}/">Home</a> — the latest public posts</li>
+    <li><a href="${pageContext.request.contextPath}/posts">Posts</a> — how StarPlatform works and popular star pages</li>
     <li><a href="${pageContext.request.contextPath}/about">About StarPlatform</a> — what the service does</li>
     <li><a href="${pageContext.request.contextPath}/faq">FAQ</a> — answers to common questions</li>
     <li><a href="${pageContext.request.contextPath}/contact">Contact us</a> — tell us if a link on our site is broken</li>
@@ -40,5 +40,6 @@
 </main>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 </body>
 </html>

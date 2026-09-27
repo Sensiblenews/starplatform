@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core';
 import { HttpService } from './http.service'; // 기존에 쓰시는 HTTP 서비스
 import { HapticService } from './haptic.service';
+import { TickSoundService } from './tick-sound.service';
 
 @Injectable({ providedIn: 'root' })
 export class GlobalFeedbackService {
@@ -9,13 +10,13 @@ export class GlobalFeedbackService {
   private lastCheckTime: string = '';
   private isPolling = false;
 
-  // 카톡 느낌의 짧은 사운드 (에셋 경로에 맞게 수정)
-  private audio = new Audio('assets/sounds/tick.mp3'); 
   private lastPlay = 0;
 
-  constructor(private http: HttpService, private haptic: HapticService) {
-    this.audio.volume = 0.65; // 귀에 거슬리지 않는 볼륨
-  }
+  constructor(
+    private http: HttpService,
+    private haptic: HapticService,
+    private tickSound: TickSoundService,
+  ) {}
 
   // 🌟 앱 실행 시 호출할 폴링 시작 함수
   startPolling() {
@@ -69,20 +70,13 @@ export class GlobalFeedbackService {
 
     // 우측 상단 토글에서 설정한 값 읽기 (기본값: true)
     const hapticOn = localStorage.getItem('hapticOn') !== 'false';
-    const soundOn = localStorage.getItem('soundOn') !== 'false';
 
     // 1. 진동 (iOS 미동작 대응으로 HapticService 경유 — 해당 파일 주석 참조)
     if (hapticOn) {
       await this.haptic.tap(now);
     }
 
-    // 2. 소리
-    if (soundOn) {
-      try {
-        this.audio.pause();
-        this.audio.currentTime = 0;
-        this.audio.play().catch(() => {});
-      } catch (e) {}
-    }
+    // 2. 소리 (soundOn 토글 판정은 TickSoundService 안에 있다)
+    await this.tickSound.play(now);
   }
 }

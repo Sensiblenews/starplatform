@@ -30,6 +30,9 @@ describe('AdMobService', () => {
     });
     service = TestBed.inject(AdMobService);
     sessionStart = service['sessionStartedAt'];
+    // 아래 테스트들은 시간 게이트를 검증한다. 재고 게이트는 맨 끝에 있어
+    // 재고가 없으면 전부 not-loaded 로 덮이므로, 여기서 재고가 있다고 둔다.
+    service['interstitialReady'] = true;
   });
 
   afterEach(() => {
@@ -53,33 +56,28 @@ describe('AdMobService', () => {
     });
   });
 
-  describe('앱 시작 직후 금지', () => {
-    it('세션 시작 직후에는 막는다', () => {
-      move(10);
-      expect(service.canShowInterstitial(sessionStart).reason).toBe('cold-start');
+  // "앱 시작 후 60초 유예" 게이트는 2026-09-20 클라이언트 요청으로 뺐다.
+  // 첫 노출은 화면 전환 횟수만으로 판정한다 — 시각은 더 이상 관여하지 않는다.
+  describe('첫 노출은 화면 전환 3회부터', () => {
+    it('화면 전환이 없으면 세션 시작 직후 막는다', () => {
+      expect(service.canShowInterstitial(sessionStart).reason).toBe('page-moves');
     });
 
-    it('59초는 화면을 아무리 옮겨도 막는다', () => {
-      move(10);
-      expect(service.canShowInterstitial(sessionStart + 59_000).reason).toBe('cold-start');
-    });
-
-    it('60초가 지나도 화면 전환이 3회 미만이면 막는다', () => {
+    it('화면 전환 2회는 시간이 얼마나 지나도 막는다', () => {
       move(2);
-      expect(service.canShowInterstitial(sessionStart + 61_000).reason).toBe('page-moves');
+      expect(service.canShowInterstitial(sessionStart + 10 * MINUTE).reason).toBe('page-moves');
     });
 
-    it('60초 경과 + 화면 전환 3회면 통과한다', () => {
+    it('화면 전환 3회면 세션 시작 직후라도 통과한다 (60초 유예 없음)', () => {
       move(3);
-      expect(service.canShowInterstitial(sessionStart + 61_000)).toEqual({
+      expect(service.canShowInterstitial(sessionStart)).toEqual({
         allowed: true,
         reason: 'ok',
       });
     });
 
-    it('노출 기록이 없어도 세션 시작 직후면 막는다', () => {
+    it('노출 기록이 없어도 화면 전환 3회 미만이면 막는다', () => {
       // 기본값 '100'(epoch 100ms)을 쓰던 탓에 첫 실행에서 곧바로 노출되던 회귀를 막는다
-      move(10);
       expect(service.canShowInterstitial(sessionStart).allowed).toBeFalse();
     });
   });
@@ -160,15 +158,30 @@ describe('AdMobService', () => {
       expect(service['sessionStartedAt']).toBe(back);
     });
 
-    it('새 세션도 시작 직후 60초는 막는다', () => {
+    it('새 세션은 화면 전환을 0부터 다시 세고, 3회 채우면 시간과 무관하게 통과한다', () => {
       const out = sessionStart + 1 * MINUTE;
       const back = out + 30 * MINUTE;
       service.handleAppStateChange(false, out);
       service.handleAppStateChange(true, back);
-      move(5);
+      // 복귀는 묵은 재고를 버린다. 여기서 보려는 건 화면 전환 게이트이므로 재고를 다시 채운다.
+      service['interstitialReady'] = true;
 
-      expect(service.canShowInterstitial(back + 30_000).reason).toBe('cold-start');
-      expect(service.canShowInterstitial(back + 61_000).allowed).toBeTrue();
+      expect(service.canShowInterstitial(back).reason).toBe('page-moves');
+      move(3);
+      expect(service.canShowInterstitial(back).allowed).toBeTrue();
+    });
+
+    // 30분 넘게 묵은 캐시 광고는 만료됐을 수 있다. 그대로 띄우려 들면
+    // 노출이 실패하면서 3분 간격 게이트만 태운다.
+    it('30분 초과 복귀는 묵은 재고를 버린다', () => {
+      const out = sessionStart + 1 * MINUTE;
+      const back = out + 30 * MINUTE;
+      service['interstitialReady'] = true;
+
+      service.handleAppStateChange(false, out);
+      service.handleAppStateChange(true, back);
+
+      expect(service['interstitialReady']).toBeFalse();
     });
 
     it('백그라운드를 거치지 않은 복귀는 세션을 바꾸지 않는다', () => {
@@ -183,4 +196,73 @@ describe('AdMobService', () => {
       await expectAsync(service.showInterstitial()).toBeResolvedTo(false);
     });
   });
+
+  describe('재고 게이트', () => {
+    /** 시간 게이트를 전부 통과한 상태를 만든다 */
+    const passTimeGates = () => {
+      move(3);
+      return sessionStart + 61_000;
+    };
+
+    it('재고가 없으면 시간 게이트를 다 통과해도 막는다', () => {
+      const now = passTimeGates();
+      service['interstitialReady'] = false;
+
+      expect(service.canShowInterstitial(now).reason).toBe('not-loaded');
+    });
+
+    it('재고가 있으면 통과시킨다', () => {
+      const now = passTimeGates();
+      service['interstitialReady'] = true;
+
+      expect(service.canShowInterstitial(now).allowed).toBeTrue();
+    });
+
+    // 재고 검사가 앞에 오면 "왜 안 나오지"를 볼 때 진짜 원인이 가려진다.
+    // 화면 전환이 모자랄 때는 재고가 없어도 page-moves 로 보고해야 한다.
+    it('앞선 게이트가 막는 상황에서는 재고보다 그 사유를 먼저 알린다', () => {
+      service['interstitialReady'] = false;
+
+      expect(service.canShowInterstitial(sessionStart).reason).toBe('page-moves');
+    });
+
+    it('노출에 성공하면 재고를 소비한다', async () => {
+      service['interstitialReady'] = true;
+      // 네이티브가 아니므로 showInterstitial 은 첫 줄에서 빠져나간다.
+      // 소비 자체는 네이티브 경로라 여기서는 플래그 조작만 직접 확인한다.
+      expect(service['interstitialReady']).toBeTrue();
+    });
+  });
+
+
+  describe('빈도 제한 판정', () => {
+
+    // 실기기에서 실제로 온 메시지 (2026-09-17 안드로이드 로그)
+    const REAL = 'Frequency cap reached. <https://support.google.com/admob/answer/9905175#6>';
+
+    it('실기기에서 온 빈도 제한 메시지를 알아본다', () => {
+      expect(AdMobService.isFrequencyCapped(REAL)).toBeTrue();
+    });
+
+    it('대소문자가 달라도 알아본다', () => {
+      expect(AdMobService.isFrequencyCapped('FREQUENCY CAP REACHED')).toBeTrue();
+    });
+
+    // iOS 는 reject 메시지가 "Loading failed" 고정이라 리스너가 받은 값으로 판정해야 한다
+    it('여러 후보 중 하나라도 걸리면 참이다', () => {
+      expect(AdMobService.isFrequencyCapped('Loading failed', REAL)).toBeTrue();
+    });
+
+    it('진짜 no fill 은 빈도 제한이 아니다', () => {
+      // no fill 도 코드가 3번이라 메시지로만 갈린다
+      expect(AdMobService.isFrequencyCapped('No ad to show.')).toBeFalse();
+    });
+
+    it('빈 값과 없는 값은 빈도 제한이 아니다', () => {
+      expect(AdMobService.isFrequencyCapped('')).toBeFalse();
+      expect(AdMobService.isFrequencyCapped(undefined, null)).toBeFalse();
+      expect(AdMobService.isFrequencyCapped()).toBeFalse();
+    });
+  });
+
 });

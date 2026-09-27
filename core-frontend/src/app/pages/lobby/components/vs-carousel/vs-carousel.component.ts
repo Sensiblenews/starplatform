@@ -12,6 +12,8 @@ export interface VsCardSide {
   viewCount?: number;
   likeCnt?: number;
   followerCnt?: number;
+  // 글로벌 순위. 순위표 밖 스타는 null — 이름 아래 줄에 🌍 #N 으로 보인다 (조회수 줄 대체, 2026-09-26)
+  globalRank?: number | null;
 }
 
 // VS 카드 1장. right가 null이면 도전자 대기 상태
@@ -244,6 +246,11 @@ export class VsCarouselComponent implements OnInit, OnDestroy {
     if (card.type === 'CUSTOM') return card.title || 'Special Match';
     const cat = this.categoryLabels[card.category] || card.category;
     return card.type === 'DAILY' ? `${cat} · Daily King` : `${cat} · Global Ranking`;
+  }
+
+  /** 이름 아래 순위 표기. 순위표 밖(null)이면 지어내지 않고 '—' */
+  formatRank(side: VsCardSide | null): string {
+    return side && side.globalRank != null ? '#' + side.globalRank : '—';
   }
 
   formatScore(value: number): string {

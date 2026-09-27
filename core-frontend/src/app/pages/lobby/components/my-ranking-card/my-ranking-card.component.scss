@@ -1,0 +1,392 @@
+// 로비 My Global Ranking 카드 (2-29차). 목업의 딥 네이비 그라디언트 + 골드 강조.
+$mr-bg-a: #0b1a3a;
+$mr-bg-b: #123a7a;
+$mr-gold: #ffd54f;
+$mr-blue: #2979ff;
+$mr-up: #2ecc71;
+$mr-down: #ff9f43;
+$mr-live: #2ecc71;
+
+:host {
+  display: block;
+}
+
+.mr-card {
+  // 티커와의 간격 15px — VS↔티커↔카드↔Today's TOP 균등 간격(15/15/16)
+  margin: 15px 12px 0;
+  padding: 10px 12px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, $mr-bg-a 0%, $mr-bg-b 100%);
+  border: 1px solid rgba(255, 213, 79, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  // 로그인·비로그인·스켈레톤 셸 높이를 같게 — 상태가 바뀌어도 아래 Today's TOP이 튀지 않는다.
+  // 2-29차 후속: 처음(188px)의 66%로 축소 — 안쪽 요소도 같은 비율로 줄였다
+  min-height: 124px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  // contain: paint 금지 — 변동 시 테두리 글로우(box-shadow)가 잘린다
+
+  // 순위 변동 시 테두리 1회 강조. 1.5초 뒤 원래 상태로
+  &.flash-up {
+    animation: mr-border-up 1.5s ease-out 1;
+  }
+
+  &.flash-down {
+    animation: mr-border-down 1.5s ease-out 1;
+  }
+}
+
+// ===== 헤더 =====
+.mr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+
+  // 파란 원 안의 흰 선 지구본. 원 크기는 제목 글자 높이와 비슷하게(13px 폰트, 줄 높이 15px → 18px 원)
+  .mr-globe {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: $mr-blue;
+    color: #fff;
+
+    svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+  }
+
+  .mr-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mr-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(46, 204, 113, 0.18);
+    color: $mr-live;
+    font-size: 9px;
+    font-weight: 800;
+    border-radius: 8px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+
+    .mr-live-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: $mr-live;
+      animation: mr-blink 1.2s infinite;
+    }
+  }
+}
+
+// ===== 본문 (로그인) =====
+.mr-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+}
+
+.mr-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mr-avatar {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid $mr-gold;
+  box-shadow: 0 0 0 2px rgba(41, 121, 255, 0.35);
+
+  img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .mr-crown {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    line-height: 1;
+  }
+}
+
+.mr-rank-block {
+  min-width: 0;
+}
+
+.mr-rank-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.mr-rank-no {
+  // 목업(약 44px)보다 작게(클라이언트 요청) → 카드 66% 축소에 맞춰 24px
+  font-size: 24px;
+  font-weight: 900;
+  color: #fff; // 순위 숫자는 흰색(사용자 요청). 골드는 pts와 아바타 링에만 남긴다
+  line-height: 1;
+  letter-spacing: -0.5px;
+  transition: color 0.3s ease;
+
+  &.pop {
+    animation: mr-pop 0.6s ease-out 1;
+  }
+
+  &.up {
+    color: $mr-up;
+  }
+
+  &.down {
+    color: $mr-down;
+  }
+}
+
+.mr-rank-total {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.mr-delta {
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 2px;
+
+  &.up {
+    color: $mr-up;
+  }
+
+  &.down {
+    color: $mr-down;
+  }
+}
+
+.mr-score {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  color: $mr-gold;
+  white-space: nowrap;
+}
+
+.mr-stats {
+  flex-shrink: 0;
+  margin-right: 12px; // 카드 오른쪽 가장자리에서 약간 안쪽으로(사용자 요청)
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+// ===== 버튼 =====
+.mr-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mr-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &.primary {
+    background: $mr-blue;
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 12px rgba(41, 121, 255, 0.35);
+  }
+
+  &.outline {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .mr-btn-icon {
+    font-size: 11px;
+    line-height: 1;
+  }
+}
+
+// ===== 비로그인 — 클라이언트 배너 이미지 1장 + 투명 클릭 영역 2개 (2026-09-26) =====
+// 이미지(원본 2000×700 → 흰 여백을 잘라 1940×688)에 배경·지구·인물·왕관·버튼이 전부 그려져 있어
+// 셸 여백을 없애고 이미지가 카드 전체를 채운다. 파란 콘텐츠가 다른 위젯과 같은 폭으로 붙는다.
+// 높이는 이미지 비율로 정해져 로그인 변형(min-height 124)과 다를 수 있다 — 클라이언트 확정 방식.
+.mr-card.guest {
+  padding: 0;
+  min-height: 0;
+  overflow: hidden; // 모서리 둥글기 밖으로 이미지가 나가지 않게
+  background: #0b1a3a; // 이미지 로딩 전 자리색 (이미지 배경과 같은 네이비)
+  border: 0; // 이미지에 테두리가 그려져 있어 셸 테두리를 없앤다 (클라이언트 요청)
+  // 이미지 자체의 둥근 모서리(원본 폭의 2.06%)에 맞춘다 — 셸 반지름 16px 이 더 크면 모서리에 이미지 바깥 흰 픽셀이 보인다
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.mr-banner {
+  position: relative;
+  width: 100%;
+  line-height: 0; // 인라인 이미지 아래 여백 제거
+}
+
+.mr-banner-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none; // 탭은 아래 투명 버튼이 받는다
+}
+
+// 이미지 위 투명 버튼. 위치·크기는 잘라낸 이미지(1940×688)의 픽셀을 비율로 환산한 값
+// (버튼 띠 y 473~614, 왼쪽 끝 x 66, 구분선 x 785, 오른쪽 끝 x 1224 — 픽셀 스캔으로 측정)
+.mr-hit {
+  position: absolute;
+  top: 68.8%;
+  height: 20.5%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active {
+    background: rgba(255, 255, 255, 0.12); // 눌림 피드백만 살짝
+  }
+}
+
+.mr-hit-create {
+  left: 3.4%;
+  width: 37.1%;
+}
+
+.mr-hit-relogin {
+  left: 40.5%;
+  width: 22.6%;
+}
+
+// ===== 스켈레톤 (다크 셸 위라 톤을 낮춘다 — skeleton.component.scss .sk-vs .sk와 같은 방식) =====
+.mr-skeleton .sk,
+.mr-actions .sk {
+  background: #1c2a4a;
+  border-radius: 8px;
+  animation: mr-shimmer 1.2s ease-in-out infinite;
+}
+
+.sk-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50% !important;
+  flex-shrink: 0;
+}
+
+.sk-line {
+  height: 10px;
+  margin: 4px 0;
+
+  &.w-100 { width: 46px; }
+  &.w-60 { width: 70px; }
+  &.w-40 { width: 46px; }
+}
+
+.sk-stats {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sk-btn {
+  flex: 1;
+  height: 26px;
+  border-radius: 8px !important;
+}
+
+// ===== 키프레임 =====
+@keyframes mr-border-up {
+  0% { border-color: rgba(255, 213, 79, 0.28); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+  20% { border-color: $mr-up; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.45), 0 6px 18px rgba(0, 0, 0, 0.25); }
+  100% { border-color: rgba(255, 213, 79, 0.28); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+}
+
+@keyframes mr-border-down {
+  0% { border-color: rgba(255, 213, 79, 0.28); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+  20% { border-color: $mr-down; box-shadow: 0 0 0 3px rgba(255, 159, 67, 0.45), 0 6px 18px rgba(0, 0, 0, 0.25); }
+  100% { border-color: rgba(255, 213, 79, 0.28); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+}
+
+@keyframes mr-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes mr-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes mr-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-card,
+  .mr-rank-no,
+  .mr-live-dot,
+  .mr-skeleton .sk,
+  .mr-actions .sk {
+    animation: none !important;
+  }
+}

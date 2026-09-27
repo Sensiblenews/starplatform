@@ -1,12 +1,13 @@
 import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, ModalController, PopoverController, AlertController, IonSearchbar } from '@ionic/angular';
+import { Platform, ModalController, PopoverController, AlertController, IonSearchbar, ScrollDetail } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { HapticService } from '../../services/haptic.service';
+import { TickSoundService } from '../../services/tick-sound.service';
 import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
@@ -17,6 +18,10 @@ import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-moda
 import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.component';
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
+import { shouldRevealTopMeta } from './lobby-reveal';
+import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
+import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
+import { OpeningOverlayService } from '../../services/opening-overlay.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { HelperService } from 'src/app/services/helper.service';
@@ -136,6 +141,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
   @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
   @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
+  // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
+  @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
   private vsPollIntervalId: any;
 
@@ -143,6 +150,19 @@ export class LobbyPage implements OnInit, OnDestroy {
   liveNews: LiveNewsItem[] = [];
   private liveNewsIntervalId: any;
   private static readonly LIVE_NEWS_REFRESH_MS = 60000;
+
+  // 🌟 Today's TOP 순위·조회수 줄 펼침 (2-29차). 판정 규칙은 lobby-reveal.ts
+  isTopMetaRevealed = false;
+
+  // 🌟 My Global Ranking 카드 (2-29차). 로비 진입·당겨서 새로 고침·화면에 보이는 동안 30초 간격으로 갱신.
+  // VS 카드의 3초 폴링에 얹지 않는다 — 로그인 사용자마다 요청이 3초에 한 번씩 늘어나는 것은 과하다
+  private static readonly MY_RANK_REFRESH_MS = 30000;
+  myRank: MyRankData | null = null;
+  myRankDelta: RankDelta = { dir: 'none', amount: 0 };
+  isLoadingMyRank = false;
+  private myRankPollIntervalId: any = null;
+  // 응답이 도착하기 전에 계정이 바뀌면(로그아웃·다른 스타 로그인) 늦게 온 응답을 버리기 위한 표식
+  private myRankStarId = '';
 
   vsRankMode: 'GLOBAL' | 'DAILY' = 'GLOBAL';
   vsCategory = 'GLOBAL';
@@ -182,6 +202,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     private helper: HelperService,
     private dm: DmService,
     private haptic: HapticService,
+    private tickSound: TickSoundService,
+    private opening: OpeningOverlayService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -306,6 +328,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.stopAutoSlide();
     this.stopAutoShuffle();
     this.stopVsPolling();
+    this.stopMyRankPolling();
+    if (this.openingOverlay) this.openingOverlay.stop(false);
     this.removeAppStateListener();
     this.unbindDmState();
     window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
@@ -342,8 +366,14 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
     if (this.newsTicker) this.newsTicker.start();
 
+    // 🌟 My Global Ranking 카드: 진입 즉시 1회 + 30초 갱신 (2-29차)
+    this.startMyRankPolling();
+
     // 🌟 네이티브 광고 슬롯 표시 (조건 미충족 시 내부에서 숨김 처리)
     this.updateLobbyAd();
+
+    // 🌟 오프닝 오버레이 — 앱을 켠 뒤 첫 로비 진입에서만 1회 (2-29차)
+    this.maybePlayOpening();
 
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, (processNextHandler) => {
       if (this.isShowingFavorites) {
@@ -375,6 +405,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     // 🌟 VS 배틀필드: 폴링·자동 순환 정지
     this.stopVsPolling();
+    this.stopMyRankPolling();
+    // 1.5초 안에 다른 화면으로 넘어가면 오버레이도 함께 끊는다 (재생 완료 이벤트 없음)
+    if (this.openingOverlay) this.openingOverlay.stop(false);
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
 
@@ -558,7 +591,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         const hadCards = this.vsCards.length > 0;
         this.vsCards = res.cards || [];
 
-        // 캐러셀 최초 등장(0 → 46vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
+        // 캐러셀 최초 등장(0 → 30vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
         if (!hadCards && this.vsCards.length > 0) {
           setTimeout(() => this.sendAdSlotPosition());
         }
@@ -596,6 +629,106 @@ export class LobbyPage implements OnInit, OnDestroy {
       },
       error: () => { }
     });
+  }
+
+  // ==========================================
+  // 🌟 [2-29차] My Global Ranking 카드
+  // ==========================================
+
+  // 즉시 1회 + 30초 간격. VS 폴링과 같은 생명주기(ionViewDidEnter/WillLeave, 앱 상태)로 켜고 끈다
+  startMyRankPolling() {
+    this.stopMyRankPolling();
+    this.loadMyRank();
+    this.myRankPollIntervalId = setInterval(() => this.loadMyRank(), LobbyPage.MY_RANK_REFRESH_MS);
+  }
+
+  stopMyRankPolling() {
+    if (this.myRankPollIntervalId) {
+      clearInterval(this.myRankPollIntervalId);
+      this.myRankPollIntervalId = null;
+    }
+  }
+
+  loadMyRank() {
+    // 비로그인·관리자는 요청하지 않는다 — 카드는 페이지 만들기 유도 변형을 보인다
+    if (!this.isStar || !this.starId) {
+      this.myRank = null;
+      this.isLoadingMyRank = false;
+      return;
+    }
+
+    // 계정이 바뀌었으면 이전 계정의 값·변동을 지운다
+    if (this.myRankStarId !== this.starId) {
+      this.myRankStarId = this.starId;
+      this.myRank = null;
+      this.myRankDelta = { dir: 'none', amount: 0 };
+    }
+
+    // 첫 로드만 스켈레톤. 30초 갱신은 기존 값을 그대로 두고 조용히 바꾼다
+    if (!this.myRank) this.isLoadingMyRank = true;
+
+    const starToken = localStorage.getItem('starToken') || '';
+    this.http.get(`/api/super/ranking/my-rank?starId=${encodeURIComponent(this.starId)}&starToken=${encodeURIComponent(starToken)}`).pipe(
+      finalize(() => {
+        this.isLoadingMyRank = false;
+        // 스켈레톤 → 본문 교체로 카드 높이가 바뀌면 광고 슬롯 위치도 밀리므로 렌더 후 재전송
+        setTimeout(() => this.sendAdSlotPosition());
+      })
+    ).subscribe({
+      next: (res: any) => this.applyMyRank(res),
+      // 실패(토큰 만료·네트워크)하면 기존 값을 유지한다. 순위를 지어내지 않는다
+      error: () => { }
+    });
+  }
+
+  /**
+   * 응답 반영 + 순위 변동 판정.
+   *
+   * 기기에는 "변동을 마지막으로 보여준 시점의 순위"를 starId별로 저장한다(서버에 순위 이력이 없다 — 클라이언트 확정안).
+   * - 저장값이 없고 순위가 있으면 기준점만 저장하고 표시하지 않는다
+   * - 상승·하락이 감지되면 새 delta 객체를 넘겨(카드가 1회 플래시) 그 순위를 새 기준점으로 저장한다
+   * - 유지·판정 불가일 때는 delta를 덮어쓰지 않는다 → 화살표는 다음 변동까지 30초 틱·재진입에도 남고,
+   *   다음 콜드 스타트에서는 저장값 == 현재라 표시되지 않는다("유지면 표시 없음")
+   */
+  private applyMyRank(res: any) {
+    if (!res || res.result !== 'OK' || this.myRankStarId !== this.starId) return;
+
+    const data: MyRankData = {
+      globalRank: res.globalRank == null ? null : Number(res.globalRank),
+      totalStars: Number(res.totalStars) || 0,
+      score: Number(res.score) || 0,
+      viewCount: Number(res.viewCount) || 0,
+      likeCnt: Number(res.likeCnt) || 0,
+      followerCnt: Number(res.followerCnt) || 0,
+      name: res.name || '',
+      image: res.image || ''
+    };
+
+    const key = MyRankingCardComponent.lastSeenKey(this.starId);
+    const prev = MyRankingCardComponent.parseStoredRank(localStorage.getItem(key));
+    const delta = MyRankingCardComponent.computeDelta(prev, data.globalRank);
+
+    if (delta.dir === 'up' || delta.dir === 'down') {
+      this.myRankDelta = delta;
+      localStorage.setItem(key, String(data.globalRank));
+    } else if (prev === null && data.globalRank !== null) {
+      localStorage.setItem(key, String(data.globalRank));
+    }
+
+    this.myRank = data;
+  }
+
+  // ==========================================
+  // 🌟 [2-29차] 오프닝 오버레이 — 앱을 켠 뒤 첫 로비 진입에서 1회
+  // ==========================================
+
+  // 뒤로 가기·탭 복귀로 로비에 다시 와도 서비스 플래그가 막는다. 백그라운드 복귀도 재생하지 않는다(클라이언트 확정).
+  // 딥링크로 스타 페이지에 먼저 들어온 뒤 로비로 오면 그때 1회 재생된다.
+  private maybePlayOpening() {
+    if (!this.openingOverlay) return;
+    if (this.opening.consumeFirstPlay(this.appForeground)) {
+      this.openingOverlay.play();
+    }
   }
 
   setVsRankMode(mode: 'GLOBAL' | 'DAILY') {
@@ -687,6 +820,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   doRefresh(event: any) {
     this.loadLobbyData(event);
+    this.loadMyRank(); // My Global Ranking 카드도 함께 갱신 (2-29차)
   }
 
   toggleFavoriteList() {
@@ -961,6 +1095,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (res.ok) {
       this.isStar = true;
       this.starId = res.starId;
+      if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
     }
   }
 
@@ -969,6 +1104,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (res.ok) {
       this.isStar = true;
       this.starId = res.starId;
+      if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
     }
   }
 
@@ -985,6 +1121,8 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.isStar = localStorage.getItem('isStar') === 'true';
       this.starId = localStorage.getItem('starId') || '';
 
+      // 페이지 생성·클레임 직후 My Global Ranking 카드를 내 순위로 교체 (2-29차)
+      if (this.isViewActive) this.startMyRankPolling();
 
       if (this.isShowingFavorites) {
         this.loadFavoriteStars();
@@ -1008,10 +1146,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     setTimeout(() => star.showPlus = false, 800);
 
     await this.haptic.tap();
-
-    const audio = new Audio('assets/sounds/tick.mp3');
-    audio.volume = 0.65;
-    audio.play().catch(e => console.log('Audio playback error:', e));
+    void this.tickSound.play();
 
     this.runSlotMachineEffect(star);
   }
@@ -1089,7 +1224,16 @@ export class LobbyPage implements OnInit, OnDestroy {
     NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
   }
 
-  onLobbyScroll() {
+  // 세로 스크롤 시작 시 Today's TOP의 순위·조회수 줄을 펼친다(2-29차 첫 화면 공간 확보).
+  // 한 번 펼치면 페이지 인스턴스가 살아 있는 동안 유지한다 — 다시 접으면 사용자가 보는 중에 카드 높이가 흔들리고
+  // 광고 슬롯 위치도 매번 바뀐다. 콜드 스타트마다 초기화되므로 "첫 화면" 인상에는 충분하다.
+  onLobbyScroll(ev?: CustomEvent<ScrollDetail>) {
+    const scrollTop = ev && ev.detail ? ev.detail.scrollTop : 0;
+    if (!this.isTopMetaRevealed && shouldRevealTopMeta(scrollTop)) {
+      this.isTopMetaRevealed = true;
+      // 펼침 트랜지션(0.35초)이 끝난 뒤 광고 슬롯 위치를 다시 보낸다
+      setTimeout(() => this.sendAdSlotPosition(), 400);
+    }
     this.sendAdSlotPosition();
   }
 
@@ -1114,6 +1258,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startAutoShuffle();
           this.loadVsCards(); // VS 카드 즉시 갱신 (폴링 첫 틱은 3초 뒤)
           this.startVsPolling();
+          this.startMyRankPolling(); // My Global Ranking 카드 즉시 갱신 + 30초 재개
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
           if (this.newsTicker) this.newsTicker.start();
         }
@@ -1123,6 +1268,9 @@ export class LobbyPage implements OnInit, OnDestroy {
         this.stopAutoSlide();
         this.stopAutoShuffle();
         this.stopVsPolling();
+        this.stopMyRankPolling();
+        // 오프닝 오버레이가 도는 중에 백그라운드로 가면 즉시 중단 (클라이언트 10단계안)
+        if (this.openingOverlay) this.openingOverlay.stop(false);
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
@@ -1151,9 +1299,7 @@ export class LobbyPage implements OnInit, OnDestroy {
             setTimeout(() => star.showPlus = true, 50);
             setTimeout(() => star.showPlus = false, 800);
 
-            const audio = new Audio('assets/sounds/tick.mp3');
-            audio.volume = 0.65;
-            audio.play().catch(e => console.log('Audio playback error:', e));
+            void this.tickSound.play();
 
             this.haptic.tap();
 
@@ -1234,6 +1380,7 @@ export class LobbyPage implements OnInit, OnDestroy {
                     localStorage.setItem('starPw', data.pw);
                     localStorage.setItem('starToken', res.starToken);
         this.dm.refreshUnread();
+                    if (this.isViewActive) this.startMyRankPolling(); // 로그인 직후 카드를 내 순위로 교체
                   }
 
                   if (type === 'STAR') {
@@ -1280,6 +1427,11 @@ export class LobbyPage implements OnInit, OnDestroy {
             localStorage.removeItem('starId');
             localStorage.removeItem('starPw');
             localStorage.removeItem('fcmToken'); // 로컬 토큰 캐시도 정리
+
+            // My Global Ranking 카드를 비로그인 변형으로 되돌린다 (lastSeen 키는 starId별이라 그대로 둔다)
+            this.myRank = null;
+            this.myRankDelta = { dir: 'none', amount: 0 };
+            this.myRankStarId = '';
 
             // this.globalFeedback.stopPolling();
 

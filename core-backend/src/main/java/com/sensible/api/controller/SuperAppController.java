@@ -639,6 +639,15 @@ public class SuperAppController {
 		return superAppService.getMyRankingRevenue(commandMap.getMap());
 	}
 
+	// 🌟 [신규] 로비 My Global Ranking 카드 — 내 순위·전체 대상 수·Global Score·지표 3종 (2-29차). 본인 확인 필수.
+	// ⚠ 사용자별 데이터이므로 Redis @Cacheable도, 공용 CDN(Cloudflare) 캐싱도 붙이지 않는다.
+	//   (my-revenue의 starId 단독 캐시 키가 토큰 불일치 FAIL까지 캐시하던 결함을 되풀이하지 않기 위함)
+	@RequestMapping(value = "/api/super/ranking/my-rank", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getMyRank(CommandMap commandMap) throws Exception {
+		return superAppService.getMyRank(commandMap.getMap());
+	}
+
 	// 🌟 [신규] My Daily Insight - 최근 활동 유저 500명 리스트
 	@RequestMapping(value = "/api/super/my-insight/logs", method = RequestMethod.POST)
 	@ResponseBody

@@ -52,7 +52,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onLobbyScroll()">
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onLobbyScroll($event)">
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content pullingIcon="chevron-down-circle-outline" pullingText="Pull to refresh"
       refreshingSpinner="circles" refreshingText="Loading creators..."></ion-refresher-content>
@@ -363,8 +363,16 @@
     <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards" [news]="liveNews"
       (focusRequest)="onTickerFocus($event)"></app-live-news-ticker>
 
-    <!-- 🌟 Today's TOP (VS 카드 바로 아래 — 가로 스크롤) -->
-    <div class="section-container today-top-section">
+    <!-- 🌟 My Global Ranking 카드 (2-29차) — 로그인(스타): 내 순위·변동·pts·지표 / 비로그인·관리자: 페이지 만들기 유도.
+         버튼은 기존 동작에 연결한다: My Star Page → 내 스타 페이지, Top Rankings → 상단 트로피와 같은 랭킹 화면 -->
+    <app-my-ranking-card [loggedIn]="isStar && !!starId" [data]="myRank" [loading]="isLoadingMyRank"
+      [delta]="myRankDelta" [avatar]="myImage || (myRank && myRank.image) || defaultAvatar"
+      (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()" (reLogin)="openCreatorLogin()">
+    </app-my-ranking-card>
+
+    <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).
+         첫 화면에는 사진+이름만 보이고, 세로 스크롤을 시작하면 순위·조회수 줄이 펼쳐진다(2-29차 공간 확보) -->
+    <div class="section-container today-top-section" [class.meta-revealed]="isTopMetaRevealed">
       <div class="section-header">
         <ion-icon name="star" class="title-icon orange"></ion-icon>
         <ion-label>Today's TOP</ion-label>
@@ -378,13 +386,15 @@
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
 
           <div class="star-info" style="margin-top: 4px;">
-            <!-- 세로 3단: 이름 / 랭크 / 조회수 (리스트 행과 동일한 배치) -->
+            <!-- 세로 3단: 이름 / 랭크 / 조회수 (리스트 행과 동일한 배치). 랭크·조회수는 .top-meta 안에서 접힘/펼침 -->
             <div class="name" style="font-size: 13px; font-weight: bold;">{{ star.name }}</div>
-            <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
-              🌍 #{{ star.globalRank }}
-            </div>
-            <div style="font-size: 11px; font-weight: 600; margin-top: 1px;">
-              👁️ {{ formatNumber(star.viewCount) }}
+            <div class="top-meta">
+              <div *ngIf="star.globalRank > 0" style="font-size: 11px; font-weight: 600; margin-top: 2px;">
+                🌍 #{{ star.globalRank }}
+              </div>
+              <div style="font-size: 11px; font-weight: 600; margin-top: 1px;">
+                👁️ {{ formatNumber(star.viewCount) }}
+              </div>
             </div>
           </div>
         </div>
@@ -550,3 +560,7 @@
     </ion-fab-button>
   </ion-fab>
 </ion-content>
+
+<!-- 🌟 오프닝 오버레이 (2-29차) — 앱을 켠 뒤 첫 로비 진입에서 1.5초 1회. ion-content 밖(페이지 호스트의 형제)에 두어
+     스크롤·클리핑을 받지 않고 뷰포트 전체를 덮는다. 조작은 막지 않는다 -->
+<app-global-opening-overlay></app-global-opening-overlay>

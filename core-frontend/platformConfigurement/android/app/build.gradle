@@ -75,6 +75,12 @@ dependencies {
     //
     // SDK 구현체가 assets/audience_network/classes*.dex(5.2MB)로 들어와 앱이 그만큼 커진다.
     implementation 'com.google.ads.mediation:facebook:6.21.0.4'
+    // Pangle Bidding 어댑터 (2026-09-26). com.pangle.global:ads-sdk:8.3.0.3을 전이로 가져온다.
+    // Pangle US/KR/ROW 세 Bidding 소스가 모두 이 어댑터 하나를 쓴다 — 지역 분리는 AdMob 콘솔 매핑이다.
+    // 8.3.0.3.0은 play-services-ads 25.4.0과 짝인 마지막 버전 (8.3.0.4.0부터 25.5.0 요구).
+    // Google 문서 요구치 minSdk 24 → variables.gradle 상향. SDK가 .so를 동봉하므로 16KB 정렬을
+    // 위해 AGP 8.7.3으로 함께 올렸다 (build.gradle 참조).
+    implementation 'com.google.ads.mediation:pangle:8.3.0.3.0'
     implementation 'com.google.android.gms:play-services-auth:21.5.1'
     implementation project(':nativetemplates')
     implementation "androidx.core:core-splashscreen:1.0.0"

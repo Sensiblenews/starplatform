@@ -1,0 +1,97 @@
+<div class="mr-card" [class.guest]="!loggedIn" [class.flash-up]="flash && delta.dir === 'up'"
+  [class.flash-down]="flash && delta.dir === 'down'">
+
+  <ng-container *ngIf="loggedIn; else guestTpl">
+    <!-- 헤더: 지구본 · 제목 · LIVE -->
+    <div class="mr-head">
+      <!-- 선형 지구본(경선 2·위선 3) — 파란 원 안에 흰 선. 이모지 대신 SVG라 플랫폼마다 모양이 같다 -->
+      <span class="mr-globe" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10" />
+          <ellipse cx="12" cy="12" rx="4.5" ry="10" />
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <line x1="3.6" y1="7.4" x2="20.4" y2="7.4" />
+          <line x1="3.6" y1="16.6" x2="20.4" y2="16.6" />
+        </svg>
+      </span>
+      <span class="mr-title">My Global Ranking</span>
+      <span class="mr-live"><span class="mr-live-dot"></span>LIVE</span>
+    </div>
+
+    <ng-container *ngIf="!showSkeleton; else skeletonTpl">
+
+      <div class="mr-body">
+        <!-- 좌: 아바타 + 순위 -->
+        <div class="mr-left">
+          <div class="mr-avatar">
+            <img [src]="avatar" (error)="onAvatarError($event)" decoding="async" />
+            <span class="mr-crown">👑</span>
+          </div>
+
+          <div class="mr-rank-block">
+            <div class="mr-rank-row">
+              <span class="mr-rank-no" [class.pop]="flash" [class.up]="flash && delta.dir === 'up'"
+                [class.down]="flash && delta.dir === 'down'">{{ rankLabel }}</span>
+              <span class="mr-rank-total">/ {{ formatWithCommas(data?.totalStars) }}</span>
+            </div>
+            <!-- 변동은 실제로 바뀌었을 때만, 숫자만 (클라이언트 확정) -->
+            <div class="mr-delta up" *ngIf="delta.dir === 'up'">▲ {{ delta.amount }}</div>
+            <div class="mr-delta down" *ngIf="delta.dir === 'down'">▼ {{ delta.amount }}</div>
+            <div class="mr-score">⭐ {{ formatWithCommas(data?.score) }} pts</div>
+          </div>
+        </div>
+
+        <!-- 우: 지표 3종 -->
+        <div class="mr-stats">
+          <div class="mr-stat">👁️ {{ formatCompact(data?.viewCount) }}</div>
+          <div class="mr-stat">❤️ {{ formatCompact(data?.likeCnt) }}</div>
+          <div class="mr-stat">⭐ {{ formatCompact(data?.followerCnt) }}</div>
+        </div>
+      </div>
+
+      <div class="mr-actions">
+        <button type="button" class="mr-btn primary" (click)="myPage.emit()">
+          <span class="mr-btn-icon">↗</span>My Star Page
+        </button>
+        <button type="button" class="mr-btn outline" (click)="topRankings.emit()">
+          <span class="mr-btn-icon">🏆</span>Top Rankings
+        </button>
+      </div>
+
+    </ng-container>
+  </ng-container>
+
+  <!-- 비로그인·관리자: 클라이언트가 준 배너 이미지 1장을 그대로 쓰고(2026-09-26, 2-29 "같은 셸" 결정 번복),
+       이미지에 그려진 두 버튼 자리에 투명 클릭 영역만 얹는다. 원본의 흰 여백은 잘라냈고(1940×688) 좌표는 그 기준 비율이다.
+       이미지 안 글자는 스크린리더가 못 읽으므로 aria-label로 같은 문구를 준다. 로그인 팝업은 띄우지 않는다 -->
+  <ng-template #guestTpl>
+    <div class="mr-banner">
+      <img class="mr-banner-img" src="assets/img/global-ranking.webp" alt="Global Ranking. Find out where you stand in the world! Create your StarPage and join the global ranking." decoding="async" />
+      <button type="button" class="mr-hit mr-hit-create" aria-label="Create Your StarPage" (click)="createPage.emit()"></button>
+      <button type="button" class="mr-hit mr-hit-relogin" aria-label="Re-Login" (click)="reLogin.emit()"></button>
+    </div>
+  </ng-template>
+
+  <!-- 첫 로드 스켈레톤 — 본문과 같은 높이라 로딩 해제 시 레이아웃이 튀지 않는다 -->
+  <ng-template #skeletonTpl>
+    <div class="mr-body mr-skeleton">
+      <div class="mr-left">
+        <div class="sk sk-avatar"></div>
+        <div class="mr-rank-block">
+          <div class="sk sk-line w-60"></div>
+          <div class="sk sk-line w-40"></div>
+        </div>
+      </div>
+      <div class="mr-stats sk-stats">
+        <div class="sk sk-line w-100"></div>
+        <div class="sk sk-line w-100"></div>
+        <div class="sk sk-line w-100"></div>
+      </div>
+    </div>
+    <div class="mr-actions">
+      <div class="sk sk-btn"></div>
+      <div class="sk sk-btn"></div>
+    </div>
+  </ng-template>
+</div>

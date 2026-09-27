@@ -849,7 +849,7 @@ public class SuperAdminService {
         }
     }
 
-    // 앱 캐시(liveNews, 30초 TTL)는 어드민이 바꾸는 즉시 비운다 — 다음 로비 조회부터 반영
+    // 앱 캐시(liveNews, 10초 TTL)는 어드민이 바꾸는 즉시 비운다 — 다음 로비 조회부터 반영
     @org.springframework.cache.annotation.CacheEvict(value = "liveNews", allEntries = true)
     public void insertLiveNews(Map<String, Object> params) throws Exception {
         Map<String, Object> normalized = normalizeLiveNews(

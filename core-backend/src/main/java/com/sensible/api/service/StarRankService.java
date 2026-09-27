@@ -27,7 +27,7 @@ public class StarRankService {
 	private DefaultDAO dao;
 
 	/**
-	 * 전체 스타의 순위·조회수 목록. TTL 60초 (context-redis.xml의 starRank).
+	 * 전체 스타의 순위·조회수 목록. TTL 10초 (context-redis.xml의 starRank).
 	 * 캐시 미스일 때만 순위표를 다시 계산한다.
 	 */
 	@Cacheable(value = "starRank", key = "'map'", unless = "#result == null")

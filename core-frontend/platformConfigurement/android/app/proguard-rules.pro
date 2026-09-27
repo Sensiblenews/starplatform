@@ -55,6 +55,8 @@
 # Meta 어댑터(com.google.ads.mediation.facebook[.rtb])는 consumer 규칙이 없지만 아래
 # com.google.ads.mediation.** 한 줄에 그대로 걸린다 — 따로 추가할 것이 없다.
 # SDK 본체(com.vungle.ads / com.facebook.ads)는 각 SDK AAR의 consumer 규칙이 이미 지킨다.
+# Pangle 어댑터(com.google.ads.mediation.pangle)도 아래 한 줄에 걸린다. SDK 본체(com.bytedance.sdk.**)는
+# ads-sdk AAR의 consumer 규칙이 지킨다 (2026-09-26).
 -keep class com.google.ads.mediation.** { *; }
 -dontwarn com.google.ads.mediation.**
 -keep class com.vungle.mediation.** { *; }

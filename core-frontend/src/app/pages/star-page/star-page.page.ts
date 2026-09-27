@@ -8,6 +8,7 @@ import { AdProtectionService } from 'src/app/services/ad-protection.service';
 import { StarMenuComponent } from './star-menu.component';
 import { Share } from '@capacitor/share';
 import { HapticService } from 'src/app/services/haptic.service';
+import { TickSoundService } from 'src/app/services/tick-sound.service';
 import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { DeepLinkService } from 'src/app/services/deep-link.service';
@@ -125,6 +126,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private perf: PerfTraceService,
     private dm: DmService,
     private haptic: HapticService,
+    private tickSound: TickSoundService,
   ) { }
 
   // 로그인한 스타가 다른 스타 페이지를 볼 때만 채팅 아이콘 (2-29차 메신저, 스타 소유자끼리 1:1)
@@ -951,9 +953,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(() => this.showPlus = true, 50);
         setTimeout(() => this.showPlus = false, 800);
 
-        const audio = new Audio('assets/sounds/tick.mp3');
-        audio.volume = 0.65;
-        audio.play().catch(e => console.log('Audio playback error:', e));
+        void this.tickSound.play();
 
         this.haptic.tap();
 

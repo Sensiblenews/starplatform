@@ -8,7 +8,10 @@ buildscript {
         maven { url 'https://devrepo.kakao.com/nexus/content/groups/public/' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.1'
+        // 8.2.1 → 8.7.3 (2026-09-26): 16KB 페이지 zip 정렬은 AGP 8.5.1+ 가 해준다.
+        // Pangle SDK가 네이티브 .so를 동봉해 AppLovin 때처럼 Play 업로드가 거부될 수 있어 상향했다.
+        // Gradle 8.9 (gradle/wrapper/gradle-wrapper.properties)와 짝이다. JDK 17 이상 필요.
+        classpath 'com.android.tools.build:gradle:8.7.3'
         classpath 'com.google.gms:google-services:4.4.0'
         classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.9'
         // NOTE: Do not place your application dependencies here; they belong
@@ -23,6 +26,8 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://devrepo.kakao.com/nexus/content/groups/public/' }
+        // Pangle SDK(com.pangle.global:ads-sdk) 저장소 — AdMob Pangle 어댑터가 전이로 끌어온다 (2026-09-26)
+        maven { url 'https://artifact.bytedance.com/repository/pangle' }
     }
 }
 

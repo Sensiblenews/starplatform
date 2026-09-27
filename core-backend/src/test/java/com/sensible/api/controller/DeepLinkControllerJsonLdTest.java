@@ -115,7 +115,7 @@ public class DeepLinkControllerJsonLdTest {
 		String xml = buildSitemapXml("https://witch-hunting.com", null, new java.util.ArrayList<>());
 		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
 		assertFalse(xml.contains("/star/"));
-		// /posts 목록 페이지는 항상 들어가므로 게시물 상세 URL만 없어야 한다
+		// 마케팅 페이지 /posts 는 항상 들어가므로 게시물 상세 URL만 없어야 한다
 		assertFalse(xml.contains("/post/"));
 	}
 
@@ -132,14 +132,16 @@ public class DeepLinkControllerJsonLdTest {
 
 	@Test
 	public void buildSitemapXml_포스트_목록은_페이지마다_넣는다() throws Exception {
-		// 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
+		// [2-29차 후속] 목록은 홈(/)이다. 2페이지 이후를 빼면 크롤러가 목록을 타고 끝까지 내려가지 못한다
 		String xml = buildSitemapXml("https://witch-hunting.com", null, null, 3);
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts</loc>"));
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=2</loc>"));
-		assertTrue(xml.contains("<loc>https://witch-hunting.com/posts?page=3</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/?page=2</loc>"));
+		assertTrue(xml.contains("<loc>https://witch-hunting.com/?page=3</loc>"));
 		assertFalse(xml.contains("page=4"));
-		// 첫 페이지는 ?page=1 이 아니라 /posts 여야 한다 (중복 URL 방지)
+		// 첫 페이지는 ?page=1 이 아니라 / 여야 한다 (중복 URL 방지)
 		assertFalse(xml.contains("page=1"));
+		// 옛 목록 주소(/posts?page=N)는 301 대상이라 사이트맵에 넣지 않는다
+		assertFalse(xml.contains("/posts?page="));
 	}
 
 	@Test
@@ -168,5 +170,28 @@ public class DeepLinkControllerJsonLdTest {
 		assertEquals("", toDatePart(null));
 		assertEquals("", toDatePart("2026"));
 		assertEquals("", toDatePart(""));
+	}
+
+	@Test
+	public void 본문_첫_줄이_짧으면_제목이_된다() {
+		String[] r = DeepLinkController.splitHeadline("싱그러운 잎사귀\n자연은 언제나 우리에게 행복을 줍니다.");
+		assertEquals("싱그러운 잎사귀", r[0]);
+		assertEquals("자연은 언제나 우리에게 행복을 줍니다.", r[1]);
+	}
+
+	@Test
+	public void 줄바꿈이_없는_짧은_글은_전체가_제목이다() {
+		String[] r = DeepLinkController.splitHeadline("아름다운 꽃");
+		assertEquals("아름다운 꽃", r[0]);
+		assertEquals("", r[1]);
+	}
+
+	@Test
+	public void 첫_줄이_너무_길면_제목_없이_본문으로_둔다() {
+		String longLine = new String(new char[100]).replace('\0', 'a');
+		String[] r = DeepLinkController.splitHeadline(longLine + "\n둘째 줄");
+		assertEquals("", r[0]);
+		assertTrue(r[1].startsWith(longLine));
+		assertEquals("", DeepLinkController.splitHeadline(null)[0]);
 	}
 }
