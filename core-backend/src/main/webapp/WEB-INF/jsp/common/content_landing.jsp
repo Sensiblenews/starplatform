@@ -227,7 +227,9 @@
              포스트: D 본문 끝·Share 버튼 위(PC 728×90 / 모바일 300×250), E 사이드바 More posts 아래 300×600(PC),
                      모바일 B' 작성자 카드와 More posts 사이 320×100, C' Join 위 300×250.
              클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
-        .ad-slot { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; }
+        /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
+        .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
+        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
         .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
         .ad-side { width: 300px; height: 600px; margin: 0 auto; position: sticky; top: 84px; }
         .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }

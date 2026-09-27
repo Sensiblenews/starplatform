@@ -66,7 +66,9 @@
          PC: ① 히어로 우측 728×90 ② 사이드바 300×600 sticky ③ 페이지네이션 아래 728×90
          모바일: ① 숨김, A 히어로 아래·칩 카드 위 320×100, B 피드 중간 300×250(2번째 카드 뒤, 이후 6장마다),
                  C 목록 아래·탭바 위 320×100. 클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
-    .ad-slot { background: rgba(241, 245, 249, 0.92); border: 1px solid #e2e8f0; border-radius: 8px; }
+    /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
+    .ad-slot { position: relative; background: rgba(241, 245, 249, 0.92); border: 1px dashed #94a3b8; border-radius: 8px; }
+    .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
     .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 84px; }
     .ad-slot-bottom { width: 728px; max-width: 100%; height: 90px; margin: 24px auto 0; }
