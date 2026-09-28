@@ -107,6 +107,9 @@
   @media (max-width: 820px) {
     body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
     .site-tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; background: #ffffff; border-top: 1px solid #e2e8f0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+    /* 안드로이드: 인디케이터 여백 없이 화면 맨 아래에 붙인다 (web-tabbar.jsp 가 html 에 .sp-android 를 단다) */
+    html.sp-android body { padding-bottom: 64px; }
+    html.sp-android .site-tabbar { padding-bottom: 6px; }
     .site-tabbar a { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; font-size: 11px; font-weight: 600; color: #64748b; text-decoration: none; }
     .site-tabbar a[aria-current="page"] { color: #2563eb; }
     .site-tabbar-icon { position: relative; width: 22px; height: 22px; display: block; }
