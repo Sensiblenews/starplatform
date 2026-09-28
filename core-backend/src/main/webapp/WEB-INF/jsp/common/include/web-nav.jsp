@@ -59,20 +59,39 @@
   출력에 실려 나가는 // 주석에 한글을 두면 응답에 깨진 바이트가 섞인다.
 --%>
 <script>
-  <%-- 앱이 없으면 스토어로 보낸다 (후속 요청: 안드로이드에서 버튼이 안 먹힌다는 보고).
-       안드로이드 intent:// 는 크롬 외 브라우저에서 조용히 실패하므로, 2.5초 뒤에도 화면이 그대로면 Play 로.
-       iOS 는 커스텀 스킴 뒤 같은 방식으로 App Store 로 --%>
-  function spOpenApp() {
+  <%-- 앱 열기 공통 (헤더·푸터·탭바 버튼 + 모바일 카드 딥링크).
+       route 는 앱 안 경로("home", "star/SP-..", "post/126"). 앱이 없으면 스토어로 보낸다 (클라이언트 확정).
+       - 안드로이드 크롬 계열: intent:// (앱 없으면 크롬이 폴백 URL=스토어로), 스토어 URL 에는 설치 후 첫 실행 시
+         원래 경로로 가도록 referrer(target_route)를 실어 보낸다 (앱의 Install Referrer 처리와 같은 형식).
+       - 그 외 안드로이드 브라우저(삼성 인터넷·인앱): intent 실패 토스트가 뜨므로 스토어로 바로.
+       - iOS: 커스텀 스킴 뒤 2.5초 안에 화면이 안 바뀌면 App Store 로. --%>
+  var SP_PACKAGE = 'kr.co.sensiblenews.witchHuntingVU2D7F2P7E';
+  var SP_IOS_STORE = 'https://apps.apple.com/app/id1188195403';
+  function spUaInfo() {
     var ua = navigator.userAgent.toLowerCase();
     var isAndroid = ua.indexOf('android') > -1;
-    var store = isAndroid
-      ? 'https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E'
-      : 'https://apps.apple.com/app/id1188195403';
-    <%-- 크롬 계열이 아닌 안드로이드 브라우저(삼성 인터넷·인앱)는 intent:// 실패 시
-         "이 동작을 수행할 수 있는 앱이 없습니다" 토스트를 띄우므로(클라이언트 보고) 스토어로 바로 보낸다 --%>
+    var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     var isChromeAndroid = isAndroid && /chrome\/\d+/.test(ua)
       && !/samsungbrowser|edga|opr\/|whale|kakaotalk|fban|fbav|instagram|naver|line\//.test(ua);
-    if (isAndroid && !isChromeAndroid) {
+    return { isAndroid: isAndroid, isIOS: isIOS, isChromeAndroid: isChromeAndroid, isMobile: isAndroid || isIOS };
+  }
+  function spBuildAppUrls(route) {
+    route = String(route || 'home').replace(/^\/+/, '');
+    var referrer = encodeURIComponent('target_route=/' + route);
+    var playStore = 'https://play.google.com/store/apps/details?id=' + SP_PACKAGE + '&referrer=' + referrer;
+    return {
+      scheme: 'witchhunting://' + route,
+      intent: 'intent://' + route + '#Intent;scheme=witchhunting;package=' + SP_PACKAGE
+        + ';S.browser_fallback_url=' + encodeURIComponent(playStore) + ';S.market_referrer=' + referrer + ';end',
+      playStore: playStore,
+      appStore: SP_IOS_STORE
+    };
+  }
+  function spOpenAppRoute(route) {
+    var u = spUaInfo();
+    var urls = spBuildAppUrls(route);
+    var store = u.isAndroid ? urls.playStore : urls.appStore;
+    if (u.isAndroid && !u.isChromeAndroid) {
       window.location.href = store;
       return;
     }
@@ -80,12 +99,26 @@
     setTimeout(function () {
       if (!document.hidden && Date.now() - start < 4000) window.location.href = store;
     }, 2500);
-    if (isAndroid) {
-      window.location.href = 'intent://home#Intent;scheme=witchhunting;package=kr.co.sensiblenews.witchHuntingVU2D7F2P7E;S.browser_fallback_url=' + encodeURIComponent(store) + ';end';
-    } else {
-      window.location.href = 'witchhunting://home';
-    }
+    window.location.href = u.isAndroid ? urls.intent : urls.scheme;
   }
+  function spOpenApp() {
+    spOpenAppRoute('home');
+  }
+
+  <%-- 모바일에서 스타·포스트 링크(카드, 사이드바 목록, 작성자 링크)를 누르면 웹 페이지 대신 앱으로 연다 (클라이언트 확정).
+       href 는 웹 URL 그대로라 크롤러·PC 는 영향이 없고, 새 탭 열기(수정키·가운데 클릭)는 그대로 둔다 --%>
+  (function () {
+    if (!spUaInfo().isMobile) return;
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a || a.target === '_blank') return;
+      var m = (a.getAttribute('href') || '').match(/(?:^|\/)(star|post)\/([^\/?#]+)(?:[?#]|$)/);
+      if (!m) return;
+      e.preventDefault();
+      spOpenAppRoute(m[1] + '/' + m[2]);
+    });
+  })();
 
   (function () {
     var toggle = document.getElementById('siteNavToggle');
