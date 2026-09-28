@@ -574,6 +574,8 @@
 <div class="lp-copied" id="lpCopied" role="status" aria-live="polite">Link copied</div>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%-- 모바일 하단 탭바 — 홈·About 등과 같은 다섯 항목 (스타·포스트 페이지에 빠져 있었음, 클라이언트 보고) --%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 
     <script>
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사

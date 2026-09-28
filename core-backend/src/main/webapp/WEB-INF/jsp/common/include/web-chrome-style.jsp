@@ -67,8 +67,10 @@
     .site-nav-links.is-open { display: flex; }
     .site-nav-links a { padding: 12px; font-size: 15px; border-bottom: 0; }
     .site-nav-links a[aria-current="page"] { box-shadow: inset 3px 0 0 #facc15; border-radius: 6px; }
-    /* 모바일: 돋보기·햄버거 아이콘 아래 오른쪽에 작은 Open in App 버튼 (헤더 아래 띠 위에 얹힌다) */
-    .site-nav-cta { display: inline-flex; position: absolute; right: 16px; top: calc(100% + 8px); padding: 7px 14px; font-size: 13px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); z-index: 101; }
+    /* 모바일: 돋보기·햄버거 아이콘 아래 오른쪽에 작은 Open in App 버튼. 헤더 밖의 높이 0 래퍼에 절대 배치해
+       페이지와 함께 스크롤된다 (sticky 헤더 안에 두면 본문 위를 계속 가린다 — 클라이언트 스크린샷) */
+    .site-nav-cta-wrap { position: relative; height: 0; z-index: 99; }
+    .site-nav-cta { display: inline-flex; position: absolute; right: 16px; top: 8px; padding: 7px 14px; font-size: 13px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
     .site-nav-links .site-nav-mobile-only { display: block; }
     .site-nav-search input { width: 140px; }
   }

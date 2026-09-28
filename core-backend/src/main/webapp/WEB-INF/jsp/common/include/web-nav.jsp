@@ -44,13 +44,17 @@
       <button type="button" class="site-nav-search-btn" id="siteNavSearchBtn" aria-label="Search" aria-expanded="false" aria-controls="siteNavSearch">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
-      <a class="site-nav-cta" href="#" onclick="spOpenApp(); return false;">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg>
-        <span>Open in App</span>
-      </a>
     </div>
   </div>
 </nav>
+<%-- 모바일 전용 Open in App: 헤더 아래 오른쪽에 얹히되 헤더(sticky)와 함께 따라다니지 않도록 헤더 밖에 둔다.
+     PC 에서는 숨김 (클라이언트 요청) --%>
+<div class="site-nav-cta-wrap">
+  <a class="site-nav-cta" href="#" onclick="spOpenApp(); return false;">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg>
+    <span>Open in App</span>
+  </a>
+</div>
 
 <%--
   spOpenApp: 설치돼 있으면 앱으로, 아니면 현재 페이지에 그대로 남는다.
