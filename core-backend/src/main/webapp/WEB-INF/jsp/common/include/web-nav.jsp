@@ -101,24 +101,15 @@
     }, 2500);
     window.location.href = u.isAndroid ? urls.intent : urls.scheme;
   }
-  function spOpenApp() {
-    spOpenAppRoute('home');
+  <%-- 현재 페이지가 스타/포스트면 그 경로로, 아니면 홈으로 앱을 연다.
+       카드 클릭은 웹 페이지로 그대로 이동하고, 그 페이지의 Open in App 을 눌렀을 때만 앱으로 넘어간다 (클라이언트 확정) --%>
+  function spCurrentRoute() {
+    var m = window.location.pathname.match(/(?:^|\/)(star|post)\/([^\/?#]+)\/?$/);
+    return m ? m[1] + '/' + m[2] : 'home';
   }
-
-  <%-- 모바일에서 스타·포스트 링크(카드, 사이드바 목록, 작성자 링크)를 누르면 웹 페이지 대신 앱으로 연다 (클라이언트 확정).
-       href 는 웹 URL 그대로라 크롤러·PC 는 영향이 없고, 새 탭 열기(수정키·가운데 클릭)는 그대로 둔다 --%>
-  (function () {
-    if (!spUaInfo().isMobile) return;
-    document.addEventListener('click', function (e) {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      var a = e.target.closest ? e.target.closest('a[href]') : null;
-      if (!a || a.target === '_blank') return;
-      var m = (a.getAttribute('href') || '').match(/(?:^|\/)(star|post)\/([^\/?#]+)(?:[?#]|$)/);
-      if (!m) return;
-      e.preventDefault();
-      spOpenAppRoute(m[1] + '/' + m[2]);
-    });
-  })();
+  function spOpenApp() {
+    spOpenAppRoute(spCurrentRoute());
+  }
 
   (function () {
     var toggle = document.getElementById('siteNavToggle');
