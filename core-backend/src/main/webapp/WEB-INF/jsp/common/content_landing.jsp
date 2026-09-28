@@ -231,7 +231,8 @@
         .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
         .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
         .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
-        .ad-side { width: 300px; height: 600px; margin: 0 auto; position: sticky; top: 84px; }
+        /* [버그 보고] 스크롤을 따라 내려오는 것을 클라이언트가 원치 않아 sticky 해제 */
+        .ad-side { width: 300px; height: 600px; margin: 0 auto; }
         .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
         .ad-m-lb { display: none; width: 320px; max-width: 100%; height: 100px; margin: 20px auto; }
         .ad-m-rect { display: none; width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
@@ -262,8 +263,7 @@
             .st-actions { padding-bottom: 0; }
             .st-stats { flex-wrap: wrap; gap: 10px; }
             .st-stat { flex: 1 1 45%; border-left: 0; padding: 4px 0; }
-            /* 모바일은 커버의 공유 버튼으로 충분 — 통계 바의 공유 버튼이 한 줄을 통째로 차지하지 않게 숨긴다 */
-            .st-stats-actions { display: none; }
+            .st-stats-actions { width: auto; margin-left: auto; }
             .st-posts { grid-template-columns: 1fr; }
             .st-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .po-card { padding: 18px 16px 20px; }
@@ -306,10 +306,7 @@
                     <c:if test="${not empty starBio}"><p class="st-tagline">${starBio}</p></c:if>
                 </div>
             </div>
-            <div class="st-actions">
-                <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">${phoneIcon}Open in App</button>
-                <button type="button" class="lp-icon-btn" onclick="sharePage()" aria-label="Share this page" title="Share">${shareIcon}</button>
-            </div>
+            <%-- [버그 보고 후속] 커버 우측의 Open in App·공유 버튼은 클라이언트 요청으로 제거. 공유는 통계 바의 아이콘 하나만 --%>
         </div>
     </section>
 
@@ -456,10 +453,6 @@
             </aside>
         </div>
 
-        <div class="lp-cta">
-            <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">Open in App</button>
-            <button type="button" class="lp-btn lp-btn-secondary" onclick="goStore()">Download App</button>
-        </div>
     </div>
 </c:when>
 
@@ -520,10 +513,7 @@
                 <%-- [AdSense 승인 대기] 포스트 D: 이미지·본문 끝, Share 버튼 위 (PC 728×90 / 모바일 300×250). 버튼과 20px 이상 --%>
                 <div class="ad-slot ad-lb ad-d" aria-hidden="true" data-ad-slot="post-d"></div>
 
-                <div class="po-actions">
-                    <button type="button" class="lp-btn lp-btn-secondary" onclick="sharePage()">${shareIcon}Share</button>
-                    <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">${phoneIcon}Open in App</button>
-                </div>
+                <%-- [버그 보고 후속] Share·Open in App 버튼 행은 클라이언트 요청으로 제거 --%>
             </article>
 
             <aside class="lp-side">
@@ -577,10 +567,6 @@
             </aside>
         </div>
 
-        <div class="lp-cta">
-            <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">Open in App</button>
-            <button type="button" class="lp-btn lp-btn-secondary" onclick="goStore()">Download App</button>
-        </div>
     </div>
 </c:otherwise>
 </c:choose>
@@ -593,6 +579,8 @@
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
         function sharePage() {
             var url = window.location.href.split('#')[0];
+            var isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             var done = function () {
                 var el = document.getElementById('lpCopied');
                 if (!el) return;
@@ -606,9 +594,9 @@
                     window.prompt('Copy this link', url);
                 }
             };
-            // [후속] 안드로이드 공유 오류 보고: navigator.share 가 있어도 브라우저·인앱 환경에 따라 예외를 던진다.
-            // 사용자가 취소한 것(AbortError)은 조용히 넘기고, 그 외 실패는 링크 복사로 대신한다
-            if (navigator.share) {
+            // [버그 보고 2차] 안드로이드에서 시스템 공유가 계속 오류를 낸다는 보고 → 공유 시트는 정상 동작이 확인된 iOS 에서만 쓰고,
+            // 안드로이드·PC 는 링크 복사 + "Link copied" 안내로 고정한다
+            if (navigator.share && isIOS) {
                 try {
                     navigator.share({ title: document.title, url: url }).catch(function (err) {
                         if (!err || err.name !== 'AbortError') copy();
@@ -697,10 +685,17 @@
         var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage
             + ";S.market_referrer=" + referrerParam + ";end";
 
+        // 크롬 계열만 intent:// 를 조용히 처리한다. 삼성 인터넷·인앱 브라우저는 앱이 없으면
+        // "이 동작을 수행할 수 있는 앱이 없습니다" 토스트를 띄우므로(클라이언트 보고) 그쪽은 스토어로 바로 보낸다
+        var isChromeAndroid = isAOS && /chrome\/\d+/.test(ua)
+            && !/samsungbrowser|edga|opr\/|whale|kakaotalk|fban|fbav|instagram|naver|line\//.test(ua);
+
         function openApp() {
             if (isAOS) {
-                // [후속] 안드로이드에서 버튼이 안 먹는다는 보고: intent:// 는 크롬 외 브라우저(삼성 인터넷·인앱)에서
-                // 조용히 실패한다. 2.5초 뒤에도 화면이 그대로면 Play 스토어로 보낸다 (iOS 와 같은 방식)
+                if (!isChromeAndroid) {
+                    goStore();
+                    return;
+                }
                 location.href = androidIntent;
                 setTimeout(function () {
                     if (!document.hidden) {

@@ -70,7 +70,7 @@
     .ad-slot { position: relative; background: rgba(241, 245, 249, 0.92); border: 1px dashed #94a3b8; border-radius: 8px; }
     .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
-    .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 84px; }
+    .ad-slot-side { width: 300px; height: 600px; } /* sticky 해제 — 스크롤 따라오는 것을 클라이언트가 버그로 봄 */
     .ad-slot-bottom { width: 728px; max-width: 100%; height: 90px; margin: 24px auto 0; }
     .ad-slot-mobile { width: 320px; max-width: 100%; height: 100px; margin: 20px auto 0; }
     .ad-slot-infeed { width: 300px; max-width: 100%; height: 250px; margin: 0 auto; border-radius: 14px; }

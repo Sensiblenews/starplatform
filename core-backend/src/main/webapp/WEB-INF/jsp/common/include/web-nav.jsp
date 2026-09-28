@@ -68,6 +68,14 @@
     var store = isAndroid
       ? 'https://play.google.com/store/apps/details?id=kr.co.sensiblenews.witchHuntingVU2D7F2P7E'
       : 'https://apps.apple.com/app/id1188195403';
+    <%-- 크롬 계열이 아닌 안드로이드 브라우저(삼성 인터넷·인앱)는 intent:// 실패 시
+         "이 동작을 수행할 수 있는 앱이 없습니다" 토스트를 띄우므로(클라이언트 보고) 스토어로 바로 보낸다 --%>
+    var isChromeAndroid = isAndroid && /chrome\/\d+/.test(ua)
+      && !/samsungbrowser|edga|opr\/|whale|kakaotalk|fban|fbav|instagram|naver|line\//.test(ua);
+    if (isAndroid && !isChromeAndroid) {
+      window.location.href = store;
+      return;
+    }
     var start = Date.now();
     setTimeout(function () {
       if (!document.hidden && Date.now() - start < 4000) window.location.href = store;
