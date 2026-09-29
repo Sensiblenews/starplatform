@@ -57,8 +57,7 @@
 </div>
 
 <%--
-  spOpenApp: 설치돼 있으면 앱으로, 아니면 현재 페이지에 그대로 남는다.
-  스토어로 강제 이동시키지 않는다 (클라이언트 확정 사항).
+  spOpenApp: 설치돼 있으면 앱으로, 아니면 스토어로 (2026-09-27 클라이언트 번복 — 예전 "스토어 강제 이동 금지"는 폐기).
   아래 스크립트 주석을 전부 JSP 주석으로 뺀 이유: include 조각은 기본 인코딩으로 읽혀
   출력에 실려 나가는 // 주석에 한글을 두면 응답에 깨진 바이트가 섞인다.
 --%>
@@ -67,7 +66,11 @@
        route 는 앱 안 경로("home", "star/SP-..", "post/126"). 앱이 없으면 스토어로 보낸다 (클라이언트 확정).
        - 안드로이드 크롬 계열: intent:// (앱 없으면 크롬이 폴백 URL=스토어로), 스토어 URL 에는 설치 후 첫 실행 시
          원래 경로로 가도록 referrer(target_route)를 실어 보낸다 (앱의 Install Referrer 처리와 같은 형식).
-       - 그 외 안드로이드 브라우저(삼성 인터넷·인앱): intent 실패 토스트가 뜨므로 스토어로 바로.
+       - 그 외 안드로이드(삼성 인터넷·X/카카오 등 인앱 WebView): intent 를 넘기면 앱이 받지 못할 때
+         "이 동작을 수행할 수 있는 앱이 없습니다" 빨간 토스트가 뜬다(2026-09-29 클라이언트 보고, X 인앱 스크린샷).
+         설치 여부를 알 방법이 없으므로 intent 를 아예 쓰지 않고 스토어로 바로 보낸다.
+         WebView 는 UA 의 "; wv)" 토큰과 "version/4.0" 으로 가린다 — 크롬 토큰이 들어 있어 예전 판정식이 크롬으로 오인했다.
+       - 안드로이드 크롬은 앱이 없을 때 browser_fallback_url 로 스스로 넘어가므로 타이머를 걸지 않는다(이중 이동 방지).
        - iOS: 커스텀 스킴 뒤 2.5초 안에 화면이 안 바뀌면 App Store 로. --%>
   var SP_PACKAGE = 'kr.co.sensiblenews.witchHuntingVU2D7F2P7E';
   var SP_IOS_STORE = 'https://apps.apple.com/app/id1188195403';
@@ -76,7 +79,8 @@
     var isAndroid = ua.indexOf('android') > -1;
     var isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     var isChromeAndroid = isAndroid && /chrome\/\d+/.test(ua)
-      && !/samsungbrowser|edga|opr\/|whale|kakaotalk|fban|fbav|instagram|naver|line\//.test(ua);
+      && !/; wv\)|version\/4\.0/.test(ua)
+      && !/samsungbrowser|edga|opr\/|whale|yabrowser|miuibrowser|huaweibrowser|heytapbrowser|vivobrowser|kakaotalk|daumapps|fban|fbav|instagram|naver|line\/|twitter|band\/|everytime/.test(ua);
     return { isAndroid: isAndroid, isIOS: isIOS, isChromeAndroid: isChromeAndroid, isMobile: isAndroid || isIOS };
   }
   function spBuildAppUrls(route) {
@@ -95,15 +99,15 @@
     var u = spUaInfo();
     var urls = spBuildAppUrls(route);
     var store = u.isAndroid ? urls.playStore : urls.appStore;
-    if (u.isAndroid && !u.isChromeAndroid) {
-      window.location.href = store;
+    if (u.isAndroid) {
+      window.location.href = u.isChromeAndroid ? urls.intent : store;
       return;
     }
     var start = Date.now();
     setTimeout(function () {
       if (!document.hidden && Date.now() - start < 4000) window.location.href = store;
     }, 2500);
-    window.location.href = u.isAndroid ? urls.intent : urls.scheme;
+    window.location.href = urls.scheme;
   }
   <%-- 현재 페이지가 스타/포스트면 그 경로로, 아니면 홈으로 앱을 연다.
        카드 클릭은 웹 페이지로 그대로 이동하고, 그 페이지의 Open in App 을 눌렀을 때만 앱으로 넘어간다 (클라이언트 확정) --%>

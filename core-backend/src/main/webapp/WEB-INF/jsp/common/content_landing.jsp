@@ -201,7 +201,8 @@
         .po-author-meta { font-size: 12px; color: #64748b; }
         .po-date { margin-left: auto; font-size: 13px; color: #64748b; white-space: nowrap; }
         .po-title { font-size: 26px; font-weight: 700; line-height: 1.3; margin-top: 18px; word-break: break-word; }
-        .po-stats { display: flex; gap: 20px; font-size: 14px; color: #475569; margin: 14px 0 18px; }
+        .po-stats { display: flex; align-items: center; gap: 20px; font-size: 14px; color: #475569; margin: 14px 0 18px; }
+        .po-stats .po-share { margin-left: auto; flex-shrink: 0; }
         .po-gallery { position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; padding-top: 56.25%; }
         .po-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
         .po-gallery-single { background: #f1f5f9; }
@@ -249,7 +250,9 @@
         .lp-cta { display: flex; justify-content: center; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }
 
         @media (max-width: 1000px) {
-            .lp-grid { grid-template-columns: 1fr; }
+            /* 1fr 은 최소 폭이 내용 기준(auto)이라 300px 광고 자리가 좁은 화면(360px 이하)에서 열을 밀어
+               카드가 오른쪽으로 넘쳤다(안드로이드 버그 보고). minmax(0, 1fr) 로 열을 화면 폭에 묶는다 */
+            .lp-grid { grid-template-columns: minmax(0, 1fr); }
             .st-posts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .st-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
@@ -483,6 +486,8 @@
                     <span class="lp-stat-ico">${heartIcon}<c:out value="${empty postLikes ? 0 : postLikes}"/></span>
                     <span class="lp-stat-ico">${commentIcon}<c:out value="${empty postComments ? 0 : postComments}"/></span>
                     <c:if test="${fn:length(mediaUrls) gt 1}"><span class="lp-stat-ico">${photoIcon}<c:out value="${fn:length(mediaUrls)}"/> photos</span></c:if>
+                    <%-- 공유 아이콘: 스타 페이지 통계 바와 같은 방식 (2026-09-29 클라이언트 요청 — 콘텐츠 상세에서도 시스템 공유) --%>
+                    <button type="button" class="lp-icon-btn po-share" onclick="sharePage()" aria-label="Share this post" title="Share">${shareIcon}</button>
                 </div>
 
                 <c:choose>
@@ -581,8 +586,6 @@
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
         function sharePage() {
             var url = window.location.href.split('#')[0];
-            var isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())
-                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             var done = function () {
                 var el = document.getElementById('lpCopied');
                 if (!el) return;
@@ -596,12 +599,15 @@
                     window.prompt('Copy this link', url);
                 }
             };
-            // [버그 보고 2차] 안드로이드에서 시스템 공유가 계속 오류를 낸다는 보고 → 공유 시트는 정상 동작이 확인된 iOS 에서만 쓰고,
-            // 안드로이드·PC 는 링크 복사 + "Link copied" 안내로 고정한다
-            if (navigator.share && isIOS) {
+            // 시스템 공유 시트를 우선한다 (2026-09-29 클라이언트 요청: 안드로이드도 iOS 처럼 시트가 바로 떠야 함 — 9/28 의 iOS 한정 결정 번복).
+            // 사용자가 시트를 닫은 경우(AbortError)는 아무것도 하지 않는다. 복사는 공유 API 가 없는 환경(PC 일부·인앱 WebView)에서만
+            var shareData = { title: document.title, url: url };
+            if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
                 try {
-                    navigator.share({ title: document.title, url: url }).catch(function (err) {
-                        if (!err || err.name !== 'AbortError') copy();
+                    navigator.share(shareData).catch(function (err) {
+                        // AbortError: 사용자가 닫음, InvalidStateError: 시트가 이미 떠 있는 상태에서 다시 누름 — 둘 다 조용히 넘긴다
+                        if (err && (err.name === 'AbortError' || err.name === 'InvalidStateError')) return;
+                        copy();
                     });
                 } catch (e) {
                     copy();
@@ -675,53 +681,10 @@
         <%-- [AdSense 승인 대기] ③ 광고 게이트 스크립트(콘텐츠 높이 600px 미만 미노출 + no-fill 접힘) 임시 제거.
              승인 후 복원 시 게이트 로직도 함께 되살릴 것 — 짧은 페이지 광고 과다는 재차 정책 위반이 된다. --%>
 
-        var path = window.location.pathname.replace(/^\//, '');
-        var search = window.location.search;
-        var aosPackage = "kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
-
-        var schemeUrl = "witchhunting://" + path + search;
-        // 🌟 디퍼드 딥링크: 스토어 설치 경로에 현재 페이지 경로를 리퍼러로 실어 보냄
-        // (앱 설치 후 첫 실행 시 Play Install Referrer로 읽어 원래 페이지로 이동)
-        var referrerParam = encodeURIComponent('target_route=/' + path);
-        // 안드로이드 intent://: 앱이 없으면 크롬이 알아서 플레이스토어로 보냄 (market_referrer 동반 전달)
-        var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage
-            + ";S.market_referrer=" + referrerParam + ";end";
-
-        // 크롬 계열만 intent:// 를 조용히 처리한다. 삼성 인터넷·인앱 브라우저는 앱이 없으면
-        // "이 동작을 수행할 수 있는 앱이 없습니다" 토스트를 띄우므로(클라이언트 보고) 그쪽은 스토어로 바로 보낸다
-        var isChromeAndroid = isAOS && /chrome\/\d+/.test(ua)
-            && !/samsungbrowser|edga|opr\/|whale|kakaotalk|fban|fbav|instagram|naver|line\//.test(ua);
-
+        // 하단 Join 배너: 헤더 Open in App 과 같은 규칙(web-nav.jsp spOpenApp)으로 앱 또는 스토어를 연다.
+        // 예전 자체 구현은 WebView 를 크롬으로 오인해 intent 를 넘겼고, 인앱 브라우저에서 빨간 토스트가 떴다
         function openApp() {
-            if (isAOS) {
-                if (!isChromeAndroid) {
-                    goStore();
-                    return;
-                }
-                location.href = androidIntent;
-                setTimeout(function () {
-                    if (!document.hidden) {
-                        goStore();
-                    }
-                }, 2500);
-            } else {
-                // iOS: 커스텀 스킴 시도 후, 화면 전환이 없으면(앱 미설치) 스토어로 이동
-                location.href = schemeUrl;
-                setTimeout(function () {
-                    if (!document.hidden) {
-                        goStore();
-                    }
-                }, 2500);
-            }
-        }
-
-        function goStore() {
-            if (isAOS) {
-                location.href = "https://play.google.com/store/apps/details?id=" + aosPackage
-                    + "&referrer=" + referrerParam;
-            } else {
-                location.href = "https://apps.apple.com/kr/app/id1188195403";
-            }
+            spOpenApp();
         }
 
         // [AdSense 심사 대응] 진입 즉시 앱을 자동 실행하던 로직 제거 —
