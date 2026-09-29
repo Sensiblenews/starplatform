@@ -73,6 +73,10 @@
     .site-nav-cta { display: inline-flex; position: absolute; right: 16px; top: 8px; padding: 7px 14px; font-size: 13px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
     .site-nav-links .site-nav-mobile-only { display: block; }
     .site-nav-search input { width: 140px; }
+    /* 화면 크게 보기·큰 글씨: 로고 글자가 줄어들고, 그래도 넘치면 말줄임 — 오른쪽 도구 버튼이 화면 밖으로 밀리지 않게 */
+    .site-nav-brand { min-width: 0; font-size: clamp(16px, 5.6vw, 21px); }
+    .site-nav-brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-nav-tools { flex-shrink: 0; }
   }
   /* 모바일 패널에서만 보이는 항목(약관·정책 등)은 PC에서 숨긴다 */
   .site-nav-mobile-only { display: none; }

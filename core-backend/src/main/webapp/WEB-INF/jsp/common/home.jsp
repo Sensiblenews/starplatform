@@ -125,13 +125,14 @@
     }
     /* ── 모바일 전용 섹션 (클라이언트 모바일 시안): 가로 스크롤 큰 카드·카테고리 타일·글로벌 네트워크 배너 ── */
     .m-only { display: none; }
-    .m-sec-head { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+    .m-sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 12px; }
     .m-sec-head h2 { font-size: 22px; font-weight: 700; color: #0f172a; white-space: nowrap; }
     .m-sec-head .home-live { color: #2f7cf6; font-size: 12px; white-space: nowrap; }
     .m-sec-head .home-live::before { background: #2f7cf6; }
     .m-sec-head .m-view-all { margin-left: auto; font-size: 14px; font-weight: 600; color: #2f7cf6; text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; white-space: nowrap; }
     /* 세로 한 줄에 카드 하나 (클라이언트 요청). 가로 스크롤은 카드가 옆 카드 높이에 끌려 늘어나고 아래가 비었다 */
-    .m-posts { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    /* minmax(0, 1fr): 1fr 은 최소 폭이 내용 기준이라 300px 광고 자리가 좁은 화면(화면 크게 보기)에서 카드 열을 밀었다 */
+    .m-posts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
     .m-post { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; display: block; }
     /* 이미지 높이는 padding-top 비율로 고정한다. aspect-ratio 만으로는 세로 사진이 상자를 밀어 올려(min-height:auto) 카드가 길쭉해진다 */
     .m-post-img { display: block; position: relative; padding-top: 62.5%; background: #f1f5f9; overflow: hidden; }

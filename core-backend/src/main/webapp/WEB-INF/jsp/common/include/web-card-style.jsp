@@ -7,7 +7,7 @@
   아래 줄에 날짜 · 하트 수. 카드 사이 간격 14px, 세 열.
 --%>
 <style>
-  .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 24px; text-align: left; }
+  .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 14px; margin-top: 24px; text-align: left; }
   .post-card { display: flex; gap: 14px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; min-height: 100px; }
   .post-card:hover { border-color: #93c5fd; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06); }
   .post-thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #f1f5f9; display: block; }

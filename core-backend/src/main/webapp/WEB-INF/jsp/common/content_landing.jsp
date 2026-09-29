@@ -267,7 +267,9 @@
             .st-stats { flex-wrap: wrap; gap: 10px; }
             .st-stat { flex: 1 1 45%; border-left: 0; padding: 4px 0; }
             .st-stats-actions { width: auto; margin-left: auto; }
-            .st-posts { grid-template-columns: 1fr; }
+            .st-posts { grid-template-columns: minmax(0, 1fr); }
+            /* 큰 글씨에서 탭 3개가 폭을 넘지 않도록 균등 분할 */
+            .st-tab { flex: 1 1 0; min-width: 0; padding: 10px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .st-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .po-card { padding: 18px 16px 20px; }
             .po-title { font-size: 21px; }
