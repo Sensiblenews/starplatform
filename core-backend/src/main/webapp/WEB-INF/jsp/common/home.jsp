@@ -239,7 +239,7 @@
           <div class="m-posts" id="mPosts">
             <c:forEach var="p" items="${postCards}" varStatus="ps">
               <a class="m-post" href="${pageContext.request.contextPath}/post/${p.conId}">
-                <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if></span>
+                <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if><%-- [2-31차] 영상 글은 화면에 보일 때 재생 --%><c:if test="${not empty p.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${p.video}" poster="${p.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg></span></c:if></span>
                 <span class="m-post-body">
                   <span class="m-post-author">
                     <c:choose><c:when test="${not empty p.authorImage}"><img src="${p.authorImage}" alt="" loading="lazy"></c:when><c:otherwise><span class="m-post-author-empty"></span></c:otherwise></c:choose>
@@ -360,6 +360,8 @@
         .then(function (html) {
           var doc = new DOMParser().parseFromString(html, 'text/html');
           doc.querySelectorAll('#mPosts .m-post, #mPosts .m-ad').forEach(function (card) { list.appendChild(card); });
+          // [2-31차] 이어 붙인 카드의 영상도 화면 진입 재생 대상으로 등록
+          if (window.spVideoScan) window.spVideoScan(list);
           var next = doc.getElementById('mLoadMore');
           if (next) {
             btn.setAttribute('data-next', next.getAttribute('data-next'));
@@ -376,5 +378,6 @@
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 <%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-video-autoplay.jsp"%>
 </body>
 </html>

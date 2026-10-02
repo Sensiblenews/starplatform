@@ -129,6 +129,11 @@ public class DeepLinkController {
 				image = baseUrl + image;
 			}
 			card.put("image", image != null ? image : "");
+			// 2-31차: 첫 미디어가 영상이면 카드가 화면에 들어올 때 재생 (image 는 포스터)
+			String video = WebCardUtil.videoUrl(post, baseUrl);
+			if (!video.isEmpty()) {
+				card.put("video", video);
+			}
 			cards.add(card);
 		}
 		model.addAttribute("relatedPosts", cards);
@@ -447,8 +452,11 @@ public class DeepLinkController {
 
 					// [2-29차 후속] 시안 레이아웃용 부가 데이터
 					// 1) 사진 갤러리: 첨부 미디어 전부 (원본 우선, 썸네일은 하단 띠). 상대경로는 절대경로로
+					// 2-31차: 칸마다 사진/영상 구분(mediaTypes)을 같은 인덱스로 내린다. 영상 칸을 <img> 로 그려
+					// 깨진 이미지가 나오던 것을 <video> 로 바꾸기 위함
 					List<String> mediaUrls = new java.util.ArrayList<>();
 					List<String> mediaThumbs = new java.util.ArrayList<>();
+					List<String> mediaTypes = new java.util.ArrayList<>();
 					if (medias != null) {
 						for (Map<String, Object> m : medias) {
 							String full = (String) m.get("MEDIA_URL");
@@ -456,12 +464,19 @@ public class DeepLinkController {
 							if (full == null && thumb == null) {
 								continue;
 							}
+							boolean isVideo = !WebCardUtil.videoUrl(m, baseUrl).isEmpty();
 							mediaUrls.add(toAbsoluteUrl(full != null ? full : thumb, baseUrl));
 							mediaThumbs.add(toAbsoluteUrl(thumb != null ? thumb : full, baseUrl));
+							mediaTypes.add(isVideo ? "VIDEO" : "PHOTO");
 						}
 					}
 					model.addAttribute("mediaUrls", mediaUrls);
 					model.addAttribute("mediaThumbs", mediaThumbs);
+					model.addAttribute("mediaTypes", mediaTypes);
+					// 미디어가 영상 한 개뿐이면 히어로를 <video> 로 그린다 (포스터는 previewImage)
+					if (mediaTypes.size() == 1 && "VIDEO".equals(mediaTypes.get(0))) {
+						model.addAttribute("previewVideo", mediaUrls.get(0));
+					}
 					// 2) 제목 = 본문 첫 줄, 나머지는 본문. 첫 줄이 너무 길면 제목이 아니라 본문으로 본다
 					String[] split = splitHeadline(fullBody);
 					model.addAttribute("postHeadline", escapeHtml(split[0]));

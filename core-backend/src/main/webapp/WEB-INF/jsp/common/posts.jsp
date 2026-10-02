@@ -253,6 +253,7 @@
 </div>
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 <%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-video-autoplay.jsp"%>
 
 <script>
   // 앱 전환(spOpenApp)은 공통 내비게이션 include에 있다.
