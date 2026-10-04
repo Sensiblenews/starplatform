@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
 
 /** 효과음 파일 경로 */
 const TICK_SRC = 'assets/sounds/tick.mp3';
@@ -36,7 +37,41 @@ export class TickSoundService {
   constructor() {
     this.audio.preload = 'auto';
     this.audio.volume = VOLUME;
-    this.armUnlock();
+    if (TickSoundService.needsUnlock()) this.armUnlock();
+  }
+
+  /**
+   * 잠금 해제가 필요한 환경인지. Capacitor 네이티브(iOS·Android)는 웹뷰가 사용자 조작 없는
+   * 재생을 허용하므로 필요 없다. 일반 모바일 브라우저에서만 의미가 있다.
+   *
+   * ⚠️ 2-31차 후속에서 확인한 버그: 예전에는 네이티브에서도 잠금 해제를 돌렸는데, 그 과정이
+   * volume=0 으로 한 번 재생했다 멈추는 방식이었다. iOS 웹뷰는 미디어 볼륨을 1 로 잠가 두므로
+   * volume=0 이 무시돼 **앱을 켜고 처음 화면을 터치하거나 스크롤하는 순간(touchend) 틱 소리가
+   * 그대로 났다.** Android 는 volume=0 이 먹혀 조용했다. 클라이언트 보고 "첫 화면 터치·스크롤 시
+   * 소리 — 안드로이드는 개선, iOS 는 그대로"의 정체가 이것이다.
+   */
+  static needsUnlock(): boolean {
+    return !Capacitor.isNativePlatform();
+  }
+
+  /**
+   * 무음 1회 재생으로 자동재생 잠금을 푼다. 소리를 막는 수단은 volume 이 아니라 muted 다 —
+   * iOS 는 volume 을 무시하지만 muted 는 따른다. 순수 함수에 가깝게 떼어 테스트한다.
+   * @return 잠금이 풀렸으면 true
+   */
+  static async silentPrime(audio: Pick<HTMLMediaElement, 'muted' | 'play' | 'pause' | 'currentTime'>): Promise<boolean> {
+    const wasMuted = audio.muted;
+    try {
+      audio.muted = true;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      return true;
+    } catch {
+      return false;
+    } finally {
+      audio.muted = wasMuted;
+    }
   }
 
   /** 쿨다운 판정. 부수효과가 없어 그대로 단위 테스트한다 */
@@ -72,7 +107,7 @@ export class TickSoundService {
     }
   }
 
-  /** 사용자의 첫 조작을 기다렸다가 잠금을 푼다 (위 정정 참조 — 현재 iOS 에서는 불필요하지만 무해) */
+  /** 사용자의 첫 조작을 기다렸다가 잠금을 푼다 (일반 브라우저 전용 — needsUnlock 참조) */
   private armUnlock(): void {
     if (typeof document === 'undefined') return;
 
@@ -83,26 +118,12 @@ export class TickSoundService {
     });
   }
 
-  /**
-   * 같은 엘리먼트를 무음으로 한 번 재생했다 멈춘다. 자동재생을 막는 환경(일반 모바일
-   * 브라우저)에서만 의미가 있다. 실패하면 리스너를 남겨 다음 조작 때 다시 시도한다.
-   */
+  /** 첫 조작에서 무음 재생으로 잠금을 푼다. 실패하면 리스너를 남겨 다음 조작 때 다시 시도한다 */
   private async unlock(): Promise<void> {
     if (this.unlocked) return;
-
-    const volume = this.audio.volume;
-    try {
-      this.audio.volume = 0;
-      await this.audio.play();
-      this.audio.pause();
-      this.audio.currentTime = 0;
-      this.unlocked = true;
-      this.removeUnlockListeners.forEach(remove => remove());
-      this.removeUnlockListeners = [];
-    } catch {
-      // 아직 안 풀렸다. 다음 사용자 조작 때 다시 시도한다.
-    } finally {
-      this.audio.volume = volume;
-    }
+    if (!(await TickSoundService.silentPrime(this.audio))) return; // 아직 안 풀렸다. 다음 조작 때 다시 시도
+    this.unlocked = true;
+    this.removeUnlockListeners.forEach(remove => remove());
+    this.removeUnlockListeners = [];
   }
 }
