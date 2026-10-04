@@ -11,6 +11,8 @@
   <c:forEach var="p" items="${postCards}">
     <a class="post-card" href="${pageContext.request.contextPath}/post/${p.conId}">
       <c:choose>
+        <%-- [2-31차] 첫 미디어가 영상이면 썸네일 위에 영상을 겹쳐 화면에 보일 때 재생 (include/web-video-autoplay.jsp) --%>
+        <c:when test="${not empty p.video}"><span class="post-thumb post-thumb-video"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${p.video}" poster="${p.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge sp-vid-badge-sm"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg></span></span></c:when>
         <c:when test="${not empty p.image}"><img class="post-thumb" src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:when>
         <c:otherwise><span class="post-thumb post-thumb-empty" aria-hidden="true"></span></c:otherwise>
       </c:choose>

@@ -207,6 +207,11 @@
         .po-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
         .po-gallery-single { background: #f1f5f9; }
         .po-gallery-single img { object-fit: cover; }
+        /* [2-31차] 영상: 사진과 같은 16:9 틀에 맞춰 잘리지 않게(contain) 보인다 */
+        .po-gallery video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
+        .po-gallery video[hidden], .po-gallery img[hidden] { display: none; }
+        .po-thumb { position: relative; }
+        .sb-thumb { position: relative; flex-shrink: 0; display: block; }
         .po-gal-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(15, 23, 42, 0.75); color: #ffffff; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
         .po-gal-btn svg { width: 18px; height: 18px; }
         .po-gal-prev { left: 14px; }
@@ -285,6 +290,7 @@
 <c:set var="starIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z'/></svg>"/>
 <c:set var="heartIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M12 20.5s-7.5-4.6-9.2-9.3C1.6 8 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.4 3.5 4.2 6.7-1.7 4.7-9.2 9.3-9.2 9.3z'/></svg>"/>
 <c:set var="commentIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M4 5h16v11H9l-5 4z'/></svg>"/>
+<c:set var="playIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M7 4.5v15l13-7.5z'/></svg>"/>
 <c:set var="photoIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='3' y='5' width='18' height='14' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><path fill='none' stroke='currentColor' stroke-width='2' d='M3 16l5-5 4 4 3-3 6 5'/></svg>"/>
 <c:set var="shareIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M12 3v12M7.5 7.5L12 3l4.5 4.5M5 13v6h14v-6'/></svg>"/>
 <c:set var="phoneIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='7' y='2.5' width='10' height='19' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><circle cx='12' cy='18' r='1' fill='currentColor'/></svg>"/>
@@ -354,6 +360,8 @@
                                     <a class="st-post" href="${pageContext.request.contextPath}/post/${rp.conId}">
                                         <span class="st-post-img">
                                             <c:if test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
+                                            <%-- [2-31차] 영상 글은 화면에 보일 때 재생 (include/web-video-autoplay.jsp) --%>
+                                            <c:if test="${not empty rp.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${rp.video}" poster="${rp.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge">${playIcon}</span></c:if>
                                             <c:if test="${rp.mediaCnt gt 1}"><span class="lp-media-cnt">${photoIcon}<c:out value="${rp.mediaCnt}"/></span></c:if>
                                         </span>
                                         <span class="st-post-body">
@@ -423,7 +431,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span></span></span>
                             </a></li>
@@ -495,17 +503,26 @@
                 <c:choose>
                     <c:when test="${fn:length(mediaUrls) gt 1}">
                         <div class="po-gallery" id="poGallery">
-                            <img id="poGalleryImg" src="${mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
+                            <%-- [2-31차] 영상 칸은 <video> 로 바꿔 보인다. 첫 칸이 영상이면 img 에는 포스터를 넣어 둔다 --%>
+                            <img id="poGalleryImg" src="${mediaTypes[0] eq 'VIDEO' ? mediaThumbs[0] : mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
+                            <video id="poGalleryVideo" data-sp-video data-sp-keep controls muted playsinline loop preload="none" aria-label="${previewTitle}" hidden></video>
                             <button type="button" class="po-gal-btn po-gal-prev" id="poGalPrev" aria-label="Previous photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg></button>
                             <button type="button" class="po-gal-btn po-gal-next" id="poGalNext" aria-label="Next photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
                             <span class="po-gal-count">${photoIcon}<span id="poGalIndex">1</span> / <c:out value="${fn:length(mediaUrls)}"/></span>
                         </div>
                         <div class="po-thumbs" id="poThumbs">
                             <c:forEach var="t" items="${mediaThumbs}" varStatus="s">
-                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="Photo ${s.index + 1}"><img src="${t}" alt="" loading="lazy"></button>
+                                <c:set var="isVid" value="${mediaTypes[s.index] eq 'VIDEO'}"/>
+                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="${isVid ? 'Video' : 'Photo'} ${s.index + 1}"><img src="${t}" alt="" loading="lazy"><c:if test="${isVid}"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></c:if></button>
                             </c:forEach>
                         </div>
-                        <script>window.__poMedia = [<c:forEach var="u" items="${mediaUrls}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];</script>
+                        <script>window.__poMedia = [<c:forEach var="u" items="${mediaUrls}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];
+                            window.__poThumbs = [<c:forEach var="u" items="${mediaThumbs}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];
+                            window.__poTypes = [<c:forEach var="u" items="${mediaTypes}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];</script>
+                    </c:when>
+                    <c:when test="${not empty previewVideo}">
+                        <%-- [2-31차] 영상 한 개짜리 글: 화면에 보일 때 음소거 재생, 컨트롤로 소리·정지 --%>
+                        <div class="po-gallery"><video data-sp-video controls muted playsinline loop preload="none" src="${previewVideo}" poster="${previewImage}" aria-label="${previewTitle}"></video></div>
                     </c:when>
                     <c:when test="${not empty previewImage}">
                         <div class="po-gallery po-gallery-single"><img src="${previewImage}" alt="${previewTitle}" fetchpriority="high"></div>
@@ -553,7 +570,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span><span class="lp-stat-ico">${commentIcon}<c:out value="${empty rp.commentCnt ? 0 : rp.commentCnt}"/></span></span></span>
                             </a></li>
@@ -583,6 +600,7 @@
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 <%-- 모바일 하단 탭바 — 홈·About 등과 같은 다섯 항목 (스타·포스트 페이지에 빠져 있었음, 클라이언트 보고) --%>
 <%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-video-autoplay.jsp"%>
 
     <script>
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
@@ -640,11 +658,38 @@
             var media = window.__poMedia;
             var img = document.getElementById('poGalleryImg');
             if (!media || !img) return;
+            var types = window.__poTypes || [];
+            var posters = window.__poThumbs || [];
+            var video = document.getElementById('poGalleryVideo');
             var idx = 0;
             var thumbs = document.querySelectorAll('.po-thumb');
+            // [2-31차] 영상 칸이면 img 를 숨기고 <video> 를 보인다. 재생 여부는 web-video-autoplay 가 화면 노출로 정한다
+            function render() {
+                if (video && types[idx] === 'VIDEO') {
+                    img.hidden = true;
+                    if (video.getAttribute('src') !== media[idx]) {
+                        video.poster = posters[idx] || '';
+                        video.src = media[idx];
+                    }
+                    video.hidden = false;
+                    if (window.spVideoReset) window.spVideoReset(video);
+                } else {
+                    if (video) { video.pause(); video.hidden = true; }
+                    img.hidden = false;
+                    img.src = media[idx];
+                }
+            }
+            // 영상을 못 여는 형식이면 그 칸은 포스터 이미지로 대신 보인다
+            if (video) video.addEventListener('error', function () {
+                if (types[idx] !== 'VIDEO') return;
+                video.hidden = true;
+                img.src = posters[idx] || '';
+                img.hidden = false;
+            });
+            render();
             function show(i) {
                 idx = (i + media.length) % media.length;
-                img.src = media[idx];
+                render();
                 document.getElementById('poGalIndex').textContent = String(idx + 1);
                 thumbs.forEach(function (t, k) {
                     if (k === idx) { t.setAttribute('aria-current', 'true'); t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
