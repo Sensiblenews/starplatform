@@ -52,11 +52,12 @@ export class HapticService {
   }
 
   /**
-   * 안드로이드는 Light — Vibrator 를 직접 돌리는 구현이라 50ms 짧은 진동이 충분히 느껴진다.
-   * iOS 는 Medium — Light 는 체감이 약하다는 보고가 있어 한 단계 올린다.
+   * 양쪽 다 Heavy (2-31차 후속, 사용자 지시 "impact 를 크게").
+   * 이전: Android Light(짧은 진동으로 충분하다고 봄) / iOS Medium(Light 가 약하다는 보고로 한 단계 올림).
+   * 그래도 약하다는 보고가 이어져 가장 센 단계로 통일한다.
    */
   private async fire(): Promise<void> {
-    const style = Capacitor.getPlatform() === 'ios' ? ImpactStyle.Medium : ImpactStyle.Light;
+    const style = ImpactStyle.Heavy;
     try {
       await Haptics.impact({ style });
     } catch (e) {
