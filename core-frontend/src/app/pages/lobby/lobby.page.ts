@@ -7,7 +7,6 @@ import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } f
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
 import { BoardModalComponent } from './modals/board-modal.component';
 import { HapticService } from '../../services/haptic.service';
-import { TickSoundService } from '../../services/tick-sound.service';
 import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
@@ -202,7 +201,6 @@ export class LobbyPage implements OnInit, OnDestroy {
     private helper: HelperService,
     private dm: DmService,
     private haptic: HapticService,
-    private tickSound: TickSoundService,
     private opening: OpeningOverlayService,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
@@ -1145,8 +1143,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     star.showPlus = true;
     setTimeout(() => star.showPlus = false, 800);
 
+    // [2-31차 후속] 첫 화면(로비)에서는 효과음을 내지 않는다 (클라이언트: 앱 켠 뒤 첫 화면 사운드 제거). 진동은 유지
     await this.haptic.tap();
-    void this.tickSound.play();
 
     this.runSlotMachineEffect(star);
   }
@@ -1299,8 +1297,7 @@ export class LobbyPage implements OnInit, OnDestroy {
             setTimeout(() => star.showPlus = true, 50);
             setTimeout(() => star.showPlus = false, 800);
 
-            void this.tickSound.play();
-
+            // [2-31차 후속] 로비 폴링 틱도 소리 없이 진동만. 스타 페이지의 틱 소리는 그대로
             this.haptic.tap();
 
             this.runSlotMachineEffect(star);
