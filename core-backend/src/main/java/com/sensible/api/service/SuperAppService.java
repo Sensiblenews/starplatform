@@ -1616,15 +1616,8 @@ public class SuperAppService {
 				String[] parts = videoBase64.split(",");
 				String base64Data = parts.length > 1 ? parts[1] : parts[0];
 
-				String ext = ".mp4"; // 기본값
-				if (parts[0].contains("webm"))
-					ext = ".webm";
-				else if (parts[0].contains("ogg"))
-					ext = ".ogg";
-				else if (parts[0].contains("mov"))
-					ext = ".mov";
-				else if (parts[0].contains("avi"))
-					ext = ".avi";
+				// 원본 확장자는 MIME 으로 정한다 (video/quicktime 이 .mp4 로 저장되던 매칭 버그 수정)
+				String ext = com.sensible.common.util.VideoTranscodeUtil.extensionFromDataUri(parts[0]);
 
 				byte[] decodedBytes = Base64.getDecoder().decode(base64Data);
 				String uuid = UUID.randomUUID().toString().replace("-", "");
@@ -1635,7 +1628,15 @@ public class SuperAppService {
 				Path targetPath = Paths.get(Constants._VIDEO_SAVE_PATH + videoName);
 				Files.write(targetPath, decodedBytes);
 
-				// 썸네일 생성 (FFmpeg 호출)
+				// [2-31차 후속] 웹 호환 MP4(H.264/AAC, faststart)로 변환한다.
+				// 아이폰 HEVC 원본은 PC Chrome 등에서 재생되지 않았다. 변환에 실패하면 원본을 그대로 쓴다
+				Path webPath = Paths.get(Constants._VIDEO_SAVE_PATH + uuid + ".mp4");
+				if (com.sensible.common.util.VideoTranscodeUtil.toWebMp4(targetPath, webPath)) {
+					videoName = uuid + ".mp4";
+					targetPath = webPath;
+				}
+
+				// 썸네일 생성 (FFmpeg 호출) — 최종 파일 기준
 				generateVideoThumbnail(targetPath.toString(), Constants._VIDEO_THUMNAIL_SAVE_PATH + thumbName);
 
 				// 미디어 테이블 Insert
@@ -1805,10 +1806,21 @@ public class SuperAppService {
 	 * 🌟 [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 조회 (현재 글 제외, 최대 20건)
 	 */
 	public List<Map<String, Object>> getRecentStarPosts(String starId, String excludeConId) {
+		return getRecentStarPosts(starId, excludeConId, null, null);
+	}
+
+	/**
+	 * [2-31차 후속] 스타 페이지 Posts 탭 페이징. offset/limit 이 둘 다 있어야 적용되고, 아니면 기존 20건 고정.
+	 */
+	public List<Map<String, Object>> getRecentStarPosts(String starId, String excludeConId, Integer offset, Integer limit) {
 		try {
 			Map<String, Object> params = new HashMap<>();
 			params.put("starId", starId);
 			params.put("excludeConId", excludeConId);
+			if (offset != null && limit != null) {
+				params.put("offset", offset);
+				params.put("limit", limit);
+			}
 			return dao.selectList("superapp.selectRecentStarPosts", params);
 		} catch (Exception e) {
 			// 관련 카드는 부가 요소이므로 조회 실패 시 랜딩 렌더링을 막지 않는다
