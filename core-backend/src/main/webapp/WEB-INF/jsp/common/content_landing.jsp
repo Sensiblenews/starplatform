@@ -385,6 +385,10 @@
                                     <c:if test="${rs.count mod 6 eq 0}"><div class="ad-slot ad-rect st-ad" aria-hidden="true" data-ad-slot="star-infeed"></div></c:if>
                                 </c:forEach>
                             </div>
+                            <%-- [2-31차 후속] 20건 뒤의 글(옛 영상 글 포함)은 Load more 로 이어 받는다. JS 가 없으면 그냥 다음 페이지로 간다 --%>
+                            <c:if test="${not empty postsNextUrl}">
+                                <a class="st-load-more" id="stLoadMore" href="${postsNextUrl}" data-next="${postsNextUrl}">Load more</a>
+                            </c:if>
                         </c:when>
                         <c:otherwise><div class="lp-card lp-empty">No public posts yet.</div></c:otherwise>
                     </c:choose>
@@ -510,6 +514,7 @@
                             <%-- [2-31차] 영상 칸은 <video> 로 바꿔 보인다. 첫 칸이 영상이면 img 에는 포스터를 넣어 둔다 --%>
                             <img id="poGalleryImg" src="${mediaTypes[0] eq 'VIDEO' ? mediaThumbs[0] : mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
                             <video id="poGalleryVideo" data-sp-video data-sp-keep controls muted playsinline loop preload="none" aria-label="${previewTitle}" hidden></video>
+                            <button type="button" class="sp-vid-expand" data-sp-expand aria-label="Full screen" title="Full screen">${expandIcon}</button>
                             <button type="button" class="po-gal-btn po-gal-prev" id="poGalPrev" aria-label="Previous photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg></button>
                             <button type="button" class="po-gal-btn po-gal-next" id="poGalNext" aria-label="Next photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
                             <span class="po-gal-count">${photoIcon}<span id="poGalIndex">1</span> / <c:out value="${fn:length(mediaUrls)}"/></span>
