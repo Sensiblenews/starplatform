@@ -201,7 +201,8 @@
         .po-author-meta { font-size: 12px; color: #64748b; }
         .po-date { margin-left: auto; font-size: 13px; color: #64748b; white-space: nowrap; }
         .po-title { font-size: 26px; font-weight: 700; line-height: 1.3; margin-top: 18px; word-break: break-word; }
-        .po-stats { display: flex; gap: 20px; font-size: 14px; color: #475569; margin: 14px 0 18px; }
+        .po-stats { display: flex; align-items: center; gap: 20px; font-size: 14px; color: #475569; margin: 14px 0 18px; }
+        .po-stats .po-share { margin-left: auto; flex-shrink: 0; }
         .po-gallery { position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; padding-top: 56.25%; }
         .po-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
         .po-gallery-single { background: #f1f5f9; }
@@ -216,15 +217,42 @@
         .po-thumb { flex: 0 0 auto; width: 96px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: #f1f5f9; padding: 0; cursor: pointer; }
         .po-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .po-thumb[aria-current="true"] { border-color: #2f7cf6; }
-        .po-actions { display: flex; gap: 10px; margin: 18px 0; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .po-actions { display: flex; gap: 10px; margin: 0; padding-top: 4px; flex-wrap: wrap; }
+        .po-body-top { margin-top: 18px; }
         .po-body { font-size: 15px; color: #1e293b; white-space: pre-line; word-break: break-word; }
         .po-admin { display: inline-block; font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 3px 10px; margin-bottom: 12px; }
+
+        /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
+             스타: A 통계 카드 아래·탭 위(PC 728×90 / 모바일 320×100), B 사이드바 프로모 아래 300×600 sticky(PC),
+                   C 피드 중간 300×250(6장마다), 모바일 C' Join 배너 위 300×250.
+             포스트: D 본문 끝·Share 버튼 위(PC 728×90 / 모바일 300×250), E 사이드바 More posts 아래 300×600(PC),
+                     모바일 B' 작성자 카드와 More posts 사이 320×100, C' Join 위 300×250.
+             클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
+        /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
+        .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
+        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
+        .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
+        /* [버그 보고] 스크롤을 따라 내려오는 것을 클라이언트가 원치 않아 sticky 해제 */
+        .ad-side { width: 300px; height: 600px; margin: 0 auto; }
+        .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
+        .ad-m-lb { display: none; width: 320px; max-width: 100%; height: 100px; margin: 20px auto; }
+        .ad-m-rect { display: none; width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
+        .ad-pc-only { display: block; }
+        @media (max-width: 1000px) {
+            .ad-side, .ad-pc-only { display: none; }
+            .ad-m-lb, .ad-m-rect { display: block; }
+            .ad-lb { width: 320px; height: 100px; }
+            /* 포스트 D 는 모바일에서 300×250 (참고 메일: 골든 존). 위 .ad-lb 규칙보다 뒤에, 더 높은 특이성으로 */
+            .ad-lb.ad-d { width: 300px; height: 250px; border-radius: 14px; }
+        }
 
         /* ── 하단 앱 CTA ── */
         .lp-cta { display: flex; justify-content: center; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }
 
         @media (max-width: 1000px) {
-            .lp-grid { grid-template-columns: 1fr; }
+            /* 1fr 은 최소 폭이 내용 기준(auto)이라 300px 광고 자리가 좁은 화면(360px 이하)에서 열을 밀어
+               카드가 오른쪽으로 넘쳤다(안드로이드 버그 보고). minmax(0, 1fr) 로 열을 화면 폭에 묶는다 */
+            .lp-grid { grid-template-columns: minmax(0, 1fr); }
             .st-posts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .st-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
@@ -238,9 +266,10 @@
             .st-actions { padding-bottom: 0; }
             .st-stats { flex-wrap: wrap; gap: 10px; }
             .st-stat { flex: 1 1 45%; border-left: 0; padding: 4px 0; }
-            /* 모바일은 커버의 공유 버튼으로 충분 — 통계 바의 공유 버튼이 한 줄을 통째로 차지하지 않게 숨긴다 */
-            .st-stats-actions { display: none; }
-            .st-posts { grid-template-columns: 1fr; }
+            .st-stats-actions { width: auto; margin-left: auto; }
+            .st-posts { grid-template-columns: minmax(0, 1fr); }
+            /* 큰 글씨에서 탭 3개가 폭을 넘지 않도록 균등 분할 */
+            .st-tab { flex: 1 1 0; min-width: 0; padding: 10px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .st-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .po-card { padding: 18px 16px 20px; }
             .po-title { font-size: 21px; }
@@ -282,10 +311,7 @@
                     <c:if test="${not empty starBio}"><p class="st-tagline">${starBio}</p></c:if>
                 </div>
             </div>
-            <div class="st-actions">
-                <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">${phoneIcon}Open in App</button>
-                <button type="button" class="lp-icon-btn" onclick="sharePage()" aria-label="Share this page" title="Share">${shareIcon}</button>
-            </div>
+            <%-- [버그 보고 후속] 커버 우측의 Open in App·공유 버튼은 클라이언트 요청으로 제거. 공유는 통계 바의 아이콘 하나만 --%>
         </div>
     </section>
 
@@ -311,6 +337,9 @@
                     </div>
                 </div>
 
+                <%-- [AdSense 승인 대기] 스타 A: 통계 카드 아래·탭 위 (PC 728×90 / 모바일 320×100) --%>
+                <div class="ad-slot ad-lb" aria-hidden="true" data-ad-slot="star-a"></div>
+
                 <div class="st-tabs" role="tablist" aria-label="Star page sections">
                     <button type="button" class="st-tab" role="tab" aria-selected="true" aria-controls="tabPosts" id="tabBtnPosts">Posts</button>
                     <button type="button" class="st-tab" role="tab" aria-selected="false" aria-controls="tabPhotos" id="tabBtnPhotos">Photos</button>
@@ -321,7 +350,7 @@
                     <c:choose>
                         <c:when test="${not empty relatedPosts}">
                             <div class="st-posts">
-                                <c:forEach var="rp" items="${relatedPosts}">
+                                <c:forEach var="rp" items="${relatedPosts}" varStatus="rs">
                                     <a class="st-post" href="${pageContext.request.contextPath}/post/${rp.conId}">
                                         <span class="st-post-img">
                                             <c:if test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
@@ -340,6 +369,8 @@
                                             </span>
                                         </span>
                                     </a>
+                                    <%-- [AdSense 승인 대기] 스타 C: 피드 중간 300×250, 6장마다 카드처럼 --%>
+                                    <c:if test="${rs.count mod 6 eq 0}"><div class="ad-slot ad-rect st-ad" aria-hidden="true" data-ad-slot="star-infeed"></div></c:if>
                                 </c:forEach>
                             </div>
                         </c:when>
@@ -373,6 +404,7 @@
                         <dt>Visitors</dt><dd><c:out value="${empty statViews ? 0 : statViews}"/></dd>
                     </dl>
                 </div>
+
             </div>
 
             <aside class="lp-side">
@@ -382,6 +414,8 @@
                     <p class="sb-promo-sub">Your Page. Your World.</p>
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/about">Explore StarPlatform &rarr;</a>
                 </div>
+                <%-- [AdSense 승인 대기] 스타 B: 프로모 아래 300×600 sticky (PC) --%>
+                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="star-b"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -413,6 +447,9 @@
                 </div>
                 </c:if>
 
+                <%-- [AdSense 승인 대기] 스타 모바일 C': Related stars 아래·Join 배너 위 300×250 --%>
+                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="star-mobile-c"></div>
+
                 <a class="sb-join" href="#" onclick="openApp(); return false;">
                     ${starIcon}
                     <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
@@ -421,10 +458,6 @@
             </aside>
         </div>
 
-        <div class="lp-cta">
-            <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">Open in App</button>
-            <button type="button" class="lp-btn lp-btn-secondary" onclick="goStore()">Download App</button>
-        </div>
     </div>
 </c:when>
 
@@ -455,6 +488,8 @@
                     <span class="lp-stat-ico">${heartIcon}<c:out value="${empty postLikes ? 0 : postLikes}"/></span>
                     <span class="lp-stat-ico">${commentIcon}<c:out value="${empty postComments ? 0 : postComments}"/></span>
                     <c:if test="${fn:length(mediaUrls) gt 1}"><span class="lp-stat-ico">${photoIcon}<c:out value="${fn:length(mediaUrls)}"/> photos</span></c:if>
+                    <%-- 공유 아이콘: 스타 페이지 통계 바와 같은 방식 (2026-09-29 클라이언트 요청 — 콘텐츠 상세에서도 시스템 공유) --%>
+                    <button type="button" class="lp-icon-btn po-share" onclick="sharePage()" aria-label="Share this post" title="Share">${shareIcon}</button>
                 </div>
 
                 <c:choose>
@@ -477,15 +512,15 @@
                     </c:when>
                 </c:choose>
 
-                <div class="po-actions">
-                    <button type="button" class="lp-btn lp-btn-secondary" onclick="sharePage()">${shareIcon}Share</button>
-                    <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">${phoneIcon}Open in App</button>
-                </div>
-
                 <c:choose>
-                    <c:when test="${not empty postBodyRest}"><p class="po-body">${postBodyRest}</p></c:when>
-                    <c:when test="${empty postHeadline and not empty previewBody}"><p class="po-body">${previewBody}</p></c:when>
+                    <c:when test="${not empty postBodyRest}"><p class="po-body po-body-top">${postBodyRest}</p></c:when>
+                    <c:when test="${empty postHeadline and not empty previewBody}"><p class="po-body po-body-top">${previewBody}</p></c:when>
                 </c:choose>
+
+                <%-- [AdSense 승인 대기] 포스트 D: 이미지·본문 끝, Share 버튼 위 (PC 728×90 / 모바일 300×250). 버튼과 20px 이상 --%>
+                <div class="ad-slot ad-lb ad-d" aria-hidden="true" data-ad-slot="post-d"></div>
+
+                <%-- [버그 보고 후속] Share·Open in App 버튼 행은 클라이언트 요청으로 제거 --%>
             </article>
 
             <aside class="lp-side">
@@ -509,6 +544,8 @@
                     <a class="lp-btn lp-btn-primary" href="${pageContext.request.contextPath}/star/${authorId}" style="display:flex;margin-top:14px">View star page &rarr;</a>
                 </div>
                 </c:if>
+                <%-- [AdSense 승인 대기] 포스트 모바일 B': 작성자 카드와 More posts 사이 320×100 --%>
+                <div class="ad-slot ad-m-lb" aria-hidden="true" data-ad-slot="post-mobile-b"></div>
 
                 <c:if test="${not empty relatedPosts}">
                 <div class="lp-card sb-block">
@@ -525,6 +562,10 @@
                 </div>
                 </c:if>
 
+                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250 --%>
+                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
+                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
+
                 <a class="sb-join" href="#" onclick="openApp(); return false;">
                     ${starIcon}
                     <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
@@ -533,10 +574,6 @@
             </aside>
         </div>
 
-        <div class="lp-cta">
-            <button type="button" class="lp-btn lp-btn-primary" onclick="openApp()">Open in App</button>
-            <button type="button" class="lp-btn lp-btn-secondary" onclick="goStore()">Download App</button>
-        </div>
     </div>
 </c:otherwise>
 </c:choose>
@@ -544,26 +581,42 @@
 <div class="lp-copied" id="lpCopied" role="status" aria-live="polite">Link copied</div>
 
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
+<%-- 모바일 하단 탭바 — 홈·About 등과 같은 다섯 항목 (스타·포스트 페이지에 빠져 있었음, 클라이언트 보고) --%>
+<%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 
     <script>
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
         function sharePage() {
             var url = window.location.href.split('#')[0];
-            if (navigator.share) {
-                navigator.share({ title: document.title, url: url }).catch(function () { });
-                return;
-            }
             var done = function () {
                 var el = document.getElementById('lpCopied');
                 if (!el) return;
                 el.classList.add('is-on');
                 setTimeout(function () { el.classList.remove('is-on'); }, 1600);
             };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link', url); });
-            } else {
-                window.prompt('Copy this link', url);
+            var copy = function () {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link', url); });
+                } else {
+                    window.prompt('Copy this link', url);
+                }
+            };
+            // 시스템 공유 시트를 우선한다 (2026-09-29 클라이언트 요청: 안드로이드도 iOS 처럼 시트가 바로 떠야 함 — 9/28 의 iOS 한정 결정 번복).
+            // 사용자가 시트를 닫은 경우(AbortError)는 아무것도 하지 않는다. 복사는 공유 API 가 없는 환경(PC 일부·인앱 WebView)에서만
+            var shareData = { title: document.title, url: url };
+            if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+                try {
+                    navigator.share(shareData).catch(function (err) {
+                        // AbortError: 사용자가 닫음, InvalidStateError: 시트가 이미 떠 있는 상태에서 다시 누름 — 둘 다 조용히 넘긴다
+                        if (err && (err.name === 'AbortError' || err.name === 'InvalidStateError')) return;
+                        copy();
+                    });
+                } catch (e) {
+                    copy();
+                }
+                return;
             }
+            copy();
         }
 
         // 스타 페이지 탭 (Posts / Photos / About) — 같은 데이터를 다른 모양으로 보이는 것이라 서버 왕복 없음
@@ -630,39 +683,10 @@
         <%-- [AdSense 승인 대기] ③ 광고 게이트 스크립트(콘텐츠 높이 600px 미만 미노출 + no-fill 접힘) 임시 제거.
              승인 후 복원 시 게이트 로직도 함께 되살릴 것 — 짧은 페이지 광고 과다는 재차 정책 위반이 된다. --%>
 
-        var path = window.location.pathname.replace(/^\//, '');
-        var search = window.location.search;
-        var aosPackage = "kr.co.sensiblenews.witchHuntingVU2D7F2P7E";
-
-        var schemeUrl = "witchhunting://" + path + search;
-        // 🌟 디퍼드 딥링크: 스토어 설치 경로에 현재 페이지 경로를 리퍼러로 실어 보냄
-        // (앱 설치 후 첫 실행 시 Play Install Referrer로 읽어 원래 페이지로 이동)
-        var referrerParam = encodeURIComponent('target_route=/' + path);
-        // 안드로이드 intent://: 앱이 없으면 크롬이 알아서 플레이스토어로 보냄 (market_referrer 동반 전달)
-        var androidIntent = "intent://" + path + search + "#Intent;scheme=witchhunting;package=" + aosPackage
-            + ";S.market_referrer=" + referrerParam + ";end";
-
+        // 하단 Join 배너: 헤더 Open in App 과 같은 규칙(web-nav.jsp spOpenApp)으로 앱 또는 스토어를 연다.
+        // 예전 자체 구현은 WebView 를 크롬으로 오인해 intent 를 넘겼고, 인앱 브라우저에서 빨간 토스트가 떴다
         function openApp() {
-            if (isAOS) {
-                location.href = androidIntent;
-            } else {
-                // iOS: 커스텀 스킴 시도 후, 화면 전환이 없으면(앱 미설치) 스토어로 이동
-                location.href = schemeUrl;
-                setTimeout(function () {
-                    if (!document.hidden) {
-                        goStore();
-                    }
-                }, 2500);
-            }
-        }
-
-        function goStore() {
-            if (isAOS) {
-                location.href = "https://play.google.com/store/apps/details?id=" + aosPackage
-                    + "&referrer=" + referrerParam;
-            } else {
-                location.href = "https://apps.apple.com/kr/app/id1188195403";
-            }
+            spOpenApp();
         }
 
         // [AdSense 심사 대응] 진입 즉시 앱을 자동 실행하던 로직 제거 —

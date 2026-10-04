@@ -43,7 +43,7 @@ public class PublicWebController {
 	private ContactService contactService;
 
 	/** 홈(/) 목록 한 페이지에 싣는 글 수. sitemap 의 목록 페이지 수 계산도 이 값을 본다 */
-	static final int POSTS_PER_PAGE = 24;
+	static final int POSTS_PER_PAGE = 30; // 후속 요청: 모바일 30건 + 더보기. PC 는 3열 × 10줄
 
 	// ─────────────────────────────────────────────────────────
 	// 홈: 공개 포스트 목록
@@ -90,9 +90,28 @@ public class PublicWebController {
 		model.addAttribute("canonicalUrl", pageUrl(baseUrl, page));
 		model.addAttribute("prevUrl", page > 1 ? pageUrl(baseUrl, page - 1, q, category) : null);
 		model.addAttribute("nextUrl", page < lastPage ? pageUrl(baseUrl, page + 1, q, category) : null);
-		// 모바일 "Explore by Category" 타일: 코드·표시명·설명·대표 사진(직군별 팔로워 최다 스타)
-		model.addAttribute("categoryTiles", buildCategoryTiles(superAppService.getCategoryCovers(), baseUrl));
+		// 모바일 "Popular Stars" (후속 요청: 카테고리 타일 대신). /posts 허브와 같은 인기 스타 목록
+		model.addAttribute("topStars", topStarCards(baseUrl));
 		return "/common/home";
+	}
+
+	/** 인기 스타 카드 목록. 조회 실패 시 빈 목록 — 섹션만 빠지고 페이지는 렌더링된다 */
+	private List<Map<String, Object>> topStarCards(String baseUrl) {
+		List<Map<String, Object>> starCards = new java.util.ArrayList<>();
+		try {
+			List<Map<String, Object>> stars = superAppService.getHomeTopStars();
+			for (Map<String, Object> star : stars) {
+				Map<String, Object> card = new HashMap<>();
+				card.put("id", star.get("PRS_ID"));
+				card.put("name", WebCardUtil.escapeHtml(String.valueOf(star.get("PRS_NAME"))));
+				card.put("image", WebCardUtil.toAbsoluteUrl((String) star.get("STORED_FILE_NM"), baseUrl));
+				card.put("followerCnt", star.get("FOLLOWER_CNT"));
+				starCards.add(card);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return starCards;
 	}
 
 	/** 카테고리 타일에 보이는 5개 직군 (클라이언트 모바일 시안 순서). ORG·MEDIA 는 시안에 없어 타일을 만들지 않는다 */
@@ -222,18 +241,8 @@ public class PublicWebController {
 			// 카드 가공은 홈 목록과 공유한다 (WebCardUtil)
 			mav.addObject("recentPosts", WebCardUtil.toPostCards(posts, baseUrl));
 
-			// 인기 스타 카드: /star/* 내부 링크 경로
-			List<Map<String, Object>> stars = superAppService.getHomeTopStars();
-			List<Map<String, Object>> starCards = new java.util.ArrayList<>();
-			for (Map<String, Object> star : stars) {
-				Map<String, Object> card = new HashMap<>();
-				card.put("id", star.get("PRS_ID"));
-				card.put("name", WebCardUtil.escapeHtml(String.valueOf(star.get("PRS_NAME"))));
-				card.put("image", WebCardUtil.toAbsoluteUrl((String) star.get("STORED_FILE_NM"), baseUrl));
-				card.put("followerCnt", star.get("FOLLOWER_CNT"));
-				starCards.add(card);
-			}
-			mav.addObject("topStars", starCards);
+			// 인기 스타 카드: /star/* 내부 링크 경로 (홈 모바일 Popular Stars 와 공유)
+			mav.addObject("topStars", topStarCards(baseUrl));
 		} catch (Exception e) {
 			// 목록 조회가 실패해도 허브 골격(히어로·소개·푸터)은 렌더링한다
 			e.printStackTrace();

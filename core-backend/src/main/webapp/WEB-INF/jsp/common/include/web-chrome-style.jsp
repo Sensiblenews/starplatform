@@ -34,7 +34,8 @@
   .site-nav-search-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; border-radius: 8px; color: #ffffff; cursor: pointer; }
   .site-nav-search-btn svg { width: 22px; height: 22px; }
   .site-nav-search-btn:hover { background: rgba(255, 255, 255, 0.1); }
-  .site-nav-cta { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  /* [후속] PC 헤더에서는 Open In App 버튼을 뺀다 (클라이언트 요청). 모바일에서만 아이콘 아래 작은 버튼으로 보인다 */
+  .site-nav-cta { display: none; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .site-nav-cta svg { width: 16px; height: 16px; }
   .site-nav-cta:hover { background: #1d6ae8; }
   /* 키보드 포커스 링: 마우스 사용자에게만 숨기고 키보드 탐색에는 반드시 보이게 한다 */
@@ -66,10 +67,16 @@
     .site-nav-links.is-open { display: flex; }
     .site-nav-links a { padding: 12px; font-size: 15px; border-bottom: 0; }
     .site-nav-links a[aria-current="page"] { box-shadow: inset 3px 0 0 #facc15; border-radius: 6px; }
-    /* PC 전용 항목은 모바일 패널 안에서 일반 링크로 합류시킨다 */
-    .site-nav-cta { display: none; }
+    /* 모바일: 돋보기·햄버거 아이콘 아래 오른쪽에 작은 Open in App 버튼. 헤더 밖의 높이 0 래퍼에 절대 배치해
+       페이지와 함께 스크롤된다 (sticky 헤더 안에 두면 본문 위를 계속 가린다 — 클라이언트 스크린샷) */
+    .site-nav-cta-wrap { position: relative; height: 0; z-index: 99; }
+    .site-nav-cta { display: inline-flex; position: absolute; right: 16px; top: 8px; padding: 7px 14px; font-size: 13px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
     .site-nav-links .site-nav-mobile-only { display: block; }
     .site-nav-search input { width: 140px; }
+    /* 화면 크게 보기·큰 글씨: 로고 글자가 줄어들고, 그래도 넘치면 말줄임 — 오른쪽 도구 버튼이 화면 밖으로 밀리지 않게 */
+    .site-nav-brand { min-width: 0; font-size: clamp(16px, 5.6vw, 21px); }
+    .site-nav-brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-nav-tools { flex-shrink: 0; }
   }
   /* 모바일 패널에서만 보이는 항목(약관·정책 등)은 PC에서 숨긴다 */
   .site-nav-mobile-only { display: none; }
@@ -106,6 +113,9 @@
   @media (max-width: 820px) {
     body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
     .site-tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; background: #ffffff; border-top: 1px solid #e2e8f0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+    /* 안드로이드: 인디케이터 여백 없이 화면 맨 아래에 붙인다 (web-tabbar.jsp 가 html 에 .sp-android 를 단다) */
+    html.sp-android body { padding-bottom: 64px; }
+    html.sp-android .site-tabbar { padding-bottom: 6px; }
     .site-tabbar a { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; font-size: 11px; font-weight: 600; color: #64748b; text-decoration: none; }
     .site-tabbar a[aria-current="page"] { color: #2563eb; }
     .site-tabbar-icon { position: relative; width: 22px; height: 22px; display: block; }

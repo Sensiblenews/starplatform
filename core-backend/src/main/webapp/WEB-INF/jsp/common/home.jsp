@@ -62,11 +62,18 @@
     .btn-hero { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; background: #2f7cf6; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35); }
     .btn-hero:hover { background: #1d6ae8; }
 
-    /* ── 광고 자리: 시안의 리더보드·하프페이지 위치에 크기만 잡아 둔 빈 상자 ── */
-    .ad-slot { background: rgba(241, 245, 249, 0.92); border: 1px solid #e2e8f0; border-radius: 8px; }
+    /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
+         PC: ① 히어로 우측 728×90 ② 사이드바 300×600 sticky ③ 페이지네이션 아래 728×90
+         모바일: ① 숨김, A 히어로 아래·칩 카드 위 320×100, B 피드 중간 300×250(2번째 카드 뒤, 이후 6장마다),
+                 C 목록 아래·탭바 위 320×100. 클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
+    /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
+    .ad-slot { position: relative; background: rgba(241, 245, 249, 0.92); border: 1px dashed #94a3b8; border-radius: 8px; }
+    .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
-    .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 76px; }
-    .ad-slot-bottom { width: 100%; max-width: 100%; height: 90px; margin-top: 16px; }
+    .ad-slot-side { width: 300px; height: 600px; } /* sticky 해제 — 스크롤 따라오는 것을 클라이언트가 버그로 봄 */
+    .ad-slot-bottom { width: 728px; max-width: 100%; height: 90px; margin: 24px auto 0; }
+    .ad-slot-mobile { width: 320px; max-width: 100%; height: 100px; margin: 20px auto 0; }
+    .ad-slot-infeed { width: 300px; max-width: 100%; height: 250px; margin: 0 auto; border-radius: 14px; }
 
     /* ── 모바일 기능 칩: 가로 스크롤 한 줄 ── */
     .home-chips { display: none; }
@@ -118,13 +125,14 @@
     }
     /* ── 모바일 전용 섹션 (클라이언트 모바일 시안): 가로 스크롤 큰 카드·카테고리 타일·글로벌 네트워크 배너 ── */
     .m-only { display: none; }
-    .m-sec-head { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+    .m-sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 12px; }
     .m-sec-head h2 { font-size: 22px; font-weight: 700; color: #0f172a; white-space: nowrap; }
     .m-sec-head .home-live { color: #2f7cf6; font-size: 12px; white-space: nowrap; }
     .m-sec-head .home-live::before { background: #2f7cf6; }
     .m-sec-head .m-view-all { margin-left: auto; font-size: 14px; font-weight: 600; color: #2f7cf6; text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; white-space: nowrap; }
     /* 세로 한 줄에 카드 하나 (클라이언트 요청). 가로 스크롤은 카드가 옆 카드 높이에 끌려 늘어나고 아래가 비었다 */
-    .m-posts { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    /* minmax(0, 1fr): 1fr 은 최소 폭이 내용 기준이라 300px 광고 자리가 좁은 화면(화면 크게 보기)에서 카드 열을 밀었다 */
+    .m-posts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
     .m-post { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; display: block; }
     /* 이미지 높이는 padding-top 비율로 고정한다. aspect-ratio 만으로는 세로 사진이 상자를 밀어 올려(min-height:auto) 카드가 길쭉해진다 */
     .m-post-img { display: block; position: relative; padding-top: 62.5%; background: #f1f5f9; overflow: hidden; }
@@ -136,20 +144,14 @@
     .m-post-author small { display: block; font-size: 11px; color: #64748b; line-height: 1.2; }
     .m-post-text { font-size: 15px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
     .m-post-stats { display: flex; gap: 18px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; }
-    .m-cats { display: flex; gap: 10px; overflow-x: auto; scroll-padding-left: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
-    .m-cats::-webkit-scrollbar { display: none; }
-    .m-cat { flex: 0 0 150px; display: block; border-radius: 14px; background: #ffffff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; }
-    /* span 은 인라인이라 height 가 먹지 않아 사진이 원본 크기로 늘어졌다 — block + 절대 배치 이미지로 96px 고정 */
-    .m-cat-img { display: block; height: 96px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); position: relative; border-radius: 14px 14px 0 0; }
-    .m-cat-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 14px 14px 0 0; }
-    .m-cat-ico { position: absolute; left: 12px; bottom: -18px; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #ffffff; display: inline-flex; align-items: center; justify-content: center; color: #ffffff; }
-    .m-cat-ico svg { width: 18px; height: 18px; }
-    .m-cat-STAR { background: #2f7cf6; } .m-cat-CELEB { background: #0ea5e9; } .m-cat-BRAND { background: #7c3aed; } .m-cat-UNIV { background: #0f766e; } .m-cat-CITY { background: #2563eb; }
-    /* 시안: 아이콘이 사진 아래 왼쪽에 걸치고, 글씨는 그 아래 왼쪽 정렬 (아이콘 옆이 아니라 아래) */
-    .m-cat-text { display: block; padding: 28px 12px 12px; text-align: left; }
-    .m-cat-text strong { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
-    .m-cat-text span { display: block; font-size: 11px; color: #2f7cf6; line-height: 1.3; }
-    .m-cat[aria-current="true"] { border-color: #2f7cf6; box-shadow: 0 0 0 2px #bfdbfe; }
+    .m-stars { display: flex; gap: 10px; overflow-x: auto; scroll-padding-left: 16px; padding: 2px 16px 8px; margin: 0 -16px; scrollbar-width: none; }
+    .m-stars::-webkit-scrollbar { display: none; }
+    .m-star { flex: 0 0 104px; display: flex; flex-direction: column; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 8px 12px; text-decoration: none; color: inherit; }
+    .m-star img, .m-star-empty { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; background: #e2e8f0; display: block; }
+    .m-star-name { font-size: 13px; font-weight: 700; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-star-meta { font-size: 11px; color: #64748b; }
+    .m-load-more { display: block; margin: 14px auto 0; width: 100%; text-align: center; padding: 13px; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1; color: #1d4ed8; font-size: 15px; font-weight: 600; text-decoration: none; }
+    .m-load-more[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
     .m-network { display: flex; align-items: center; gap: 14px; background: #1e40af; background: linear-gradient(120deg, #1d4ed8, #1e3a8a); color: #ffffff; border-radius: 16px; padding: 16px 16px; text-decoration: none; margin-top: 22px; }
     .m-network-globe { width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .m-network-globe svg { width: 28px; height: 28px; }
@@ -164,25 +166,17 @@
 
     @media (max-width: 820px) {
       .m-only { display: block; }
-      /* 시안: 제목 블록·PC 안내 카드는 모바일에서 감추고, 목록은 "View all" 로 펼친다 */
-      .home-title, .home-lead, .home-meta, .home-info, .ad-slot-bottom { display: none; }
-      .home-main .post-grid, .home-main .pager { display: none; }
-      .home-main.is-expanded .post-grid { display: grid; }
-      .home-main.is-expanded .pager { display: flex; }
-      .home-main.is-expanded .m-posts { display: none; }
-      .home-main .post-grid { gap: 12px; }
-      .home-chips { position: relative; z-index: 2; margin: -22px 16px 0; padding: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12); }
+      /* 모바일: 건수 줄·PC 안내 카드·PC 광고 자리·PC 그리드·페이지네이션은 감추고, 세로 카드 목록 + 더보기만 쓴다 */
+      .home-meta, .home-info, .ad-slot-bottom, .home-main .post-grid, .home-main .pager { display: none; }
+      .home-chips { position: relative; z-index: 2; margin: 14px 16px 0; padding: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12); }
       .home-chip { min-width: 210px; background: #ffffff; border: 0; padding: 4px 6px; }
       .home-chip-dot { width: 38px; height: 38px; }
       .home-chip-dot::after { left: 13px; top: 13px; }
-      .home-hero-inner { padding: 36px 20px 56px; min-height: 0; }
-      .home-hero h1 { font-size: 32px; }
-      /* 모바일: "Your World." 앞에서 줄을 바꾼다 (클라이언트 요청). PC 는 한 줄 그대로 */
-      .home-hero h1 .hl { display: block; }
-      .home-hero-sub { font-size: 15px; }
-      /* 좁은 화면은 세로가 길어져 사진이 확대된다 — 지구 곡선이 보이도록 가운데 기준, 글자 뒤 어둡기는 위→아래로 */
+      /* [후속] 모바일 히어로는 글자 없이 지구 사진 띠만, 높이는 예전의 1/3 (약 120px). 헤더의 Open in App 버튼이 이 띠 위에 얹힌다 */
+      .home-hero-inner { padding: 0; min-height: 120px; }
+      .home-hero-text { display: none; }
+      .home-hero::before { background: linear-gradient(180deg, rgba(5, 14, 36, 0.35) 0%, rgba(5, 14, 36, 0) 100%); }
       .home-hero { background-position: center 40%; }
-      .home-hero::before { background: linear-gradient(180deg, rgba(5, 14, 36, 0.7) 0%, rgba(5, 14, 36, 0.35) 60%, rgba(5, 14, 36, 0.15) 100%); }
       /* 여백은 위 카드 규칙(.home-chips 12px 균등)이 정한다 — 여기서 padding 을 다시 주면 위아래가 어긋나 칩이 아래로 처진다 */
       .home-chips { display: flex; gap: 10px; overflow-x: auto; align-items: center; -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-padding-left: 12px; }
       .home-chips::-webkit-scrollbar { display: none; }
@@ -204,12 +198,14 @@
         <p class="home-kicker">One Global Network</p>
         <h1>Your Page. <span class="hl">Your World.</span></h1>
         <p class="home-hero-sub">Connect, share and grow across 203 countries.<br>Your digital home, your global stage.</p>
-        <a class="btn-hero" href="${pageContext.request.contextPath}/about">Explore StarPlatform <span aria-hidden="true">&rarr;</span></a>
       </div>
       <%-- [AdSense 승인 대기] 히어로 리더보드 728×90 자리. 승인 후 이 상자 안에 <ins class="adsbygoogle"> 삽입 --%>
       <div class="ad-slot ad-slot-hero" aria-hidden="true" data-ad-slot="hero-leaderboard"></div>
     </div>
   </section>
+
+  <%-- [AdSense 승인 대기] 모바일 A: 히어로 아래·기능 칩 카드 위 320×100 (참고 메일) --%>
+  <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-top"></div></div>
 
   <%-- 모바일 전용 기능 칩. 항목은 클라이언트 모바일 시안 그대로이며 별도 데이터는 없다 --%>
   <div class="home-chips" aria-label="Highlights">
@@ -222,8 +218,7 @@
   <div class="home-wrap">
     <div class="home-body">
       <div class="home-main">
-        <h1 class="home-title">Public posts</h1>
-        <p class="home-lead">Posts published on star pages across StarPlatform. Anyone can read them here &mdash; no account and no app required.</p>
+        <%-- [후속] "Public posts" 큰 제목과 설명문은 클라이언트 요청으로 제거. 페이지 대표 h1 은 히어로 제목 --%>
         <c:if test="${totalCount gt 0}">
           <p class="home-meta"><c:out value="${totalCount}"/> posts published &middot; page <c:out value="${page}"/> of <c:out value="${lastPage}"/></p>
         </c:if>
@@ -239,11 +234,10 @@
           <div class="m-sec-head">
             <h2>Latest Posts</h2>
             <span class="home-live">Real-time Updates</span>
-            <c:if test="${not empty postCards}"><button type="button" class="m-view-all" id="mViewAll">View all &rarr;</button></c:if>
           </div>
           <c:if test="${not empty postCards}">
-          <div class="m-posts">
-            <c:forEach var="p" items="${postCards}" end="5">
+          <div class="m-posts" id="mPosts">
+            <c:forEach var="p" items="${postCards}" varStatus="ps">
               <a class="m-post" href="${pageContext.request.contextPath}/post/${p.conId}">
                 <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if></span>
                 <span class="m-post-body">
@@ -259,8 +253,14 @@
                   </span>
                 </span>
               </a>
+              <%-- [AdSense 승인 대기] 모바일 B: 피드 중간 300×250 — 2번째 카드 뒤, 이후 6장마다 (참고 메일) --%>
+              <c:if test="${ps.index mod 6 eq 1}"><div class="ad-slot ad-slot-infeed m-ad" aria-hidden="true" data-ad-slot="mobile-infeed"></div></c:if>
             </c:forEach>
           </div>
+          <c:if test="${not empty nextUrl}">
+            <%-- 더보기: 다음 페이지 HTML 을 받아 카드만 이어 붙인다. JS 가 없으면 그냥 다음 페이지로 간다 --%>
+            <a class="m-load-more" id="mLoadMore" href="${nextUrl}" data-next="${nextUrl}">Load more</a>
+          </c:if>
           </c:if>
         </div>
 
@@ -292,26 +292,16 @@
         <%-- [AdSense 승인 대기] 그리드 아래 리더보드 728×90 자리 --%>
         <div class="ad-slot ad-slot-bottom" aria-hidden="true" data-ad-slot="list-leaderboard"></div>
 
-        <%-- ── 모바일: Explore by Category (타일 = 직군 필터 목록으로 이동, 사진은 직군별 팔로워 최다 스타) ── --%>
-        <c:if test="${not empty categoryTiles}">
+        <%-- ── 모바일: Popular Stars (후속 요청: Explore by Category 대신, /posts 허브의 인기 스타를 그대로) ── --%>
+        <c:if test="${not empty topStars}">
         <div class="m-only" style="margin-top: 22px;">
-          <div class="m-sec-head"><h2>Explore by Category</h2><a class="m-view-all" href="${pageContext.request.contextPath}/">View all &rarr;</a></div>
-          <div class="m-cats">
-            <c:forEach var="t" items="${categoryTiles}">
-              <a class="m-cat" href="${pageContext.request.contextPath}/?category=${t.code}" ${category eq t.code ? 'aria-current="true"' : ''}>
-                <span class="m-cat-img">
-                  <c:if test="${not empty t.image}"><img src="${t.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
-                  <span class="m-cat-ico m-cat-${t.code}" aria-hidden="true">
-                    <c:choose>
-                      <c:when test="${t.code eq 'STAR'}"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z"/></svg></c:when>
-                      <c:when test="${t.code eq 'CELEB'}"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 20c1-4 4-6 8-6s7 2 8 6"/></svg></c:when>
-                      <c:when test="${t.code eq 'BRAND'}"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" d="M8 8h3M13 8h3M8 12h3M13 12h3M8 16h3M13 16h3"/></svg></c:when>
-                      <c:when test="${t.code eq 'UNIV'}"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M2 9l10-5 10 5-10 5z"/><path fill="none" stroke="currentColor" stroke-width="2" d="M6 11.5V17c2 2 10 2 12 0v-5.5"/></svg></c:when>
-                      <c:otherwise><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 21h18M5 21V9l4-2v14M9 21V4l6 3v14M15 21v-9l4 2v7"/></svg></c:otherwise>
-                    </c:choose>
-                  </span>
-                </span>
-                <span class="m-cat-text"><strong><c:out value="${t.label}"/></strong><span><c:out value="${t.desc}"/></span></span>
+          <div class="m-sec-head"><h2>Popular Stars</h2></div>
+          <div class="m-stars">
+            <c:forEach var="st" items="${topStars}">
+              <a class="m-star" href="${pageContext.request.contextPath}/star/${st.id}">
+                <c:choose><c:when test="${not empty st.image}"><img src="${st.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="m-star-empty"></span></c:otherwise></c:choose>
+                <span class="m-star-name">${st.name}</span>
+                <span class="m-star-meta"><c:out value="${empty st.followerCnt ? 0 : st.followerCnt}"/> followers</span>
               </a>
             </c:forEach>
           </div>
@@ -319,6 +309,9 @@
         </c:if>
 
         <%-- ── 모바일: 글로벌 네트워크 배너 (시안 문구, 영어) ── --%>
+        <%-- [AdSense 승인 대기] 모바일 C: 목록 아래 320×100. 고정 탭바와는 body 하단 여백 + 이 상자의 여백으로 20px 이상 띄운다 (참고 메일) --%>
+        <div class="m-only"><div class="ad-slot ad-slot-mobile" aria-hidden="true" data-ad-slot="mobile-bottom" style="margin-bottom: 20px;"></div></div>
+
         <a class="m-network m-only" href="${pageContext.request.contextPath}/about">
           <span class="m-network-globe" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
           <span class="m-network-text"><strong><em>203</em>countries &middot; Global Page Network</strong><span>8 Billion People &times; Digital Pages &times; Global Traffic &times; Economic Activity</span></span>
@@ -353,16 +346,30 @@
 </main>
 
 <script>
-  // 모바일 "View all": 가로 스크롤 6장을 접고 전체 목록(24장 + 페이지네이션)을 펼친다. 검색·카테고리 결과는 처음부터 펼친다
+  // 모바일 "Load more": 다음 페이지 HTML 을 받아 .m-post 카드만 이어 붙이고, 그 다음 페이지 주소로 갱신한다.
+  // 마지막 페이지면 버튼을 지운다. fetch 실패 시에는 링크 그대로 다음 페이지로 이동한다
   (function () {
-    var main = document.querySelector('.home-main');
-    var btn = document.getElementById('mViewAll');
-    if (!main) return;
-    var filtered = ${(not empty q or not empty category) ? 'true' : 'false'};
-    if (filtered) main.classList.add('is-expanded');
-    if (btn) btn.addEventListener('click', function () {
-      main.classList.add('is-expanded');
-      btn.style.display = 'none';
+    var btn = document.getElementById('mLoadMore');
+    var list = document.getElementById('mPosts');
+    if (!btn || !list || !window.fetch) return;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      btn.setAttribute('aria-busy', 'true');
+      fetch(btn.getAttribute('data-next'), { credentials: 'same-origin' })
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          doc.querySelectorAll('#mPosts .m-post, #mPosts .m-ad').forEach(function (card) { list.appendChild(card); });
+          var next = doc.getElementById('mLoadMore');
+          if (next) {
+            btn.setAttribute('data-next', next.getAttribute('data-next'));
+            btn.setAttribute('href', next.getAttribute('href'));
+            btn.removeAttribute('aria-busy');
+          } else {
+            btn.remove();
+          }
+        })
+        .catch(function () { window.location.href = btn.getAttribute('href'); });
     });
   })();
 </script>

@@ -54,7 +54,9 @@
     .hero h1 { font-size: 42px; margin-bottom: 20px; color: #0f172a; }
     .hero p { font-size: 18px; color: #475569; margin-bottom: 15px; }
     .buttons { margin-top: 30px; }
-    .btn { display: inline-block; padding: 12px 24px; margin: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; }
+    /* 큰 글씨·화면 크게 보기에서 긴 단어(StarPlatform, Monetization)가 칸을 뚫고 나가 가로 스크롤이 생기지 않게 */
+    .section h2, .section h3, .card, .btn { overflow-wrap: anywhere; }
+    .btn { max-width: calc(100% - 20px); display: inline-block; padding: 12px 24px; margin: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; }
     .btn-primary { background: #2563eb; color: white; }
     .btn-primary:hover { background: #1d4ed8; }
     .btn-secondary { background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; }
@@ -65,13 +67,13 @@
     .section { padding: 60px 20px; text-align: center; }
     .section h2 { font-size: 28px; margin-bottom: 20px; color: #0f172a; }
     .section > p { color: #475569; }
-    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 40px; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px; margin-top: 40px; }
     .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; }
     .card h3 { color: #0f172a; margin-bottom: 6px; }
     .card p { color: #475569; font-size: 14px; }
 
     /* [2-27차] How StarPlatform Works: 서비스 이용 흐름 5단계 */
-    .steps { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-top: 40px; text-align: left; }
+    .steps { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 16px; margin-top: 40px; text-align: left; }
     .step-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
     .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2563eb; color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
     .step-card h3 { font-size: 16px; margin-bottom: 6px; color: #0f172a; }

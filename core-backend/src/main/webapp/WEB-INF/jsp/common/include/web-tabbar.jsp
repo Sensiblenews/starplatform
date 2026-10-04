@@ -7,6 +7,9 @@
   include 조각에는 page 지시자가 없어 Jasper 가 기본 인코딩으로 읽는다.
   출력 마크업에는 ASCII 만 쓰고, 아이콘은 CSS 로 그린다.
 --%>
+<%-- 안드로이드는 홈 인디케이터 여백(env(safe-area-inset-bottom))을 주지 않는다 — 삼성 인터넷 등이 값을 크게 잡아
+     탭바 아래에 빈 띠가 생겼다 (클라이언트 스크린샷). 스타일은 web-chrome-style.jsp 의 .sp-android 규칙 --%>
+<script>if (/android/i.test(navigator.userAgent)) { document.documentElement.classList.add('sp-android'); }</script>
 <nav class="site-tabbar" aria-label="Site sections">
   <a href="${pageContext.request.contextPath}/" ${activeNav eq 'home' ? 'aria-current="page"' : ''}><span class="site-tabbar-icon site-tabbar-icon-home" aria-hidden="true"></span>Home</a>
   <a href="${pageContext.request.contextPath}/about" ${activeNav eq 'about' ? 'aria-current="page"' : ''}><span class="site-tabbar-icon site-tabbar-icon-about" aria-hidden="true"></span>About</a>
