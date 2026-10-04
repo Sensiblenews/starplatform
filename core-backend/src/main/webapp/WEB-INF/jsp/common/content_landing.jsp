@@ -137,6 +137,8 @@
         .st-post-date { display: block; font-size: 11px; color: #64748b; line-height: 1.2; }
         .st-post-text { font-size: 14px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; min-height: 2.9em; }
         .st-post-stats { display: flex; gap: 16px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: auto; }
+        .st-load-more { display: block; margin: 16px auto 0; max-width: 420px; text-align: center; padding: 13px; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1; color: #1d4ed8; font-size: 15px; font-weight: 600; text-decoration: none; }
+        .st-load-more[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
 
         .st-photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
         .st-photo { position: relative; padding-top: 100%; border-radius: 10px; overflow: hidden; background: #f1f5f9; display: block; }
@@ -291,6 +293,8 @@
 <c:set var="heartIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M12 20.5s-7.5-4.6-9.2-9.3C1.6 8 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.4 3.5 4.2 6.7-1.7 4.7-9.2 9.3-9.2 9.3z'/></svg>"/>
 <c:set var="commentIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M4 5h16v11H9l-5 4z'/></svg>"/>
 <c:set var="playIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M7 4.5v15l13-7.5z'/></svg>"/>
+<%-- [2-31차 후속] 상세 영상 위 전체화면 펼침 버튼 아이콘 (include/web-video-autoplay.jsp 가 [data-sp-expand] 를 묶는다) --%>
+<c:set var="expandIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'/></svg>"/>
 <c:set var="photoIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='3' y='5' width='18' height='14' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><path fill='none' stroke='currentColor' stroke-width='2' d='M3 16l5-5 4 4 3-3 6 5'/></svg>"/>
 <c:set var="shareIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M12 3v12M7.5 7.5L12 3l4.5 4.5M5 13v6h14v-6'/></svg>"/>
 <c:set var="phoneIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='7' y='2.5' width='10' height='19' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><circle cx='12' cy='18' r='1' fill='currentColor'/></svg>"/>
@@ -381,6 +385,10 @@
                                     <c:if test="${rs.count mod 6 eq 0}"><div class="ad-slot ad-rect st-ad" aria-hidden="true" data-ad-slot="star-infeed"></div></c:if>
                                 </c:forEach>
                             </div>
+                            <%-- [2-31차 후속] 20건 뒤의 글(옛 영상 글 포함)은 Load more 로 이어 받는다. JS 가 없으면 그냥 다음 페이지로 간다 --%>
+                            <c:if test="${not empty postsNextUrl}">
+                                <a class="st-load-more" id="stLoadMore" href="${postsNextUrl}" data-next="${postsNextUrl}">Load more</a>
+                            </c:if>
                         </c:when>
                         <c:otherwise><div class="lp-card lp-empty">No public posts yet.</div></c:otherwise>
                     </c:choose>
@@ -506,6 +514,7 @@
                             <%-- [2-31차] 영상 칸은 <video> 로 바꿔 보인다. 첫 칸이 영상이면 img 에는 포스터를 넣어 둔다 --%>
                             <img id="poGalleryImg" src="${mediaTypes[0] eq 'VIDEO' ? mediaThumbs[0] : mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
                             <video id="poGalleryVideo" data-sp-video data-sp-keep controls muted playsinline loop preload="none" aria-label="${previewTitle}" hidden></video>
+                            <button type="button" class="sp-vid-expand" data-sp-expand aria-label="Full screen" title="Full screen">${expandIcon}</button>
                             <button type="button" class="po-gal-btn po-gal-prev" id="poGalPrev" aria-label="Previous photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg></button>
                             <button type="button" class="po-gal-btn po-gal-next" id="poGalNext" aria-label="Next photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
                             <span class="po-gal-count">${photoIcon}<span id="poGalIndex">1</span> / <c:out value="${fn:length(mediaUrls)}"/></span>
@@ -522,7 +531,7 @@
                     </c:when>
                     <c:when test="${not empty previewVideo}">
                         <%-- [2-31차] 영상 한 개짜리 글: 화면에 보일 때 음소거 재생, 컨트롤로 소리·정지 --%>
-                        <div class="po-gallery"><video data-sp-video controls muted playsinline loop preload="none" src="${previewVideo}" poster="${previewImage}" aria-label="${previewTitle}"></video></div>
+                        <div class="po-gallery"><video data-sp-video controls muted playsinline loop preload="none" src="${previewVideo}" poster="${previewImage}" aria-label="${previewTitle}"></video><button type="button" class="sp-vid-expand" data-sp-expand aria-label="Full screen" title="Full screen">${expandIcon}</button></div>
                     </c:when>
                     <c:when test="${not empty previewImage}">
                         <div class="po-gallery po-gallery-single"><img src="${previewImage}" alt="${previewTitle}" fetchpriority="high"></div>
@@ -636,6 +645,33 @@
             }
             copy();
         }
+
+        // [2-31차 후속] Posts 탭 Load more: 다음 페이지 HTML 에서 카드만 떼어 이어 붙인다 (홈 mLoadMore 와 같은 방식)
+        (function () {
+            var btn = document.getElementById('stLoadMore');
+            var list = document.querySelector('#tabPosts .st-posts');
+            if (!btn || !list || !window.fetch) return;
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                btn.setAttribute('aria-busy', 'true');
+                fetch(btn.getAttribute('data-next'), { credentials: 'same-origin' })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        doc.querySelectorAll('#tabPosts .st-posts > *').forEach(function (card) { list.appendChild(card); });
+                        if (window.spVideoScan) window.spVideoScan(list);
+                        var next = doc.getElementById('stLoadMore');
+                        if (next) {
+                            btn.setAttribute('data-next', next.getAttribute('data-next'));
+                            btn.setAttribute('href', next.getAttribute('href'));
+                            btn.removeAttribute('aria-busy');
+                        } else {
+                            btn.remove();
+                        }
+                    })
+                    .catch(function () { window.location.href = btn.getAttribute('href'); });
+            });
+        })();
 
         // 스타 페이지 탭 (Posts / Photos / About) — 같은 데이터를 다른 모양으로 보이는 것이라 서버 왕복 없음
         (function () {

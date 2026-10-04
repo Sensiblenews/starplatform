@@ -112,7 +112,47 @@ public class DeepLinkController {
 	// AdSense 정책(콘텐츠 없는 화면 광고 금지) 대응: 페이지당 콘텐츠량과 내부 링크를 늘린다.
 	// 반환값은 승인 게시물 건수 — 스타 랜딩의 noindex 판단(콘텐츠 유무 기준)에 쓴다.
 	private int addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl) {
-		List<Map<String, Object>> posts = superAppService.getRecentStarPosts(starId, excludeConId);
+		return addRelatedPosts(model, starId, excludeConId, baseUrl, 1, null);
+	}
+
+	/** 스타 페이지 Posts 탭 한 페이지 크기 (홈과 같은 "Load more" 방식, 2-31차 후속) */
+	static final int STAR_POSTS_PER_PAGE = 20;
+
+	/** ?page= 파라미터. 숫자가 아니거나 1 미만이면 1 */
+	static int parsePage(String raw) {
+		if (raw == null || raw.trim().isEmpty()) return 1;
+		try {
+			int page = Integer.parseInt(raw.trim());
+			return page < 1 ? 1 : page;
+		} catch (NumberFormatException e) {
+			return 1;
+		}
+	}
+
+	/** 다음 페이지 주소. 더 없으면 null */
+	static String nextPostsUrl(String baseUrl, String starId, int page, boolean hasMore) {
+		return hasMore ? baseUrl + "/star/" + starId + "?page=" + (page + 1) : null;
+	}
+
+	/**
+	 * @param page     1부터. excludeConId 가 있는(글 상세) 경우는 페이징 없이 기존 20건
+	 * @param nextBase 다음 페이지 링크의 스타 id. null 이면 Load more 를 만들지 않는다
+	 */
+	private int addRelatedPosts(Model model, String starId, String excludeConId, String baseUrl, int page, String nextBase) {
+		List<Map<String, Object>> posts;
+		boolean hasMore = false;
+		if (nextBase != null) {
+			// 한 건 더 받아 다음 페이지 존재 여부를 판단한다 (COUNT 쿼리 없이)
+			posts = superAppService.getRecentStarPosts(starId, excludeConId,
+					(page - 1) * STAR_POSTS_PER_PAGE, STAR_POSTS_PER_PAGE + 1);
+			if (posts.size() > STAR_POSTS_PER_PAGE) {
+				hasMore = true;
+				posts = posts.subList(0, STAR_POSTS_PER_PAGE);
+			}
+			model.addAttribute("postsNextUrl", nextPostsUrl(baseUrl, nextBase, page, hasMore));
+		} else {
+			posts = superAppService.getRecentStarPosts(starId, excludeConId);
+		}
 		List<Map<String, Object>> cards = new java.util.ArrayList<>();
 		for (Map<String, Object> post : posts) {
 			Map<String, Object> card = new HashMap<>();
@@ -361,15 +401,24 @@ public class DeepLinkController {
 
 					// 🌟 방문 카운트 토큰: 실제 브라우저에게만 발급 (크롤러는 OG만 수집하고 카운트 제외)
 					// 경로 변수 id가 곧 starId이므로 그대로 바인딩한다
-					if (!LandingVisitService.isCrawler(userAgent)) {
+					// [2-31차 후속] ?page=N 은 Posts 탭 "Load more" 가 받아 가는 뒷페이지. 방문 카운트는 1페이지만
+					int postsPage = parsePage(request.getParameter("page"));
+					if (postsPage == 1 && !LandingVisitService.isCrawler(userAgent)) {
 						model.addAttribute("visitToken", landingVisitService.issueToken(id));
 					}
 					// 🌟 관련 콘텐츠 카드: 이 스타의 최근 게시물 (AdSense Thin Content 대응)
-					int approvedPostCount = addRelatedPosts(model, id, null, baseUrl);
+					int approvedPostCount = addRelatedPosts(model, id, null, baseUrl, postsPage, id);
 					// 🌟 웹 품질 게이트: 승인 게시물이 없는 스타 페이지는 색인 제외.
 					// 판단 기준은 오직 "렌더되는 콘텐츠 유무"다 — UA(크롤러) 분기를 섞으면 클로킹 소지가 있어 금지.
 					if (approvedPostCount == 0) {
 						model.addAttribute("robotsNoindex", true);
+					}
+					// 뒷페이지는 1페이지의 부분 집합이라 색인하지 않는다. 범위 밖(빈) 페이지는 404
+					if (postsPage > 1) {
+						model.addAttribute("robotsNoindex", true);
+						if (approvedPostCount == 0) {
+							httpResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+						}
 					}
 					view = "/common/content_landing";
 				}

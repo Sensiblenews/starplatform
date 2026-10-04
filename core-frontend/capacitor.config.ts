@@ -19,12 +19,16 @@ const config: CapacitorConfig = {
   },
   ios: {
     appendUserAgent: "ios:application",
-    webContentsDebuggingEnabled: true
+    webContentsDebuggingEnabled: true,
+    // [2-31차 후속] 실행 직후 깜빡임: 시스템 런치 화면(검정 스플래시) → 웹뷰 기본 흰색 → 스플래시 오버레이 순으로
+    // 흰 화면이 한 프레임 비친다. 웹뷰 바탕을 스플래시와 같은 색으로 맞춘다 (android colors.xml splash_background_color)
+    backgroundColor: '#111013'
   },
   plugins: {
     SplashScreen: {
       launchAutoHide: false,
       showSpinner: false,
+      backgroundColor: '#111013',
       // only Android
       androidSplashResourceName: 'splash',
       androidScaleType: 'FIT_XY',

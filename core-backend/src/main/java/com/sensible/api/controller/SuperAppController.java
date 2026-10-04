@@ -36,6 +36,9 @@ public class SuperAppController {
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
 
+	@Resource(name = "firebaseService")
+	private com.sensible.api.service.FirebaseService firebaseService;
+
 	@Resource(name = "mediaAccessService")
 	private MediaAccessService mediaAccessService;
 
@@ -221,6 +224,18 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> updateFcmToken(@RequestBody Map<String, Object> params) {
 		return superAppService.updateFcmToken(params);
+	}
+
+	// [2-31차 후속] iOS 배지 카운터 리셋 — 앱을 열어 Badge.clear() 할 때 함께 부른다.
+	// 토큰 소유자만 자기 카운터를 지울 수 있다(토큰 자체가 비밀값). 실패해도 앱 동작에는 영향 없음
+	@RequestMapping(value = "/api/super/star/push/badge/reset", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> resetPushBadge(@RequestBody Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		Object token = params == null ? null : params.get("fcmToken");
+		boolean ok = token != null && firebaseService.resetBadge(token.toString());
+		result.put("result", ok ? "OK" : "FAIL");
+		return result;
 	}
 
 	// 🌟 [신규] 푸시 알림 수신 설정 조회 API — 프로필 팝오버가 서버 값으로 토글을 초기화할 때 사용

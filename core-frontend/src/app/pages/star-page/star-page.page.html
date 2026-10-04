@@ -238,7 +238,7 @@
       <div *ngFor="let p of recommendedPages" (click)="router.navigate(['/star', p.PRS_ID])"
         style="min-width: 80px; text-align: center;">
         <ion-avatar style="width: 60px; height: 60px; margin: 0 auto;">
-          <img [src]="p.STORED_FILE_NM || defaultAvatar" />
+          <img [src]="p.STORED_FILE_NM || defaultAvatar" loading="lazy" />
         </ion-avatar>
         <div style="font-size: 11px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           {{ p.PRS_NAME }}

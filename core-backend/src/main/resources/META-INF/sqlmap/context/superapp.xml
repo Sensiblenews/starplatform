@@ -628,7 +628,11 @@
 			AND M.CON_ID != #{excludeConId}
 		</if>
 		ORDER BY M.CREATED_DATE DESC
-		LIMIT 20
+		<!-- [2-31차 후속] 스타 페이지 Posts 탭 "Load more" 용 페이징. 글이 20건을 넘는 스타는 옛 영상 글이 잘려 나갔다 -->
+		<choose>
+			<when test="offset != null and limit != null">LIMIT #{offset}, #{limit}</when>
+			<otherwise>LIMIT 20</otherwise>
+		</choose>
 	</select>
 
 	<!-- [신규 2-27차] 스타 랜딩 하단 Related Stars 카드용.

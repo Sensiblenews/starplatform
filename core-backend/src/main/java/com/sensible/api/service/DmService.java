@@ -78,7 +78,8 @@ public class DmService {
 	 */
 	private static final String REPORT_UNAVAILABLE = "This message is no longer available.";
 
-	private static final String PUSH_CHANNEL = "dm_channel";
+	/** Android 채널 id 는 FirebaseService 에서 한 곳으로 관리한다 (2-31차 후속: 소리 없는 옛 채널을 버리고 _v2) */
+	private static final String PUSH_CHANNEL = FirebaseService.CHANNEL_DM;
 
 	@Resource(name = "DefaultDAO")
 	private DefaultDAO dao;

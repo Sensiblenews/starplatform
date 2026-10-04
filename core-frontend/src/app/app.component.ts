@@ -24,6 +24,7 @@ import { DeviceIdService } from './services/device-id.service';
 import { TextZoom } from '@capacitor/text-zoom';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Badge } from '@capawesome/capacitor-badge';
+import { LEGACY_PUSH_CHANNELS, PUSH_CHANNEL_DM, PUSH_CHANNEL_VISITOR } from './constants/push-channels';
 import { DmService } from './services/dm.service';
 import { openDmChat } from './modals/dm-chat/dm-chat.component';
 
@@ -199,8 +200,11 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     if (Capacitor.isNativePlatform()) {
 
       if (this.platform.is('android')) {
+        // [2-31차 후속] 채널 id 를 _v2 로 교체. Android 는 한번 만든 채널의 소리·진동을 앱이 바꾸지 못한다.
+        // star_visitor_channel 은 2026-06 에 소리 없이 만들어졌고 소리는 2026-09 에 붙었으므로
+        // 그 사이 설치된 기기는 계속 무음이었다. 서버(FirebaseService)도 같은 id 로 보낸다
         await PushNotifications.createChannel({
-          id: 'star_visitor_channel',
+          id: PUSH_CHANNEL_VISITOR,
           name: 'Visitor Alerts',
           description: 'Notifications for star visitors',
           importance: 5, // Max importance for heads-up notifications
@@ -212,7 +216,7 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
 
         // 1:1 메신저 채널 (2-29차). 알림이 남아 있는 동안 런처가 점을 표시한다
         await PushNotifications.createChannel({
-          id: 'dm_channel',
+          id: PUSH_CHANNEL_DM,
           name: 'Messages',
           description: 'Direct messages from other stars',
           importance: 5,
@@ -220,6 +224,15 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
           sound: 'tick',
           vibration: true
         });
+
+        // 소리 없이 굳은 옛 채널은 설정 화면에서 치운다. 없으면 조용히 넘어간다
+        for (const id of LEGACY_PUSH_CHANNELS) {
+          try {
+            await PushNotifications.deleteChannel({ id });
+          } catch {
+            // 이미 없는 채널
+          }
+        }
       }
 
       // 1. 토큰 발급/갱신 시 localStorage에 캐싱 + 백엔드로 자동 전송
@@ -628,5 +641,16 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
       // 뱃지를 지원하지 않는 런처에서는 실패할 수 있다
       console.warn('[Badge/Notification] Badge clear skipped:', error);
     }
+    this.resetServerBadgeCounter();
+  }
+
+  // [2-31차 후속] iOS 배지 숫자는 서버가 토큰별로 센다(마지막으로 앱을 연 뒤 받은 알림 수).
+  // 앱을 열어 배지를 지울 때 서버 카운터도 0 으로 돌린다. 실패해도 다음 알림이 이어서 셀 뿐이다
+  private resetServerBadgeCounter() {
+    const fcmToken = localStorage.getItem('fcmToken');
+    if (!fcmToken) return;
+    this.http.post('/api/super/star/push/badge/reset', { fcmToken }).subscribe({
+      error: (err: any) => console.warn('[Badge/Notification] Server badge reset failed:', err)
+    });
   }
 }
