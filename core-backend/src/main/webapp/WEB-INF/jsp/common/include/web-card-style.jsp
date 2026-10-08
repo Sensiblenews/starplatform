@@ -11,6 +11,8 @@
   .post-card { display: flex; gap: 14px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; min-height: 100px; }
   .post-card:hover { border-color: #93c5fd; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06); }
   .post-thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #f1f5f9; display: block; }
+  .post-thumb-video { position: relative; overflow: hidden; }
+  .post-thumb-video img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .post-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .post-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .post-author { font-size: 15px; font-weight: 700; color: #0f172a; }

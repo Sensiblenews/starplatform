@@ -130,7 +130,21 @@ public final class WebCardUtil {
 
 		String image = (String) (post.get("THUMB_URL") != null ? post.get("THUMB_URL") : post.get("MEDIA_URL"));
 		card.put("image", toAbsoluteUrl(image, baseUrl));
+		// 2-31차: 첫 미디어가 영상이면 원본 주소를 따로 내린다 (image 는 그대로 포스터 썸네일)
+		String video = videoUrl(post, baseUrl);
+		if (!video.isEmpty()) {
+			card.put("video", video);
+		}
 		return card;
+	}
+
+	/**
+	 * 미디어 행이 영상이면 원본 영상의 절대 주소, 아니면 빈 문자열.
+	 * 목록 쿼리(첫 미디어 조인)와 상세의 미디어 행 모두 MEDIA_TYPE·MEDIA_URL 키가 같아 함께 쓴다.
+	 */
+	public static String videoUrl(Map<String, Object> media, String baseUrl) {
+		if (media == null || !"VIDEO".equals(media.get("MEDIA_TYPE"))) return "";
+		return toAbsoluteUrl((String) media.get("MEDIA_URL"), baseUrl);
 	}
 
 	/** 포스트 목록을 카드 목록으로 */

@@ -72,7 +72,7 @@
         .lp-wrap { max-width: 1400px; margin: 0 auto; padding: 24px 24px 0; }
         .lp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
         .lp-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }
-        .lp-side { display: flex; flex-direction: column; gap: 18px; }
+        .lp-side { display: flex; flex-direction: column; gap: 18px; align-self: stretch; } /* sticky 묶음이 본문 끝까지 따라오도록 열을 본문 높이로 늘림 */
 
         /* ── 배지·버튼 ── */
         .lp-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #1d4ed8; background: #dbeafe; border-radius: 999px; padding: 2px 8px; vertical-align: middle; }
@@ -137,6 +137,8 @@
         .st-post-date { display: block; font-size: 11px; color: #64748b; line-height: 1.2; }
         .st-post-text { font-size: 14px; color: #1e293b; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; min-height: 2.9em; }
         .st-post-stats { display: flex; gap: 16px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: auto; }
+        .st-load-more { display: block; margin: 16px auto 0; max-width: 420px; text-align: center; padding: 13px; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1; color: #1d4ed8; font-size: 15px; font-weight: 600; text-decoration: none; }
+        .st-load-more[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
 
         .st-photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
         .st-photo { position: relative; padding-top: 100%; border-radius: 10px; overflow: hidden; background: #f1f5f9; display: block; }
@@ -207,6 +209,11 @@
         .po-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
         .po-gallery-single { background: #f1f5f9; }
         .po-gallery-single img { object-fit: cover; }
+        /* [2-31차] 영상: 사진과 같은 16:9 틀에 맞춰 잘리지 않게(contain) 보인다 */
+        .po-gallery video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #0f172a; }
+        .po-gallery video[hidden], .po-gallery img[hidden] { display: none; }
+        .po-thumb { position: relative; }
+        .sb-thumb { position: relative; flex-shrink: 0; display: block; }
         .po-gal-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(15, 23, 42, 0.75); color: #ffffff; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
         .po-gal-btn svg { width: 18px; height: 18px; }
         .po-gal-prev { left: 14px; }
@@ -227,29 +234,44 @@
                    C 피드 중간 300×250(6장마다), 모바일 C' Join 배너 위 300×250.
              포스트: D 본문 끝·Share 버튼 위(PC 728×90 / 모바일 300×250), E 사이드바 More posts 아래 300×600(PC),
                      모바일 B' 작성자 카드와 More posts 사이 320×100, C' Join 위 300×250.
-             클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
+             클릭 요소와는 20px 이상 띄운다(오클릭 방지)
+             [2-32차] 애드센스 표준 규격 메일에 맞춰 고정 픽셀로 재조정: 포스트 D(본문 끝)는 PC·모바일 모두 "대형 사각형" 336×280
+             (카드 가용 폭이 336 미만인 402px 미만 뷰포트에서는 300×250). 스타 C 는 그리드 한 칸 폭 때문에 300×250 유지.
+             브레이크포인트는 PC ≥1024 / 그 아래는 한 열(모바일 세트) ── */
         /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
         .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
-        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
+        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #64748b; }
         .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
-        /* [버그 보고] 스크롤을 따라 내려오는 것을 클라이언트가 원치 않아 sticky 해제 */
+        /* 포스트 D 는 PC 에서도 본문 끝 대형 사각형(2-32차). .ad-lb 보다 뒤에, 더 높은 특이성으로 */
+        .ad-lb.ad-d { width: 336px; height: 280px; border-radius: 14px; }
         .ad-side { width: 300px; height: 600px; margin: 0 auto; }
+        /* 2026-10-06 메일: 포스트 E 를 sticky 로. 광고 단독이 아니라 아래 Join 카드까지 묶어 고정해야 광고가 Join 을 덮지 않는다.
+           (9-28 에는 광고만 sticky 였고 아래 카드를 덮어 버그로 보고됨.) 상단 네비 64px + 간격 20px. 스타 페이지 B 는 메일에 sticky 언급이 없어 그대로 둔다 */
+        .sb-sticky { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 84px; }
+        /* 스타 C(피드 중간)는 카드 그리드 한 칸(PC 3열 ≈325px) 안에 들어가므로 336 이 물리적으로 안 들어간다.
+           모바일 규격 1위이자 PC 에서도 수급이 가장 넓은 300×250 으로 둔다 (2-32차 검토) */
         .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
         .ad-m-lb { display: none; width: 320px; max-width: 100%; height: 100px; margin: 20px auto; }
         .ad-m-rect { display: none; width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
         .ad-pc-only { display: block; }
-        @media (max-width: 1000px) {
+        @media (max-width: 1023px) {
             .ad-side, .ad-pc-only { display: none; }
+            .sb-sticky { position: static; } /* 모바일은 한 열이라 sticky 불필요 */
             .ad-m-lb, .ad-m-rect { display: block; }
             .ad-lb { width: 320px; height: 100px; }
-            /* 포스트 D 는 모바일에서 300×250 (참고 메일: 골든 존). 위 .ad-lb 규칙보다 뒤에, 더 높은 특이성으로 */
-            .ad-lb.ad-d { width: 300px; height: 250px; border-radius: 14px; }
+            /* 포스트 D 는 모바일에서 본문 끝 대형 사각형 336×280 (규격 메일: 대화면 폰 세로 모드에 꽉 참) */
+            .ad-lb.ad-d { width: 336px; height: 280px; border-radius: 14px; }
+        }
+        /* 본문 끝 자리는 카드 안에 있어 가용 폭이 뷰포트 − 66px(바깥 16×2 + 카드 16×2 + 테두리 2) 이다.
+           336 은 402px 이상에서만 들어가므로 그 아래는 중형 사각형, 366px 미만(360px 안드로이드)은 카드 여백을 줄여 300 을 확보 */
+        @media (max-width: 401px) {
+            .ad-lb.ad-d { width: 300px; height: 250px; }
         }
 
         /* ── 하단 앱 CTA ── */
         .lp-cta { display: flex; justify-content: center; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1023px) {
             /* 1fr 은 최소 폭이 내용 기준(auto)이라 300px 광고 자리가 좁은 화면(360px 이하)에서 열을 밀어
                카드가 오른쪽으로 넘쳤다(안드로이드 버그 보고). minmax(0, 1fr) 로 열을 화면 폭에 묶는다 */
             .lp-grid { grid-template-columns: minmax(0, 1fr); }
@@ -276,6 +298,10 @@
             .po-date { margin-left: 0; width: 100%; }
             .po-author { flex-wrap: wrap; }
         }
+        @media (max-width: 365px) {
+            /* 360px 폭: 카드 좌우 여백을 12px 로 줄여 본문 끝 300×250 자리가 잘리지 않게 (2-32차) */
+            .po-card { padding-left: 12px; padding-right: 12px; }
+        }
     </style>
 </head>
 
@@ -285,6 +311,9 @@
 <c:set var="starIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z'/></svg>"/>
 <c:set var="heartIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M12 20.5s-7.5-4.6-9.2-9.3C1.6 8 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.4 3.5 4.2 6.7-1.7 4.7-9.2 9.3-9.2 9.3z'/></svg>"/>
 <c:set var="commentIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M4 5h16v11H9l-5 4z'/></svg>"/>
+<c:set var="playIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M7 4.5v15l13-7.5z'/></svg>"/>
+<%-- [2-31차 후속] 상세 영상 위 전체화면 펼침 버튼 아이콘 (include/web-video-autoplay.jsp 가 [data-sp-expand] 를 묶는다) --%>
+<c:set var="expandIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'/></svg>"/>
 <c:set var="photoIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='3' y='5' width='18' height='14' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><path fill='none' stroke='currentColor' stroke-width='2' d='M3 16l5-5 4 4 3-3 6 5'/></svg>"/>
 <c:set var="shareIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M12 3v12M7.5 7.5L12 3l4.5 4.5M5 13v6h14v-6'/></svg>"/>
 <c:set var="phoneIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='7' y='2.5' width='10' height='19' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><circle cx='12' cy='18' r='1' fill='currentColor'/></svg>"/>
@@ -354,6 +383,8 @@
                                     <a class="st-post" href="${pageContext.request.contextPath}/post/${rp.conId}">
                                         <span class="st-post-img">
                                             <c:if test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
+                                            <%-- [2-31차] 영상 글은 화면에 보일 때 재생 (include/web-video-autoplay.jsp) --%>
+                                            <c:if test="${not empty rp.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${rp.video}" poster="${rp.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge">${playIcon}</span></c:if>
                                             <c:if test="${rp.mediaCnt gt 1}"><span class="lp-media-cnt">${photoIcon}<c:out value="${rp.mediaCnt}"/></span></c:if>
                                         </span>
                                         <span class="st-post-body">
@@ -373,6 +404,10 @@
                                     <c:if test="${rs.count mod 6 eq 0}"><div class="ad-slot ad-rect st-ad" aria-hidden="true" data-ad-slot="star-infeed"></div></c:if>
                                 </c:forEach>
                             </div>
+                            <%-- [2-31차 후속] 20건 뒤의 글(옛 영상 글 포함)은 Load more 로 이어 받는다. JS 가 없으면 그냥 다음 페이지로 간다 --%>
+                            <c:if test="${not empty postsNextUrl}">
+                                <a class="st-load-more" id="stLoadMore" href="${postsNextUrl}" data-next="${postsNextUrl}">Load more</a>
+                            </c:if>
                         </c:when>
                         <c:otherwise><div class="lp-card lp-empty">No public posts yet.</div></c:otherwise>
                     </c:choose>
@@ -423,7 +458,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span></span></span>
                             </a></li>
@@ -495,17 +530,27 @@
                 <c:choose>
                     <c:when test="${fn:length(mediaUrls) gt 1}">
                         <div class="po-gallery" id="poGallery">
-                            <img id="poGalleryImg" src="${mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
+                            <%-- [2-31차] 영상 칸은 <video> 로 바꿔 보인다. 첫 칸이 영상이면 img 에는 포스터를 넣어 둔다 --%>
+                            <img id="poGalleryImg" src="${mediaTypes[0] eq 'VIDEO' ? mediaThumbs[0] : mediaUrls[0]}" alt="${previewTitle}" fetchpriority="high">
+                            <video id="poGalleryVideo" data-sp-video data-sp-keep controls muted playsinline loop preload="none" aria-label="${previewTitle}" hidden></video>
+                            <button type="button" class="sp-vid-expand" data-sp-expand aria-label="Full screen" title="Full screen">${expandIcon}</button>
                             <button type="button" class="po-gal-btn po-gal-prev" id="poGalPrev" aria-label="Previous photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg></button>
                             <button type="button" class="po-gal-btn po-gal-next" id="poGalNext" aria-label="Next photo"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
                             <span class="po-gal-count">${photoIcon}<span id="poGalIndex">1</span> / <c:out value="${fn:length(mediaUrls)}"/></span>
                         </div>
                         <div class="po-thumbs" id="poThumbs">
                             <c:forEach var="t" items="${mediaThumbs}" varStatus="s">
-                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="Photo ${s.index + 1}"><img src="${t}" alt="" loading="lazy"></button>
+                                <c:set var="isVid" value="${mediaTypes[s.index] eq 'VIDEO'}"/>
+                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="${isVid ? 'Video' : 'Photo'} ${s.index + 1}"><img src="${t}" alt="" loading="lazy"><c:if test="${isVid}"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></c:if></button>
                             </c:forEach>
                         </div>
-                        <script>window.__poMedia = [<c:forEach var="u" items="${mediaUrls}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];</script>
+                        <script>window.__poMedia = [<c:forEach var="u" items="${mediaUrls}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];
+                            window.__poThumbs = [<c:forEach var="u" items="${mediaThumbs}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];
+                            window.__poTypes = [<c:forEach var="u" items="${mediaTypes}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];</script>
+                    </c:when>
+                    <c:when test="${not empty previewVideo}">
+                        <%-- [2-31차] 영상 한 개짜리 글: 화면에 보일 때 음소거 재생, 컨트롤로 소리·정지 --%>
+                        <div class="po-gallery"><video data-sp-video controls muted playsinline loop preload="none" src="${previewVideo}" poster="${previewImage}" aria-label="${previewTitle}"></video><button type="button" class="sp-vid-expand" data-sp-expand aria-label="Full screen" title="Full screen">${expandIcon}</button></div>
                     </c:when>
                     <c:when test="${not empty previewImage}">
                         <div class="po-gallery po-gallery-single"><img src="${previewImage}" alt="${previewTitle}" fetchpriority="high"></div>
@@ -553,7 +598,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span><span class="lp-stat-ico">${commentIcon}<c:out value="${empty rp.commentCnt ? 0 : rp.commentCnt}"/></span></span></span>
                             </a></li>
@@ -562,15 +607,18 @@
                 </div>
                 </c:if>
 
-                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250 --%>
-                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
-                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
+                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250.
+                     PC 에서 광고와 Join 카드를 한 묶음으로 sticky — 광고만 고정하면 아래 Join 을 덮는다 --%>
+                <div class="sb-sticky">
+                    <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
+                    <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
 
-                <a class="sb-join" href="#" onclick="openApp(); return false;">
-                    ${starIcon}
-                    <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
-                    <span class="sb-join-arrow" aria-hidden="true">&rsaquo;</span>
-                </a>
+                    <a class="sb-join" href="#" onclick="openApp(); return false;">
+                        ${starIcon}
+                        <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
+                        <span class="sb-join-arrow" aria-hidden="true">&rsaquo;</span>
+                    </a>
+                </div>
             </aside>
         </div>
 
@@ -583,6 +631,7 @@
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 <%-- 모바일 하단 탭바 — 홈·About 등과 같은 다섯 항목 (스타·포스트 페이지에 빠져 있었음, 클라이언트 보고) --%>
 <%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
+<%@ include file="/WEB-INF/jsp/common/include/web-video-autoplay.jsp"%>
 
     <script>
         // 공유: Web Share API 가 있으면 시스템 공유, 없으면 링크 복사
@@ -619,6 +668,33 @@
             copy();
         }
 
+        // [2-31차 후속] Posts 탭 Load more: 다음 페이지 HTML 에서 카드만 떼어 이어 붙인다 (홈 mLoadMore 와 같은 방식)
+        (function () {
+            var btn = document.getElementById('stLoadMore');
+            var list = document.querySelector('#tabPosts .st-posts');
+            if (!btn || !list || !window.fetch) return;
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                btn.setAttribute('aria-busy', 'true');
+                fetch(btn.getAttribute('data-next'), { credentials: 'same-origin' })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        doc.querySelectorAll('#tabPosts .st-posts > *').forEach(function (card) { list.appendChild(card); });
+                        if (window.spVideoScan) window.spVideoScan(list);
+                        var next = doc.getElementById('stLoadMore');
+                        if (next) {
+                            btn.setAttribute('data-next', next.getAttribute('data-next'));
+                            btn.setAttribute('href', next.getAttribute('href'));
+                            btn.removeAttribute('aria-busy');
+                        } else {
+                            btn.remove();
+                        }
+                    })
+                    .catch(function () { window.location.href = btn.getAttribute('href'); });
+            });
+        })();
+
         // 스타 페이지 탭 (Posts / Photos / About) — 같은 데이터를 다른 모양으로 보이는 것이라 서버 왕복 없음
         (function () {
             var tabs = document.querySelectorAll('.st-tab');
@@ -640,11 +716,38 @@
             var media = window.__poMedia;
             var img = document.getElementById('poGalleryImg');
             if (!media || !img) return;
+            var types = window.__poTypes || [];
+            var posters = window.__poThumbs || [];
+            var video = document.getElementById('poGalleryVideo');
             var idx = 0;
             var thumbs = document.querySelectorAll('.po-thumb');
+            // [2-31차] 영상 칸이면 img 를 숨기고 <video> 를 보인다. 재생 여부는 web-video-autoplay 가 화면 노출로 정한다
+            function render() {
+                if (video && types[idx] === 'VIDEO') {
+                    img.hidden = true;
+                    if (video.getAttribute('src') !== media[idx]) {
+                        video.poster = posters[idx] || '';
+                        video.src = media[idx];
+                    }
+                    video.hidden = false;
+                    if (window.spVideoReset) window.spVideoReset(video);
+                } else {
+                    if (video) { video.pause(); video.hidden = true; }
+                    img.hidden = false;
+                    img.src = media[idx];
+                }
+            }
+            // 영상을 못 여는 형식이면 그 칸은 포스터 이미지로 대신 보인다
+            if (video) video.addEventListener('error', function () {
+                if (types[idx] !== 'VIDEO') return;
+                video.hidden = true;
+                img.src = posters[idx] || '';
+                img.hidden = false;
+            });
+            render();
             function show(i) {
                 idx = (i + media.length) % media.length;
-                img.src = media[idx];
+                render();
                 document.getElementById('poGalIndex').textContent = String(idx + 1);
                 thumbs.forEach(function (t, k) {
                     if (k === idx) { t.setAttribute('aria-current', 'true'); t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }

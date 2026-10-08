@@ -77,3 +77,36 @@ describe('TickSoundService', () => {
     });
   });
 });
+
+// 2-31차 후속: 잠금 해제가 iOS 에서 소리를 내던 버그 — volume 대신 muted 로 막고, 네이티브에서는 아예 돌리지 않는다
+describe('TickSoundService — 잠금 해제', () => {
+
+  function fakeAudio(playOk: boolean) {
+    const calls: string[] = [];
+    const audio: any = {
+      muted: false,
+      currentTime: 7,
+      play: () => { calls.push('play:muted=' + audio.muted); return playOk ? Promise.resolve() : Promise.reject(new Error('blocked')); },
+      pause: () => { calls.push('pause'); }
+    };
+    return { audio, calls };
+  }
+
+  it('무음 재생은 muted 로 소리를 막고, 끝나면 원래 muted 값으로 되돌린다', async () => {
+    const { audio, calls } = fakeAudio(true);
+    expect(await TickSoundService.silentPrime(audio)).toBeTrue();
+    expect(calls).toEqual(['play:muted=true', 'pause']);
+    expect(audio.muted).toBeFalse();
+    expect(audio.currentTime).toBe(0);
+  });
+
+  it('재생이 거절되면 false 를 돌려주고 muted 도 되돌린다', async () => {
+    const { audio } = fakeAudio(false);
+    expect(await TickSoundService.silentPrime(audio)).toBeFalse();
+    expect(audio.muted).toBeFalse();
+  });
+
+  it('Karma(브라우저) 환경은 네이티브가 아니므로 잠금 해제 대상이다', () => {
+    expect(TickSoundService.needsUnlock()).toBeTrue();
+  });
+});

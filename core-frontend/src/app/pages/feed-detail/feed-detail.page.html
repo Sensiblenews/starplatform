@@ -35,19 +35,30 @@
 
     <!-- 🎥 2순위: 동영상들 -->
     <div class="media-item-video" *ngFor="let media of getVideoList()">
-      <div class="video-wrapper">
-        <video 
-            [muted]="media.isMuted" 
-            autoplay loop playsinline 
-            [poster]="media.THUMB_URL"
+      <div class="video-wrapper" *ngIf="media.displayUrl; else videoUnderReview">
+        <video
+            [muted]="media.isMuted"
+            autoplay loop playsinline
+            [poster]="media.posterUrl"
             class="feed-video">
-            <source [src]="media.MEDIA_URL" type="video/mp4">
+            <source [src]="media.displayUrl" type="video/mp4">
         </video>
 
         <div class="sound-btn" (click)="toggleSound(media, $event)">
             <ion-icon [name]="media.isMuted ? 'volume-mute' : 'volume-high'"></ion-icon>
         </div>
       </div>
+      <!-- 검수 대기 영상(2-32차). 작성자 본인은 썸네일 위에 안내, 타인은 안내만 — 재생은 승인 후 -->
+      <ng-template #videoUnderReview>
+        <div class="video-review">
+          <img *ngIf="media.posterUrl" [src]="media.posterUrl" (error)="handleImgError($event)" />
+          <div class="review-box" [class.over-poster]="media.posterUrl">
+            <ion-icon name="eye-off-outline"></ion-icon>
+            <p class="review-title">Under review</p>
+            <p class="review-desc">This video will play once approved.</p>
+          </div>
+        </div>
+      </ng-template>
     </div>
 
     <!-- 🎬 3순위: YouTube 임베드 -->

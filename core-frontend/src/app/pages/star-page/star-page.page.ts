@@ -365,6 +365,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   loadStarDetail() {
     this.perf.mark('star:api-request');
     this.resetFeedPaging();
+    // [2-31차 후속] 하단 추천 페이지는 상세 응답을 기다리지 않고 같이 받는다 (Android 진입 지연 — 직렬 2회 요청을 병렬로)
+    this.loadRecommendedPages();
 
     this.http.post(`/api/super/star/${this.starId}`, {
       deviceId: this.deviceId,
@@ -400,8 +402,6 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
       // 🌟 [신규] OWNER_EMAIL 또는 PRS_PWD가 존재하면 주인이 있는 페이지! (백엔드 IS_CLAIMED 사용)
       this.isClaimed = this.starInfo.IS_CLAIMED === 'Y';
-      // 🌟 [신규] 페이지 디테일 로딩 시 하단 추천 페이지도 같이 불러옵니다.
-      this.loadRecommendedPages();
     });
   }
 
@@ -525,6 +525,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
     // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다
     item.isUnderReview = isPending && !item.pendingImageUrl;
+
+    // 작성자 본인의 대기 영상: 재생 대신 썸네일(토큰)을 보여주고 "Under review" 칩을 얹는다(2-32차 확정)
+    item.isPendingOwnVideo = isPending && item.MEDIA_TYPE === 'VIDEO' && !!item.pendingImageUrl;
 
     // 미디어가 전혀 없는 텍스트 피드인 경우 로딩 완료(isLoaded = true) 처리
     const hasMedia = item.MEDIA_TYPE === 'VIDEO' || item.image || item.pendingImageUrl

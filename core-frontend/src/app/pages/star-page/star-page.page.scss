@@ -535,6 +535,25 @@
     }
   }
 
+  // 작성자 본인의 검수 대기 영상 위에 얹는 칩 (2-32차). 썸네일은 보이되 재생이 안 된다는 표시
+  .review-chip {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 2;
+
+    ion-icon { font-size: 14px; }
+  }
+
   // 미디어 영역 (꽉 채우기)
   .media-wrapper {
     width: 100%;
