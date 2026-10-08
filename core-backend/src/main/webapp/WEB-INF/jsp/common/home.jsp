@@ -65,13 +65,16 @@
     /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
          PC: ① 히어로 우측 728×90 ② 사이드바 300×600 sticky ③ 페이지네이션 아래 728×90
          모바일: ① 숨김, A 히어로 아래·칩 카드 위 320×100, B 피드 중간 300×250(2번째 카드 뒤, 이후 6장마다),
-                 C 목록 아래·탭바 위 320×100. 클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
+                 C 목록 아래·탭바 위 320×100. 클릭 요소와는 20px 이상 띄운다(오클릭 방지)
+         [2-32차] 애드센스 표준 규격 메일에 맞춰 고정 픽셀로 재조정: 목록 끝 ③ 은 "본문 하단 = 대형 사각형" 336×280,
+         브레이크포인트는 PC ≥1024 / 모바일 ≤768 로 통일. 970×250·160×600·320×50 앵커는 열 폭·하단 탭바 사유로 미적용 ── */
     /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
     .ad-slot { position: relative; background: rgba(241, 245, 249, 0.92); border: 1px dashed #94a3b8; border-radius: 8px; }
-    .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
+    .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #64748b; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
-    .ad-slot-side { width: 300px; height: 600px; } /* sticky 해제 — 스크롤 따라오는 것을 클라이언트가 버그로 봄 */
-    .ad-slot-bottom { width: 728px; max-width: 100%; height: 90px; margin: 24px auto 0; }
+    /* 2026-10-06 메일: 300×600 고정 + sticky 로 스크롤 따라오게. (9-28 에는 버그로 보고돼 해제했었음) 상단 네비 64px + 간격 20px */
+    .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 84px; }
+    .ad-slot-bottom { width: 336px; max-width: 100%; height: 280px; margin: 24px auto 0; border-radius: 14px; }
     .ad-slot-mobile { width: 320px; max-width: 100%; height: 100px; margin: 20px auto 0; }
     .ad-slot-infeed { width: 300px; max-width: 100%; height: 250px; margin: 0 auto; border-radius: 14px; }
 
@@ -115,12 +118,12 @@
     .home-info-card p { font-size: 13px; color: #475569; line-height: 1.45; margin: 0; }
     .home-info-arrow { flex-shrink: 0; color: #2f7cf6; font-size: 18px; font-weight: 700; }
 
-    @media (min-width: 1100px) {
+    @media (min-width: 1024px) {
       .home-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
       .home-main .post-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .home-side { display: block; }
+      .home-side { display: block; align-self: stretch; } /* sticky 광고가 본문 끝까지 따라오도록 열을 본문 높이로 늘림 */
     }
-    @media (max-width: 1099px) {
+    @media (max-width: 1023px) {
       .ad-slot-hero { display: none; }
     }
     /* ── 모바일 전용 섹션 (클라이언트 모바일 시안): 가로 스크롤 큰 카드·카테고리 타일·글로벌 네트워크 배너 ── */
@@ -164,7 +167,7 @@
     .m-filter-note { margin: 0 0 12px; font-size: 14px; color: #1d4ed8; }
     .m-filter-note a { color: #1d4ed8; }
 
-    @media (max-width: 820px) {
+    @media (max-width: 768px) {
       .m-only { display: block; }
       /* 모바일: 건수 줄·PC 안내 카드·PC 광고 자리·PC 그리드·페이지네이션은 감추고, 세로 카드 목록 + 더보기만 쓴다 */
       .home-meta, .home-info, .ad-slot-bottom, .home-main .post-grid, .home-main .pager { display: none; }
@@ -182,7 +185,6 @@
       .home-chips::-webkit-scrollbar { display: none; }
       .home-wrap { padding: 20px 16px 0; }
       .home-title { font-size: 26px; }
-      .ad-slot-bottom { height: 100px; }
       .home-info { grid-template-columns: 1fr; }
     }
   </style>

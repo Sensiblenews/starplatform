@@ -1,10 +1,11 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>이미지 검수 - Super Admin</title>
+    <title>미디어 검수 - Super Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -19,6 +20,8 @@
         /* 검수 이미지는 원본 비율 그대로 보되 행 높이가 튀지 않게 상한을 둔다 */
         .review-thumb { width: 150px; height: 150px; object-fit: cover; border-radius: 10px;
                         background: #e9ecef; cursor: zoom-in; }
+        /* 동영상(2-32차)은 같은 칸 안에서 플레이어로 본다. 세로 영상도 150px 상자 안에 들어오게 contain */
+        .review-video { width: 150px; height: 150px; object-fit: contain; border-radius: 10px; background: #000; }
         .text-truncate-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .waiting-long { color: #d63384; font-weight: 600; }
 
@@ -58,7 +61,7 @@
     <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
 
     <div class="main-content">
-        <h2 class="fw-bold mb-4"><i class="fas fa-image me-2"></i>이미지 검수</h2>
+        <h2 class="fw-bold mb-4"><i class="fas fa-photo-video me-2"></i>미디어 검수</h2>
 
         <!-- 상태 요약 -->
         <div class="row g-3 mb-4">
@@ -131,7 +134,7 @@
             <table class="table table-hover align-middle" style="table-layout: fixed;">
                 <thead class="table-light">
                     <tr>
-                        <th width="18%">이미지</th>
+                        <th width="18%">미디어</th>
                         <th width="12%">구분</th>
                         <th width="14%">작성자</th>
                         <th width="30%">본문</th>
@@ -143,21 +146,39 @@
                     <c:forEach var="q" items="${queue}">
                         <tr id="row-${q.TARGET_TYPE}-${q.TARGET_ID}">
                             <td>
-                                <c:choose>
-                                    <c:when test="${empty q.IMAGE_URL}">
-                                        <span class="text-muted small">이미지 없음</span>
-                                    </c:when>
-                                    <c:otherwise>
-                                        <%-- 대기 중 파일은 공개 디렉터리에 없으므로 관리자 전용 경로로 불러온다.
-                                             c:url + c:param으로 감싸 URL 인코딩을 맡긴다 --%>
-                                        <c:url var="previewUrl" value="/super/moderation/preview.do">
-                                            <c:param name="file" value="${q.IMAGE_URL}" />
-                                        </c:url>
-                                        <img class="review-thumb" src="${previewUrl}"
-                                             onclick="window.open(this.src, '_blank')"
-                                             alt="검수 대상 이미지" />
-                                    </c:otherwise>
-                                </c:choose>
+                                <%-- 대기 중 파일은 공개 디렉터리에 없으므로 관리자 전용 경로로 불러온다.
+                                     c:url + c:param으로 감싸 URL 인코딩을 맡긴다.
+                                     동영상 글(2-32차)은 플레이어를, 사진과 영상이 같이 붙은 글은 둘 다 보여준다 --%>
+                                <c:if test="${empty q.IMAGE_URL and empty q.VIDEO_URL}">
+                                    <span class="text-muted small">미디어 없음</span>
+                                </c:if>
+                                <c:if test="${not empty q.VIDEO_URL}">
+                                    <c:url var="videoUrl" value="/super/moderation/preview.do">
+                                        <c:param name="file" value="${q.VIDEO_URL}" />
+                                    </c:url>
+                                    <c:url var="posterUrl" value="/super/moderation/preview.do">
+                                        <c:param name="file" value="${q.IMAGE_URL}" />
+                                    </c:url>
+                                    <video class="review-video" controls preload="metadata" playsinline muted
+                                           src="${videoUrl}"
+                                           <c:if test="${not empty q.IMAGE_URL}">poster="${posterUrl}"</c:if>></video>
+                                    <div class="small text-muted mt-1"><i class="fas fa-video me-1"></i>동영상</div>
+                                </c:if>
+                                <c:if test="${not empty q.IMAGE_URL and empty q.VIDEO_URL}">
+                                    <c:url var="previewUrl" value="/super/moderation/preview.do">
+                                        <c:param name="file" value="${q.IMAGE_URL}" />
+                                    </c:url>
+                                    <img class="review-thumb" src="${previewUrl}"
+                                         onclick="window.open(this.src, '_blank')"
+                                         alt="검수 대상 이미지" />
+                                </c:if>
+                                <%-- 영상 + 사진이 같이 붙은 스타 피드: 사진은 영상 포스터로 쓰지 않고 따로 보여준다
+                                     (IMAGE_URL 이 사진이면 .jpg/.png, 영상 썸네일이면 _thumb.jpg 로 끝난다) --%>
+                                <c:if test="${not empty q.IMAGE_URL and not empty q.VIDEO_URL and not fn:endsWith(q.IMAGE_URL, '_thumb.jpg')}">
+                                    <img class="review-thumb mt-2" src="${posterUrl}"
+                                         onclick="window.open(this.src, '_blank')"
+                                         alt="검수 대상 이미지" />
+                                </c:if>
                             </td>
                             <td>
                                 <c:choose>

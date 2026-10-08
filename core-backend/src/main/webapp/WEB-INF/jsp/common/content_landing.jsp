@@ -72,7 +72,7 @@
         .lp-wrap { max-width: 1400px; margin: 0 auto; padding: 24px 24px 0; }
         .lp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
         .lp-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }
-        .lp-side { display: flex; flex-direction: column; gap: 18px; }
+        .lp-side { display: flex; flex-direction: column; gap: 18px; align-self: stretch; } /* sticky 묶음이 본문 끝까지 따라오도록 열을 본문 높이로 늘림 */
 
         /* ── 배지·버튼 ── */
         .lp-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #1d4ed8; background: #dbeafe; border-radius: 999px; padding: 2px 8px; vertical-align: middle; }
@@ -234,29 +234,44 @@
                    C 피드 중간 300×250(6장마다), 모바일 C' Join 배너 위 300×250.
              포스트: D 본문 끝·Share 버튼 위(PC 728×90 / 모바일 300×250), E 사이드바 More posts 아래 300×600(PC),
                      모바일 B' 작성자 카드와 More posts 사이 320×100, C' Join 위 300×250.
-             클릭 요소와는 20px 이상 띄운다(오클릭 방지) ── */
+             클릭 요소와는 20px 이상 띄운다(오클릭 방지)
+             [2-32차] 애드센스 표준 규격 메일에 맞춰 고정 픽셀로 재조정: 포스트 D(본문 끝)는 PC·모바일 모두 "대형 사각형" 336×280
+             (카드 가용 폭이 336 미만인 402px 미만 뷰포트에서는 300×250). 스타 C 는 그리드 한 칸 폭 때문에 300×250 유지.
+             브레이크포인트는 PC ≥1024 / 그 아래는 한 열(모바일 세트) ── */
         /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
         .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
-        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
+        .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #64748b; }
         .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
-        /* [버그 보고] 스크롤을 따라 내려오는 것을 클라이언트가 원치 않아 sticky 해제 */
+        /* 포스트 D 는 PC 에서도 본문 끝 대형 사각형(2-32차). .ad-lb 보다 뒤에, 더 높은 특이성으로 */
+        .ad-lb.ad-d { width: 336px; height: 280px; border-radius: 14px; }
         .ad-side { width: 300px; height: 600px; margin: 0 auto; }
+        /* 2026-10-06 메일: 포스트 E 를 sticky 로. 광고 단독이 아니라 아래 Join 카드까지 묶어 고정해야 광고가 Join 을 덮지 않는다.
+           (9-28 에는 광고만 sticky 였고 아래 카드를 덮어 버그로 보고됨.) 상단 네비 64px + 간격 20px. 스타 페이지 B 는 메일에 sticky 언급이 없어 그대로 둔다 */
+        .sb-sticky { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 84px; }
+        /* 스타 C(피드 중간)는 카드 그리드 한 칸(PC 3열 ≈325px) 안에 들어가므로 336 이 물리적으로 안 들어간다.
+           모바일 규격 1위이자 PC 에서도 수급이 가장 넓은 300×250 으로 둔다 (2-32차 검토) */
         .ad-rect { width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
         .ad-m-lb { display: none; width: 320px; max-width: 100%; height: 100px; margin: 20px auto; }
         .ad-m-rect { display: none; width: 300px; max-width: 100%; height: 250px; margin: 20px auto; border-radius: 14px; }
         .ad-pc-only { display: block; }
-        @media (max-width: 1000px) {
+        @media (max-width: 1023px) {
             .ad-side, .ad-pc-only { display: none; }
+            .sb-sticky { position: static; } /* 모바일은 한 열이라 sticky 불필요 */
             .ad-m-lb, .ad-m-rect { display: block; }
             .ad-lb { width: 320px; height: 100px; }
-            /* 포스트 D 는 모바일에서 300×250 (참고 메일: 골든 존). 위 .ad-lb 규칙보다 뒤에, 더 높은 특이성으로 */
-            .ad-lb.ad-d { width: 300px; height: 250px; border-radius: 14px; }
+            /* 포스트 D 는 모바일에서 본문 끝 대형 사각형 336×280 (규격 메일: 대화면 폰 세로 모드에 꽉 참) */
+            .ad-lb.ad-d { width: 336px; height: 280px; border-radius: 14px; }
+        }
+        /* 본문 끝 자리는 카드 안에 있어 가용 폭이 뷰포트 − 66px(바깥 16×2 + 카드 16×2 + 테두리 2) 이다.
+           336 은 402px 이상에서만 들어가므로 그 아래는 중형 사각형, 366px 미만(360px 안드로이드)은 카드 여백을 줄여 300 을 확보 */
+        @media (max-width: 401px) {
+            .ad-lb.ad-d { width: 300px; height: 250px; }
         }
 
         /* ── 하단 앱 CTA ── */
         .lp-cta { display: flex; justify-content: center; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1023px) {
             /* 1fr 은 최소 폭이 내용 기준(auto)이라 300px 광고 자리가 좁은 화면(360px 이하)에서 열을 밀어
                카드가 오른쪽으로 넘쳤다(안드로이드 버그 보고). minmax(0, 1fr) 로 열을 화면 폭에 묶는다 */
             .lp-grid { grid-template-columns: minmax(0, 1fr); }
@@ -282,6 +297,10 @@
             .po-title { font-size: 21px; }
             .po-date { margin-left: 0; width: 100%; }
             .po-author { flex-wrap: wrap; }
+        }
+        @media (max-width: 365px) {
+            /* 360px 폭: 카드 좌우 여백을 12px 로 줄여 본문 끝 300×250 자리가 잘리지 않게 (2-32차) */
+            .po-card { padding-left: 12px; padding-right: 12px; }
         }
     </style>
 </head>
@@ -588,15 +607,18 @@
                 </div>
                 </c:if>
 
-                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250 --%>
-                <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
-                <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
+                <%-- [AdSense 승인 대기] 포스트 E: More posts 아래 300×600 sticky (PC) / 모바일 C': Join 위 300×250.
+                     PC 에서 광고와 Join 카드를 한 묶음으로 sticky — 광고만 고정하면 아래 Join 을 덮는다 --%>
+                <div class="sb-sticky">
+                    <div class="ad-slot ad-side" aria-hidden="true" data-ad-slot="post-e"></div>
+                    <div class="ad-slot ad-m-rect" aria-hidden="true" data-ad-slot="post-mobile-c"></div>
 
-                <a class="sb-join" href="#" onclick="openApp(); return false;">
-                    ${starIcon}
-                    <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
-                    <span class="sb-join-arrow" aria-hidden="true">&rsaquo;</span>
-                </a>
+                    <a class="sb-join" href="#" onclick="openApp(); return false;">
+                        ${starIcon}
+                        <span><strong>Join StarPlatform</strong><span>Create your own star page today.</span></span>
+                        <span class="sb-join-arrow" aria-hidden="true">&rsaquo;</span>
+                    </a>
+                </div>
             </aside>
         </div>
 

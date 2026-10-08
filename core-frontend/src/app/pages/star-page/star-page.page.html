@@ -122,7 +122,7 @@
           <div class="review-box">
             <ion-icon name="eye-off-outline"></ion-icon>
             <p class="review-title">Under review</p>
-            <p class="review-desc">This photo is visible only to its author until approved.</p>
+            <p class="review-desc">This {{ item.MEDIA_TYPE === 'VIDEO' ? 'video' : 'photo' }} is visible only to its author until approved.</p>
           </div>
         </div>
 
@@ -132,8 +132,8 @@
             <ion-spinner name="crescent"></ion-spinner>
           </div>
 
-          <!-- 🎥 1순위: 동영상 재생 -->
-          <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO'">
+          <!-- 🎥 1순위: 동영상 재생. 검수 대기 영상은 주소가 없어 아래 이미지 분기(썸네일)로 떨어진다(2-32차) -->
+          <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO' && item.MEDIA_URL">
             <div class="video-thumbnail-wrapper">
               <video #feedVideo [muted]="item.isMuted" autoplay loop playsinline [poster]="item.image"
                 class="video-thumbnail" (loadeddata)="onMediaLoaded(item)" (error)="onMediaLoaded(item)">
@@ -146,11 +146,15 @@
           </ng-container>
 
           <!-- 🖼️ 2순위: 이미지 표시 -->
-          <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차) -->
-          <img *ngIf="item.MEDIA_TYPE !== 'VIDEO' && (item.image || item.pendingImageUrl)"
+          <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차).
+               작성자 본인의 대기 영상도 여기로 — 토큰 주소가 영상 썸네일이다(2-32차) -->
+          <img *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !item.MEDIA_URL) && (item.image || item.pendingImageUrl)"
             [src]="item.image || item.pendingImageUrl" loading="lazy"
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
+          <div class="review-chip" *ngIf="item.isPendingOwnVideo">
+            <ion-icon name="eye-off-outline"></ion-icon> Under review
+          </div>
 
 
           <!-- 🎬 3순위: YouTube 썸네일 표시 -->

@@ -716,9 +716,12 @@
         </if>
     </update>
 
-	<!-- ===== 이미지 검수 화면 (2-26차) =====
+	<!-- ===== 미디어 검수 화면 (2-26차 이미지, 2-32차 동영상 확장) =====
 	     회원 콘텐츠와 스타 피드를 한 목록으로 합쳐 오래된 대기 건부터 보여준다.
-	     이미지가 아직 공개 디렉터리에 없으므로 미리보기는 관리자 전용 스트리밍으로 내보낸다.
+	     파일이 아직 공개 디렉터리에 없으므로 미리보기는 관리자 전용 스트리밍으로 내보낸다.
+
+	     IMAGE_URL = 사진(없으면 영상 썸네일), VIDEO_URL = 영상. 사진과 영상이 같이 붙은 글은 둘 다 내려간다.
+	     회원 글은 영상 주소가 CON_ORIGIN_URL 에 들어가고 사진 글은 그 컬럼이 비어 있으므로 .mp4 접미로 가른다.
 
 	     작성자 이름은 이 파일의 다른 쿼리와 마찬가지로 WH_PRESS에서 가져온다.
 	     content.xml·admin.xml은 WH_MEMBER를 쓰지만 그 테이블은 운영 DB에 없다. -->
@@ -730,6 +733,7 @@
 				C.CON_TITLE AS TITLE,
 				C.CON_BODY  AS BODY,
 				C.CON_THUMNAIL AS IMAGE_URL,
+				IF(C.CON_ORIGIN_URL LIKE '%.mp4', C.CON_ORIGIN_URL, NULL) AS VIDEO_URL,
 				C.MDR_STATUS,
 				DATE_FORMAT(C.CON_CREATE_DATE, '%Y-%m-%d %H:%i') AS CREATED_TEXT,
 				C.CON_CREATE_DATE AS CREATED_DATE,
@@ -745,19 +749,42 @@
 				CAST(S.CON_ID AS CHAR) AS TARGET_ID,
 				NULL AS TITLE,
 				S.CON_BODY AS BODY,
-				D.MEDIA_URL AS IMAGE_URL,
+				IFNULL(
+					(SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D
+					  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'PHOTO' ORDER BY D.SORT_ORDER LIMIT 1),
+					(SELECT D.THUMB_URL FROM STAR_CONTENT_MEDIA D
+					  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1)
+				) AS IMAGE_URL,
+				(SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D
+				  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1) AS VIDEO_URL,
 				S.MDR_STATUS,
 				DATE_FORMAT(S.CREATED_DATE, '%Y-%m-%d %H:%i') AS CREATED_TEXT,
 				S.CREATED_DATE,
 				IFNULL(P.PRS_NAME, S.PRS_ID) AS WRITER
 			FROM WH_STAR_CONTENT S
-			LEFT JOIN STAR_CONTENT_MEDIA D ON S.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 			LEFT JOIN WH_PRESS P ON S.PRS_ID = P.PRS_ID
 			WHERE S.MDR_STATUS = #{status}
-			  AND D.MEDIA_TYPE = 'PHOTO'
 		) Q
 		ORDER BY Q.CREATED_DATE ASC
 		LIMIT 200
+	</select>
+
+	<!-- 승인·차단 시 옮겨야 할 파일 주소 전부 (2-32차).
+	     스타 피드는 미디어마다 원본(MEDIA_URL)과 썸네일(THUMB_URL)이 따로 있고 사진은 둘이 같다 — 호출부가 중복을 거른다.
+	     회원 글은 썸네일(CON_THUMNAIL)과 영상(CON_ORIGIN_URL). 사진 글의 CON_ORIGIN_URL 은 NULL 이라 빠진다 -->
+	<select id="selectModerationFiles" parameterType="map" resultType="string">
+		<choose>
+			<when test="targetType == 'STAR_FEED'">
+				SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D WHERE D.CON_ID = #{targetId} AND D.MEDIA_URL IS NOT NULL
+				UNION
+				SELECT D.THUMB_URL FROM STAR_CONTENT_MEDIA D WHERE D.CON_ID = #{targetId} AND D.THUMB_URL IS NOT NULL
+			</when>
+			<otherwise>
+				SELECT C.CON_THUMNAIL FROM WH_CONTENT C WHERE C.CON_ID = #{targetId} AND C.CON_THUMNAIL IS NOT NULL
+				UNION
+				SELECT C.CON_ORIGIN_URL FROM WH_CONTENT C WHERE C.CON_ID = #{targetId} AND C.CON_ORIGIN_URL IS NOT NULL
+			</otherwise>
+		</choose>
 	</select>
 
 	<!-- 대시보드용 상태별 건수 -->

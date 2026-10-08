@@ -2,7 +2,6 @@ package kr.co.sensiblenews.witchHuntingVU2D7F2P7E;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
@@ -11,6 +10,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.view.LayoutInflater;
 import android.webkit.WebView;
 import android.widget.Button;
@@ -20,7 +20,6 @@ import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.splashscreen.SplashScreen;
 
 
@@ -29,12 +28,18 @@ import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdLoader;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.MediaContent;
+import com.google.android.gms.ads.VideoOptions;
+import com.google.android.gms.ads.nativead.MediaView;
 import com.google.android.gms.ads.nativead.NativeAd;
 import com.google.android.gms.ads.nativead.NativeAdOptions;
 import com.google.android.gms.ads.nativead.NativeAdView;
 
 
 public class MainActivity extends BridgeActivity {
+
+  // 동영상 광고 진단 로그 태그 (2-32차). adb logcat -s AdMobVideo 로 모아 본다
+  private static final String AD_LOG = "AdMobVideo";
 
   WebView webView;
   private FrameLayout wrapper;
@@ -78,6 +83,11 @@ public class MainActivity extends BridgeActivity {
     addAdOverlays();
 
     EdgeToEdge.enable(this);
+
+    // 진단 로그 ① 하드웨어 가속 — 동영상 네이티브 광고의 전제 조건. 매니페스트 application 에 true 로 선언돼 있다
+    boolean hwAccelerated = (getWindow().getAttributes().flags
+      & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0;
+    Log.d(AD_LOG, "hardwareAccelerated=" + hwAccelerated);
   }
 
   private void addAdWrapper() {
@@ -130,12 +140,28 @@ public class MainActivity extends BridgeActivity {
           oldAd.destroy();
         }
 
+        // 진단 로그 ② 로드 성공 ③ mediaContent 유무 ④ 동영상 여부·비율·길이
+        MediaContent mc = nativeAd.getMediaContent();
+        Log.d(AD_LOG, "loaded container=" + adId + " headline=" + nativeAd.getHeadline()
+          + " mediaContent=" + (mc != null));
+        if (mc != null) {
+          Log.d(AD_LOG, "hasVideoContent=" + mc.hasVideoContent()
+            + " aspectRatio=" + mc.getAspectRatio() + " duration=" + mc.getDuration());
+        }
+
         LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
-        ConstraintLayout wrappingView = (ConstraintLayout) inflater.inflate(R.layout.ad_layout, adContainer, false);
+        NativeAdView wrappingView = (NativeAdView) inflater.inflate(R.layout.ad_layout, adContainer, false);
         populateNativeAdView(nativeAd, wrappingView);
         runOnUiThread(() -> {
           adContainer.removeAllViews();
           adContainer.addView(wrappingView);
+
+          // 진단 로그 ⑤ MediaView 실측 크기 — 0×0 이면 제약 문제, 보이지 않으면 레이어 문제
+          MediaView mediaView = wrappingView.findViewById(R.id.ad_media);
+          if (mediaView != null) {
+            mediaView.post(() -> Log.d(AD_LOG, "mediaView size=" + mediaView.getWidth() + "x" + mediaView.getHeight()
+              + " shown=" + mediaView.isShown()));
+          }
 
           // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
           if (webView != null) {
@@ -149,7 +175,8 @@ public class MainActivity extends BridgeActivity {
       .withAdListener(new AdListener() {
         @Override
         public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-          System.out.println("Native ad failed to load: " + loadAdError.getMessage());
+          Log.w(AD_LOG, "native ad failed container=" + adId + " code=" + loadAdError.getCode()
+            + " msg=" + loadAdError.getMessage());
         }
 
         @Override
@@ -168,24 +195,40 @@ public class MainActivity extends BridgeActivity {
           });
         }
       })
-      .withNativeAdOptions(new NativeAdOptions.Builder().build())
+      // 동영상 크리에이티브는 음소거로 자동 재생한다 (피드 안 광고라 소리가 나면 안 된다)
+      .withNativeAdOptions(new NativeAdOptions.Builder()
+        .setVideoOptions(new VideoOptions.Builder().setStartMuted(true).build())
+        .build())
       .build();
 
-    adLoader.loadAds(new AdRequest.Builder().build(), 2);
+    // 단건 로드. 예전의 loadAds(…, 2) 는 미디에이션이 붙은 광고 단위에서 동작하지 않는다(구글 문서)
+    // — 2026-09 에 Liftoff·Meta·Pangle 을 붙인 뒤로 미디에이션 수요를 못 받고 있었을 수 있다.
+    // 두 번째 응답이 첫 번째를 덮어쓰는 구조라 다중 로드의 이득도 없었다.
+    adLoader.loadAd(new AdRequest.Builder().build());
   }
 
-  private void populateNativeAdView(NativeAd nativeAd, ConstraintLayout adView) {
-    ImageView imageView = adView.findViewById(R.id.ad_media);
-
+  /**
+   * 광고 자산을 NativeAdView 에 등록한다 (2-32차 — AdMob 규격대로 재작성).
+   *
+   * 예전 코드는 getMainImage() 를 ImageView 에 넣어 동영상 광고가 정지 이미지로만 보였다.
+   * MediaView 에 setMediaContent 를 하면 SDK 가 이미지·동영상을 알아서 그린다.
+   * setNativeAd 는 자산 등록이 끝난 뒤 마지막에 불러야 노출·클릭이 정상 측정된다.
+   */
+  private void populateNativeAdView(NativeAd nativeAd, NativeAdView adView) {
+    MediaView mediaView = adView.findViewById(R.id.ad_media);
+    mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
+    adView.setMediaView(mediaView);
     if (nativeAd.getMediaContent() != null) {
-      Drawable image = nativeAd.getMediaContent().getMainImage();
-      imageView.setImageDrawable(image);
+      mediaView.setMediaContent(nativeAd.getMediaContent());
+      mediaView.setVisibility(View.VISIBLE);
     } else {
-      imageView.setVisibility(View.GONE);
+      mediaView.setVisibility(View.GONE);
     }
 
     TextView headlineView = adView.findViewById(R.id.ad_headline);
     headlineView.setText(nativeAd.getHeadline());
+    adView.setHeadlineView(headlineView);
+
     ImageView iconView = adView.findViewById(R.id.ad_icon);
     if (nativeAd.getIcon() != null) {
       iconView.setImageDrawable(nativeAd.getIcon().getDrawable());
@@ -193,7 +236,9 @@ public class MainActivity extends BridgeActivity {
     } else {
       iconView.setVisibility(View.GONE);
     }
+    adView.setIconView(iconView);
 
+    // 광고주 자리에는 본문(body)을 넣어 왔다 — 기존 표시 그대로 두고 등록만 body 로 한다
     TextView advertiserView = adView.findViewById(R.id.ad_advertiser);
     if (nativeAd.getBody() != null) {
       advertiserView.setText(nativeAd.getBody());
@@ -201,22 +246,18 @@ public class MainActivity extends BridgeActivity {
     } else {
       advertiserView.setVisibility(View.GONE);
     }
+    adView.setBodyView(advertiserView);
 
-//    Button callToActionView = adView.findViewById(R.id.ad_call_to_action);
-    NativeAdView ctaView = adView.findViewById(R.id.ad_call_to_action);
+    Button ctaButton = adView.findViewById(R.id.ad_call_to_action);
     if (nativeAd.getCallToAction() != null) {
-      ctaView.setNativeAd(nativeAd);
-
-
-      Button ctaButton = ctaView.findViewById(R.id.ad_call_to_action_button);
-      ctaView.setCallToActionView(ctaButton);
       ctaButton.setText(nativeAd.getCallToAction());
       ctaButton.setVisibility(View.VISIBLE);
+    } else {
+      ctaButton.setVisibility(View.INVISIBLE);
     }
+    adView.setCallToActionView(ctaButton);
 
-    if (nativeAd.getMediaContent() != null && nativeAd.getMediaContent().hasVideoContent()) {
-      nativeAd.getMediaContent().getVideoController().mute(true);
-    }
+    adView.setNativeAd(nativeAd);
   }
 
   private int getStatusBarHeight(Context context) {
@@ -259,9 +300,9 @@ public class MainActivity extends BridgeActivity {
       targetAd = currentNativeAd3;
     }
 
+    // 재생은 SDK 가 MediaView 안에서 알아서 한다(시작 음소거는 VideoOptions). 여기서는 가시성 진입만 기록한다
     if (targetAd != null && targetAd.getMediaContent() != null && targetAd.getMediaContent().hasVideoContent()) {
-      targetAd.getMediaContent().getVideoController().mute(true);
-      Log.d("AdVisibility", "Ad container " + adId + " is visible. Triggering playback.");
+      Log.d(AD_LOG, "video ad container " + adId + " entered viewport");
     }
   }
 }

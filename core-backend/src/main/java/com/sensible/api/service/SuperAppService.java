@@ -1556,6 +1556,8 @@ public class SuperAppService {
 			Object conId = masterParam.get("CON_ID");
 
 			int sortOrder = 0;
+			// 이미지·동영상 중 하나라도 붙으면 검수 대기로 돌린다 (상태 변경·로그는 아래 5단계에서 한 번만)
+			boolean needsReview = false;
 
 			// 3. Base64 이미지 디코딩 및 저장 (2-26차 — 검수 대기로 저장한다)
 			//
@@ -1596,22 +1598,14 @@ public class SuperAppService {
 				mediaParam.put("SORT_ORDER", sortOrder++);
 
 				dao.insert("superapp.insertContentMedia", mediaParam);
-
-				// 이미지가 붙은 피드만 검수 대상이다 (영상·유튜브만 있는 글은 그대로 공개)
-				Map<String, Object> mdrParam = new HashMap<>();
-				mdrParam.put("CON_ID", conId);
-				mdrParam.put("MDR_STATUS", "PENDING");
-				dao.update("superapp.updateStarContentModeration", mdrParam);
-
-				Map<String, Object> logParam = new HashMap<>();
-				logParam.put("TARGET_TYPE", "STAR_FEED");
-				logParam.put("TARGET_ID", String.valueOf(conId));
-				logParam.put("ACTION", "PENDING");
-				logParam.put("REASON", "업로드 검수 대기");
-				dao.insert("superapp.insertModerationLog", logParam);
+				needsReview = true;
 			}
 
-			// 4. Base64 동영상 디코딩 및 저장
+			// 4. Base64 동영상 디코딩 및 저장 (2-32차 — 이미지와 같이 검수 대기로 저장한다)
+			//
+			// 예전에는 영상·썸네일을 곧바로 공개 디렉터리(/video)에 써서 검수를 통째로 건너뛰었다.
+			// 이제 원본 저장·변환·썸네일 추출을 전부 대기 보관소 안에서 하고,
+			// MEDIA_URL/THUMB_URL 에는 승인 후 주소를 미리 넣어둔다. 승인 시 URL 접두로 목적지를 정해 옮긴다.
 			if (videoBase64 != null && !videoBase64.isEmpty()) {
 				String[] parts = videoBase64.split(",");
 				String base64Data = parts.length > 1 ? parts[1] : parts[0];
@@ -1624,20 +1618,23 @@ public class SuperAppService {
 				String videoName = uuid + ext;
 				String thumbName = uuid + "_thumb.jpg";
 
-				// 동영상 파일 저장
-				Path targetPath = Paths.get(Constants._VIDEO_SAVE_PATH + videoName);
+				// 동영상 파일 저장 — 대기 보관소
+				Path pendingDir = Paths.get(Constants._PENDING_SAVE_PATH);
+				Files.createDirectories(pendingDir);
+				Path targetPath = pendingDir.resolve(videoName);
 				Files.write(targetPath, decodedBytes);
 
 				// [2-31차 후속] 웹 호환 MP4(H.264/AAC, faststart)로 변환한다.
 				// 아이폰 HEVC 원본은 PC Chrome 등에서 재생되지 않았다. 변환에 실패하면 원본을 그대로 쓴다
-				Path webPath = Paths.get(Constants._VIDEO_SAVE_PATH + uuid + ".mp4");
+				// (성공하면 toWebMp4 가 원본을 지우므로 대기 보관소에 찌꺼기가 남지 않는다)
+				Path webPath = pendingDir.resolve(uuid + ".mp4");
 				if (com.sensible.common.util.VideoTranscodeUtil.toWebMp4(targetPath, webPath)) {
 					videoName = uuid + ".mp4";
 					targetPath = webPath;
 				}
 
-				// 썸네일 생성 (FFmpeg 호출) — 최종 파일 기준
-				generateVideoThumbnail(targetPath.toString(), Constants._VIDEO_THUMNAIL_SAVE_PATH + thumbName);
+				// 썸네일 생성 (FFmpeg 호출) — 최종 파일 기준. 썸네일도 내용을 드러내므로 대기 보관소에 둔다
+				generateVideoThumbnail(targetPath.toString(), pendingDir.resolve(thumbName).toString());
 
 				// 미디어 테이블 Insert
 				Map<String, Object> mediaParam = new HashMap<>();
@@ -1648,6 +1645,22 @@ public class SuperAppService {
 				mediaParam.put("SORT_ORDER", sortOrder++);
 
 				dao.insert("superapp.insertContentMedia", mediaParam);
+				needsReview = true;
+			}
+
+			// 5. 이미지나 동영상이 붙은 피드는 검수 대상이다 (유튜브 링크·본문만 있는 글은 그대로 공개)
+			if (needsReview) {
+				Map<String, Object> mdrParam = new HashMap<>();
+				mdrParam.put("CON_ID", conId);
+				mdrParam.put("MDR_STATUS", "PENDING");
+				dao.update("superapp.updateStarContentModeration", mdrParam);
+
+				Map<String, Object> logParam = new HashMap<>();
+				logParam.put("TARGET_TYPE", "STAR_FEED");
+				logParam.put("TARGET_ID", String.valueOf(conId));
+				logParam.put("ACTION", "PENDING");
+				logParam.put("REASON", "업로드 검수 대기");
+				dao.insert("superapp.insertModerationLog", logParam);
 			}
 
 			result.put("result", "OK");

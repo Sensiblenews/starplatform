@@ -2082,13 +2082,20 @@
 	</insert>
 
 
-	<!-- 검수 대기 이미지 스트리밍용. 상태와 파일 주소를 한 번에 확인한다(2-26차) -->
+	<!-- 검수 대기 이미지 스트리밍용. 상태와 파일 주소를 한 번에 확인한다(2-26차).
+	     작성자 본인에게는 항상 "이미지"만 돌려준다 — 영상만 있는 글은 영상 썸네일(2-32차).
+	     대기 중 영상 재생은 제공하지 않는다(썸네일 + Under review 로 확정) -->
 	<select id="selectPendingMediaTarget" parameterType="map" resultType="map">
 		<choose>
 			<when test="targetType == 'STAR_FEED'">
-				SELECT S.MDR_STATUS, D.MEDIA_URL AS IMAGE_URL
+				SELECT S.MDR_STATUS,
+					IFNULL(
+						(SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D
+						  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'PHOTO' ORDER BY D.SORT_ORDER LIMIT 1),
+						(SELECT D.THUMB_URL FROM STAR_CONTENT_MEDIA D
+						  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1)
+					) AS IMAGE_URL
 				FROM WH_STAR_CONTENT S
-				LEFT JOIN STAR_CONTENT_MEDIA D ON S.CON_ID = D.CON_ID AND D.SORT_ORDER = 0
 				WHERE S.CON_ID = #{targetId}
 			</when>
 			<otherwise>
