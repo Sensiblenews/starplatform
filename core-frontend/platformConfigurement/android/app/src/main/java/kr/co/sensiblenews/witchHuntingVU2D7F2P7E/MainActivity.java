@@ -119,8 +119,15 @@ public class MainActivity extends BridgeActivity {
     setUpContainer(adContainer3, R.id.ad_container_3);
   }
 
-  public void loadNativeAd(final FrameLayout adContainer, final int adId) {
-//    AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-3940256099942544/2247696110")
+  /**
+   * 네이티브 광고 로드.
+   *
+   * @param landscapeOnly 로비 슬롯처럼 카드가 315dp 로 고정돼 미디어 상자가 가로로 긴 곳은
+   *                      가로 크리에이티브만 요청한다. 세로·정사각 동영상이 오면 MediaView 가
+   *                      자르지 않고 맞춰 넣기만 해서 양옆이 비고 작게 보였다(클라이언트 보고).
+   */
+  public void loadNativeAd(final FrameLayout adContainer, final int adId, final boolean landscapeOnly) {
+//    AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-3940256099942544/1044960115")
     AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-9109251900558498/4011939762")
       .forNativeAd(nativeAd -> {
         NativeAd oldAd = null;
@@ -195,9 +202,13 @@ public class MainActivity extends BridgeActivity {
           });
         }
       })
-      // 동영상 크리에이티브는 음소거로 자동 재생한다 (피드 안 광고라 소리가 나면 안 된다)
+      // 동영상 크리에이티브는 음소거로 자동 재생한다 (피드 안 광고라 소리가 나면 안 된다).
+      // 미디어 비율: 로비(315dp 고정)는 가로만, 스타 페이지(화면 폭+85 카드)는 모든 비율
       .withNativeAdOptions(new NativeAdOptions.Builder()
         .setVideoOptions(new VideoOptions.Builder().setStartMuted(true).build())
+        .setMediaAspectRatio(landscapeOnly
+          ? NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_LANDSCAPE
+          : NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_ANY)
         .build())
       .build();
 
@@ -271,14 +282,11 @@ public class MainActivity extends BridgeActivity {
   }
 
   private void setUpContainer(FrameLayout container,int id) {
-    DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int adHeight = (int) (315 * metrics.density);
-
 //    container.setWebView(webView);
     container.setId(id);
     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
       FrameLayout.LayoutParams.MATCH_PARENT,
-      adHeight
+      lobbyCardHeightPx()
     );
 
     params.gravity = Gravity.TOP;
@@ -286,6 +294,31 @@ public class MainActivity extends BridgeActivity {
     container.setFocusable(false);
 
     wrapper.addView(container, params);
+  }
+
+  /** 로비 슬롯 카드 높이(px). 웹 플레이스홀더 315px·iOS 315pt 와 통일 */
+  public int lobbyCardHeightPx() {
+    return (int) (315 * getResources().getDisplayMetrics().density);
+  }
+
+  /**
+   * 스타 페이지 카드 높이(px) = 화면 폭 + 85dp. iOS(MainViewController.adHeight)와 같은 공식이며
+   * 웹 플레이스홀더 빈칸 박스(screenWidth + 85)와 같다. 예전에는 315dp 카드를 그 박스 가운데 띄워
+   * 위아래가 놀고 미디어 상자가 가로로 눌려 세로·정사각 동영상이 작게 보였다.
+   */
+  public int starCardHeightPx() {
+    DisplayMetrics metrics = getResources().getDisplayMetrics();
+    float screenWidthDp = metrics.widthPixels / metrics.density;
+    return (int) ((screenWidthDp + 85f) * metrics.density);
+  }
+
+  /** 페이지 모드에 따라 컨테이너 높이를 바꾼다 (NativeBridge.setShow 에서 호출) */
+  public void setContainerHeight(FrameLayout container, int heightPx) {
+    ViewGroup.LayoutParams lp = container.getLayoutParams();
+    if (lp != null && lp.height != heightPx) {
+      lp.height = heightPx;
+      container.setLayoutParams(lp);
+    }
   }
 
   // 외부(NativeBridge)에서 호출

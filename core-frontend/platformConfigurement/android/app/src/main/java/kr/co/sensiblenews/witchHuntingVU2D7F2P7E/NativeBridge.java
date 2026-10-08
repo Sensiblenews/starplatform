@@ -58,10 +58,12 @@ public class NativeBridge extends Plugin {
     // Ad 3 (배열 인덱스 15): 앞에 일반 피드 13개 + Ad 2개 있음
     float slot3Y = headerProfileHeight + (feedItemHeight * 16) + (adSlotHeight * 2);
 
-    // 3. 네이티브 광고(315dp)를 웹의 빈칸 박스(screenWidth + 85) 수직 중앙에 배치하기 위한 보정치
+    // 3. 네이티브 광고 카드를 웹의 빈칸 박스(screenWidth + 85) 수직 중앙에 배치하기 위한 보정치.
+    //    카드 높이를 iOS 와 같이 빈칸 박스와 똑같이(화면 폭+85) 잡으므로 보정치는 0 이 된다 — 식은 남겨둔다
     float placeholderTopMargin = 0f; // 슬롯 상단 여백 (margin 16 + padding 10)
     float placeholderBoxHeight = screenWidth + 85f;
-    float centeringOffset = (placeholderBoxHeight - 315f) / 2f; // 중앙 정렬
+    float cardHeight = screenWidth + 85f; // MainActivity.starCardHeightPx 와 같은 값(dp)
+    float centeringOffset = (placeholderBoxHeight - cardHeight) / 2f; // 중앙 정렬
 
     // 4. 최종 위치 적용
     initialPositionY1 = (int) ((slot1Y + placeholderTopMargin + centeringOffset) * metrics.density);
@@ -97,20 +99,26 @@ public class NativeBridge extends Plugin {
         params.topMargin = (int) getActivity().getResources().getDimension(R.dimen.ad_top_margin) + getStatusBarHeight(getContext());
         adWrapper.setLayoutParams(params);
 
+        MainActivity activity = (MainActivity) getActivity();
         if ("lobby".equals(page)) {
-          // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기
+          // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기.
+          // 카드는 315dp 고정이라 가로 크리에이티브만 요청한다
           lobbyMode = true;
+          activity.setContainerHeight(adContainer1, activity.lobbyCardHeightPx());
           adContainer1.setVisibility(View.INVISIBLE);
           adContainer1.setTranslationY(100000f);
           adContainer2.setVisibility(View.GONE);
           adContainer3.setVisibility(View.GONE);
           ad1Triggered = false;
 
-          MainActivity activity = (MainActivity) getActivity();
-          activity.loadNativeAd(adContainer1, R.id.ad_container_1);
+          activity.loadNativeAd(adContainer1, R.id.ad_container_1, true);
         } else {
-          // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로
+          // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로. 카드는 iOS 와 같이 화면 폭+85
           lobbyMode = false;
+          int starHeight = activity.starCardHeightPx();
+          activity.setContainerHeight(adContainer1, starHeight);
+          activity.setContainerHeight(adContainer2, starHeight);
+          activity.setContainerHeight(adContainer3, starHeight);
           adContainer1.setVisibility(View.VISIBLE);
           adContainer2.setVisibility(View.VISIBLE);
           adContainer3.setVisibility(View.VISIBLE);
@@ -232,9 +240,9 @@ public class NativeBridge extends Plugin {
 
     MainActivity activity = (MainActivity) getActivity();
     activity.runOnUiThread(() -> {
-      activity.loadNativeAd(adContainer1, R.id.ad_container_1);
-      activity.loadNativeAd(adContainer2, R.id.ad_container_2);
-      activity.loadNativeAd(adContainer3, R.id.ad_container_3);
+      activity.loadNativeAd(adContainer1, R.id.ad_container_1, false);
+      activity.loadNativeAd(adContainer2, R.id.ad_container_2, false);
+      activity.loadNativeAd(adContainer3, R.id.ad_container_3, false);
     });
   }
 
