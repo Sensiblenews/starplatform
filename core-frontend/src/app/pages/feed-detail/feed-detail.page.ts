@@ -90,17 +90,28 @@ export class FeedDetailPage implements OnInit, OnDestroy {
       // 단기 접근 토큰이 내려오므로 그것으로 원본을 그린다(2-26차)
       const pendingToken = res.pendingImageToken || null;
       const rawMedias = res.medias || [];
+      const tokenUrl = pendingToken
+        ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(pendingToken)}`
+        : null;
+      // 토큰 주소는 글당 하나이고 서버가 "사진이 있으면 사진, 없으면 영상 썸네일"을 돌려준다.
+      // 사진이 같이 붙은 글에서는 영상 포스터로 쓰지 않는다 (사진이 포스터로 잘못 보이지 않게)
+      const hasPhoto = rawMedias.some((m: any) => m.MEDIA_TYPE === 'PHOTO');
       this.mediaList = rawMedias.map((media: any) => {
+          const isPending = media.MDR_STATUS === 'PENDING';
+
           if (media.MEDIA_TYPE === 'VIDEO') {
               media.isMuted = true; // 기본 음소거 상태 추가
+              // 검수 대기 영상은 작성자 본인에게도 재생을 주지 않는다 — 썸네일 + "Under review" (2-32차 확정).
+              // 승인 전에는 서버가 MEDIA_URL·THUMB_URL 을 비우므로 토큰 주소가 썸네일이 된다
+              media.isPendingOwn = isPending && !!tokenUrl;
+              media.displayUrl = media.MEDIA_URL || null;
+              media.posterUrl = media.THUMB_URL || (media.isPendingOwn && !hasPhoto ? tokenUrl : null);
+              media.isUnderReview = isPending && !media.displayUrl;
+              return media;
           }
 
-          const isPending = media.MDR_STATUS === 'PENDING';
-          media.isPendingOwn = isPending && media.MEDIA_TYPE === 'PHOTO' && !!pendingToken;
-          media.displayUrl = media.MEDIA_URL
-            || (media.isPendingOwn
-                ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(pendingToken)}`
-                : null);
+          media.isPendingOwn = isPending && !!tokenUrl;
+          media.displayUrl = media.MEDIA_URL || (media.isPendingOwn ? tokenUrl : null);
           media.isUnderReview = isPending && !media.displayUrl;
           return media;
       });
@@ -142,9 +153,9 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   }
 
   // 🎥 [신규] 동영상 목록만 필터링 (2순위).
-  // 검수 대기 글의 동영상은 주소가 가려져 재생할 수 없으므로 목록에서 뺀다
+  // 검수 대기 글의 동영상은 주소가 가려지지만 목록에서 빼지 않는다 — 자리에 "Under review" 를 그린다(2-32차)
   getVideoList(): any[] {
-    return this.mediaList.filter(m => m.MEDIA_TYPE === 'VIDEO' && m.MEDIA_URL);
+    return this.mediaList.filter(m => m.MEDIA_TYPE === 'VIDEO' && (m.MEDIA_URL || m.MDR_STATUS === 'PENDING'));
   }
 
   // 🎬 YouTube URL을 embed URL로 변환

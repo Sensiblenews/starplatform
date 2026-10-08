@@ -383,14 +383,32 @@ public class SuperAdminService {
             return false;
         }
 
-        String fileName = ImageModerationUtil.fileNameFromUrl((String) target.get("IMAGE_URL"));
-        if (fileName != null) {
+        // 게시물에 붙은 파일 전부를 옮긴다 (2-32차: 사진 + 영상 + 영상 썸네일).
+        // 목적지는 URL 접두로 정한다 — /video/ 는 영상 디렉터리, /video/thumnail/ 은 썸네일 디렉터리, 그 외 /img.
+        // 스타 피드는 사진의 MEDIA_URL·THUMB_URL 이 같은 주소라 중복을 거른다.
+        List<String> fileUrls = dao.selectList("super.selectModerationFiles", param);
+        java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<String>();
+        if (fileUrls != null) {
+            for (String url : fileUrls) {
+                if (url != null && !url.trim().isEmpty()) {
+                    seen.add(url.trim());
+                }
+            }
+        }
+        if (!seen.isEmpty()) {
             try {
-                if ("APPROVED".equals(toStatus)) {
-                    ImageModerationUtil.promote(fileName);
-                } else {
-                    // REJECTED와 HIDDEN은 사유만 다르고 파일 처리는 같다 (삭제하지 않고 격리)
-                    ImageModerationUtil.quarantine(fileName);
+                for (String url : seen) {
+                    String fileName = ImageModerationUtil.fileNameFromUrl(url);
+                    if (fileName == null) {
+                        continue;
+                    }
+                    String publicDir = ImageModerationUtil.publicDirForUrl(url);
+                    if ("APPROVED".equals(toStatus)) {
+                        ImageModerationUtil.promote(fileName, publicDir);
+                    } else {
+                        // REJECTED와 HIDDEN은 사유만 다르고 파일 처리는 같다 (삭제하지 않고 격리)
+                        ImageModerationUtil.quarantine(fileName, publicDir);
+                    }
                 }
             } catch (Exception e) {
                 // 파일을 못 옮겼으면 상태를 되돌린다. 상태와 파일 위치가 어긋나면

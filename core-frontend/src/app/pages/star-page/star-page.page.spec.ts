@@ -58,6 +58,36 @@ describe('StarPagePage — 피드 목록', () => {
       const video = makeFeed(1, { MEDIA_TYPE: 'VIDEO' });
       expect(page.prepareFeedItem(video).isMuted).toBeTrue();
     });
+
+    // 2-32차 동영상 검수 — 대기 중 영상은 본인에게도 재생을 주지 않고 썸네일 + 칩으로 표시한다
+    it('작성자 본인의 검수 대기 영상은 썸네일(토큰)과 Under review 칩을 쓴다', () => {
+      const page = makePage();
+      const video = makeFeed(1, {
+        MEDIA_TYPE: 'VIDEO', image: null, MEDIA_URL: null,
+        MDR_STATUS: 'PENDING', pendingImageToken: 'tok'
+      });
+      const item = page.prepareFeedItem(video);
+      expect(item.isUnderReview).toBeFalse();
+      expect(item.pendingImageUrl).toContain('/api/super/media/pending?t=tok');
+      expect(item.isPendingOwnVideo).toBeTrue();
+    });
+
+    it('타인의 검수 대기 영상은 Under review 자리만 그린다', () => {
+      const page = makePage();
+      const video = makeFeed(1, {
+        MEDIA_TYPE: 'VIDEO', image: null, MEDIA_URL: null, MDR_STATUS: 'PENDING'
+      });
+      const item = page.prepareFeedItem(video);
+      expect(item.isUnderReview).toBeTrue();
+      expect(item.isPendingOwnVideo).toBeFalse();
+      expect(item.isLoaded).toBeTrue();
+    });
+
+    it('승인된 영상에는 칩을 얹지 않는다', () => {
+      const page = makePage();
+      const video = makeFeed(1, { MEDIA_TYPE: 'VIDEO', MEDIA_URL: 'https://cdn/1.mp4', MDR_STATUS: 'APPROVED' });
+      expect(page.prepareFeedItem(video).isPendingOwnVideo).toBeFalse();
+    });
   });
 
   describe('mergeFeed (복귀 후 백그라운드 갱신)', () => {

@@ -591,10 +591,11 @@ public class SuperAdminController {
     }
 
     /**
-     * 검수 대기 이미지 미리보기.
+     * 검수 대기 미디어 미리보기 (이미지 + 동영상).
      *
-     * 대기 중 파일은 공개 디렉터리(/img)에 없으므로 웹으로 직접 열 수 없다.
-     * 관리자만 볼 수 있도록 여기서 직접 내보낸다.
+     * 대기 중 파일은 공개 디렉터리(/img, /video)에 없으므로 웹으로 직접 열 수 없다.
+     * 관리자만 볼 수 있도록 여기서 직접 내보낸다. 동영상은 Range 요청(탐색)에 206 으로 답해야
+     * 브라우저 플레이어가 동작하므로 RangeStreamUtil 로 내보낸다(2-32차).
      */
     @RequestMapping(value = "/super/moderation/preview.do")
     public void moderationPreview(HttpServletRequest request, HttpServletResponse response,
@@ -612,9 +613,10 @@ public class SuperAdminController {
             return;
         }
 
+        // 대기·격리 보관소를 먼저 보고, 이미 승인된 건("최근 승인" 탭)은 공개 디렉터리에서 찾는다
         java.io.File found = null;
         for (String dir : new String[] { Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH,
-                Constants._FILE_SAVE_PATH }) {
+                Constants._FILE_SAVE_PATH, Constants._VIDEO_SAVE_PATH, Constants._VIDEO_THUMNAIL_SAVE_PATH }) {
             java.io.File candidate = new java.io.File(dir, fileName);
             if (candidate.exists() && candidate.isFile()) {
                 found = candidate;
@@ -626,27 +628,10 @@ public class SuperAdminController {
             return;
         }
 
-        String ext = ImageModerationUtil.extensionOf(fileName);
-        response.setContentType("png".equals(ext) ? "image/png"
-                : "webp".equals(ext) ? "image/webp" : "image/jpeg");
-        response.setContentLength((int) found.length());
-        // 검수 대상 이미지는 캐시하지 않는다. 차단 후에도 브라우저에 남으면 곤란하다
+        // 검수 대상은 캐시하지 않는다. 차단 후에도 브라우저에 남으면 곤란하다
         response.setHeader("Cache-Control", "no-store");
-
-        java.io.InputStream in = null;
-        java.io.OutputStream out = null;
-        try {
-            in = new java.io.FileInputStream(found);
-            out = response.getOutputStream();
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            out.flush();
-        } finally {
-            if (in != null) { try { in.close(); } catch (Exception e) { } }
-        }
+        com.sensible.common.util.RangeStreamUtil.write(found,
+                com.sensible.common.util.RangeStreamUtil.contentTypeFor(fileName), request, response);
     }
 
     /** 승인 / 차단 처리 */

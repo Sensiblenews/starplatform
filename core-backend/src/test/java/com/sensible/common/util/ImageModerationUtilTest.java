@@ -186,4 +186,27 @@ public class ImageModerationUtilTest {
 		assertNull(ImageModerationUtil.fileNameFromUrl("https://x/img/a\u0000b.jpg"));
 		assertNull(ImageModerationUtil.fileNameFromUrl("https://x/img/a b.jpg"));
 	}
+
+	// ===================== 승인 시 목적지 (2-32차 동영상 검수) =====================
+
+	@Test
+	public void 영상_URL은_영상_디렉터리로_간다() {
+		assertEquals(com.sensible.common.Constants._VIDEO_SAVE_PATH,
+				ImageModerationUtil.publicDirForUrl("https://witch-hunting.com/video/abc.mp4"));
+	}
+
+	@Test
+	public void 영상_썸네일_URL은_썸네일_디렉터리로_간다() {
+		// /video/ 접두에도 걸리므로 더 긴 접두를 먼저 비교해야 한다
+		assertEquals(com.sensible.common.Constants._VIDEO_THUMNAIL_SAVE_PATH,
+				ImageModerationUtil.publicDirForUrl("https://witch-hunting.com/video/thumnail/abc_thumb.jpg"));
+	}
+
+	@Test
+	public void 그_외_URL은_이미지_디렉터리로_간다() {
+		assertEquals(com.sensible.common.Constants._FILE_SAVE_PATH,
+				ImageModerationUtil.publicDirForUrl("https://witch-hunting.com/img/abc.jpg"));
+		assertEquals(com.sensible.common.Constants._FILE_SAVE_PATH,
+				ImageModerationUtil.publicDirForUrl(null));
+	}
 }

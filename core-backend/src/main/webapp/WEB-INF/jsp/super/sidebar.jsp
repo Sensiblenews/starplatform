@@ -88,7 +88,7 @@
             </li>
             <li class="nav-item mb-1">
                 <a href="/super/moderation/list.do" class="nav-link <c:if test="${activeMenu eq 'moderation'}">active</c:if>" style="color: #ffd54f;">
-                    <i class="fas fa-image me-2"></i> 이미지 검수
+                    <i class="fas fa-photo-video me-2"></i> 미디어 검수
                 </a>
             </li>
             <li class="nav-item mb-1">

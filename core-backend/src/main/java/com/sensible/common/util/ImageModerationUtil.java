@@ -231,14 +231,49 @@ public class ImageModerationUtil {
 		return fileName;
 	}
 
-	/** 대기·차단 보관소에 있는 파일을 공개 디렉터리로 옮긴다 (= 승인) */
+	/** 대기·차단 보관소에 있는 파일을 공개 디렉터리(/img)로 옮긴다 (= 승인) */
 	public static boolean promote(String fileName) throws IOException {
-		return move(fileName, Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH, Constants._FILE_SAVE_PATH);
+		return promote(fileName, Constants._FILE_SAVE_PATH);
 	}
 
-	/** 공개 디렉터리에 있는 파일을 차단 보관소로 옮긴다 (= 비공개). 삭제하지 않는다 */
+	/**
+	 * 대기·차단 보관소에 있는 파일을 지정한 공개 디렉터리로 옮긴다 (= 승인).
+	 * 동영상 검수(2-32차): 영상은 /video, 영상 썸네일은 /video/thumnail 로 가야 하므로 목적지를 받는다
+	 */
+	public static boolean promote(String fileName, String publicDir) throws IOException {
+		return move(fileName, Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH, publicDir);
+	}
+
+	/** 공개 디렉터리(/img)에 있는 파일을 차단 보관소로 옮긴다 (= 비공개). 삭제하지 않는다 */
 	public static boolean quarantine(String fileName) throws IOException {
-		return move(fileName, Constants._FILE_SAVE_PATH, Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH);
+		return quarantine(fileName, Constants._FILE_SAVE_PATH);
+	}
+
+	/** 지정한 공개 디렉터리(또는 대기 보관소)에 있는 파일을 차단 보관소로 옮긴다. 삭제하지 않는다 */
+	public static boolean quarantine(String fileName, String publicDir) throws IOException {
+		return move(fileName, publicDir, Constants._PENDING_SAVE_PATH, Constants._HIDDEN_SAVE_PATH);
+	}
+
+	/**
+	 * 공개 URL 이 가리키는 파일의 공개 디렉터리를 정한다 (2-32차).
+	 * 승인·차단 시 파일을 어디로 옮길지 URL 접두로 판단한다 — 긴 접두(영상 썸네일)부터 비교해야 /video/ 에 먹히지 않는다.
+	 *
+	 *   https://witch-hunting.com/video/thumnail/x.jpg → /video/thumnail/
+	 *   https://witch-hunting.com/video/x.mp4          → /video/
+	 *   그 외(/img/...)                                  → /img/
+	 */
+	public static String publicDirForUrl(String url) {
+		if (url == null) {
+			return Constants._FILE_SAVE_PATH;
+		}
+		String value = url.trim();
+		if (value.startsWith(Constants._VIDEO_THUMNAIL_FILE_URL)) {
+			return Constants._VIDEO_THUMNAIL_SAVE_PATH;
+		}
+		if (value.startsWith(Constants._VIDEO_FILE_URL)) {
+			return Constants._VIDEO_SAVE_PATH;
+		}
+		return Constants._FILE_SAVE_PATH;
 	}
 
 	/**

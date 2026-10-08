@@ -17,7 +17,8 @@
 			    WC.MDR_STATUS,
 			    CON_VIDEO,
 			    CON_VIDEO_THUMNAIL,
-			    CON_ORIGIN_URL,
+			    -- 영상 주소도 승인 전에는 주지 않는다 (2-32차 동영상 검수)
+			    IF(WC.MDR_STATUS = 'APPROVED', CON_ORIGIN_URL, NULL) AS CON_ORIGIN_URL,
 			    CON_YOUTUBE_URL,
 			    CON_BODY,
 			    CON_PREFIX,

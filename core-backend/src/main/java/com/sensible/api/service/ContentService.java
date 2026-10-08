@@ -1183,20 +1183,30 @@ public class ContentService {
 			
 			dao.insert("content.contentRegit", map);
 
-			// 영상 등록
+			// 요청 원문의 이미지(base64)는 영상 분기가 CON_THUMNAIL 을 덮어쓰기 전에 따로 잡아둔다.
+			// 2-26차 이후 영상 글은 영상 분기가 CON_THUMNAIL 에 썸네일 "URL" 을 넣고, 이어지는 이미지 분기가
+			// 같은 키를 base64 로 다시 읽어 시그니처 검증에 걸렸다 → 글은 이미 저장됐는데 FAIL 을 돌려주던 회귀(2-32차 수정).
+			String thumbnail = (String) map.get("CON_THUMNAIL");
+			boolean needsReview = false;
+
+			// 영상 등록 (2-32차 — 검수 대기로 저장한다)
+			//
+			// 예전에는 영상을 /video, 썸네일을 /img 에 곧바로 써서 검수를 통째로 건너뛰었다.
+			// 이제 둘 다 대기 보관소에 두고, DB 에는 승인 후의 공개 주소를 미리 기록한다.
+			// 승인 시 URL 접두(/video/, /img/)로 목적지를 정해 옮긴다.
 			if ((String) map.get("CON_VIDEO") != null && !"".equals((String) map.get("CON_VIDEO"))) {
 				String fileNm = String.valueOf(conId.intValue()) + ".mp4"; // .mp4 확장자 설정
-				saveVideoFile((String) map.get("CON_VIDEO"), fileNm);
+				saveVideoFile((String) map.get("CON_VIDEO"), fileNm, Constants._PENDING_SAVE_PATH);
 
-				// 썸네일 파일 이름 설정
-				String thumbnailFileNm = String.valueOf(conId.intValue()) + ".jpg";
-				generateVideoThumbnailWithJCodec(Constants._VIDEO_SAVE_PATH + fileNm, Constants._FILE_SAVE_PATH + thumbnailFileNm);
-
+				// 썸네일 파일 이름. 이미지가 같이 온 글의 {conId}.jpg 와 겹치지 않게 접미어를 붙인다
+				String thumbnailFileNm = String.valueOf(conId.intValue()) + "_thumb.jpg";
+				generateVideoThumbnailWithJCodec(Constants._PENDING_SAVE_PATH + fileNm, Constants._PENDING_SAVE_PATH + thumbnailFileNm);
 
 				map.put("CON_ORIGIN_URL", Constants._VIDEO_FILE_URL + fileNm);
 				map.put("CON_THUMNAIL", Constants._FILE_URL + thumbnailFileNm); // 썸네일 경로
 
 				dao.update("admin.contentImgUpdate", map); // DB Update (영상 경로 저장)
+				needsReview = true;
 			}
 
 			// 이미지 등록 (2-26차 — 검수 대기로 저장한다)
@@ -1206,7 +1216,6 @@ public class ContentService {
 			//
 			// 기존 조건문은 `!= null || !"".equals(...)`라 이미지가 없어도 항상 참이 되어
 			// 본문만 있는 글이 저장 실패로 떨어지고 있었다. 조건을 바로잡는다.
-			String thumbnail = (String) map.get("CON_THUMNAIL");
 			if (thumbnail != null && !thumbnail.trim().isEmpty()) {
 
 				byte[] imageBytes = Base64.decodeBase64(ImageModerationUtil.base64Payload(thumbnail));
@@ -1233,8 +1242,11 @@ public class ContentService {
 
 				map.put("CON_THUMNAIL", Constants._FILE_URL + fileNm);
 				dao.update("admin.contentImgUpdate", map);
+				needsReview = true;
+			}
 
-				// 이미지가 붙은 글만 검수 대상이다
+			// 이미지나 영상이 붙은 글은 검수 대상이다 (본문만 있는 글은 그대로 공개)
+			if (needsReview) {
 				map.put("MDR_STATUS", "PENDING");
 				dao.update("content.updateContentModeration", map);
 
@@ -1245,7 +1257,7 @@ public class ContentService {
 				logParam.put("REASON", "업로드 검수 대기");
 				dao.insert("content.insertModerationLog", logParam);
 			}
-			
+
 			resultMap.put("RESULT", "OK");
 			
 		}catch(Exception e){
@@ -1310,10 +1322,18 @@ public class ContentService {
 		ImageIO.write(bufferedImage, "jpg", outputFile); // 썸네일 저장
 	}
 
-	/** 영상 파일을 등록한다.*/
+	/** 영상 파일을 공개 디렉터리(/video)에 등록한다. */
 	public void saveVideoFile(String videobase64, String savename) throws Exception {
+		saveVideoFile(videobase64, savename, Constants._VIDEO_SAVE_PATH);
+	}
+
+	/**
+	 * 영상 파일을 지정한 디렉터리에 등록한다.
+	 * 회원 글은 검수 대기 보관소(2-32차)에 쓰므로 저장 위치를 받는다.
+	 */
+	public void saveVideoFile(String videobase64, String savename, String saveDir) throws Exception {
 		// 디렉토리 확인 및 생성
-		File directory = new File(Constants._VIDEO_SAVE_PATH);
+		File directory = new File(saveDir);
 		if (!directory.exists()) {
 			directory.mkdirs(); // 디렉토리가 없으면 생성
 		}
@@ -1321,8 +1341,8 @@ public class ContentService {
 		// Base64 디코딩
 		byte[] videoBytes = Base64.decodeBase64(videobase64);
 
-		// 임시 파일로 저장
-		File tempFile = new File(Constants._VIDEO_SAVE_PATH + "temp_video.mov");
+		// 임시 파일로 저장. 이름을 글마다 다르게 해 동시 업로드가 서로 덮어쓰지 않게 한다
+		File tempFile = new File(saveDir + "temp_" + savename + ".mov");
 		try (FileOutputStream fos = new FileOutputStream(tempFile)) {
 			fos.write(videoBytes);
 		}
@@ -1331,16 +1351,17 @@ public class ContentService {
 		String mimeType = Files.probeContentType(tempFile.toPath());
 		if (mimeType != null && mimeType.equals("video/quicktime")) {
 			// QuickTime 파일이라면 변환
-			File mp4File = new File(Constants._VIDEO_SAVE_PATH + savename);
+			File mp4File = new File(saveDir + savename);
 			convertQuickTimeToMP4(tempFile, mp4File);
 			// MP4 파일 저장 후 삭제
 			tempFile.delete();
 		} else {
 			// QuickTime 파일이 아니라면 그대로 저장
-			File outputFile = new File(Constants._VIDEO_SAVE_PATH + savename);
+			File outputFile = new File(saveDir + savename);
 			try (FileOutputStream fos = new FileOutputStream(outputFile)) {
 				fos.write(videoBytes);
 			}
+			tempFile.delete();
 		}
 	}
 
