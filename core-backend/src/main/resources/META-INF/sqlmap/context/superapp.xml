@@ -439,9 +439,13 @@
 		LEFT JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID
 		WHERE M.PRS_ID = #{starId}
 		-- 검수 대기 글은 작성자 본인에게만 보인다. 타인 화면에는 자리 자체를 만들지 않는다(2-27차)
+		-- [임시 2026-10-09] 영상이 붙은 대기 글은 본인에게도 내려주지 않는다.
+		--   기존 스토어 앱(10.0.72, PR #29 이전)은 주소 없는 영상을 깨진 상자로 그리고, PR #29 빌드는
+		--   "Under review" 칩을 얹는다. 칩 제거(PR #32)가 포함된 앱이 스토어에 올라간 뒤 아래 NOT EXISTS 를 지운다.
 		AND (M.MDR_STATUS = 'APPROVED'
 		<if test="isOwner">
-			OR M.MDR_STATUS = 'PENDING'
+			OR (M.MDR_STATUS = 'PENDING'
+				AND NOT EXISTS (SELECT 1 FROM STAR_CONTENT_MEDIA V WHERE V.CON_ID = M.CON_ID AND V.MEDIA_TYPE = 'VIDEO'))
 		</if>
 		)
 
