@@ -48,15 +48,17 @@
             <ion-icon [name]="media.isMuted ? 'volume-mute' : 'volume-high'"></ion-icon>
         </div>
       </div>
-      <!-- 검수 대기 영상(2-32차). 작성자 본인은 썸네일 위에 안내, 타인은 안내만 — 재생은 승인 후 -->
+      <!-- 검수 대기 영상(2-32차). 작성자 본인은 사진과 똑같이 썸네일만(표시 없음), 타인은 안내 — 재생은 승인 후 -->
       <ng-template #videoUnderReview>
         <div class="video-review">
-          <img *ngIf="media.posterUrl" [src]="media.posterUrl" (error)="handleImgError($event)" />
-          <div class="review-box" [class.over-poster]="media.posterUrl">
-            <ion-icon name="eye-off-outline"></ion-icon>
-            <p class="review-title">Under review</p>
-            <p class="review-desc">This video will play once approved.</p>
-          </div>
+          <img *ngIf="media.posterUrl; else videoReviewNotice" [src]="media.posterUrl" (error)="handleImgError($event)" />
+          <ng-template #videoReviewNotice>
+            <div class="review-box">
+              <ion-icon name="eye-off-outline"></ion-icon>
+              <p class="review-title">Under review</p>
+              <p class="review-desc">This video is visible only to its author until approved.</p>
+            </div>
+          </ng-template>
         </div>
       </ng-template>
     </div>

@@ -523,11 +523,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
       : null;
 
-    // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다
+    // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다.
+    // 작성자 본인의 대기 영상은 재생 대신 썸네일(토큰)만 보인다 — 사진과 같이 별도 표시는 없다(2-32차 후속)
     item.isUnderReview = isPending && !item.pendingImageUrl;
-
-    // 작성자 본인의 대기 영상: 재생 대신 썸네일(토큰)을 보여주고 "Under review" 칩을 얹는다(2-32차 확정)
-    item.isPendingOwnVideo = isPending && item.MEDIA_TYPE === 'VIDEO' && !!item.pendingImageUrl;
 
     // 미디어가 전혀 없는 텍스트 피드인 경우 로딩 완료(isLoaded = true) 처리
     const hasMedia = item.MEDIA_TYPE === 'VIDEO' || item.image || item.pendingImageUrl
