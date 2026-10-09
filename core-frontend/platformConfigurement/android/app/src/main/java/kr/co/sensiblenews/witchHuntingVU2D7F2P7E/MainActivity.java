@@ -85,10 +85,12 @@ public class MainActivity extends BridgeActivity {
 
     EdgeToEdge.enable(this);
 
-    // 진단 로그 ① 하드웨어 가속 — 동영상 네이티브 광고의 전제 조건. 매니페스트 application 에 true 로 선언돼 있다
-    boolean hwAccelerated = (getWindow().getAttributes().flags
-      & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0;
-    Log.d(AD_LOG, "hardwareAccelerated=" + hwAccelerated);
+    // 진단 로그 ① 하드웨어 가속 — 동영상 네이티브 광고의 전제 조건. 매니페스트 application 에 true 로 선언돼 있다.
+    // onCreate 시점에는 윈도우 플래그가 아직 안 붙어 false 로 찍혔다(실기기 확인: dumpsys 는 0x01000000 포함).
+    // 뷰가 창에 붙은 뒤 View.isHardwareAccelerated() 로 재야 맞다
+    View decor = getWindow().getDecorView();
+    decor.post(() -> Log.d(AD_LOG, "hardwareAccelerated=" + decor.isHardwareAccelerated()
+      + " windowFlag=" + ((getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0)));
   }
 
   private void addAdWrapper() {
@@ -112,9 +114,10 @@ public class MainActivity extends BridgeActivity {
   }
 
   private void addAdOverlays() {
-    FrameLayout adContainer1 = new FrameLayout(this);
-    FrameLayout adContainer2 = new FrameLayout(this);
-    FrameLayout adContainer3 = new FrameLayout(this);
+    // 탭은 광고, 드래그는 웹뷰 스크롤로 나눠 보내는 컨테이너 (AdTouchRouterLayout 주석 참조)
+    FrameLayout adContainer1 = new AdTouchRouterLayout(this, webView);
+    FrameLayout adContainer2 = new AdTouchRouterLayout(this, webView);
+    FrameLayout adContainer3 = new AdTouchRouterLayout(this, webView);
     setUpContainer(adContainer1, R.id.ad_container_1);
     setUpContainer(adContainer2, R.id.ad_container_2);
     setUpContainer(adContainer3, R.id.ad_container_3);
@@ -173,6 +176,10 @@ public class MainActivity extends BridgeActivity {
           // 진단 로그 ⑤ MediaView 실측 크기 — 0×0 이면 제약 문제, 보이지 않으면 레이어 문제
           MediaView mediaView = wrappingView.findViewById(R.id.ad_media);
           if (mediaView != null) {
+            // 창에 붙은 뒤 스케일 타입을 한 번 더 준다 (SDK 내부 ImageView 가 늦게 만들어지는 경우 대비).
+            // 실기기 확인: 이미지가 상자 가운데 작게 보이던 것은 광고 자산(3600×1881) 안의 흰 여백이었고
+            // 스케일은 FIT_CENTER 로 정상 적용돼 폭을 꽉 채우고 있었다 — 자산 문제라 코드로 더 할 것이 없다
+            mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
             mediaView.post(() -> Log.d(AD_LOG, "mediaView size=" + mediaView.getWidth() + "x" + mediaView.getHeight()
               + " shown=" + mediaView.isShown()));
             // 진단 로그 ⑦ 영상 표면 실측. MediaView 는 안에 SDK 가 만든 자식 뷰(TextureView 등)로 영상을 그리므로
@@ -244,9 +251,17 @@ public class MainActivity extends BridgeActivity {
       View child = parent.getChildAt(i);
       StringBuilder indent = new StringBuilder();
       for (int d = 0; d < depth; d++) indent.append("  ");
+      String extra = "";
+      if (child instanceof ImageView) {
+        ImageView iv = (ImageView) child;
+        extra = " scale=" + iv.getScaleType()
+          + " drawable=" + (iv.getDrawable() == null ? "null"
+            : iv.getDrawable().getIntrinsicWidth() + "x" + iv.getDrawable().getIntrinsicHeight()
+              + " " + iv.getDrawable().getClass().getSimpleName());
+      }
       Log.d(AD_LOG, "tree" + indent + child.getClass().getSimpleName() + " " + sizeOf(child)
         + " at(" + (int) child.getX() + "," + (int) child.getY() + ")"
-        + " vis=" + child.getVisibility());
+        + " vis=" + child.getVisibility() + extra);
       if (child instanceof ViewGroup && depth < 4) {
         logChildren((ViewGroup) child, depth + 1);
       }
@@ -266,10 +281,12 @@ public class MainActivity extends BridgeActivity {
    */
   private void populateNativeAdView(NativeAd nativeAd, NativeAdView adView) {
     MediaView mediaView = adView.findViewById(R.id.ad_media);
-    mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
     adView.setMediaView(mediaView);
     if (nativeAd.getMediaContent() != null) {
       mediaView.setMediaContent(nativeAd.getMediaContent());
+      // 스케일 타입은 setMediaContent 뒤에 줘야 한다. SDK 가 그때 내부 ImageView 를 만들기 때문에
+      // 앞에서 주면 무시돼 이미지가 원본 픽셀 크기로 상자 가운데 작게 그려졌다(실기기 확인, 2-32차 후속)
+      mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
       mediaView.setVisibility(View.VISIBLE);
     } else {
       mediaView.setVisibility(View.GONE);
