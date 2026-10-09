@@ -29,6 +29,7 @@ import com.google.android.gms.ads.AdLoader;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MediaContent;
+import com.google.android.gms.ads.ResponseInfo;
 import com.google.android.gms.ads.VideoOptions;
 import com.google.android.gms.ads.nativead.MediaView;
 import com.google.android.gms.ads.nativead.NativeAd;
@@ -155,6 +156,12 @@ public class MainActivity extends BridgeActivity {
           Log.d(AD_LOG, "hasVideoContent=" + mc.hasVideoContent()
             + " aspectRatio=" + mc.getAspectRatio() + " duration=" + mc.getDuration());
         }
+        // 진단 로그 ⑥ 어느 네트워크가 채웠는가 — 미디에이션 네트워크마다 영상 렌더러가 다르다.
+        // 클라이언트 보고(영상이 상자 안에서 납작한 띠로 보임)가 특정 네트워크에서만 나는지 가른다
+        ResponseInfo info = nativeAd.getResponseInfo();
+        if (info != null) {
+          Log.d(AD_LOG, "network=" + info.getMediationAdapterClassName() + " responseId=" + info.getResponseId());
+        }
 
         LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
         NativeAdView wrappingView = (NativeAdView) inflater.inflate(R.layout.ad_layout, adContainer, false);
@@ -168,6 +175,9 @@ public class MainActivity extends BridgeActivity {
           if (mediaView != null) {
             mediaView.post(() -> Log.d(AD_LOG, "mediaView size=" + mediaView.getWidth() + "x" + mediaView.getHeight()
               + " shown=" + mediaView.isShown()));
+            // 진단 로그 ⑦ 영상 표면 실측. MediaView 는 안에 SDK 가 만든 자식 뷰(TextureView 등)로 영상을 그리므로
+            // 그 자식의 크기가 "영상이 실제로 차지한 사각형" 이다. 영상이 재생을 시작한 뒤 재야 해서 2초 뒤에 한 번 더 잰다
+            mediaView.postDelayed(() -> logMediaTree(adId, adContainer, wrappingView, mediaView), 2000);
           }
 
           // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
@@ -216,6 +226,35 @@ public class MainActivity extends BridgeActivity {
     // — 2026-09 에 Liftoff·Meta·Pangle 을 붙인 뒤로 미디에이션 수요를 못 받고 있었을 수 있다.
     // 두 번째 응답이 첫 번째를 덮어쓰는 구조라 다중 로드의 이득도 없었다.
     adLoader.loadAd(new AdRequest.Builder().build());
+  }
+
+  /**
+   * 진단 로그 ⑦: 컨테이너 → 카드 → MediaView → 그 안의 자식(영상 표면)까지 실측 크기를 한 줄씩 찍는다.
+   * 클라이언트 스크린샷의 "폭은 꽉 찼는데 높이 125px 띠" 가 MediaView 자체의 크기인지,
+   * MediaView 는 정상인데 안의 영상 표면만 납작한지(SDK·네트워크 렌더러 문제)를 가르기 위한 것.
+   */
+  private void logMediaTree(int adId, View container, View card, MediaView mediaView) {
+    Log.d(AD_LOG, "tree container=" + adId + " " + sizeOf(container)
+      + " card=" + sizeOf(card) + " mediaView=" + sizeOf(mediaView));
+    logChildren(mediaView, 1);
+  }
+
+  private void logChildren(ViewGroup parent, int depth) {
+    for (int i = 0; i < parent.getChildCount(); i++) {
+      View child = parent.getChildAt(i);
+      StringBuilder indent = new StringBuilder();
+      for (int d = 0; d < depth; d++) indent.append("  ");
+      Log.d(AD_LOG, "tree" + indent + child.getClass().getSimpleName() + " " + sizeOf(child)
+        + " at(" + (int) child.getX() + "," + (int) child.getY() + ")"
+        + " vis=" + child.getVisibility());
+      if (child instanceof ViewGroup && depth < 4) {
+        logChildren((ViewGroup) child, depth + 1);
+      }
+    }
+  }
+
+  private static String sizeOf(View v) {
+    return v == null ? "null" : v.getWidth() + "x" + v.getHeight();
   }
 
   /**
