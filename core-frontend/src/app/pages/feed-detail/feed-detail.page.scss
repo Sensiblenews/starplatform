@@ -160,7 +160,7 @@ ion-back-button {
      마진을 이용해 시각적인 위치는 원래대로(왼쪽으로) 살짝 당겨줍니다. */
   margin-left: -10px;
 }
-// 검수 대기 영상 (2-32차) — 작성자 본인은 썸네일 위에 반투명 안내, 타인은 회색 상자만
+// 검수 대기 영상 (2-32차) — 작성자 본인은 썸네일만(사진과 동일하게 표시 없음), 타인은 회색 상자
 .media-item-video .video-review {
   position: relative;
   width: 100%;
@@ -171,17 +171,6 @@ ion-back-button {
     max-height: 600px;
     object-fit: contain;
     display: block;
-    filter: brightness(0.55);
-  }
-
-  .review-box.over-poster {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: transparent;
-    color: #f1f3f5;
-
-    .review-title { color: #ffffff; }
-    .review-desc { color: #dee2e6; }
   }
 }
 

@@ -147,14 +147,12 @@
 
           <!-- 🖼️ 2순위: 이미지 표시 -->
           <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차).
-               작성자 본인의 대기 영상도 여기로 — 토큰 주소가 영상 썸네일이다(2-32차) -->
+               작성자 본인의 대기 영상도 여기로 — 토큰 주소가 영상 썸네일이다(2-32차).
+               사진과 똑같이 아무 표시 없이 보여준다 (클라이언트: 본인 화면의 Under review 칩 제거 요청) -->
           <img *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !item.MEDIA_URL) && (item.image || item.pendingImageUrl)"
             [src]="item.image || item.pendingImageUrl" loading="lazy"
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
-          <div class="review-chip" *ngIf="item.isPendingOwnVideo">
-            <ion-icon name="eye-off-outline"></ion-icon> Under review
-          </div>
 
 
           <!-- 🎬 3순위: YouTube 썸네일 표시 -->
