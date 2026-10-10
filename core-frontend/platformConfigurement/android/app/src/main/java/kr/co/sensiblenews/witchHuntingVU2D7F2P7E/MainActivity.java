@@ -29,6 +29,7 @@ import com.google.android.gms.ads.AdLoader;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MediaContent;
+import com.google.android.gms.ads.ResponseInfo;
 import com.google.android.gms.ads.VideoOptions;
 import com.google.android.gms.ads.nativead.MediaView;
 import com.google.android.gms.ads.nativead.NativeAd;
@@ -84,10 +85,12 @@ public class MainActivity extends BridgeActivity {
 
     EdgeToEdge.enable(this);
 
-    // 진단 로그 ① 하드웨어 가속 — 동영상 네이티브 광고의 전제 조건. 매니페스트 application 에 true 로 선언돼 있다
-    boolean hwAccelerated = (getWindow().getAttributes().flags
-      & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0;
-    Log.d(AD_LOG, "hardwareAccelerated=" + hwAccelerated);
+    // 진단 로그 ① 하드웨어 가속 — 동영상 네이티브 광고의 전제 조건. 매니페스트 application 에 true 로 선언돼 있다.
+    // onCreate 시점에는 윈도우 플래그가 아직 안 붙어 false 로 찍혔다(실기기 확인: dumpsys 는 0x01000000 포함).
+    // 뷰가 창에 붙은 뒤 View.isHardwareAccelerated() 로 재야 맞다
+    View decor = getWindow().getDecorView();
+    decor.post(() -> Log.d(AD_LOG, "hardwareAccelerated=" + decor.isHardwareAccelerated()
+      + " windowFlag=" + ((getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0)));
   }
 
   private void addAdWrapper() {
@@ -111,16 +114,24 @@ public class MainActivity extends BridgeActivity {
   }
 
   private void addAdOverlays() {
-    FrameLayout adContainer1 = new FrameLayout(this);
-    FrameLayout adContainer2 = new FrameLayout(this);
-    FrameLayout adContainer3 = new FrameLayout(this);
+    // 탭은 광고, 드래그는 웹뷰 스크롤로 나눠 보내는 컨테이너 (AdTouchRouterLayout 주석 참조)
+    FrameLayout adContainer1 = new AdTouchRouterLayout(this, webView);
+    FrameLayout adContainer2 = new AdTouchRouterLayout(this, webView);
+    FrameLayout adContainer3 = new AdTouchRouterLayout(this, webView);
     setUpContainer(adContainer1, R.id.ad_container_1);
     setUpContainer(adContainer2, R.id.ad_container_2);
     setUpContainer(adContainer3, R.id.ad_container_3);
   }
 
-  public void loadNativeAd(final FrameLayout adContainer, final int adId) {
-//    AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-3940256099942544/2247696110")
+  /**
+   * 네이티브 광고 로드.
+   *
+   * @param landscapeOnly 로비 슬롯처럼 카드가 315dp 로 고정돼 미디어 상자가 가로로 긴 곳은
+   *                      가로 크리에이티브만 요청한다. 세로·정사각 동영상이 오면 MediaView 가
+   *                      자르지 않고 맞춰 넣기만 해서 양옆이 비고 작게 보였다(클라이언트 보고).
+   */
+  public void loadNativeAd(final FrameLayout adContainer, final int adId, final boolean landscapeOnly) {
+//    AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-3940256099942544/1044960115")
     AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-9109251900558498/4011939762")
       .forNativeAd(nativeAd -> {
         NativeAd oldAd = null;
@@ -148,6 +159,12 @@ public class MainActivity extends BridgeActivity {
           Log.d(AD_LOG, "hasVideoContent=" + mc.hasVideoContent()
             + " aspectRatio=" + mc.getAspectRatio() + " duration=" + mc.getDuration());
         }
+        // 진단 로그 ⑥ 어느 네트워크가 채웠는가 — 미디에이션 네트워크마다 영상 렌더러가 다르다.
+        // 클라이언트 보고(영상이 상자 안에서 납작한 띠로 보임)가 특정 네트워크에서만 나는지 가른다
+        ResponseInfo info = nativeAd.getResponseInfo();
+        if (info != null) {
+          Log.d(AD_LOG, "network=" + info.getMediationAdapterClassName() + " responseId=" + info.getResponseId());
+        }
 
         LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
         NativeAdView wrappingView = (NativeAdView) inflater.inflate(R.layout.ad_layout, adContainer, false);
@@ -159,8 +176,15 @@ public class MainActivity extends BridgeActivity {
           // 진단 로그 ⑤ MediaView 실측 크기 — 0×0 이면 제약 문제, 보이지 않으면 레이어 문제
           MediaView mediaView = wrappingView.findViewById(R.id.ad_media);
           if (mediaView != null) {
+            // 창에 붙은 뒤 스케일 타입을 한 번 더 준다 (SDK 내부 ImageView 가 늦게 만들어지는 경우 대비).
+            // 실기기 확인: 이미지가 상자 가운데 작게 보이던 것은 광고 자산(3600×1881) 안의 흰 여백이었고
+            // 스케일은 FIT_CENTER 로 정상 적용돼 폭을 꽉 채우고 있었다 — 자산 문제라 코드로 더 할 것이 없다
+            mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
             mediaView.post(() -> Log.d(AD_LOG, "mediaView size=" + mediaView.getWidth() + "x" + mediaView.getHeight()
               + " shown=" + mediaView.isShown()));
+            // 진단 로그 ⑦ 영상 표면 실측. MediaView 는 안에 SDK 가 만든 자식 뷰(TextureView 등)로 영상을 그리므로
+            // 그 자식의 크기가 "영상이 실제로 차지한 사각형" 이다. 영상이 재생을 시작한 뒤 재야 해서 2초 뒤에 한 번 더 잰다
+            mediaView.postDelayed(() -> logMediaTree(adId, adContainer, wrappingView, mediaView), 2000);
           }
 
           // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
@@ -195,9 +219,13 @@ public class MainActivity extends BridgeActivity {
           });
         }
       })
-      // 동영상 크리에이티브는 음소거로 자동 재생한다 (피드 안 광고라 소리가 나면 안 된다)
+      // 동영상 크리에이티브는 음소거로 자동 재생한다 (피드 안 광고라 소리가 나면 안 된다).
+      // 미디어 비율: 로비(315dp 고정)는 가로만, 스타 페이지(화면 폭+85 카드)는 모든 비율
       .withNativeAdOptions(new NativeAdOptions.Builder()
         .setVideoOptions(new VideoOptions.Builder().setStartMuted(true).build())
+        .setMediaAspectRatio(landscapeOnly
+          ? NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_LANDSCAPE
+          : NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_ANY)
         .build())
       .build();
 
@@ -205,6 +233,43 @@ public class MainActivity extends BridgeActivity {
     // — 2026-09 에 Liftoff·Meta·Pangle 을 붙인 뒤로 미디에이션 수요를 못 받고 있었을 수 있다.
     // 두 번째 응답이 첫 번째를 덮어쓰는 구조라 다중 로드의 이득도 없었다.
     adLoader.loadAd(new AdRequest.Builder().build());
+  }
+
+  /**
+   * 진단 로그 ⑦: 컨테이너 → 카드 → MediaView → 그 안의 자식(영상 표면)까지 실측 크기를 한 줄씩 찍는다.
+   * 클라이언트 스크린샷의 "폭은 꽉 찼는데 높이 125px 띠" 가 MediaView 자체의 크기인지,
+   * MediaView 는 정상인데 안의 영상 표면만 납작한지(SDK·네트워크 렌더러 문제)를 가르기 위한 것.
+   */
+  private void logMediaTree(int adId, View container, View card, MediaView mediaView) {
+    Log.d(AD_LOG, "tree container=" + adId + " " + sizeOf(container)
+      + " card=" + sizeOf(card) + " mediaView=" + sizeOf(mediaView));
+    logChildren(mediaView, 1);
+  }
+
+  private void logChildren(ViewGroup parent, int depth) {
+    for (int i = 0; i < parent.getChildCount(); i++) {
+      View child = parent.getChildAt(i);
+      StringBuilder indent = new StringBuilder();
+      for (int d = 0; d < depth; d++) indent.append("  ");
+      String extra = "";
+      if (child instanceof ImageView) {
+        ImageView iv = (ImageView) child;
+        extra = " scale=" + iv.getScaleType()
+          + " drawable=" + (iv.getDrawable() == null ? "null"
+            : iv.getDrawable().getIntrinsicWidth() + "x" + iv.getDrawable().getIntrinsicHeight()
+              + " " + iv.getDrawable().getClass().getSimpleName());
+      }
+      Log.d(AD_LOG, "tree" + indent + child.getClass().getSimpleName() + " " + sizeOf(child)
+        + " at(" + (int) child.getX() + "," + (int) child.getY() + ")"
+        + " vis=" + child.getVisibility() + extra);
+      if (child instanceof ViewGroup && depth < 4) {
+        logChildren((ViewGroup) child, depth + 1);
+      }
+    }
+  }
+
+  private static String sizeOf(View v) {
+    return v == null ? "null" : v.getWidth() + "x" + v.getHeight();
   }
 
   /**
@@ -216,10 +281,12 @@ public class MainActivity extends BridgeActivity {
    */
   private void populateNativeAdView(NativeAd nativeAd, NativeAdView adView) {
     MediaView mediaView = adView.findViewById(R.id.ad_media);
-    mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
     adView.setMediaView(mediaView);
     if (nativeAd.getMediaContent() != null) {
       mediaView.setMediaContent(nativeAd.getMediaContent());
+      // 스케일 타입은 setMediaContent 뒤에 줘야 한다. SDK 가 그때 내부 ImageView 를 만들기 때문에
+      // 앞에서 주면 무시돼 이미지가 원본 픽셀 크기로 상자 가운데 작게 그려졌다(실기기 확인, 2-32차 후속)
+      mediaView.setImageScaleType(ImageView.ScaleType.FIT_CENTER);
       mediaView.setVisibility(View.VISIBLE);
     } else {
       mediaView.setVisibility(View.GONE);
@@ -271,14 +338,11 @@ public class MainActivity extends BridgeActivity {
   }
 
   private void setUpContainer(FrameLayout container,int id) {
-    DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int adHeight = (int) (315 * metrics.density);
-
 //    container.setWebView(webView);
     container.setId(id);
     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
       FrameLayout.LayoutParams.MATCH_PARENT,
-      adHeight
+      lobbyCardHeightPx()
     );
 
     params.gravity = Gravity.TOP;
@@ -286,6 +350,31 @@ public class MainActivity extends BridgeActivity {
     container.setFocusable(false);
 
     wrapper.addView(container, params);
+  }
+
+  /** 로비 슬롯 카드 높이(px). 웹 플레이스홀더 315px·iOS 315pt 와 통일 */
+  public int lobbyCardHeightPx() {
+    return (int) (315 * getResources().getDisplayMetrics().density);
+  }
+
+  /**
+   * 스타 페이지 카드 높이(px) = 화면 폭 + 85dp. iOS(MainViewController.adHeight)와 같은 공식이며
+   * 웹 플레이스홀더 빈칸 박스(screenWidth + 85)와 같다. 예전에는 315dp 카드를 그 박스 가운데 띄워
+   * 위아래가 놀고 미디어 상자가 가로로 눌려 세로·정사각 동영상이 작게 보였다.
+   */
+  public int starCardHeightPx() {
+    DisplayMetrics metrics = getResources().getDisplayMetrics();
+    float screenWidthDp = metrics.widthPixels / metrics.density;
+    return (int) ((screenWidthDp + 85f) * metrics.density);
+  }
+
+  /** 페이지 모드에 따라 컨테이너 높이를 바꾼다 (NativeBridge.setShow 에서 호출) */
+  public void setContainerHeight(FrameLayout container, int heightPx) {
+    ViewGroup.LayoutParams lp = container.getLayoutParams();
+    if (lp != null && lp.height != heightPx) {
+      lp.height = heightPx;
+      container.setLayoutParams(lp);
+    }
   }
 
   // 외부(NativeBridge)에서 호출
