@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "platformId": "7008",
+  "displayName": "TODO_APP_NAME_7008",
+  "displayNameKo": "TODO_APP_NAME_KO_7008",
+  "domain": "TODO_DOMAIN_7008",
+  "apiBaseUrl": "TODO_API_BASE_URL_7008",
+  "deeplinkHost": "TODO_DOMAIN_7008",
+  "customScheme": "starplatform7008",
+  "android": {
+    "packageName": "kr.co.sensiblenews.platform7008",
+    "versionName": "1.0.0",
+    "versionCode": 10000
+  },
+  "ios": {
+    "bundleId": "kr.co.sensiblenews.platform7008",
+    "version": "1.0.0",
+    "buildNumber": 10000,
+    "teamId": "TODO_APPLE_TEAM_ID_7008"
+  },
+  "admob": {
+    "mode": "test",
+    "androidAppId": "TODO_ADMOB_APP_ID_ANDROID_7008",
+    "iosAppId": "TODO_ADMOB_APP_ID_IOS_7008",
+    "units": {
+      "bannerAndroid": "TODO_ADMOB_BANNER_ANDROID_7008",
+      "bannerIos": "TODO_ADMOB_BANNER_IOS_7008",
+      "interstitialAndroid": "TODO_ADMOB_INTERSTITIAL_ANDROID_7008",
+      "interstitialIos": "TODO_ADMOB_INTERSTITIAL_IOS_7008",
+      "nativeAndroid": "TODO_ADMOB_NATIVE_ANDROID_7008",
+      "nativeIos": "TODO_ADMOB_NATIVE_IOS_7008"
+    }
+  },
+  "adsense": {
+    "publisherId": "TODO_ADSENSE_PUB_7008"
+  },
+  "sns": {
+    "kakaoNativeKey": "TODO_KAKAO_NATIVE_KEY_7008",
+    "kakaoJsKey": "TODO_KAKAO_JS_KEY_7008",
+    "facebookAppId": "TODO_FACEBOOK_APP_ID_7008",
+    "facebookClientToken": "TODO_FACEBOOK_CLIENT_TOKEN_7008"
+  },
+  "googleAuth": {
+    "serverClientId": "TODO_GOOGLE_SERVER_CLIENT_ID_7008",
+    "iosClientId": "TODO_GOOGLE_IOS_CLIENT_ID_7008"
+  },
+  "backend": {
+    "dbHost": "127.0.0.1",
+    "dbPort": 3306,
+    "dbName": "starplatform_7008",
+    "dbUser": "sp7008_app",
+    "redisHost": "127.0.0.1",
+    "redisPort": 6379,
+    "uploadRoot": "/var/lib/tomcat7/webapps",
+    "moderationRoot": "/var/lib/tomcat7/moderation",
+    "appleKeyDir": "/var/lib/tomcat7/keys"
+  },
+  "features": {
+    "ads": true,
+    "commerce": true,
+    "chat": true,
+    "vsBattlefield": true,
+    "liveNewsTicker": true,
+    "webLanding": true
+  },
+  "secretsRef": {
+    "envFile": "platform-7008/.env",
+    "keys": [
+      "DB_PASSWORD",
+      "DB_ROOT_PASSWORD",
+      "REDIS_PASSWORD",
+      "ADMIN_INITIAL_PASSWORD",
+      "MEDIA_TOKEN_SECRET",
+      "LANDING_TOKEN_SECRET",
+      "BACKUP_ENCRYPTION_PASSPHRASE",
+      "ANDROID_KEYSTORE_PASSWORD",
+      "ANDROID_KEY_ALIAS",
+      "ANDROID_KEY_PASSWORD"
+    ]
+  },
+  "notes": "TODO_ 값은 총운영사 자료(도메인·앱명·Apple 팀·AdMob·Kakao·Facebook·Google 계정)를 받은 뒤 채운다. 패키지명·번들 ID 는 제안값이며 스토어 등록 전 확정한다. 비밀값은 platform-security-configs 묶음의 platform-7008/.env 에만 있다."
+}
