@@ -12,8 +12,8 @@
 ## 2. GitHub 정보
 - Repository: https://github.com/Sensiblenews/starplatform (Master) · https://github.com/Sensiblenews/platform-7001 … platform-7010 (사본, private)
 - Branch: `feature/factory-preproduction-7001-7010` (Factory 코드·문서) / 운영 기준 `feature/2-31-web-video-followup`
-- Commit SHA: 기준 `cb7c05e09c390b0ff1eb4f0bb454094e95d31fc8` (태그 `master-baseline-v1.0`) / Factory 커밋 `__FACTORY_SHA__`
-- Pull Request 또는 검토 기록: `__PR_URL__`
+- Commit SHA: 기준 `cb7c05e09c390b0ff1eb4f0bb454094e95d31fc8` (태그 `master-baseline-v1.0`) / Factory 커밋 PR #35 head (ZIP MANIFEST.txt 의 factory_commit)
+- Pull Request 또는 검토 기록: https://github.com/Sensiblenews/starplatform/pull/35
 - Master Baseline과의 차이: Master 코드 변경 없음. 추가분은 `factory/`(Config Factory) 와 `DOCUMENTS/preproduction-7001-7010/`(문서) 만
 
 ## 3. 제출 파일

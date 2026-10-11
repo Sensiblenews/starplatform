@@ -5,7 +5,7 @@
 | 프로젝트 | StarPlatform SuperApp — 7001~7010호기 사전 생산준비 50단계 |
 | 제출 버전 | v1.0 (2026-10-11) |
 | 기준 Commit | `cb7c05e09c390b0ff1eb4f0bb454094e95d31fc8` (태그 `master-baseline-v1.0`) |
-| Factory 코드 | 브랜치 `feature/factory-preproduction-7001-7010` → PR (번호는 SUBMISSION_FORM 참조) |
+| Factory 코드 | 브랜치 `feature/factory-preproduction-7001-7010` → PR #35 https://github.com/Sensiblenews/starplatform/pull/35 |
 | 개발진 | gkrkdals |
 
 ## 1. 완료 항목 (PASS 13)
