@@ -214,12 +214,6 @@
   }
 }
 
-.latest-hint {
-  margin-top: 8px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .live-badge .live-dot { animation: none; }
   .latest-main-inner .latest-poster { transition: none; }
