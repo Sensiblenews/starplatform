@@ -443,6 +443,20 @@ public class SuperAppController {
 		return superAppService.getLiveNews();
 	}
 
+	// 🌟 [신규] 로비 Latest Contents 숏폼 캐러셀 (2-33차). Redis 60초 캐시, 어드민 저장 시 즉시 evict
+	@RequestMapping(value = "/api/super/lobby/latest-contents", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getLatestContents() throws Exception {
+		return superAppService.getLatestContents();
+	}
+
+	// 🌟 [신규] 숏폼 이벤트(노출·재생·클릭·프로필 클릭) 기록 (2-33차). 항상 OK — 통계 실패가 앱에 보이면 안 된다
+	@RequestMapping(value = "/api/super/lobby/latest-contents/event", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> recordLatestContentEvent(@RequestBody Map<String, Object> params) {
+		return superAppService.recordLatestContentEvent(params);
+	}
+
 	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)
 	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|ORG|UNIV|CITY|MEDIA
 	@RequestMapping(value = "/api/super/leaderboard/category", method = { RequestMethod.GET, RequestMethod.POST })

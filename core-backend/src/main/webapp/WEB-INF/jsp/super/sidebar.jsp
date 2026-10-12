@@ -70,6 +70,12 @@
                     <i class="fas fa-broadcast-tower me-2"></i> LIVE NEWS 관리
                 </a>
             </li>
+            <!-- 🌟 로비 Latest Contents 숏폼 편성 (전 국가 공통 노출이므로 SM 전용, 2-33차) -->
+            <li class="nav-item mb-1">
+                <a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>" style="color: #80deea;">
+                    <i class="fas fa-film me-2"></i> Latest Contents 편성
+                </a>
+            </li>
             <!-- 🌟 최고 권한 전용: 스타 일괄 등록 메뉴 추가 -->
             <li class="nav-item mb-1">
                 <a href="/super/star/bulk-create.do" class="nav-link <c:if test="${activeMenu eq 'star_bulk'}">active</c:if>"><i class="fas fa-file-import me-2"></i> 스타 일괄 등록</a>
