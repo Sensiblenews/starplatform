@@ -728,6 +728,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         break;
 
       case 'refresh':
+        // 스켈레톤을 다시 띄워 새로고침이 눈에 보이게 한다 — 조용히 다시 받기만 하면 바뀐 게 없어 보였다(2-33차 버그)
+        this.isLoadingStar = true;
         this.loadStarDetail();
         break;
 
