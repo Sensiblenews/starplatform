@@ -5,7 +5,7 @@ import { LatestContentItem } from '../../latest-contents-logic';
 /**
  * 로비 숏폼 전체 화면 플레이어 (2-33차 — 요청서 "콘텐츠 선택 시 전체 화면 재생").
  * 로비 카드의 영상을 누르면 모달로 뜬다. 소리 켜고 자동 재생을 시도하고, 거부되면 음소거로 재생한 뒤
- * "Tap for sound" 버튼을 보여 준다. 닫기 외에 게시자 StarPage·게시물 상세로 가는 버튼을 둔다.
+ * "Tap for sound" 버튼을 보여 준다. 닫기 외에 게시자 StarPage 로 가는 버튼만 둔다(게시물 상세 버튼은 사용자 요청으로 제외).
  * 이동은 모달을 닫으면서 { navigate } 로 돌려주고 로비가 라우팅한다 (모달 위에서 라우팅하면 모달이 남는다).
  */
 @Component({
@@ -32,9 +32,6 @@ import { LatestContentItem } from '../../latest-contents-logic';
             <div class="player-sub">StarPage <ion-icon name="chevron-forward"></ion-icon></div>
           </div>
         </div>
-        <button class="player-post" (click)="goPost()">
-          <ion-icon name="document-text-outline"></ion-icon> View post
-        </button>
       </div>
     </div>
   `,
@@ -67,11 +64,6 @@ import { LatestContentItem } from '../../latest-contents-logic';
     .player-author-text { min-width: 0; }
     .player-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
     .player-sub { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: rgba(255,255,255,.75); ion-icon { font-size: 11px; } }
-    .player-post {
-      display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,.5);
-      background: rgba(0,0,0,.45); color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0;
-      ion-icon { font-size: 16px; }
-    }
   `],
 })
 export class LatestContentsPlayerComponent implements AfterViewInit, OnDestroy {
@@ -124,10 +116,6 @@ export class LatestContentsPlayerComponent implements AfterViewInit, OnDestroy {
 
   goProfile(): void {
     this.modalCtrl.dismiss({ navigate: ['/star', this.item.prsId], reason: 'PROFILE_CLICK' });
-  }
-
-  goPost(): void {
-    this.modalCtrl.dismiss({ navigate: ['/feed-detail', String(this.item.conId)] });
   }
 
   handleImageError(event: any): void {
