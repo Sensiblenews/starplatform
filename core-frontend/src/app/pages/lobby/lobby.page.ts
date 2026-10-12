@@ -21,6 +21,7 @@ import { shouldRevealTopMeta } from './lobby-reveal';
 import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
 import { LatestContentItem } from './latest-contents-logic';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
+import { LatestContentsPlayerComponent } from './components/latest-contents-carousel/latest-contents-player.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 import { OpeningOverlayService } from '../../services/opening-overlay.service';
@@ -154,6 +155,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   @ViewChild(LatestContentsCarouselComponent) latestCarousel: LatestContentsCarouselComponent;
   latestContents: LatestContentItem[] = [];
   latestIntervalSec = 4;
+  // 첫 조회가 끝날 때까지 스켈레톤을 보여 섹션이 "뿅" 나타나지 않게 한다. 당겨서 새로고침에는 다시 띄우지 않는다
+  isLoadingLatestContents = true;
   // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
   @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
@@ -617,13 +620,16 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 🎬 Latest Contents 숏폼 편성 목록 (2-33차). 서버 60초 캐시, 어드민 저장 시 즉시 비워진다.
   // 실패하면 빈 목록 그대로 — 섹션이 숨겨질 뿐 로비는 열린다
   loadLatestContents() {
-    this.http.get('/api/super/lobby/latest-contents').subscribe({
+    this.http.get('/api/super/lobby/latest-contents').pipe(
+      finalize(() => this.isLoadingLatestContents = false)
+    ).subscribe({
       next: (res: any) => {
         if (res && res.result === 'OK') {
           const had = this.latestContents.length > 0;
           this.latestContents = res.items || [];
           this.latestIntervalSec = res.intervalSec || 4;
-          // 섹션 최초 등장은 아래 광고 슬롯을 밀어내므로 렌더 후 위치 재전송
+          this.isLoadingLatestContents = false;
+          // 섹션 최초 등장(스켈레톤 → 카드)은 높이가 바뀌므로 렌더 후 광고 슬롯 위치 재전송 + 재생 시작
           if (!had && this.latestContents.length > 0) {
             setTimeout(() => {
               this.sendAdSlotPosition();
@@ -632,8 +638,28 @@ export class LobbyPage implements OnInit, OnDestroy {
           }
         }
       },
-      error: () => { },
+      error: () => { },  // 실패하면 빈 목록 그대로 — 스켈레톤도 내리고 섹션은 숨긴다
     });
+  }
+
+  // 🎬 숏폼 영상 터치 → 전체 화면 플레이어 (요청서 "콘텐츠 선택 시 전체 화면 재생").
+  // 플레이어가 떠 있는 동안 카드의 자동 이동·재생은 멈추고, 닫히면 다시 켠다.
+  // 플레이어 안의 프로필·게시물 버튼은 모달을 닫으면서 목적지를 돌려주고 여기서 이동한다
+  async openLatestPlayer(item: LatestContentItem) {
+    this.haptic.tap();
+    if (this.latestCarousel) this.latestCarousel.stop();
+    const modal = await this.modalCtrl.create({
+      component: LatestContentsPlayerComponent,
+      componentProps: { item },
+      cssClass: 'latest-player-modal',
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (this.isViewActive && this.latestCarousel && !(data && data.navigate)) this.latestCarousel.start();
+    if (data && data.navigate) {
+      if (data.reason === 'PROFILE_CLICK' && this.latestCarousel) this.latestCarousel.trackProfileClick(item);
+      this.router.navigate(data.navigate);
+    }
   }
 
   // 3초 폴링 — 서버 Redis 캐시 TTL 2초와 박자를 맞춰 항상 최신 데이터를 받는다

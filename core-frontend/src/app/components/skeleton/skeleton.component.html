@@ -50,6 +50,30 @@
   </div>
 </ng-container>
 
+<!-- Latest Contents 숏폼: 제목 + 왼쪽 큰 영상(1:2) + 오른쪽 Next 썸네일 + 게시자 줄 (2-33차) -->
+<ng-container *ngIf="variant === 'latest'">
+  <div class="sk-latest">
+    <div class="sk-latest-head">
+      <div class="sk sk-line w-45"></div>
+      <div class="sk sk-vs-badge"></div>
+    </div>
+    <div class="sk-latest-body">
+      <div class="sk sk-latest-main"></div>
+      <div class="sk-latest-side">
+        <div class="sk sk-latest-next"></div>
+        <div class="sk sk-line w-50"></div>
+      </div>
+    </div>
+    <div class="sk-latest-author">
+      <div class="sk sk-avatar"></div>
+      <div class="sk-lines">
+        <div class="sk sk-line w-40"></div>
+        <div class="sk sk-line w-25"></div>
+      </div>
+    </div>
+  </div>
+</ng-container>
+
 <!-- 페이지: 프로필 헤더 + 지표 3칸 + 본문 블록 (StarPage) -->
 <ng-container *ngIf="variant === 'page'">
   <div class="sk-page">

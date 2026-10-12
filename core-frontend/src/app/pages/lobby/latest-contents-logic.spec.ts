@@ -1,17 +1,14 @@
 import {
   LATEST_DEFAULT_INTERVAL_SEC,
-  LATEST_HEIGHT_MAX_PX,
-  LATEST_HEIGHT_MIN_PX,
   LATEST_MANUAL_PAUSE_MS,
+  LATEST_SWIPE_THRESHOLD_PX,
   canAutoAdvance,
   clampIndex,
   eventKey,
-  halfContentHeight,
-  indexFromScroll,
   nextIndex,
   normalizeIntervalMs,
   prevIndex,
-  shouldBindSrc,
+  swipeDirection,
 } from './latest-contents-logic';
 
 describe('latest-contents-logic (2-33차 로비 숏폼)', () => {
@@ -42,40 +39,17 @@ describe('latest-contents-logic (2-33차 로비 숏폼)', () => {
     });
   });
 
-  describe('indexFromScroll', () => {
-    const step = 240;
-
-    it('스크롤 위치를 가장 가까운 카드로 반올림한다', () => {
-      expect(indexFromScroll(0, step, 5)).toBe(0);
-      expect(indexFromScroll(1.4 * step, step, 5)).toBe(1);
-      expect(indexFromScroll(1.6 * step, step, 5)).toBe(2);
+  describe('swipeDirection', () => {
+    it('왼쪽으로 끌면 next, 오른쪽으로 끌면 prev', () => {
+      expect(swipeDirection(-80)).toBe('next');
+      expect(swipeDirection(80)).toBe('prev');
     });
 
-    it('끝을 넘긴 위치는 마지막 카드, step 0 은 0', () => {
-      expect(indexFromScroll(99 * step, step, 5)).toBe(4);
-      expect(indexFromScroll(300, 0, 5)).toBe(0);
-    });
-  });
-
-  describe('shouldBindSrc', () => {
-    it('활성 카드와 양옆 1장만 src 를 붙인다 (마지막↔첫 카드도 이웃)', () => {
-      expect(shouldBindSrc(0, 0, 5)).toBeTrue();
-      expect(shouldBindSrc(1, 0, 5)).toBeTrue();
-      expect(shouldBindSrc(4, 0, 5)).toBeTrue();
-      expect(shouldBindSrc(2, 0, 5)).toBeFalse();
-      expect(shouldBindSrc(3, 0, 5)).toBeFalse();
-    });
-
-    it('카드가 2장이면 둘 다, radius 0 이면 활성 카드만', () => {
-      expect(shouldBindSrc(0, 1, 2)).toBeTrue();
-      expect(shouldBindSrc(1, 1, 2)).toBeTrue();
-      expect(shouldBindSrc(1, 0, 5, 0)).toBeFalse();
-      expect(shouldBindSrc(0, 0, 5, 0)).toBeTrue();
-    });
-
-    it('빈 목록·범위 밖 인덱스는 false', () => {
-      expect(shouldBindSrc(0, 0, 0)).toBeFalse();
-      expect(shouldBindSrc(7, 0, 5)).toBeFalse();
+    it('임계값 미만·NaN 은 null (탭으로 본다)', () => {
+      expect(swipeDirection(-(LATEST_SWIPE_THRESHOLD_PX - 1))).toBeNull();
+      expect(swipeDirection(0)).toBeNull();
+      expect(swipeDirection(NaN)).toBeNull();
+      expect(swipeDirection(-LATEST_SWIPE_THRESHOLD_PX)).toBe('next');
     });
   });
 
@@ -103,20 +77,6 @@ describe('latest-contents-logic (2-33차 로비 숏폼)', () => {
       expect(normalizeIntervalMs(11)).toBe(LATEST_DEFAULT_INTERVAL_SEC * 1000);
       expect(normalizeIntervalMs(undefined)).toBe(LATEST_DEFAULT_INTERVAL_SEC * 1000);
       expect(normalizeIntervalMs('abc')).toBe(LATEST_DEFAULT_INTERVAL_SEC * 1000);
-    });
-  });
-
-  describe('halfContentHeight', () => {
-    it('헤더를 뺀 높이의 절반', () => {
-      expect(halfContentHeight(800, 56)).toBe(372);
-      expect(halfContentHeight(800, 0)).toBe(400);
-    });
-
-    it('하한·상한으로 자르고 비정상 입력은 하한', () => {
-      expect(halfContentHeight(300, 56)).toBe(LATEST_HEIGHT_MIN_PX);
-      expect(halfContentHeight(2000, 0)).toBe(LATEST_HEIGHT_MAX_PX);
-      expect(halfContentHeight(NaN, 56)).toBe(LATEST_HEIGHT_MIN_PX);
-      expect(halfContentHeight(0, 0)).toBe(LATEST_HEIGHT_MIN_PX);
     });
   });
 

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 
 // 화면 유형별 스켈레톤. 실제 콘텐츠와 높이를 맞춰 로딩 해제 시 레이아웃이 튀지 않게 한다.
-export type SkeletonVariant = 'card' | 'list' | 'ranking' | 'vs' | 'page';
+export type SkeletonVariant = 'card' | 'list' | 'ranking' | 'vs' | 'page' | 'latest';
 
 @Component({
   standalone: true,
