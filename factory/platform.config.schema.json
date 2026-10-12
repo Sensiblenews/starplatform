@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Sensiblenews/starplatform/factory/platform.config.schema.json",
+  "title": "StarPlatform platform.config.json",
+  "description": "호기(platform-7001~7010)별 비밀 아닌 설정. 비밀값(DB·Redis 비밀번호, 서명 키, API Secret)은 여기에 두지 않고 secretsRef 가 가리키는 .env 키 이름으로만 참조한다. validate.js 가 이 스키마의 required·pattern·enum 을 그대로 검사한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "platformId",
+    "displayName",
+    "domain",
+    "apiBaseUrl",
+    "deeplinkHost",
+    "android",
+    "ios",
+    "admob",
+    "sns",
+    "googleAuth",
+    "backend",
+    "features",
+    "secretsRef"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "platformId": {
+      "type": "string",
+      "pattern": "^(master|7[0-9]{3})$",
+      "description": "master = 현 WITCH 운영본. 호기는 7001~7999"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30,
+      "description": "스토어·런처에 보이는 앱 이름(영문 권장)"
+    },
+    "displayNameKo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30,
+      "description": "iOS displayName·FacebookDisplayName 에 쓰는 표기"
+    },
+    "domain": {
+      "type": "string",
+      "pattern": "^(([a-z0-9-]+\\.)+[a-z]{2,}|TODO_[A-Z0-9_]+)$",
+      "description": "운영 도메인. 공개 웹·API·딥링크 호스트 기준"
+    },
+    "apiBaseUrl": {
+      "type": "string",
+      "pattern": "^(https://([a-z0-9-]+\\.)+[a-z]{2,}|TODO_[A-Z0-9_]+)$",
+      "description": "앱이 호출하는 API 루트. 끝에 / 없음"
+    },
+    "deeplinkHost": {
+      "type": "string",
+      "pattern": "^(([a-z0-9-]+\\.)+[a-z]{2,}|TODO_[A-Z0-9_]+)$"
+    },
+    "customScheme": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]{2,30}$",
+      "description": "iOS CFBundleURLSchemes 에 추가되는 커스텀 스킴"
+    },
+    "android": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageName",
+        "versionName",
+        "versionCode"
+      ],
+      "properties": {
+        "packageName": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$"
+        },
+        "versionName": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "versionCode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2100000000
+        }
+      }
+    },
+    "ios": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundleId",
+        "version",
+        "buildNumber",
+        "teamId"
+      ],
+      "properties": {
+        "bundleId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9-]*(\\.[a-zA-Z][a-zA-Z0-9-]*)+$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "buildNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teamId": {
+          "type": "string",
+          "pattern": "^([A-Z0-9]{10}|TODO_[A-Z0-9_]+)$",
+          "description": "Apple Team ID. AASA appID 접두"
+        }
+      }
+    },
+    "admob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "androidAppId",
+        "iosAppId",
+        "units"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "test",
+            "production"
+          ],
+          "description": "test 면 구글 공개 테스트 단위로 빌드돼야 한다(35단계). production 이면 아래 단위 ID 가 전부 실제 값이어야 한다"
+        },
+        "androidAppId": {
+          "type": "string",
+          "pattern": "^(ca-app-pub-[0-9]{16}~[0-9]{10}|TODO_[A-Z0-9_]+)$"
+        },
+        "iosAppId": {
+          "type": "string",
+          "pattern": "^(ca-app-pub-[0-9]{16}~[0-9]{10}|TODO_[A-Z0-9_]+)$"
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bannerAndroid",
+            "bannerIos",
+            "interstitialAndroid",
+            "interstitialIos",
+            "nativeAndroid",
+            "nativeIos"
+          ],
+          "properties": {
+            "bannerAndroid": {
+              "$ref": "#/definitions/adUnit"
+            },
+            "bannerIos": {
+              "$ref": "#/definitions/adUnit"
+            },
+            "interstitialAndroid": {
+              "$ref": "#/definitions/adUnit"
+            },
+            "interstitialIos": {
+              "$ref": "#/definitions/adUnit"
+            },
+            "nativeAndroid": {
+              "$ref": "#/definitions/adUnit"
+            },
+            "nativeIos": {
+              "$ref": "#/definitions/adUnit"
+            }
+          }
+        }
+      }
+    },
+    "adsense": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisherId"
+      ],
+      "properties": {
+        "publisherId": {
+          "type": "string",
+          "pattern": "^(ca-pub-[0-9]{16}|TODO_[A-Z0-9_]+)$"
+        }
+      }
+    },
+    "sns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kakaoNativeKey",
+        "kakaoJsKey",
+        "facebookAppId",
+        "facebookClientToken"
+      ],
+      "properties": {
+        "kakaoNativeKey": {
+          "type": "string",
+          "pattern": "^([a-f0-9]{32}|TODO_[A-Z0-9_]+)$"
+        },
+        "kakaoJsKey": {
+          "type": "string",
+          "pattern": "^([a-f0-9]{32}|TODO_[A-Z0-9_]+)$"
+        },
+        "facebookAppId": {
+          "type": "string",
+          "pattern": "^([0-9]{15,16}|TODO_[A-Z0-9_]+)$"
+        },
+        "facebookClientToken": {
+          "type": "string",
+          "pattern": "^([a-f0-9]{32}|TODO_[A-Z0-9_]+)$"
+        }
+      }
+    },
+    "googleAuth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serverClientId",
+        "iosClientId"
+      ],
+      "properties": {
+        "serverClientId": {
+          "$ref": "#/definitions/googleClientId"
+        },
+        "iosClientId": {
+          "$ref": "#/definitions/googleClientId"
+        }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dbHost",
+        "dbPort",
+        "dbName",
+        "dbUser",
+        "redisHost",
+        "redisPort",
+        "uploadRoot",
+        "moderationRoot",
+        "appleKeyDir"
+      ],
+      "properties": {
+        "dbHost": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dbPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "dbName": {
+          "type": "string",
+          "pattern": "^([a-z][a-z0-9_]{2,63}|TODO_[A-Z0-9_]+)$"
+        },
+        "dbUser": {
+          "type": "string",
+          "pattern": "^([a-z][a-z0-9_]{2,31}|TODO_[A-Z0-9_]+)$"
+        },
+        "redisHost": {
+          "type": "string",
+          "minLength": 1
+        },
+        "redisPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "uploadRoot": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "img·video 가 놓이는 웹앱 루트(현 코드는 /var/lib/tomcat7/webapps 고정 — 하드코딩 조사 참조)"
+        },
+        "moderationRoot": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "appleKeyDir": {
+          "type": "string",
+          "pattern": "^/"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ads",
+        "commerce",
+        "chat",
+        "vsBattlefield",
+        "liveNewsTicker",
+        "webLanding"
+      ],
+      "properties": {
+        "ads": {
+          "type": "boolean"
+        },
+        "commerce": {
+          "type": "boolean"
+        },
+        "chat": {
+          "type": "boolean"
+        },
+        "vsBattlefield": {
+          "type": "boolean"
+        },
+        "liveNewsTicker": {
+          "type": "boolean"
+        },
+        "webLanding": {
+          "type": "boolean"
+        }
+      },
+      "description": "기능 플래그. 현 코드에 플래그 분기는 아직 없다 — 다음 단계(템플릿화)에서 연결"
+    },
+    "secretsRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envFile",
+        "keys"
+      ],
+      "properties": {
+        "envFile": {
+          "type": "string",
+          "description": "비밀 묶음 .env 파일 이름(저장소 밖). inject.js --secrets 로 전달"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "자유 메모(검증 대상 아님)"
+    }
+  },
+  "definitions": {
+    "adUnit": {
+      "type": "string",
+      "pattern": "^(ca-app-pub-[0-9]{16}/[0-9]{10}|TODO_[A-Z0-9_]+)$"
+    },
+    "googleClientId": {
+      "type": "string",
+      "pattern": "^([0-9]{10,14}-[a-z0-9]{20,40}\\.apps\\.googleusercontent\\.com|TODO_[A-Z0-9_]+)$"
+    }
+  }
+}
