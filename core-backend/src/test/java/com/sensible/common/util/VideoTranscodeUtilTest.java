@@ -56,4 +56,24 @@ public class VideoTranscodeUtilTest {
 		assertFalse(Files.exists(target));
 		assertFalse(Files.exists(dir.resolve("src.mp4.transcoding.mp4")));
 	}
+
+	@Test
+	public void 썸네일_명령은_지정_지점_한_프레임_덮어쓰기() {
+		List<String> cmd = VideoTranscodeUtil.buildThumbnailCommand("/in/a.mp4", "/out/a_thumb.jpg", "00:00:01");
+		assertEquals("ffmpeg", cmd.get(0));
+		assertTrue(cmd.contains("-ss"));
+		assertEquals("00:00:01", cmd.get(cmd.indexOf("-ss") + 1));
+		assertEquals("1", cmd.get(cmd.indexOf("-vframes") + 1));
+		assertTrue(cmd.contains("-y"));
+		assertEquals("/out/a_thumb.jpg", cmd.get(cmd.size() - 1));
+	}
+
+	@Test
+	public void 썸네일_입력이_없으면_false_이고_출력도_안_남는다() throws Exception {
+		Path dir = Files.createTempDirectory("thumb-test");
+		Path missing = dir.resolve("missing.mp4");
+		Path thumb = dir.resolve("missing_thumb.jpg");
+		assertFalse(VideoTranscodeUtil.extractThumbnail(missing, thumb));
+		assertFalse(Files.exists(thumb));
+	}
 }

@@ -922,6 +922,165 @@
 	</update>
 
 	<!-- ==========================================
+	     🌟 [신규] 로비 Latest Contents 숏폼 편성 (WH_LATEST_CONTENT, 2-33차)
+	     ========================================== -->
+
+	<!-- 관리 화면 목록. 원본이 지워졌거나 검수에서 빠진 글도 보여야 운영자가 정리할 수 있으므로 LEFT JOIN -->
+	<select id="selectLatestContentAdminList" resultType="map">
+		SELECT
+			L.LC_ID,
+			L.CON_ID,
+			L.DISPLAY_ORDER,
+			L.IS_FEATURED,
+			L.USE_YN,
+			L.START_AT,
+			L.END_AT,
+			L.TITLE_OVERRIDE,
+			L.CREATED_BY,
+			L.CREATED_DATE,
+			L.UPDATED_DATE,
+			S.PRS_ID,
+			S.CON_BODY,
+			S.MDR_STATUS,
+			S.CREATED_DATE AS CON_CREATED_DATE,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			P.PRS_USE_YN,
+			(SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D
+			  WHERE D.CON_ID = L.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1) AS MEDIA_URL,
+			(SELECT D.THUMB_URL FROM STAR_CONTENT_MEDIA D
+			  WHERE D.CON_ID = L.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1) AS THUMB_URL,
+			CASE
+				WHEN L.USE_YN = 'N' THEN 'HIDDEN'
+				WHEN L.START_AT IS NOT NULL AND L.START_AT &gt; NOW() THEN 'SCHEDULED'
+				WHEN L.END_AT IS NOT NULL AND L.END_AT &lt;= NOW() THEN 'EXPIRED'
+				ELSE 'LIVE'
+			END AS STATUS,
+			(SELECT COUNT(*) FROM WH_LATEST_CONTENT_EVENT E WHERE E.LC_ID = L.LC_ID AND E.EVENT_TYPE = 'IMPRESSION') AS CNT_IMPRESSION,
+			(SELECT COUNT(*) FROM WH_LATEST_CONTENT_EVENT E WHERE E.LC_ID = L.LC_ID AND E.EVENT_TYPE = 'PLAY') AS CNT_PLAY,
+			(SELECT COUNT(*) FROM WH_LATEST_CONTENT_EVENT E WHERE E.LC_ID = L.LC_ID AND E.EVENT_TYPE = 'CLICK') AS CNT_CLICK,
+			(SELECT COUNT(*) FROM WH_LATEST_CONTENT_EVENT E WHERE E.LC_ID = L.LC_ID AND E.EVENT_TYPE = 'PROFILE_CLICK') AS CNT_PROFILE_CLICK
+		FROM WH_LATEST_CONTENT L
+		LEFT JOIN WH_STAR_CONTENT S ON S.CON_ID = L.CON_ID
+		LEFT JOIN WH_PRESS P ON P.PRS_ID = S.PRS_ID
+		WHERE L.DEL_YN = 'N'
+		ORDER BY L.DISPLAY_ORDER ASC, L.LC_ID ASC
+	</select>
+
+	<!-- "기존 게시물 선택" 검색: 검수 승인된 영상 글만. 이미 편성된 글은 ALREADY_YN 으로 표시 -->
+	<select id="selectLatestContentCandidates" parameterType="map" resultType="map">
+		SELECT
+			S.CON_ID,
+			S.PRS_ID,
+			S.CON_BODY,
+			S.CREATED_DATE,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			D.MEDIA_URL,
+			D.THUMB_URL,
+			IF(EXISTS(SELECT 1 FROM WH_LATEST_CONTENT L WHERE L.CON_ID = S.CON_ID AND L.DEL_YN = 'N'), 'Y', 'N') AS ALREADY_YN
+		FROM WH_STAR_CONTENT S
+		JOIN WH_PRESS P ON P.PRS_ID = S.PRS_ID AND P.PRS_USE_YN = 'Y'
+		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
+			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X
+								 WHERE X.CON_ID = S.CON_ID AND X.MEDIA_TYPE = 'VIDEO')
+		WHERE S.MDR_STATUS = 'APPROVED'
+		<if test="keyword != null and keyword != ''">
+		  AND (P.PRS_NAME LIKE CONCAT('%', #{keyword}, '%') OR P.PRS_ID LIKE CONCAT('%', #{keyword}, '%'))
+		</if>
+		<if test="startDate != null and startDate != ''">
+		  AND S.CREATED_DATE &gt;= #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+		  AND S.CREATED_DATE &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+		</if>
+		ORDER BY S.CREATED_DATE DESC
+		LIMIT 50
+	</select>
+
+	<!-- 중복 편성 방지 -->
+	<select id="selectLatestContentCountByConId" parameterType="map" resultType="int">
+		SELECT COUNT(*) FROM WH_LATEST_CONTENT WHERE CON_ID = #{conId} AND DEL_YN = 'N'
+	</select>
+
+	<!-- 편성 가능 여부: 승인된 글이고 영상이 붙어 있는지 -->
+	<select id="selectLatestContentApprovedVideo" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM WH_STAR_CONTENT S
+		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
+		WHERE S.CON_ID = #{conId}
+		  AND S.MDR_STATUS = 'APPROVED'
+	</select>
+
+	<insert id="insertLatestContent" parameterType="map" useGeneratedKeys="true" keyProperty="lcId">
+		INSERT INTO WH_LATEST_CONTENT (
+			CON_ID, DISPLAY_ORDER, IS_FEATURED, USE_YN, DEL_YN, START_AT, END_AT, TITLE_OVERRIDE,
+			CREATED_BY, CREATED_DATE
+		) VALUES (
+			#{conId},
+			IFNULL((SELECT MAX(W.DISPLAY_ORDER) + 1 FROM WH_LATEST_CONTENT W WHERE W.DEL_YN = 'N'), 1),
+			#{isFeatured}, #{useYn}, 'N', #{startAt}, #{endAt}, #{titleOverride},
+			#{adminId}, NOW()
+		)
+	</insert>
+
+	<update id="updateLatestContent" parameterType="map">
+		UPDATE WH_LATEST_CONTENT
+		SET IS_FEATURED = #{isFeatured},
+			START_AT = #{startAt},
+			END_AT = #{endAt},
+			TITLE_OVERRIDE = #{titleOverride},
+			USE_YN = #{useYn},
+			UPDATED_BY = #{adminId},
+			UPDATED_DATE = NOW()
+		WHERE LC_ID = #{lcId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<!-- 게시/숨김 토글 -->
+	<update id="updateLatestContentUseYn" parameterType="map">
+		UPDATE WH_LATEST_CONTENT
+		SET USE_YN = #{useYn}, UPDATED_BY = #{adminId}, UPDATED_DATE = NOW()
+		WHERE LC_ID = #{lcId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<!-- 드래그 정렬 저장: 화면이 넘긴 순서대로 DISPLAY_ORDER 재부여 -->
+	<update id="updateLatestContentOrder" parameterType="map">
+		UPDATE WH_LATEST_CONTENT
+		SET DISPLAY_ORDER = #{displayOrder}, UPDATED_BY = #{adminId}, UPDATED_DATE = NOW()
+		WHERE LC_ID = #{lcId}
+		  AND DEL_YN = 'N'
+	</update>
+
+	<update id="deleteLatestContent" parameterType="map">
+		UPDATE WH_LATEST_CONTENT
+		SET DEL_YN = 'Y', UPDATED_BY = #{adminId}, UPDATED_DATE = NOW()
+		WHERE LC_ID = #{lcId}
+	</update>
+
+	<select id="selectLatestContentSetting" resultType="map">
+		SELECT DISPLAY_COUNT, INTERVAL_SEC, UPDATED_BY, UPDATED_DATE
+		FROM WH_LATEST_CONTENT_SETTING
+		WHERE ID = 1
+	</select>
+
+	<insert id="upsertLatestContentSetting" parameterType="map">
+		INSERT INTO WH_LATEST_CONTENT_SETTING (ID, DISPLAY_COUNT, INTERVAL_SEC, UPDATED_BY, UPDATED_DATE)
+		VALUES (1, #{displayCount}, #{intervalSec}, #{adminId}, NOW())
+		ON DUPLICATE KEY UPDATE
+			DISPLAY_COUNT = #{displayCount},
+			INTERVAL_SEC = #{intervalSec},
+			UPDATED_BY = #{adminId},
+			UPDATED_DATE = NOW()
+	</insert>
+
+	<insert id="insertLatestContentLog" parameterType="map">
+		INSERT INTO WH_LATEST_CONTENT_LOG (LC_ID, ACTION, ADMIN_ID, DETAIL, CREATED_DATE)
+		VALUES (#{lcId}, #{action}, #{adminId}, #{detail}, NOW())
+	</insert>
+
+	<!-- ==========================================
 	     🌟 [신규] 채팅 신고 관리 (WH_DM_REPORT, 2-28차)
 	     원본 메시지는 이미 폭파됐을 수 있으므로 WH_DM_MESSAGE와 조인하지 않는다.
 	     이 테이블 자체가 신고 시점의 스냅샷이다

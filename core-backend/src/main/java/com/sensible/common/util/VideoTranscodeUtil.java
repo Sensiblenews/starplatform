@@ -90,6 +90,53 @@ public final class VideoTranscodeUtil {
 		}
 	}
 
+	/** 썸네일 추출 타임아웃. 한 프레임만 뽑으므로 변환보다 훨씬 짧다 */
+	static final long THUMBNAIL_TIMEOUT_SECONDS = 60L;
+
+	/**
+	 * 썸네일(첫 프레임) 추출 ffmpeg 명령. 순수 함수라 단위 테스트 대상이다 (2-33차).
+	 * 기존 SuperAppService.generateVideoThumbnail 과 같은 옵션(-ss 1초, 한 프레임, 덮어쓰기)이다.
+	 */
+	public static List<String> buildThumbnailCommand(String videoPath, String thumbPath, String seekTime) {
+		return new ArrayList<>(Arrays.asList(
+				"ffmpeg", "-i", videoPath,
+				"-ss", seekTime,
+				"-vframes", "1",
+				"-y", thumbPath));
+	}
+
+	/**
+	 * video 의 1초 지점 프레임을 thumb(jpg)로 뽑는다. 1초보다 짧은 영상은 프레임이 안 나오므로 0초로 한 번 더 시도한다.
+	 *
+	 * @return 썸네일 파일이 실제로 생겼는지
+	 */
+	public static boolean extractThumbnail(Path video, Path thumb) {
+		for (String seek : new String[] { "00:00:01", "00:00:00" }) {
+			try {
+				if (runThumbnail(video, thumb, seek) && Files.exists(thumb) && Files.size(thumb) > 0) {
+					return true;
+				}
+				Files.deleteIfExists(thumb);
+			} catch (Exception e) {
+				System.out.println("[VIDEO] thumbnail failed (" + seek + "): " + e.getMessage());
+			}
+		}
+		return false;
+	}
+
+	private static boolean runThumbnail(Path video, Path thumb, String seek) throws IOException, InterruptedException {
+		ProcessBuilder pb = new ProcessBuilder(buildThumbnailCommand(video.toString(), thumb.toString(), seek));
+		pb.redirectErrorStream(true);
+		pb.redirectOutput(new File(System.getProperty("os.name", "").toLowerCase().contains("win") ? "NUL" : "/dev/null"));
+		Process process = pb.start();
+		if (!process.waitFor(THUMBNAIL_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+			process.destroyForcibly();
+			System.out.println("[VIDEO] thumbnail timed out: " + video);
+			return false;
+		}
+		return process.exitValue() == 0;
+	}
+
 	private static boolean runFfmpeg(Path input, Path output) throws IOException, InterruptedException {
 		ProcessBuilder pb = new ProcessBuilder(buildCommand(input.toString(), output.toString()));
 		pb.redirectErrorStream(true);

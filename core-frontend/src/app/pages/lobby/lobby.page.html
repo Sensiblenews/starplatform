@@ -355,6 +355,10 @@
 
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
+    <!-- 🎬 Latest Contents 숏폼 캐러셀 (2-33차) — 헤더와 VS 카드 사이. 편성 0개면 섹션 자체를 숨긴다 -->
+    <app-latest-contents-carousel *ngIf="latestContents.length > 0" [items]="latestContents" [intervalSec]="latestIntervalSec"
+      (profileSelect)="goToStarPage($event)" (contentSelect)="goToContentPage($event)"></app-latest-contents-carousel>
+
     <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
     <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
     <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
