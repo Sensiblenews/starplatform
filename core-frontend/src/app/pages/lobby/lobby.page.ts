@@ -1,4 +1,4 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { Platform, ModalController, PopoverController, AlertController, IonSearchbar, ScrollDetail } from '@ionic/angular';
@@ -18,6 +18,7 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
+import { buildAdSlotPositions, emptyAdSlotFilled, slotIndexFromAdLoaded } from './lobby-ad-slots';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 import { OpeningOverlayService } from '../../services/opening-overlay.service';
@@ -104,13 +105,16 @@ export class LobbyPage implements OnInit, OnDestroy {
   private isViewActive = false;
   private appForeground = true;
 
-  // 🌟 네이티브 광고 슬롯 (2-24차) — 위치는 웹이 측정해 네이티브로 전송
-  @ViewChild('lobbyAdSlot') lobbyAdSlot: ElementRef;
-  isAdSlotFilled = false;
+  // 🌟 네이티브 광고 슬롯 3개 (2-24차 단일 슬롯 → 3슬롯) — 위치는 웹이 측정해 네이티브로 전송.
+  // 템플릿의 #lobbyAdSlot 은 DOM 순서가 곧 슬롯 번호(0~2)이며 네이티브 컨테이너 1~3과 1:1
+  @ViewChildren('lobbyAdSlot') lobbyAdSlots: QueryList<ElementRef>;
+  adSlotFilled: boolean[] = emptyAdSlotFilled();
   private isLobbyAdActive = false;
-  private onNativeAdLoaded = () => this.ngZone.run(() => {
+  private onNativeAdLoaded = (ev: Event) => this.ngZone.run(() => {
     if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
-    this.isAdSlotFilled = true;
+    const index = slotIndexFromAdLoaded((ev as CustomEvent).detail);
+    if (index < 0) return;
+    this.adSlotFilled[index] = true;
     // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
     setTimeout(() => this.sendAdSlotPosition(), 50);
   });
@@ -1182,7 +1186,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // 🌟 [2-24차] 네이티브 광고 슬롯 (TOP100 아래)
+  // 🌟 [2-24차] 네이티브 광고 슬롯 — 3개 (Today's TOP 위 / Discover 위 / New Creators 위)
   // ==========================================
 
   // 노출 조건: 네이티브 앱 && 로비 화면 활성 && 섹션 목록 표시 중 && 포그라운드
@@ -1198,7 +1202,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     const shouldShow = this.canShowLobbyAd() && await this.adProtection.shouldShowAd('lobby');
     if (shouldShow && !this.isLobbyAdActive) {
       this.isLobbyAdActive = true;
-      this.isAdSlotFilled = false;
+      this.adSlotFilled = emptyAdSlotFilled();
       NativeBridge.setShow({ show: true, page: 'lobby' }).catch(() => { });
     } else if (!shouldShow && this.isLobbyAdActive) {
       this.hideLobbyAd();
@@ -1207,19 +1211,28 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   private hideLobbyAd() {
     this.isLobbyAdActive = false;
-    this.isAdSlotFilled = false;
+    this.adSlotFilled = emptyAdSlotFilled();
     NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
   }
 
-  // 플레이스홀더의 뷰포트 좌표와 클리핑 경계를 네이티브로 전송.
-  // 슬롯이 랭킹 탭 바보다 위에 있으므로 경계는 헤더 하단 — 광고가 헤더 밑으로 잘려 들어간다
+  // 펼쳐진 슬롯들의 뷰포트 좌표와 클리핑 경계를 네이티브로 한 번에 전송.
+  // 슬롯 1·2는 랭킹 탭 바보다 위라 헤더 하단에서, 슬롯 3은 sticky 탭 바 아래라 탭 바 하단에서 잘려 들어간다.
+  // 아직 아무 슬롯도 채워지지 않았으면 보내지 않는다 (네이티브는 ad_loaded 전까지 화면 밖에 대기)
   sendAdSlotPosition() {
-    if (!this.isLobbyAdActive || !this.isAdSlotFilled || !this.lobbyAdSlot) return;
+    if (!this.isLobbyAdActive || !this.lobbyAdSlots || !this.adSlotFilled.some(Boolean)) return;
 
-    const slotTop = this.lobbyAdSlot.nativeElement.getBoundingClientRect().top;
+    const slotEls = this.lobbyAdSlots.toArray();
+    const slotTops = this.adSlotFilled.map((filled, i) =>
+      filled && slotEls[i] ? slotEls[i].nativeElement.getBoundingClientRect().top : null
+    );
     const header = document.querySelector('ion-header');
-    const hideAbove = header ? header.getBoundingClientRect().bottom : 0;
-    NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    const tabBar = document.querySelector('.vs-tab-bar');
+    const tabBarBottom = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
+
+    const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom);
+    if (slots.length === 0) return;
+    NativeBridge.setSlotPositions({ slots }).catch(() => { });
   }
 
   // 세로 스크롤 시작 시 Today's TOP의 순위·조회수 줄을 펼친다(2-29차 첫 화면 공간 확보).

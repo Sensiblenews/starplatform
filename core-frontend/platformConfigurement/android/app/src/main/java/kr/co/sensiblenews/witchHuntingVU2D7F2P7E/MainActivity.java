@@ -187,10 +187,11 @@ public class MainActivity extends BridgeActivity {
             mediaView.postDelayed(() -> logMediaTree(adId, adContainer, wrappingView, mediaView), 2000);
           }
 
-          // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
+          // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지).
+          // detail.slot 은 로비 슬롯 번호(0~2) — 웹이 어느 플레이스홀더를 펼칠지 가른다
           if (webView != null) {
             webView.evaluateJavascript(
-              "window.dispatchEvent(new CustomEvent('ad_loaded'));",
+              "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: " + lobbySlotIndexOf(adId) + " } }));",
               null
             );
           }
@@ -350,6 +351,13 @@ public class MainActivity extends BridgeActivity {
     container.setFocusable(false);
 
     wrapper.addView(container, params);
+  }
+
+  /** 컨테이너 id → 로비 슬롯 번호(0~2). NativeBridge.lobbyContainers() 의 순서와 같다 */
+  private int lobbySlotIndexOf(int adId) {
+    if (adId == R.id.ad_container_2) return 1;
+    if (adId == R.id.ad_container_3) return 2;
+    return 0;
   }
 
   /** 로비 슬롯 카드 높이(px). 웹 플레이스홀더 315px·iOS 315pt 와 통일 */

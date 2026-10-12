@@ -16,7 +16,7 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
   
   var adHeight: Int!
 
-  // 로비 모드: 슬롯 1개, 광고 높이 315pt(웹 플레이스홀더·Android와 통일)
+  // 로비 모드: 슬롯 3개, 광고 높이 315pt(웹 플레이스홀더·Android와 통일)
   var lobbyAdMode = false
 
   // wrapper 상단 제약 — 로비 모드에서 sticky 탭 바 하단으로 동적 조정 (클리핑 경계)
@@ -143,16 +143,31 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
     adLoader3.load(Request())
   }
 
-  // 로비 모드 로드 — 슬롯 1개만 사용
+  // 로비 모드 로드 — 슬롯 3개 각각 단건 로드 (스타 페이지와 같은 광고 단위)
   func loadLobbyAd() {
     lobbyAdMode = true
 
-    for subview in adContainer1.subviews {
-      subview.removeFromSuperview()
+    for container in [adContainer1, adContainer2, adContainer3] {
+      for subview in container!.subviews {
+        subview.removeFromSuperview()
+      }
     }
 
     adLoader1 = makeLoader()
     adLoader1.load(Request())
+
+    adLoader2 = makeLoader()
+    adLoader2.load(Request())
+
+    adLoader3 = makeLoader()
+    adLoader3.load(Request())
+  }
+
+  /// 로더 → 슬롯 번호(0~2). 컨테이너 1~3(tag 201~203)과 1:1 이며 웹 ad_loaded 의 detail.slot 으로 나간다
+  private func slotIndex(of adLoader: AdLoader) -> Int {
+    if adLoader == adLoader2 { return 1 }
+    if adLoader == adLoader3 { return 2 }
+    return 0
   }
 
   // 로비 모드: wrapper 상단을 화면 기준 y(pt)로 이동 — 광고가 sticky 탭 바 밑에서 클리핑되는 경계
@@ -177,19 +192,22 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
         attach(nativeAd, into: adContainer3, delegate: self)
     }
 
-    // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지)
-    let js = "window.dispatchEvent(new CustomEvent('ad_loaded'));"
+    // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지).
+    // detail.slot 은 로비 슬롯 번호(0~2) — 웹이 어느 플레이스홀더를 펼칠지 가른다
+    let js = "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: \(slotIndex(of: adLoader)) } }));"
     DispatchQueue.main.async {
         self.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
     }
   }
   
-  // 광고 로드 실패
+  // 광고 로드 실패 — 실패한 로더의 컨테이너만 숨긴다 (로비 3슬롯에서 한 슬롯의 no-fill 이 나머지를 지우면 안 된다)
   func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: Error) {
-    print("native ad failed:", error.localizedDescription)
-    adContainer1.isHidden = true
-    adContainer2.isHidden = true
-    adContainer3.isHidden = true
+    print("native ad failed slot=\(slotIndex(of: adLoader)):", error.localizedDescription)
+    switch slotIndex(of: adLoader) {
+    case 1: adContainer2.isHidden = true
+    case 2: adContainer3.isHidden = true
+    default: adContainer1.isHidden = true
+    }
   }
   
   private func attach(_ nativeAd: NativeAd, into target: UIView, delegate: NativeAdDelegate) {
