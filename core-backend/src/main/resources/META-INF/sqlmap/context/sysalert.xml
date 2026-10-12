@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 서버 위험 경보 · 이력 · 설정. DDL: core-backend/db/sys-alert.sql (배포 전 수동 실행) -->
+<mapper namespace="sysalert">
+
+    <!-- ============ 설정 ============ -->
+
+    <select id="selectSettings" resultType="hashmap">
+        SELECT SETTING_KEY, SETTING_VALUE FROM WH_SYS_ALERT_SETTING
+    </select>
+
+    <update id="upsertSetting" parameterType="map">
+        INSERT INTO WH_SYS_ALERT_SETTING (SETTING_KEY, SETTING_VALUE, UPDATED_BY, UPDATED_DATE)
+        VALUES (#{SETTING_KEY}, #{SETTING_VALUE}, #{UPDATED_BY}, NOW())
+        ON DUPLICATE KEY UPDATE
+            SETTING_VALUE = VALUES(SETTING_VALUE),
+            UPDATED_BY = VALUES(UPDATED_BY),
+            UPDATED_DATE = NOW()
+    </update>
+
+    <!-- ============ 경보 ============ -->
+
+    <insert id="insertAlert" parameterType="map" useGeneratedKeys="true" keyProperty="ALERT_ID">
+        INSERT INTO WH_SYS_ALERT
+            (ALERT_KEY, SEVERITY, STATUS, TITLE, MESSAGE, METRIC_VALUE, PLATFORM_ID, OPENED_DATE, UPDATED_DATE)
+        VALUES
+            (#{ALERT_KEY}, #{SEVERITY}, 'OPEN', #{TITLE}, #{MESSAGE}, #{METRIC_VALUE}, #{PLATFORM_ID}, NOW(), NOW())
+    </insert>
+
+    <update id="updateAlert" parameterType="map">
+        UPDATE WH_SYS_ALERT
+        SET SEVERITY = #{SEVERITY}, MESSAGE = #{MESSAGE}, METRIC_VALUE = #{METRIC_VALUE}, UPDATED_DATE = NOW()
+        WHERE ALERT_ID = #{ALERT_ID}
+    </update>
+
+    <update id="resolveAlert" parameterType="map">
+        UPDATE WH_SYS_ALERT
+        SET STATUS = 'RESOLVED', RESOLVED_DATE = NOW(), METRIC_VALUE = #{METRIC_VALUE}, UPDATED_DATE = NOW()
+        WHERE ALERT_ID = #{ALERT_ID} AND STATUS = 'OPEN'
+    </update>
+
+    <update id="markMailSent" parameterType="map">
+        UPDATE WH_SYS_ALERT
+        SET MAIL_SENT_YN = 'Y', NOTIFY_COUNT = NOTIFY_COUNT + 1, LAST_NOTIFIED_DATE = NOW(), UPDATED_DATE = NOW()
+        WHERE ALERT_ID = #{ALERT_ID}
+    </update>
+
+    <update id="ackAlert" parameterType="map">
+        UPDATE WH_SYS_ALERT
+        SET ACK_YN = 'Y', ACK_BY = #{ACK_BY}, ACK_DATE = NOW(), UPDATED_DATE = NOW()
+        WHERE ALERT_ID = #{ALERT_ID} AND ACK_YN = 'N'
+    </update>
+
+    <sql id="alertColumns">
+        ALERT_ID, ALERT_KEY, SEVERITY, STATUS, TITLE, MESSAGE, METRIC_VALUE, PLATFORM_ID,
+        OPENED_DATE, UPDATED_DATE, RESOLVED_DATE, ACK_YN, ACK_BY, ACK_DATE, MAIL_SENT_YN, NOTIFY_COUNT, LAST_NOTIFIED_DATE,
+        UNIX_TIMESTAMP(OPENED_DATE) * 1000 AS OPENED_MS,
+        TIMESTAMPDIFF(MINUTE, OPENED_DATE, IFNULL(RESOLVED_DATE, NOW())) AS DURATION_MIN
+    </sql>
+
+    <select id="selectOpenAlerts" resultType="hashmap">
+        SELECT <include refid="alertColumns"/>
+        FROM WH_SYS_ALERT
+        WHERE STATUS = 'OPEN'
+        ORDER BY FIELD(SEVERITY, 'CRITICAL', 'DANGER', 'WARNING'), OPENED_DATE DESC
+    </select>
+
+    <select id="selectRecentAlerts" parameterType="map" resultType="hashmap">
+        SELECT <include refid="alertColumns"/>
+        FROM WH_SYS_ALERT
+        ORDER BY ALERT_ID DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectAlert" parameterType="map" resultType="hashmap">
+        SELECT <include refid="alertColumns"/>
+        FROM WH_SYS_ALERT
+        WHERE ALERT_ID = #{ALERT_ID}
+    </select>
+
+    <!-- ============ 이력 ============ -->
+
+    <insert id="insertEvent" parameterType="map">
+        INSERT INTO WH_SYS_ALERT_EVENT (ALERT_ID, ALERT_KEY, EVENT_TYPE, SEVERITY, MESSAGE, ACTOR, CREATED_DATE)
+        VALUES (#{ALERT_ID, jdbcType=BIGINT}, #{ALERT_KEY, jdbcType=VARCHAR}, #{EVENT_TYPE},
+                #{SEVERITY, jdbcType=VARCHAR}, #{MESSAGE, jdbcType=VARCHAR}, #{ACTOR, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <select id="selectRecentEvents" parameterType="map" resultType="hashmap">
+        SELECT EVENT_ID, ALERT_ID, ALERT_KEY, EVENT_TYPE, SEVERITY, MESSAGE, ACTOR, CREATED_DATE
+        FROM WH_SYS_ALERT_EVENT
+        ORDER BY EVENT_ID DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
