@@ -8,7 +8,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   public let pluginMethods: [CAPPluginMethod] = [
     CAPPluginMethod(name: "updateAdPosition", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "setShow", returnType: CAPPluginReturnPromise),
-    CAPPluginMethod(name: "setSlotPosition", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "setSlotPositions", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "setViewportHeight", returnType: CAPPluginReturnPromise)
   ]
 
@@ -17,8 +17,16 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   private var fixedPositionY2: CGFloat = 0
   private var fixedPositionY3: CGFloat = 0
 
-  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPosition)로 제어
+  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPositions)로 제어.
+  // 슬롯 3개(Today's TOP 위 / Discover 위 / New Creators 위)가 컨테이너 1~3(tag 201~203)에 1:1 로 대응
   private var lobbyMode = false
+
+  /// 웹이 보내는 로비 슬롯 한 개의 좌표 (css px = pt)
+  private struct SlotPosition {
+    let index: Int
+    let y: CGFloat
+    let hideAbove: CGFloat
+  }
   
   // [신규] load()에서 계산한 스타 페이지 전용 위치 백업
   private var starPosY1: CGFloat = 0
@@ -97,12 +105,11 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
       if show {
         // [핵심] 페이지에 따른 fixedPosition 분기 처리
         if page == "lobby" {
-            // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기
+            // 로비 모드: 슬롯 3개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기
             self.lobbyMode = true
-            c1?.isHidden = true
-            c1?.transform = CGAffineTransform(translationX: 0, y: 100000)
-            c2?.isHidden = true
-            c3?.isHidden = true
+            for c in [c1, c2, c3] {
+              self.parkOffscreen(c)
+            }
 
             if let mainVC = self.bridge?.viewController as? MainViewController {
               mainVC.loadLobbyAd()
@@ -112,6 +119,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         } else if page.contains("star") {
             // 스타 페이지: 미리 계산해둔 3개의 피드 슬롯 위치 복구
             self.lobbyMode = false
+            self.clearLobbyClipping()
             (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = self.starPosY1
             self.fixedPositionY2 = self.starPosY2
@@ -123,6 +131,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         } else {
             // 일반 탭/로비 페이지: 상단에 고정 (예: 128pt)
             self.lobbyMode = false
+            self.clearLobbyClipping()
             (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = 128.0
 
@@ -136,6 +145,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
 
       } else {
         self.lobbyMode = false
+        self.clearLobbyClipping()
         c1?.isHidden = true
         c2?.isHidden = true
         c3?.isHidden = true
@@ -145,24 +155,83 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
     }
   }
   
-  // 로비 슬롯 위치 갱신 — 웹이 플레이스홀더의 뷰포트 기준 좌표(css px = pt)를 직접 보낸다.
-  // wrapper 상단을 hideAbove(sticky 탭 바 하단)에 맞춰, 광고가 탭 바 밑으로
-  // 스크롤될 때 잘려 나가듯 자연스럽게 클리핑되게 한다 (전체 숨김으로 인한 빈 구멍 방지)
-  @objc func setSlotPosition(_ call: CAPPluginCall) {
-    let y = call.getDouble("y")
-    let hideAbove = call.getDouble("hideAbove") ?? 0
+  // 로비 슬롯 위치 갱신 — 웹이 펼쳐진 슬롯마다 플레이스홀더의 뷰포트 기준 좌표(css px = pt)와 클리핑 경계를 보낸다.
+  // wrapper 상단은 가장 위 경계(헤더 하단)에 맞춰 광고가 헤더 밑으로 잘려 들어가게 하고,
+  // 경계가 더 아래인 슬롯(sticky 탭 바 아래의 슬롯 3)은 컨테이너 레이어 마스크로 그 차이만큼 상단을 더 잘라낸다.
+  // 목록에 없는 슬롯(아직 no-fill 또는 로드 중)은 화면 밖에 둔다 — 전체 숨김으로 인한 빈 구멍 방지
+  @objc func setSlotPositions(_ call: CAPPluginCall) {
+    var slots: [SlotPosition] = []
+    for item in call.getArray("slots") ?? [] {
+      guard let dict = item as? [String: Any],
+            let y = (dict["y"] as? NSNumber)?.doubleValue else { continue }
+      let index = (dict["index"] as? NSNumber)?.intValue ?? -1
+      let hideAbove = (dict["hideAbove"] as? NSNumber)?.doubleValue ?? 0
+      slots.append(SlotPosition(index: index, y: CGFloat(y), hideAbove: CGFloat(hideAbove)))
+    }
 
     DispatchQueue.main.async {
       defer { call.resolve([:]) }
-      guard self.lobbyMode, let y = y, let c1 = self.getAdContainer1() else {
-        return
-      }
+      guard self.lobbyMode else { return }
+      let containers = self.lobbyContainers()
+
+      // wrapper 경계 = 받은 경계 중 가장 위 (슬롯 1·2 의 헤더 하단).
       // 웹뷰는 화면 최상단(풀스크린)에서 시작하므로 y·hideAbove는 화면 기준 pt와 동일
+      let wrapperHide = slots.map { $0.hideAbove }.min() ?? 0
       if let mainVC = self.bridge?.viewController as? MainViewController {
-        mainVC.setWrapperTopOffset(fromScreenTop: CGFloat(hideAbove))
+        mainVC.setWrapperTopOffset(fromScreenTop: wrapperHide)
       }
-      c1.isHidden = false
-      c1.transform = CGAffineTransform(translationX: 0, y: CGFloat(y - hideAbove))
+
+      var placed = [Bool](repeating: false, count: containers.count)
+      for s in slots where s.index >= 0 && s.index < containers.count {
+        guard let c = containers[s.index] else { continue }
+        c.isHidden = false
+        c.transform = CGAffineTransform(translationX: 0, y: s.y - wrapperHide)
+
+        // 이 슬롯만의 추가 경계(탭 바 하단)가 wrapper 경계보다 아래이고 카드 상단이 그 경계 위로 올라갔으면 그만큼 자른다.
+        // 마스크는 뷰 자신의 bounds 좌표계라 transform 과 무관하다
+        let extraClip = s.hideAbove - s.y
+        if s.hideAbove > wrapperHide + 0.5 && extraClip > 0 {
+          self.applyTopClip(c, top: min(extraClip, c.bounds.height))
+        } else {
+          c.layer.mask = nil
+        }
+        placed[s.index] = true
+      }
+      for (i, c) in containers.enumerated() where !placed[i] {
+        self.parkOffscreen(c)
+      }
+    }
+  }
+
+  /// 로비 슬롯 순서(0~2)대로의 컨테이너 배열
+  private func lobbyContainers() -> [UIView?] {
+    return [getAdContainer1(), getAdContainer2(), getAdContainer3()]
+  }
+
+  /// 로비 모드에서 좌표를 아직 못 받은(또는 광고가 없는) 컨테이너를 화면 밖에 둔다
+  private func parkOffscreen(_ c: UIView?) {
+    c?.layer.mask = nil
+    c?.isHidden = true
+    c?.transform = CGAffineTransform(translationX: 0, y: 100000)
+  }
+
+  /// 컨테이너 상단 top(pt)만큼을 가리는 마스크. 스크롤마다 호출되므로 암시적 애니메이션은 끈다
+  private func applyTopClip(_ c: UIView, top: CGFloat) {
+    let mask = (c.layer.mask as? CALayer) ?? CALayer()
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    mask.backgroundColor = UIColor.black.cgColor
+    mask.frame = CGRect(x: 0, y: top, width: c.bounds.width, height: max(0, c.bounds.height - top))
+    CATransaction.commit()
+    if c.layer.mask !== mask {
+      c.layer.mask = mask
+    }
+  }
+
+  /// 로비 모드를 벗어날 때 슬롯별 마스크를 모두 해제한다
+  private func clearLobbyClipping() {
+    for c in lobbyContainers() {
+      c?.layer.mask = nil
     }
   }
 
@@ -171,7 +240,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   }
 
   func updateAd(scrollOffset: Double) {
-    // 로비 모드에서는 위치를 setSlotPosition이 전담한다 (스타 페이지 수식 오염 방지)
+    // 로비 모드에서는 위치를 setSlotPositions가 전담한다 (스타 페이지 수식 오염 방지)
     if lobbyMode {
       return
     }
