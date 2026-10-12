@@ -8,6 +8,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowManager;
@@ -20,6 +21,7 @@ import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.splashscreen.SplashScreen;
 
 
@@ -167,11 +169,18 @@ public class MainActivity extends BridgeActivity {
         }
 
         LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
-        NativeAdView wrappingView = (NativeAdView) inflater.inflate(R.layout.ad_layout, adContainer, false);
+        // 로비는 미디어 높이를 소재 비율로 잡는 전용 카드(ad_layout_lobby), 스타 페이지는 고정 높이 카드 그대로
+        NativeAdView wrappingView = (NativeAdView) inflater.inflate(
+          landscapeOnly ? R.layout.ad_layout_lobby : R.layout.ad_layout, adContainer, false);
         populateNativeAdView(nativeAd, wrappingView);
+        final int lobbyCardHeightDp = landscapeOnly ? fitLobbyCardToMedia(wrappingView, adContainer, mc) : 0;
         runOnUiThread(() -> {
           adContainer.removeAllViews();
           adContainer.addView(wrappingView);
+          if (landscapeOnly) {
+            // 플레이스홀더(웹)와 컨테이너(네이티브) 높이를 측정값으로 맞춘다 — 2-33차 7번
+            setContainerHeight(adContainer, (int) (lobbyCardHeightDp * getResources().getDisplayMetrics().density));
+          }
 
           // 진단 로그 ⑤ MediaView 실측 크기 — 0×0 이면 제약 문제, 보이지 않으면 레이어 문제
           MediaView mediaView = wrappingView.findViewById(R.id.ad_media);
@@ -188,10 +197,12 @@ public class MainActivity extends BridgeActivity {
           }
 
           // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지).
-          // detail.slot 은 로비 슬롯 번호(0~2) — 웹이 어느 플레이스홀더를 펼칠지 가른다
+          // detail.slot 은 로비 슬롯 번호(0~2), detail.height 는 소재 비율로 측정한 카드 높이(dp = css px).
+          // height 가 0 이면(스타 페이지) 웹은 기본 315 를 쓴다
           if (webView != null) {
             webView.evaluateJavascript(
-              "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: " + lobbySlotIndexOf(adId) + " } }));",
+              "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: " + lobbySlotIndexOf(adId)
+                + ", height: " + lobbyCardHeightDp + " } }));",
               null
             );
           }
@@ -351,6 +362,43 @@ public class MainActivity extends BridgeActivity {
     container.setFocusable(false);
 
     wrapper.addView(container, params);
+  }
+
+  /** 로비 카드 높이 상·하한(dp). 비율이 극단적인 소재가 와도 플레이스홀더가 화면을 삼키지 않게 한다 */
+  private static final int LOBBY_CARD_MIN_DP = 200;
+  private static final int LOBBY_CARD_MAX_DP = 420;
+
+  /**
+   * 로비 카드의 미디어 높이를 소재 비율에 맞추고 카드 전체 높이를 측정한다 (2-33차 7번 — 검은 띠 제거).
+   *
+   * ad_layout 은 미디어가 "남는 높이"를 흡수해 기기 폭에 따라 상자 비율이 소재와 어긋났다.
+   * 여기서는 MediaView 의 DimensionRatio 를 SDK 가 알려 주는 MediaContent.aspectRatio(폭/높이)로 두고
+   * 카드를 wrap 시킨 뒤 실제 폭으로 측정한다. 동영상은 SDK 가 aspect-fit 으로 그리므로 상자 비율이 맞으면 띠가 없다.
+   *
+   * @return 측정한 카드 높이(dp). 웹 플레이스홀더(css px)와 컨테이너 높이에 같은 값을 쓴다
+   */
+  private int fitLobbyCardToMedia(NativeAdView card, FrameLayout adContainer, MediaContent mc) {
+    float ratio = mc != null ? mc.getAspectRatio() : 0f;
+    if (ratio <= 0f || Float.isNaN(ratio)) {
+      ratio = 16f / 9f; // 비율을 모르면 가로 기본값
+    }
+    MediaView mediaView = card.findViewById(R.id.ad_media);
+    ViewGroup.LayoutParams lp = mediaView.getLayoutParams();
+    if (lp instanceof ConstraintLayout.LayoutParams) {
+      ((ConstraintLayout.LayoutParams) lp).dimensionRatio = String.format(java.util.Locale.US, "H,%.4f:1", ratio);
+      mediaView.setLayoutParams(lp);
+    }
+
+    DisplayMetrics metrics = getResources().getDisplayMetrics();
+    int widthPx = adContainer.getWidth() > 0 ? adContainer.getWidth() : metrics.widthPixels;
+    card.measure(
+      MeasureSpec.makeMeasureSpec(widthPx, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+    );
+    int heightDp = Math.round(card.getMeasuredHeight() / metrics.density);
+    int clamped = Math.max(LOBBY_CARD_MIN_DP, Math.min(LOBBY_CARD_MAX_DP, heightDp));
+    Log.d(AD_LOG, "lobby card fit: aspect=" + ratio + " width=" + widthPx + "px measured=" + heightDp + "dp -> " + clamped + "dp");
+    return clamped;
   }
 
   /** 컨테이너 id → 로비 슬롯 번호(0~2). NativeBridge.lobbyContainers() 의 순서와 같다 */

@@ -1,9 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { AlertController, NavController, PopoverController } from '@ionic/angular';
+import { Share } from '@capacitor/share';
 import { HttpService } from '../../services/http.service';
 import { environment } from 'src/environments/environment';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import { AdMobService } from '../../services/ad-mob.service';
+import { FeedMenuComponent } from './feed-menu.component';
 
 @Component({
   selector: 'app-feed-detail',
@@ -15,8 +18,10 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   contentInfo: any = {};
   mediaList: any[] = [];
   
-  starName: string = 'Unknown';
+  // 응답 전 빈 값 — 예전 기본값 'Unknown' 이 로딩 중 잠깐 보였다(2-33차 버그). 작성자 행은 isLoaded 뒤에만 그린다
+  starName: string = '';
   starProfileImg: string = 'assets/img/defaultImg/avatar.svg';
+  isLoaded = false;
 
   // [신규] 안전하게 변환된 유튜브 URL을 담을 변수
   safeYoutubeUrl: SafeResourceUrl | null = null;
@@ -31,8 +36,87 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private http: HttpService,
     private sanitizer: DomSanitizer,
-    private admob: AdMobService
+    private admob: AdMobService,
+    private navCtrl: NavController,
+    private popoverCtrl: PopoverController,
+    private alertCtrl: AlertController
   ) {}
+
+  // 헤더 로고 탭 → 로비 (스타 페이지 goBack 과 동일한 동작)
+  goLobby() {
+    this.navCtrl.navigateBack('/lobby');
+  }
+
+  // 헤더 점점점 메뉴 (2-33차 — 아이콘만 있고 동작이 없던 버그 수정)
+  async presentMenu(ev: Event) {
+    const popover = await this.popoverCtrl.create({
+      component: FeedMenuComponent,
+      event: ev,
+      translucent: false,
+      showBackdrop: true,
+      dismissOnSelect: true,
+      cssClass: 'star-menu-popover'
+    });
+    await popover.present();
+    const { data } = await popover.onDidDismiss();
+    if (data && data.action) this.handleMenuAction(data.action);
+  }
+
+  handleMenuAction(action: string) {
+    switch (action) {
+      case 'search':
+        this.navCtrl.navigateBack('/lobby');
+        break;
+      case 'refresh':
+        this.loadFeedDetail();
+        break;
+      case 'share':
+        this.shareContent();
+        break;
+      case 'report':
+        this.openReportDialog();
+        break;
+    }
+  }
+
+  // 공유 — 스타 페이지의 글 공유와 같은 공개 주소(/post/{id})와 집계 API 를 쓴다
+  async shareContent() {
+    const link = `https://witch-hunting.com/post/${this.conId}`;
+    try {
+      await Share.share({ title: 'Star Platform', url: link });
+      this.http.post('/api/super/share/add', { targetType: 'FEED', targetId: this.conId }).subscribe(() => { });
+    } catch (e) {
+      // 사용자가 공유 시트를 닫은 경우 — 조용히 무시
+    }
+  }
+
+  // 신고 — 스타 페이지와 같은 메일 접수 방식, 대상에 글 번호를 함께 적는다
+  async openReportDialog() {
+    const alert = await this.alertCtrl.create({
+      header: '🚨 Report Post',
+      message: 'Please provide details for the report. Our team will review it shortly.',
+      inputs: [{ name: 'reportContent', type: 'textarea', placeholder: 'e.g., Inappropriate photos, abusive language, etc.' }],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Submit via Email',
+          handler: (data) => {
+            if (!data.reportContent || data.reportContent.trim() === '') return false;
+            this.sendReportEmail(data.reportContent);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private sendReportEmail(content: string) {
+    const email = 'witchhunting777@gmail.com';
+    const subject = encodeURIComponent(`[StarPlatform Report] Report regarding post ${this.conId}`);
+    const bodyText = `Please submit your report below.\n\n- Target Post: ${this.conId} (by ${this.starName || '-'})\n- Report Details:\n${content}\n\n------------------------\n* Please do not modify the form above for faster processing.`;
+    window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+  }
 
   /**
    * 뒤로 나갈 때 전면 광고를 시도한다.
@@ -72,9 +156,11 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     }).subscribe((res: any) => {
       if (res.result !== 'OK') {
         this.notFound = true;
+        this.isLoaded = true;
         return;
       }
       this.notFound = false;
+      this.isLoaded = true;
       this.contentInfo = res.content;
       this.safeContentHtml = this.sanitizer.bypassSecurityTrustHtml(
         this.linkifyContent(this.contentInfo?.CON_BODY || '')

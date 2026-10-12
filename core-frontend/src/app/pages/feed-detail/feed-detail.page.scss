@@ -2,6 +2,7 @@
 .media-stack {
   width: 100%;
   background-color: #f5f5f5;
+  padding-top: 8px; // 헤더(로고)와 본문 사진 사이 여백 (2-33차 클라이언트 요청)
 
   .media-item {
     width: 100%;

@@ -18,7 +18,7 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
-import { buildAdSlotPositions, emptyAdSlotFilled, slotIndexFromAdLoaded } from './lobby-ad-slots';
+import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
 import { LatestContentItem } from './latest-contents-logic';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
@@ -111,12 +111,16 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 템플릿의 #lobbyAdSlot 은 DOM 순서가 곧 슬롯 번호(0~2)이며 네이티브 컨테이너 1~3과 1:1
   @ViewChildren('lobbyAdSlot') lobbyAdSlots: QueryList<ElementRef>;
   adSlotFilled: boolean[] = emptyAdSlotFilled();
+  // 슬롯별 카드 높이(css px). Android 는 소재 비율로 측정한 값을 보내고(2-33차 7번), iOS 는 기본 315
+  adSlotHeight: number[] = defaultAdSlotHeights();
   private isLobbyAdActive = false;
   private onNativeAdLoaded = (ev: Event) => this.ngZone.run(() => {
     if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
-    const index = slotIndexFromAdLoaded((ev as CustomEvent).detail);
+    const detail = (ev as CustomEvent).detail;
+    const index = slotIndexFromAdLoaded(detail);
     if (index < 0) return;
     this.adSlotFilled[index] = true;
+    this.adSlotHeight[index] = slotHeightFromAdLoaded(detail);
     // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
     setTimeout(() => this.sendAdSlotPosition(), 50);
   });
