@@ -16,6 +16,8 @@
   <meta name="description" content="Answers to common questions about StarPlatform: star pages, the global ranking, Daily King, direct messages, advertising revenue, reporting, and using the service without the app." />
   <meta name="robots" content="index, follow" />
   <meta name="google-adsense-account" content="ca-pub-9109251900558498" />
+  <%-- AdSense 사이트 코드 (2-33차 — 소유권 확인·광고 연결용). 광고 단위(ins)는 승인 후 별도로 넣는다 --%>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9109251900558498" crossorigin="anonymous"></script>
 
   <meta property="og:title" content="StarPlatform FAQ" />
   <meta property="og:description" content="Star pages, global ranking, messages, advertising, and reporting — answered." />

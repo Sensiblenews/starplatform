@@ -20,6 +20,8 @@
 
   <%-- 애드센스 소유권 확인용 메타 태그 — 광고 코드가 아니므로 심사 중에도 유지 (구글 공식 확인 수단) --%>
   <meta name="google-adsense-account" content="ca-pub-9109251900558498" />
+  <%-- AdSense 사이트 코드 (2-33차 — 소유권 확인·광고 연결용). 광고 단위(ins)는 승인 후 별도로 넣는다 --%>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9109251900558498" crossorigin="anonymous"></script>
 
   <meta property="og:title" content="StarPlatform" />
   <meta property="og:description" content="Create your page. Grow your audience. Earn globally." />
