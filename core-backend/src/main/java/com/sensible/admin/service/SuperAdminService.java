@@ -909,4 +909,348 @@ public class SuperAdminService {
     public void deleteLiveNews(Map<String, Object> params) throws Exception {
         dao.update("super.deleteLiveNews", params);
     }
+
+    // ==========================================
+    // 🌟 [신규] 로비 Latest Contents 숏폼 편성 (2-33차, SM 전용)
+    // 편성 테이블은 원본 글(WH_STAR_CONTENT)의 CON_ID 만 참조한다.
+    // 모든 변경은 앱 캐시(latestContents, 60초)를 즉시 비우고 WH_LATEST_CONTENT_LOG 에 남긴다.
+    // ==========================================
+
+    /** 로비 노출 개수 범위·기본값 */
+    public static final int LC_COUNT_MIN = 1;
+    public static final int LC_COUNT_MAX = 30;
+    public static final int LC_COUNT_DEFAULT = 10;
+    /** 자동 이동 간격(초) 범위·기본값 — 요청서 3~10초, 기본 4초 */
+    public static final int LC_INTERVAL_MIN = 3;
+    public static final int LC_INTERVAL_MAX = 10;
+    public static final int LC_INTERVAL_DEFAULT = 4;
+    /** 표시 제목 재정의 길이 상한 (컬럼 VARCHAR(100)) */
+    public static final int LC_TITLE_MAX_LENGTH = 100;
+    /** 어드민 직접 업로드 파일 상한. Cloudflare 요청 본문 한도(100MB)에 맞춘다 */
+    public static final long LC_UPLOAD_MAX_BYTES = 100L * 1024 * 1024;
+    /** 어드민 직접 업로드 글의 검수 로그 사유 */
+    public static final String LC_UPLOAD_REASON = "Latest Contents 어드민 직접 업로드 (자동 승인)";
+    /** 어드민 업로드 허용 MIME 접두 */
+    private static final List<String> LC_UPLOAD_MIME_PREFIXES =
+            Collections.unmodifiableList(Arrays.asList("video/"));
+
+    private static int parseIntOr(Object raw, int fallback) {
+        if (raw == null) return fallback;
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) return fallback;
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * 운영 설정 정규화 (순수 함수 — 단위 테스트 대상).
+     * 비어 있거나 숫자가 아니면 기본값, 범위를 벗어나면 가장 가까운 경계값으로 잘라 저장한다.
+     */
+    public static Map<String, Object> normalizeLatestContentSetting(Object countObj, Object secObj) {
+        Map<String, Object> normalized = new HashMap<>();
+        normalized.put("displayCount", clamp(parseIntOr(countObj, LC_COUNT_DEFAULT), LC_COUNT_MIN, LC_COUNT_MAX));
+        normalized.put("intervalSec", clamp(parseIntOr(secObj, LC_INTERVAL_DEFAULT), LC_INTERVAL_MIN, LC_INTERVAL_MAX));
+        return normalized;
+    }
+
+    /**
+     * 게시 기간 검증 (순수 함수). 어드민 폼의 datetime-local 값("yyyy-MM-ddTHH:mm")과
+     * "yyyy-MM-dd HH:mm[:ss]" 를 받는다. 빈 값은 null(즉시/무기한). 종료가 시작보다 앞이면 거부한다.
+     * 시간대는 서버(KST) 기준 그대로 쓴다.
+     */
+    public static Map<String, Object> validateLatestContentPeriod(Object startObj, Object endObj) throws Exception {
+        java.util.Date start = parseAdminDateTime(startObj, "시작 일시");
+        java.util.Date end = parseAdminDateTime(endObj, "종료 일시");
+        if (start != null && end != null && !end.after(start)) {
+            throw new Exception("종료 일시는 시작 일시 이후여야 합니다.");
+        }
+        Map<String, Object> normalized = new HashMap<>();
+        normalized.put("startAt", start);
+        normalized.put("endAt", end);
+        return normalized;
+    }
+
+    private static java.util.Date parseAdminDateTime(Object raw, String label) throws Exception {
+        if (raw == null) return null;
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty() || "null".equalsIgnoreCase(text)) return null;
+        String normalized = text.replace('T', ' ');
+        String[] patterns = { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" };
+        for (String pattern : patterns) {
+            java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(pattern);
+            format.setLenient(false);
+            try {
+                return format.parse(normalized);
+            } catch (java.text.ParseException ignore) {
+                // 다음 형식으로
+            }
+        }
+        throw new Exception(label + " 형식이 올바르지 않습니다: " + text);
+    }
+
+    /** 표시 제목 재정의 정규화 (순수 함수). 공백이면 null(원본 본문 사용), 100자 초과는 거부 */
+    public static String normalizeTitleOverride(Object raw) throws Exception {
+        if (raw == null) return null;
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty() || "null".equalsIgnoreCase(text)) return null;
+        if (text.codePointCount(0, text.length()) > LC_TITLE_MAX_LENGTH) {
+            throw new Exception("표시 제목은 " + LC_TITLE_MAX_LENGTH + "자를 넘을 수 없습니다.");
+        }
+        return text;
+    }
+
+    /** 'Y' 만 Y, 나머지는 전부 N (순수 함수) */
+    public static String yn(Object raw) {
+        return raw != null && "Y".equalsIgnoreCase(String.valueOf(raw).trim()) ? "Y" : "N";
+    }
+
+    /** 업로드 파일 사전 검증 (순수 함수). 통과하면 저장에 쓸 확장자를 돌려준다 */
+    public static String validateLatestContentUpload(String contentType, String originalName, long size) throws Exception {
+        if (size <= 0) {
+            throw new Exception("영상 파일을 선택해주세요.");
+        }
+        if (size > LC_UPLOAD_MAX_BYTES) {
+            throw new Exception("영상 파일은 " + (LC_UPLOAD_MAX_BYTES / 1024 / 1024) + "MB 를 넘을 수 없습니다.");
+        }
+        String mime = contentType == null ? "" : contentType.toLowerCase();
+        boolean mimeOk = false;
+        for (String prefix : LC_UPLOAD_MIME_PREFIXES) {
+            if (mime.startsWith(prefix)) mimeOk = true;
+        }
+        String name = originalName == null ? "" : originalName.toLowerCase();
+        boolean extOk = name.endsWith(".mp4") || name.endsWith(".mov") || name.endsWith(".webm")
+                || name.endsWith(".m4v") || name.endsWith(".avi") || name.endsWith(".ogg");
+        if (!mimeOk && !extOk) {
+            throw new Exception("영상 파일(mp4, mov, webm, avi)만 올릴 수 있습니다.");
+        }
+        // 확장자는 MIME 우선, 없으면 파일명으로 정한다 (변환 성공 시 .mp4 로 바뀐다)
+        if (mimeOk) {
+            return com.sensible.common.util.VideoTranscodeUtil.extensionFromDataUri(mime);
+        }
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot) : ".mp4";
+    }
+
+    public List<Map<String, Object>> getLatestContentAdminList() throws Exception {
+        return dao.selectList("super.selectLatestContentAdminList");
+    }
+
+    public Map<String, Object> getLatestContentSetting() throws Exception {
+        Map<String, Object> row = dao.selectOne("super.selectLatestContentSetting");
+        if (row == null) {
+            row = new HashMap<>();
+            row.put("DISPLAY_COUNT", LC_COUNT_DEFAULT);
+            row.put("INTERVAL_SEC", LC_INTERVAL_DEFAULT);
+        }
+        return row;
+    }
+
+    public List<Map<String, Object>> searchLatestContentCandidates(Map<String, Object> params) throws Exception {
+        return dao.selectList("super.selectLatestContentCandidates", params);
+    }
+
+    // 편성 공통 필드(추천·기간·제목·게시 여부)를 폼 값에서 뽑는다
+    private Map<String, Object> buildLatestContentParam(Map<String, Object> params, String adminId) throws Exception {
+        Map<String, Object> param = new HashMap<>();
+        param.putAll(validateLatestContentPeriod(params.get("startAt"), params.get("endAt")));
+        param.put("isFeatured", yn(params.get("isFeatured")));
+        param.put("useYn", params.containsKey("useYn") ? yn(params.get("useYn")) : "Y");
+        param.put("titleOverride", normalizeTitleOverride(params.get("titleOverride")));
+        param.put("adminId", adminId);
+        return param;
+    }
+
+    private void writeLatestContentLog(Object lcId, String action, String adminId, String detail) {
+        try {
+            Map<String, Object> log = new HashMap<>();
+            log.put("lcId", lcId);
+            log.put("action", action);
+            log.put("adminId", adminId);
+            log.put("detail", detail != null && detail.length() > 500 ? detail.substring(0, 500) : detail);
+            dao.insert("super.insertLatestContentLog", log);
+        } catch (Exception e) {
+            // 이력 실패가 본 작업을 막으면 안 된다
+            System.out.println("[LATEST] log failed: " + e.getMessage());
+        }
+    }
+
+    /** 기존 게시물을 편성에 추가. 승인된 영상 글만, 중복 불가 */
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public int insertLatestContent(Map<String, Object> params, String adminId) throws Exception {
+        int conId = parseIntOr(params.get("conId"), 0);
+        if (conId <= 0) {
+            throw new Exception("게시물을 선택해주세요.");
+        }
+        Map<String, Object> key = new HashMap<>();
+        key.put("conId", conId);
+        int approved = dao.selectOne("super.selectLatestContentApprovedVideo", key);
+        if (approved == 0) {
+            throw new Exception("검수 승인된 영상 게시물만 편성할 수 있습니다. (CON_ID " + conId + ")");
+        }
+        int exists = dao.selectOne("super.selectLatestContentCountByConId", key);
+        if (exists > 0) {
+            throw new Exception("이미 편성된 게시물입니다. (CON_ID " + conId + ")");
+        }
+        Map<String, Object> param = buildLatestContentParam(params, adminId);
+        param.put("conId", conId);
+        dao.insert("super.insertLatestContent", param);
+        Object lcId = param.get("lcId");
+        writeLatestContentLog(lcId, "INSERT", adminId, "conId=" + conId);
+        return parseIntOr(lcId, 0);
+    }
+
+    /**
+     * 어드민 직접 업로드. 지정한 스타 명의의 영상 글을 만들고(검수 자동 승인) 바로 편성한다.
+     * 파일은 앱 업로드와 같은 경로를 탄다: 대기 보관소에 저장 → 웹 호환 MP4 변환 → 썸네일 → 공개 디렉터리로 이동.
+     * 변환이 요청 안에서 동기로 돌므로 큰 파일은 응답이 늦다 (화면에서 버튼을 잠근다).
+     */
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public int uploadLatestContent(org.springframework.web.multipart.MultipartFile videoFile,
+            Map<String, Object> params, String adminId) throws Exception {
+        String prsId = params.get("prsId") == null ? "" : String.valueOf(params.get("prsId")).trim();
+        if (prsId.isEmpty()) {
+            throw new Exception("게시자 스타를 선택해주세요.");
+        }
+        int starCount = dao.selectOne("super.selectLiveNewsTargetStar", prsId);
+        if (starCount == 0) {
+            throw new Exception("존재하지 않는 스타 ID입니다: " + prsId);
+        }
+        if (videoFile == null || videoFile.isEmpty()) {
+            throw new Exception("영상 파일을 선택해주세요.");
+        }
+        String ext = validateLatestContentUpload(videoFile.getContentType(), videoFile.getOriginalFilename(), videoFile.getSize());
+        // 편성 필드는 파일을 건드리기 전에 먼저 검증한다 (기간 오류로 파일만 남는 일 방지)
+        Map<String, Object> lcParam = buildLatestContentParam(params, adminId);
+        String body = params.get("body") == null ? "" : String.valueOf(params.get("body")).trim();
+
+        String uuid = java.util.UUID.randomUUID().toString().replace("-", "");
+        String videoName = uuid + ext;
+        String thumbName = uuid + "_thumb.jpg";
+
+        java.nio.file.Path pendingDir = java.nio.file.Paths.get(com.sensible.common.Constants._PENDING_SAVE_PATH);
+        java.nio.file.Files.createDirectories(pendingDir);
+        java.nio.file.Path savedPath = pendingDir.resolve(videoName);
+        videoFile.transferTo(savedPath.toFile());
+
+        java.nio.file.Path webPath = pendingDir.resolve(uuid + ".mp4");
+        if (com.sensible.common.util.VideoTranscodeUtil.toWebMp4(savedPath, webPath)) {
+            videoName = uuid + ".mp4";
+            savedPath = webPath;
+        }
+        if (!com.sensible.common.util.VideoTranscodeUtil.extractThumbnail(savedPath, pendingDir.resolve(thumbName))) {
+            java.nio.file.Files.deleteIfExists(savedPath);
+            throw new Exception("영상에서 썸네일을 만들지 못했습니다. 다른 파일로 다시 시도해주세요.");
+        }
+
+        // 어드민이 직접 올린 영상은 검수 없이 바로 공개 디렉터리로 옮긴다
+        if (!ImageModerationUtil.promote(videoName, com.sensible.common.Constants._VIDEO_SAVE_PATH)
+                || !ImageModerationUtil.promote(thumbName, com.sensible.common.Constants._VIDEO_THUMNAIL_SAVE_PATH)) {
+            throw new Exception("영상 파일을 공개 디렉터리로 옮기지 못했습니다: " + videoName);
+        }
+
+        // 스타 명의의 영상 글 생성 (앱 업로드와 같은 매퍼)
+        Map<String, Object> master = new HashMap<>();
+        master.put("PRS_ID", prsId);
+        master.put("CON_BODY", body);
+        master.put("YOUTUBE_URL", null);
+        master.put("IS_PINNED", "N");
+        master.put("PIN_LINK_TEXT1", null);
+        master.put("PIN_LINK_URL1", null);
+        master.put("PIN_LINK_TEXT2", null);
+        master.put("PIN_LINK_URL2", null);
+        dao.insert("superapp.insertContentMaster", master);
+        Object conId = master.get("CON_ID");
+        if (conId == null) {
+            throw new Exception("게시물 저장에 실패했습니다. (파일: " + videoName + ")");
+        }
+
+        Map<String, Object> media = new HashMap<>();
+        media.put("CON_ID", conId);
+        media.put("MEDIA_TYPE", "VIDEO");
+        media.put("MEDIA_URL", com.sensible.common.Constants._VIDEO_FILE_URL + videoName);
+        media.put("THUMB_URL", com.sensible.common.Constants._VIDEO_THUMNAIL_FILE_URL + thumbName);
+        media.put("SORT_ORDER", 0);
+        dao.insert("superapp.insertContentMedia", media);
+
+        // 검수 상태는 기본값이 APPROVED 지만, 누가 승인했는지 남기려고 명시적으로 기록한다
+        Map<String, Object> mdr = new HashMap<>();
+        mdr.put("CON_ID", conId);
+        mdr.put("MDR_STATUS", "APPROVED");
+        mdr.put("MDR_ADMIN", adminId);
+        dao.update("superapp.updateStarContentModeration", mdr);
+        Map<String, Object> mdrLog = new HashMap<>();
+        mdrLog.put("TARGET_TYPE", "STAR_FEED");
+        mdrLog.put("TARGET_ID", String.valueOf(conId));
+        mdrLog.put("ACTION", "APPROVED");
+        mdrLog.put("REASON", LC_UPLOAD_REASON);
+        mdrLog.put("ADMIN_ID", adminId);
+        dao.insert("super.insertModerationLog", mdrLog);
+
+        lcParam.put("conId", conId);
+        dao.insert("super.insertLatestContent", lcParam);
+        Object lcId = lcParam.get("lcId");
+        writeLatestContentLog(lcId, "UPLOAD", adminId, "conId=" + conId + ", prsId=" + prsId + ", file=" + videoName);
+        return parseIntOr(lcId, 0);
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public void updateLatestContent(Map<String, Object> params, String adminId) throws Exception {
+        int lcId = parseIntOr(params.get("lcId"), 0);
+        if (lcId <= 0) {
+            throw new Exception("편성 ID가 올바르지 않습니다.");
+        }
+        Map<String, Object> param = buildLatestContentParam(params, adminId);
+        param.put("lcId", lcId);
+        dao.update("super.updateLatestContent", param);
+        writeLatestContentLog(lcId, "UPDATE", adminId, "featured=" + param.get("isFeatured") + ", useYn=" + param.get("useYn")
+                + ", start=" + param.get("startAt") + ", end=" + param.get("endAt"));
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public void toggleLatestContentUseYn(Map<String, Object> params, String adminId) throws Exception {
+        Map<String, Object> param = new HashMap<>();
+        param.put("lcId", parseIntOr(params.get("lcId"), 0));
+        param.put("useYn", yn(params.get("useYn")));
+        param.put("adminId", adminId);
+        dao.update("super.updateLatestContentUseYn", param);
+        writeLatestContentLog(param.get("lcId"), "TOGGLE", adminId, "useYn=" + param.get("useYn"));
+    }
+
+    // 드래그 정렬 저장: 화면이 넘긴 ID 순서대로 DISPLAY_ORDER 를 1부터 재부여
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public void saveLatestContentOrder(List<Object> lcIds, String adminId) throws Exception {
+        int order = 1;
+        for (Object lcId : lcIds) {
+            Map<String, Object> param = new HashMap<>();
+            param.put("lcId", lcId);
+            param.put("displayOrder", order++);
+            param.put("adminId", adminId);
+            dao.update("super.updateLatestContentOrder", param);
+        }
+        writeLatestContentLog(null, "ORDER", adminId, String.valueOf(lcIds));
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public void deleteLatestContent(Map<String, Object> params, String adminId) throws Exception {
+        Map<String, Object> param = new HashMap<>();
+        param.put("lcId", parseIntOr(params.get("lcId"), 0));
+        param.put("adminId", adminId);
+        dao.update("super.deleteLatestContent", param);
+        writeLatestContentLog(param.get("lcId"), "DELETE", adminId, null);
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public void saveLatestContentSetting(Map<String, Object> params, String adminId) throws Exception {
+        Map<String, Object> param = normalizeLatestContentSetting(params.get("displayCount"), params.get("intervalSec"));
+        param.put("adminId", adminId);
+        dao.insert("super.upsertLatestContentSetting", param);
+        writeLatestContentLog(null, "SETTING", adminId, "count=" + param.get("displayCount") + ", interval=" + param.get("intervalSec"));
+    }
 }

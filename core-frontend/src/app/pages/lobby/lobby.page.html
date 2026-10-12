@@ -355,6 +355,10 @@
 
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
+    <!-- 🎬 Latest Contents 숏폼 캐러셀 (2-33차) — 헤더와 VS 카드 사이. 편성 0개면 섹션 자체를 숨긴다 -->
+    <app-latest-contents-carousel *ngIf="latestContents.length > 0" [items]="latestContents" [intervalSec]="latestIntervalSec"
+      (profileSelect)="goToStarPage($event)" (contentSelect)="goToContentPage($event)"></app-latest-contents-carousel>
+
     <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
     <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
     <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
@@ -369,6 +373,10 @@
       [delta]="myRankDelta" [avatar]="myImage || (myRank && myRank.image) || defaultAvatar"
       (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()" (reLogin)="openCreatorLogin()">
     </app-my-ranking-card>
+
+    <!-- 🌟 네이티브 광고 슬롯 1/3 — My Global Ranking 카드와 Today's TOP 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
+         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
 
     <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).
          첫 화면에는 사진+이름만 보이고, 세로 스크롤을 시작하면 순위·조회수 줄이 펼쳐진다(2-29차 공간 확보) -->
@@ -401,9 +409,72 @@
       </div>
     </div>
 
-    <!-- 🌟 네이티브 광고 슬롯 (2-24차) — Today's TOP과 Global Ranking 사이. 네이티브 오버레이가 얹힐 자리.
+    <div class="section-container">
+      <div class="section-header">
+        <ion-icon name="trending-up" class="title-icon pink"></ion-icon>
+        <ion-label>Trending Now</ion-label>
+      </div>
+
+      <ion-list lines="none">
+        <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+          <ion-avatar slot="start"><img [src]="getStarImage(star.image)"
+              (error)="handleImageError($event)" /></ion-avatar>
+
+          <ion-label class="info-container">
+            <h2 class="star-name">{{ star.name }}</h2>
+
+            <div *ngIf="star.globalRank > 0" class="global-rank">
+              🌍 Global Rank #{{ star.globalRank }}
+            </div>
+
+            <div class="stats-row">
+              <div style="position: relative; display: flex; align-items: center; gap: 2px;">
+                👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
+                <div *ngIf="star.showPlus" class="floating-plus">+1</div>
+              </div>
+
+              <div (click)="toggleFavorite(star, $event)" style="display: flex; align-items: center; gap: 2px;">
+                <ion-icon [name]="star.isFavorite ? 'star' : 'star-outline'"
+                  [color]="star.isFavorite ? 'warning' : 'medium'"
+                  style="font-size: 15px; margin-bottom: 2px;"></ion-icon>
+                <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 2px;">
+                💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
+              </div>
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </div>
+
+    <!-- 🌟 네이티브 광고 슬롯 2/3 — Trending Now와 Discover Global Pages 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="isAdSlotFilled"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[1]" [style.height.px]="adSlotFilled[1] ? adSlotHeight[1] : null"></div>
+
+    <div class="discover-pages-section">
+      <h3 class="discover-title">
+        🌍 Discover Global Pages
+      </h3>
+
+      <app-skeleton *ngIf="isLoadingRecommended" variant="card" [count]="6" [horizontal]="true"></app-skeleton>
+
+      <div class="discover-scroll" *ngIf="!isLoadingRecommended">
+        <div *ngFor="let p of recommendedPages" (click)="goToStarPage(p.PRS_ID)" class="discover-item">
+          <ion-avatar class="discover-avatar">
+            <img [src]="p.STORED_FILE_NM || defaultAvatar" (error)="handleImageError($event)" />
+          </ion-avatar>
+          <div class="discover-name">
+            {{ p.PRS_NAME }}
+          </div>
+        </div>
+      </div>
+
+      <ion-button expand="block" color="light" (click)="loadRecommendedPages()" class="discover-next-btn">
+        Show More <ion-icon name="refresh-outline" slot="end"></ion-icon>
+      </ion-button>
+    </div>
 
     <!-- 🌟 랭킹 탭: 세그먼트(Global/Daily King) + 카테고리 칩 (스크롤 시 상단 고정) -->
     <div class="vs-tab-bar">
@@ -451,45 +522,9 @@
       </div>
     </div>
 
-    <div class="section-container">
-      <div class="section-header">
-        <ion-icon name="trending-up" class="title-icon pink"></ion-icon>
-        <ion-label>Trending Now</ion-label>
-      </div>
-
-      <ion-list lines="none">
-        <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
-          <ion-avatar slot="start"><img [src]="getStarImage(star.image)"
-              (error)="handleImageError($event)" /></ion-avatar>
-
-          <ion-label class="info-container">
-            <h2 class="star-name">{{ star.name }}</h2>
-
-            <div *ngIf="star.globalRank > 0" class="global-rank">
-              🌍 Global Rank #{{ star.globalRank }}
-            </div>
-
-            <div class="stats-row">
-              <div style="position: relative; display: flex; align-items: center; gap: 2px;">
-                👁️ <span style="font-weight: 600;">{{ formatNumber(star.displayViewCount) }}</span>
-                <div *ngIf="star.showPlus" class="floating-plus">+1</div>
-              </div>
-
-              <div (click)="toggleFavorite(star, $event)" style="display: flex; align-items: center; gap: 2px;">
-                <ion-icon [name]="star.isFavorite ? 'star' : 'star-outline'"
-                  [color]="star.isFavorite ? 'warning' : 'medium'"
-                  style="font-size: 15px; margin-bottom: 2px;"></ion-icon>
-                <span style="font-weight: 600;">{{ formatNumber(star.followerCount) }}</span>
-              </div>
-
-              <div style="display: flex; align-items: center; gap: 2px;">
-                💎 <span style="font-weight: bold;">{{ formatNumber(getPoints(star.displayViewCount)) }}P</span>
-              </div>
-            </div>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-    </div>
+    <!-- 🌟 네이티브 광고 슬롯 3/3 — TOP 100 리스트와 New Creators 사이 (sticky 탭 바 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
+         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[2]" [style.height.px]="adSlotFilled[2] ? adSlotHeight[2] : null"></div>
 
     <div class="section-container" *ngIf="newCreators && newCreators.length > 0">
       <div class="section-header">
@@ -528,29 +563,6 @@
           </ion-label>
         </ion-item>
       </ion-list>
-    </div>
-
-    <div class="discover-pages-section">
-      <h3 class="discover-title">
-        🌍 Discover Global Pages
-      </h3>
-
-      <app-skeleton *ngIf="isLoadingRecommended" variant="card" [count]="6" [horizontal]="true"></app-skeleton>
-
-      <div class="discover-scroll" *ngIf="!isLoadingRecommended">
-        <div *ngFor="let p of recommendedPages" (click)="goToStarPage(p.PRS_ID)" class="discover-item">
-          <ion-avatar class="discover-avatar">
-            <img [src]="p.STORED_FILE_NM || defaultAvatar" (error)="handleImageError($event)" />
-          </ion-avatar>
-          <div class="discover-name">
-            {{ p.PRS_NAME }}
-          </div>
-        </div>
-      </div>
-
-      <ion-button expand="block" color="light" (click)="loadRecommendedPages()" class="discover-next-btn">
-        Show More <ion-icon name="refresh-outline" slot="end"></ion-icon>
-      </ion-button>
     </div>
   </ng-container>
 

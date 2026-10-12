@@ -16,6 +16,7 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
 import { MyRankingCardComponent } from './components/my-ranking-card/my-ranking-card.component';
+import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 
@@ -42,6 +43,7 @@ import { GlobalOpeningOverlayComponent } from '../../components/global-opening-o
     VsCarouselComponent,
     LiveNewsTickerComponent,
     MyRankingCardComponent,
+    LatestContentsCarouselComponent,
   ],
 })
 export class LobbyPageModule {}

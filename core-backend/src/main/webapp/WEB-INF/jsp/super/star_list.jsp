@@ -246,6 +246,12 @@
                                 <i class="fas fa-trash-alt me-1"></i> 삭제
                             </button>
                         </div>
+                        <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
+                            <!-- 🎬 로비 숏폼(Latest Contents) 편성에 추가 (2-33차). 영상 글일 때만 보인다. 승인 전·중복은 서버가 거부한다 -->
+                            <button id="btnLatestContent" class="btn btn-outline-info w-100 fw-bold mt-2" onclick="addToLatestContents()" style="display:none;">
+                                <i class="fas fa-film me-1"></i> 로비 숏폼에 추가
+                            </button>
+                        </c:if>
                     </div>
                 </div>
             </div>
@@ -576,6 +582,8 @@
         
         if(mediaType === 'VIDEO') $('#actionVideoIcon').show();
         else $('#actionVideoIcon').hide();
+        // 숏폼은 영상 글만 편성할 수 있다 (버튼은 SM 에게만 렌더된다)
+        $('#btnLatestContent').toggle(mediaType === 'VIDEO');
 
         // 버튼 상태 (고정 vs 해제)
         updatePinButtonUI();
@@ -654,6 +662,25 @@
             } else {
                 alert('삭제 실패: ' + res.msg);
             }
+        });
+    }
+
+    // 🎬 로비 숏폼(Latest Contents) 편성에 추가 (2-33차). 순서는 맨 뒤에 붙고, 숏폼 메뉴에서 번호를 바꿔 저장한다
+    function addToLatestContents() {
+        if(!confirm('이 영상을 로비 숏폼 편성에 추가하시겠습니까?\n(맨 뒤 순서로 들어가며, 숏폼 메뉴에서 순서를 바꿀 수 있습니다)')) return;
+        var $btn = $('#btnLatestContent').prop('disabled', true);
+        $.post('/super/latest-contents/insert.do', { conId: currentConId }, function(res) {
+            $btn.prop('disabled', false);
+            if(res.status === 'success') {
+                if(confirm('숏폼 편성에 추가되었습니다.\n지금 숏폼 메뉴로 이동해 순서를 정하시겠습니까?')) {
+                    location.href = '/super/latest-contents/list.do';
+                }
+            } else {
+                alert('추가 실패: ' + (res.msg || ''));
+            }
+        }).fail(function() {
+            $btn.prop('disabled', false);
+            alert('서버 오류가 발생했습니다.');
         });
     }
 

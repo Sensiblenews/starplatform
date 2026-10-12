@@ -1,4 +1,4 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { Platform, ModalController, PopoverController, AlertController, IonSearchbar, ScrollDetail } from '@ionic/angular';
@@ -18,6 +18,9 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
+import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
+import { LatestContentItem } from './latest-contents-logic';
+import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 import { OpeningOverlayService } from '../../services/opening-overlay.service';
@@ -104,13 +107,20 @@ export class LobbyPage implements OnInit, OnDestroy {
   private isViewActive = false;
   private appForeground = true;
 
-  // 🌟 네이티브 광고 슬롯 (2-24차) — 위치는 웹이 측정해 네이티브로 전송
-  @ViewChild('lobbyAdSlot') lobbyAdSlot: ElementRef;
-  isAdSlotFilled = false;
+  // 🌟 네이티브 광고 슬롯 3개 (2-24차 단일 슬롯 → 3슬롯) — 위치는 웹이 측정해 네이티브로 전송.
+  // 템플릿의 #lobbyAdSlot 은 DOM 순서가 곧 슬롯 번호(0~2)이며 네이티브 컨테이너 1~3과 1:1
+  @ViewChildren('lobbyAdSlot') lobbyAdSlots: QueryList<ElementRef>;
+  adSlotFilled: boolean[] = emptyAdSlotFilled();
+  // 슬롯별 카드 높이(css px). Android 는 소재 비율로 측정한 값을 보내고(2-33차 7번), iOS 는 기본 315
+  adSlotHeight: number[] = defaultAdSlotHeights();
   private isLobbyAdActive = false;
-  private onNativeAdLoaded = () => this.ngZone.run(() => {
+  private onNativeAdLoaded = (ev: Event) => this.ngZone.run(() => {
     if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
-    this.isAdSlotFilled = true;
+    const detail = (ev as CustomEvent).detail;
+    const index = slotIndexFromAdLoaded(detail);
+    if (index < 0) return;
+    this.adSlotFilled[index] = true;
+    this.adSlotHeight[index] = slotHeightFromAdLoaded(detail);
     // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
     setTimeout(() => this.sendAdSlotPosition(), 50);
   });
@@ -140,6 +150,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
   @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
   @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
+  // 🎬 Latest Contents 숏폼 캐러셀 (2-33차). 헤더와 VS 카드 사이. 진입 시 1회 + 당겨서 새로고침, 폴링 없음
+  @ViewChild(LatestContentsCarouselComponent) latestCarousel: LatestContentsCarouselComponent;
+  latestContents: LatestContentItem[] = [];
+  latestIntervalSec = 4;
   // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
   @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
@@ -255,6 +269,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
+    this.loadLatestContents();
     this.loadCategoryTop100();
 
     this.searchSub = this.searchInput$.pipe(
@@ -363,6 +378,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
     if (this.newsTicker) this.newsTicker.start();
+    if (this.latestCarousel) this.latestCarousel.start();
 
     // 🌟 My Global Ranking 카드: 진입 즉시 1회 + 30초 갱신 (2-29차)
     this.startMyRankPolling();
@@ -408,6 +424,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.openingOverlay) this.openingOverlay.stop(false);
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
+    if (this.latestCarousel) this.latestCarousel.stop();
 
     if (this.backButtonSub) {
       this.backButtonSub.unsubscribe();
@@ -594,6 +611,28 @@ export class LobbyPage implements OnInit, OnDestroy {
           setTimeout(() => this.sendAdSlotPosition());
         }
       }
+    });
+  }
+
+  // 🎬 Latest Contents 숏폼 편성 목록 (2-33차). 서버 60초 캐시, 어드민 저장 시 즉시 비워진다.
+  // 실패하면 빈 목록 그대로 — 섹션이 숨겨질 뿐 로비는 열린다
+  loadLatestContents() {
+    this.http.get('/api/super/lobby/latest-contents').subscribe({
+      next: (res: any) => {
+        if (res && res.result === 'OK') {
+          const had = this.latestContents.length > 0;
+          this.latestContents = res.items || [];
+          this.latestIntervalSec = res.intervalSec || 4;
+          // 섹션 최초 등장은 아래 광고 슬롯을 밀어내므로 렌더 후 위치 재전송
+          if (!had && this.latestContents.length > 0) {
+            setTimeout(() => {
+              this.sendAdSlotPosition();
+              if (this.isViewActive && this.latestCarousel) this.latestCarousel.start();
+            });
+          }
+        }
+      },
+      error: () => { },
     });
   }
 
@@ -819,6 +858,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   doRefresh(event: any) {
     this.loadLobbyData(event);
     this.loadMyRank(); // My Global Ranking 카드도 함께 갱신 (2-29차)
+    this.loadLatestContents(); // 숏폼 편성도 함께 갱신 (2-33차)
   }
 
   toggleFavoriteList() {
@@ -1182,7 +1222,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   // ==========================================
-  // 🌟 [2-24차] 네이티브 광고 슬롯 (TOP100 아래)
+  // 🌟 [2-24차] 네이티브 광고 슬롯 — 3개 (Today's TOP 위 / Discover 위 / New Creators 위)
   // ==========================================
 
   // 노출 조건: 네이티브 앱 && 로비 화면 활성 && 섹션 목록 표시 중 && 포그라운드
@@ -1198,7 +1238,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     const shouldShow = this.canShowLobbyAd() && await this.adProtection.shouldShowAd('lobby');
     if (shouldShow && !this.isLobbyAdActive) {
       this.isLobbyAdActive = true;
-      this.isAdSlotFilled = false;
+      this.adSlotFilled = emptyAdSlotFilled();
       NativeBridge.setShow({ show: true, page: 'lobby' }).catch(() => { });
     } else if (!shouldShow && this.isLobbyAdActive) {
       this.hideLobbyAd();
@@ -1207,19 +1247,28 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   private hideLobbyAd() {
     this.isLobbyAdActive = false;
-    this.isAdSlotFilled = false;
+    this.adSlotFilled = emptyAdSlotFilled();
     NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
   }
 
-  // 플레이스홀더의 뷰포트 좌표와 클리핑 경계를 네이티브로 전송.
-  // 슬롯이 랭킹 탭 바보다 위에 있으므로 경계는 헤더 하단 — 광고가 헤더 밑으로 잘려 들어간다
+  // 펼쳐진 슬롯들의 뷰포트 좌표와 클리핑 경계를 네이티브로 한 번에 전송.
+  // 슬롯 1·2는 랭킹 탭 바보다 위라 헤더 하단에서, 슬롯 3은 sticky 탭 바 아래라 탭 바 하단에서 잘려 들어간다.
+  // 아직 아무 슬롯도 채워지지 않았으면 보내지 않는다 (네이티브는 ad_loaded 전까지 화면 밖에 대기)
   sendAdSlotPosition() {
-    if (!this.isLobbyAdActive || !this.isAdSlotFilled || !this.lobbyAdSlot) return;
+    if (!this.isLobbyAdActive || !this.lobbyAdSlots || !this.adSlotFilled.some(Boolean)) return;
 
-    const slotTop = this.lobbyAdSlot.nativeElement.getBoundingClientRect().top;
+    const slotEls = this.lobbyAdSlots.toArray();
+    const slotTops = this.adSlotFilled.map((filled, i) =>
+      filled && slotEls[i] ? slotEls[i].nativeElement.getBoundingClientRect().top : null
+    );
     const header = document.querySelector('ion-header');
-    const hideAbove = header ? header.getBoundingClientRect().bottom : 0;
-    NativeBridge.setSlotPosition({ y: slotTop, hideAbove }).catch(() => { });
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    const tabBar = document.querySelector('.vs-tab-bar');
+    const tabBarBottom = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
+
+    const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom);
+    if (slots.length === 0) return;
+    NativeBridge.setSlotPositions({ slots }).catch(() => { });
   }
 
   // 세로 스크롤 시작 시 Today's TOP의 순위·조회수 줄을 펼친다(2-29차 첫 화면 공간 확보).
@@ -1259,6 +1308,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startMyRankPolling(); // My Global Ranking 카드 즉시 갱신 + 30초 재개
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
           if (this.newsTicker) this.newsTicker.start();
+          if (this.latestCarousel) this.latestCarousel.start();
         }
         this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
       } else {
@@ -1271,6 +1321,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         if (this.openingOverlay) this.openingOverlay.stop(false);
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
+        if (this.latestCarousel) this.latestCarousel.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
       }
     });

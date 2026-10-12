@@ -81,6 +81,8 @@
                 <entry key="starRank" value="10" />
                 <!-- 로비 LIVE 티커 어드민 문구. 어드민 저장 시 @CacheEvict로 즉시 비운다 -->
                 <entry key="liveNews" value="10" />
+                <!-- 로비 Latest Contents 숏폼 편성. 어드민 저장 시 @CacheEvict로 즉시 비운다 (2-33차) -->
+                <entry key="latestContents" value="60" />
             </map>
         </property>
     </bean>

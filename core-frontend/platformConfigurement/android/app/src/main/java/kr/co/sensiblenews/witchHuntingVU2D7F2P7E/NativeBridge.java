@@ -1,6 +1,7 @@
 package kr.co.sensiblenews.witchHuntingVU2D7F2P7E;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
@@ -11,11 +12,17 @@ import androidx.annotation.NonNull;
 import com.android.installreferrer.api.InstallReferrerClient;
 import com.android.installreferrer.api.InstallReferrerStateListener;
 import com.android.installreferrer.api.ReferrerDetails;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @CapacitorPlugin(name = "NativeBridge")
 public class NativeBridge extends Plugin {
@@ -28,8 +35,22 @@ public class NativeBridge extends Plugin {
   private boolean ad2Triggered = false;
   private boolean ad3Triggered = false;
 
-  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPosition)로 제어한다
+  // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPositions)로 제어한다.
+  // 슬롯 3개(Today's TOP 위 / Discover 위 / New Creators 위)가 컨테이너 1~3 에 1:1 로 대응한다
   private boolean lobbyMode = false;
+
+  /** 웹이 보내는 로비 슬롯 한 개의 좌표 (css px) */
+  private static final class SlotPosition {
+    final int index;
+    final float y;
+    final float hideAbove;
+
+    SlotPosition(int index, float y, float hideAbove) {
+      this.index = index;
+      this.y = y;
+      this.hideAbove = hideAbove;
+    }
+  }
 
 
 
@@ -58,10 +79,12 @@ public class NativeBridge extends Plugin {
     // Ad 3 (배열 인덱스 15): 앞에 일반 피드 13개 + Ad 2개 있음
     float slot3Y = headerProfileHeight + (feedItemHeight * 16) + (adSlotHeight * 2);
 
-    // 3. 네이티브 광고(315dp)를 웹의 빈칸 박스(screenWidth + 85) 수직 중앙에 배치하기 위한 보정치
+    // 3. 네이티브 광고 카드를 웹의 빈칸 박스(screenWidth + 85) 수직 중앙에 배치하기 위한 보정치.
+    //    카드 높이를 iOS 와 같이 빈칸 박스와 똑같이(화면 폭+85) 잡으므로 보정치는 0 이 된다 — 식은 남겨둔다
     float placeholderTopMargin = 0f; // 슬롯 상단 여백 (margin 16 + padding 10)
     float placeholderBoxHeight = screenWidth + 85f;
-    float centeringOffset = (placeholderBoxHeight - 315f) / 2f; // 중앙 정렬
+    float cardHeight = screenWidth + 85f; // MainActivity.starCardHeightPx 와 같은 값(dp)
+    float centeringOffset = (placeholderBoxHeight - cardHeight) / 2f; // 중앙 정렬
 
     // 4. 최종 위치 적용
     initialPositionY1 = (int) ((slot1Y + placeholderTopMargin + centeringOffset) * metrics.density);
@@ -97,68 +120,133 @@ public class NativeBridge extends Plugin {
         params.topMargin = (int) getActivity().getResources().getDimension(R.dimen.ad_top_margin) + getStatusBarHeight(getContext());
         adWrapper.setLayoutParams(params);
 
+        MainActivity activity = (MainActivity) getActivity();
         if ("lobby".equals(page)) {
-          // 로비 모드: 슬롯 1개만 사용. 웹 좌표(setSlotPosition) 수신 전까지 화면 밖에 대기
+          // 로비 모드: 슬롯 3개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기.
+          // 카드는 315dp 고정이라 가로 크리에이티브만 요청한다
           lobbyMode = true;
-          adContainer1.setVisibility(View.INVISIBLE);
-          adContainer1.setTranslationY(100000f);
-          adContainer2.setVisibility(View.GONE);
-          adContainer3.setVisibility(View.GONE);
+          int lobbyHeight = activity.lobbyCardHeightPx();
+          for (FrameLayout c : lobbyContainers()) {
+            activity.setContainerHeight(c, lobbyHeight);
+            parkOffscreen(c);
+          }
           ad1Triggered = false;
+          ad2Triggered = false;
+          ad3Triggered = false;
 
-          MainActivity activity = (MainActivity) getActivity();
-          activity.loadNativeAd(adContainer1, R.id.ad_container_1);
+          activity.loadNativeAd(adContainer1, R.id.ad_container_1, true);
+          activity.loadNativeAd(adContainer2, R.id.ad_container_2, true);
+          activity.loadNativeAd(adContainer3, R.id.ad_container_3, true);
         } else {
-          // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로
+          // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로. 카드는 iOS 와 같이 화면 폭+85
           lobbyMode = false;
-          adContainer1.setVisibility(View.VISIBLE);
-          adContainer2.setVisibility(View.VISIBLE);
-          adContainer3.setVisibility(View.VISIBLE);
+          int starHeight = activity.starCardHeightPx();
+          for (FrameLayout c : lobbyContainers()) {
+            activity.setContainerHeight(c, starHeight);
+            c.setClipBounds(null); // 로비 모드의 슬롯별 클리핑 해제
+            c.setVisibility(View.VISIBLE);
+          }
           reinitializePosition();
         }
       } else {
         lobbyMode = false;
-        adContainer1.setVisibility(View.GONE);
-        adContainer2.setVisibility(View.GONE);
-        adContainer3.setVisibility(View.GONE);
+        for (FrameLayout c : lobbyContainers()) {
+          c.setClipBounds(null);
+          c.setVisibility(View.GONE);
+        }
       }
     });
   }
 
-  // 로비 슬롯 위치 갱신 — 웹이 플레이스홀더의 뷰포트 기준 좌표(css px)를 직접 보낸다.
-  // wrapper 상단을 hideAbove(sticky 탭 바 하단)에 맞춰, 광고가 탭 바 밑으로
-  // 스크롤될 때 잘려 나가듯 자연스럽게 클리핑되게 한다 (전체 숨김으로 인한 빈 구멍 방지)
+  // 로비 슬롯 위치 갱신 — 웹이 펼쳐진 슬롯마다 플레이스홀더의 뷰포트 기준 좌표(css px)와 클리핑 경계를 보낸다.
+  // wrapper 상단은 가장 위 경계(헤더 하단)에 맞춰 광고가 헤더 밑으로 잘려 들어가게 하고,
+  // 경계가 더 아래인 슬롯(sticky 탭 바 아래의 슬롯 3)은 컨테이너 자체의 clipBounds 로 그 차이만큼 상단을 더 잘라낸다.
+  // 목록에 없는 슬롯(아직 no-fill 또는 로드 중)은 화면 밖에 둔다 — 전체 숨김으로 인한 빈 구멍 방지
   @PluginMethod()
-  public void setSlotPosition(@NonNull PluginCall call) {
+  public void setSlotPositions(@NonNull PluginCall call) {
     call.setKeepAlive(false);
-    Double y = call.getDouble("y");
-    Double hideAbove = call.getDouble("hideAbove");
-    if (y == null) {
-      call.resolve();
-      return;
+    JSArray raw = call.getArray("slots");
+    final List<SlotPosition> slots = new ArrayList<>();
+    if (raw != null) {
+      for (int i = 0; i < raw.length(); i++) {
+        JSONObject item = raw.optJSONObject(i);
+        if (item == null || !item.has("y")) {
+          continue;
+        }
+        slots.add(new SlotPosition(
+          item.optInt("index", -1),
+          (float) item.optDouble("y", 0),
+          (float) item.optDouble("hideAbove", 0)
+        ));
+      }
     }
-    final float yCss = y.floatValue();
-    final float hideCss = hideAbove != null ? hideAbove.floatValue() : 0f;
 
     getActivity().runOnUiThread(() -> {
       if (!lobbyMode || adContainer1 == null) {
         return;
       }
       float density = getActivity().getResources().getDisplayMetrics().density;
+      FrameLayout[] containers = lobbyContainers();
+
+      // wrapper 경계 = 받은 경계 중 가장 위 (슬롯 1·2 의 헤더 하단). 아무 슬롯도 없으면 0
+      float wrapperHideCss = 0f;
+      boolean first = true;
+      for (SlotPosition s : slots) {
+        if (first || s.hideAbove < wrapperHideCss) {
+          wrapperHideCss = s.hideAbove;
+          first = false;
+        }
+      }
 
       // 웹뷰는 상태바 아래에서 시작하므로 css px→물리 px 변환에 상태바 높이를 더하면 화면 좌표가 된다
       FrameLayout adWrapper = getActivity().findViewById(R.id.ad_wrapper);
-      int targetTop = (int) (hideCss * density) + getStatusBarHeight(getContext());
+      int targetTop = (int) (wrapperHideCss * density) + getStatusBarHeight(getContext());
       FrameLayout.LayoutParams wp = (FrameLayout.LayoutParams) adWrapper.getLayoutParams();
       if (Math.abs(wp.topMargin - targetTop) > 1) {
         wp.topMargin = targetTop;
         adWrapper.setLayoutParams(wp);
       }
 
-      adContainer1.setVisibility(View.VISIBLE);
-      adContainer1.setTranslationY((yCss - hideCss) * density);
+      boolean[] placed = new boolean[containers.length];
+      for (SlotPosition s : slots) {
+        if (s.index < 0 || s.index >= containers.length) {
+          continue;
+        }
+        FrameLayout c = containers[s.index];
+        c.setVisibility(View.VISIBLE);
+        c.setTranslationY((s.y - wrapperHideCss) * density);
+
+        // 이 슬롯만의 추가 경계(탭 바 하단)가 wrapper 경계보다 아래이고 카드 상단이 그 경계 위로 올라갔으면 그만큼 자른다.
+        // clipBounds 는 뷰 자신의 좌표계라 translationY 와 무관하다
+        float extraClipPx = (s.hideAbove - s.y) * density;
+        if (s.hideAbove > wrapperHideCss + 0.5f && extraClipPx > 0f) {
+          int h = c.getLayoutParams() != null ? c.getLayoutParams().height : c.getHeight();
+          int w = c.getWidth() > 0 ? c.getWidth() : adWrapper.getWidth();
+          c.setClipBounds(new Rect(0, (int) Math.min(extraClipPx, h), w, h));
+        } else {
+          c.setClipBounds(null);
+        }
+        placed[s.index] = true;
+      }
+      for (int i = 0; i < containers.length; i++) {
+        if (!placed[i]) {
+          parkOffscreen(containers[i]);
+        }
+      }
     });
     call.resolve();
+  }
+
+  /** 로비 슬롯 순서(0~2)대로의 컨테이너 배열 */
+  private FrameLayout[] lobbyContainers() {
+    return new FrameLayout[]{ adContainer1, adContainer2, adContainer3 };
+  }
+
+  /** 로비 모드에서 좌표를 아직 못 받은(또는 광고가 없는) 컨테이너를 화면 밖에 둔다 */
+  private void parkOffscreen(FrameLayout c) {
+    c.setClipBounds(null);
+    c.setVisibility(View.INVISIBLE);
+    c.setTranslationY(100000f);
   }
 
   // 웹 랜딩 → 스토어 설치 경로로 전달된 리퍼러 문자열 조회 (디퍼드 딥링크용)
@@ -201,7 +289,7 @@ public class NativeBridge extends Plugin {
   }
 
   private void updateAd(Double scrollOffset) {
-    // 로비 모드에서는 위치를 setSlotPosition이 전담한다 (스타 페이지 수식 오염 방지)
+    // 로비 모드에서는 위치를 setSlotPositions가 전담한다 (스타 페이지 수식 오염 방지)
     if (lobbyMode) {
       return;
     }
@@ -232,9 +320,9 @@ public class NativeBridge extends Plugin {
 
     MainActivity activity = (MainActivity) getActivity();
     activity.runOnUiThread(() -> {
-      activity.loadNativeAd(adContainer1, R.id.ad_container_1);
-      activity.loadNativeAd(adContainer2, R.id.ad_container_2);
-      activity.loadNativeAd(adContainer3, R.id.ad_container_3);
+      activity.loadNativeAd(adContainer1, R.id.ad_container_1, false);
+      activity.loadNativeAd(adContainer2, R.id.ad_container_2, false);
+      activity.loadNativeAd(adContainer3, R.id.ad_container_3, false);
     });
   }
 
