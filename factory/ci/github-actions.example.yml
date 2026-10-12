@@ -1,0 +1,39 @@
+# 초안 — 아직 활성화하지 않음. 승인 뒤 .github/workflows/factory-build.yml 로 옮기면 동작한다.
+# 호기 config 로 Web 번들·WAR 를 만들어 Artifacts 로 올린다. Android AAB·iOS Archive 는 서명 자산이 필요해
+# 자체 호스팅 러너 + 비밀 저장소(GitHub Environments) 구성 뒤 추가한다.
+name: factory-build
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "platform id (7001~7010)"
+        required: true
+        default: "7001"
+jobs:
+  web-and-war:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: core-frontend/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: zulu, java-version: 8 }
+      - name: Validate config
+        run: node factory/validate.js factory/platforms/platform-${{ inputs.platform }}.json
+      - name: Inject (비밀은 GitHub Environment secret 에서 .env 로 복원)
+        run: |
+          printf '%s\n' "${{ secrets.PLATFORM_ENV_FILE }}" > /tmp/platform.env
+          node factory/inject.js --config factory/platforms/platform-${{ inputs.platform }}.json --apply "$GITHUB_WORKSPACE" --secrets /tmp/platform.env
+      - name: Web build
+        working-directory: core-frontend
+        run: npm ci && npx ng build
+      - name: WAR build
+        working-directory: core-backend
+        run: ./mvnw.sh build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platform-${{ inputs.platform }}-web-war
+          path: |
+            core-frontend/www
+            core-backend/target/witch.war
+            factory/.generated/platform-${{ inputs.platform }}.globals.properties

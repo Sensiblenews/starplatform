@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "platformId": "7001",
+  "displayName": "Star Wave",
+  "displayNameKo": "스타웨이브",
+  "domain": "starwave.example",
+  "apiBaseUrl": "https://starwave.example",
+  "deeplinkHost": "starwave.example",
+  "customScheme": "starplatform7001",
+  "android": {
+    "packageName": "kr.co.sensiblenews.platform7001",
+    "versionName": "1.0.0",
+    "versionCode": 10000
+  },
+  "ios": {
+    "bundleId": "kr.co.sensiblenews.platform7001",
+    "version": "1.0.0",
+    "buildNumber": 10000,
+    "teamId": "ABCDE12345"
+  },
+  "admob": {
+    "mode": "production",
+    "androidAppId": "ca-app-pub-1234567890123456~1234567890",
+    "iosAppId": "ca-app-pub-1234567890123456~0987654321",
+    "units": {
+      "bannerAndroid": "ca-app-pub-1234567890123456/1000000000",
+      "bannerIos": "ca-app-pub-1234567890123456/1000000001",
+      "interstitialAndroid": "ca-app-pub-1234567890123456/1000000002",
+      "interstitialIos": "ca-app-pub-1234567890123456/1000000003",
+      "nativeAndroid": "ca-app-pub-1234567890123456/1000000004",
+      "nativeIos": "ca-app-pub-1234567890123456/1000000005"
+    }
+  },
+  "adsense": {
+    "publisherId": "ca-pub-1234567890123456"
+  },
+  "sns": {
+    "kakaoNativeKey": "00000000000000000000000000000000",
+    "kakaoJsKey": "11111111111111111111111111111111",
+    "facebookAppId": "123456789012345",
+    "facebookClientToken": "22222222222222222222222222222222"
+  },
+  "googleAuth": {
+    "serverClientId": "123456789012-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.apps.googleusercontent.com",
+    "iosClientId": "123456789012-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.apps.googleusercontent.com"
+  },
+  "backend": {
+    "dbHost": "127.0.0.1",
+    "dbPort": 3306,
+    "dbName": "starplatform_7001",
+    "dbUser": "sp7001_app",
+    "redisHost": "127.0.0.1",
+    "redisPort": 6379,
+    "uploadRoot": "/var/lib/tomcat7/webapps",
+    "moderationRoot": "/var/lib/tomcat7/moderation",
+    "appleKeyDir": "/var/lib/tomcat7/keys"
+  },
+  "features": {
+    "ads": true,
+    "commerce": true,
+    "chat": true,
+    "vsBattlefield": true,
+    "liveNewsTicker": true,
+    "webLanding": true
+  },
+  "secretsRef": {
+    "envFile": "platform-7001/.env",
+    "keys": [
+      "DB_PASSWORD",
+      "DB_ROOT_PASSWORD",
+      "REDIS_PASSWORD",
+      "ADMIN_INITIAL_PASSWORD",
+      "MEDIA_TOKEN_SECRET",
+      "LANDING_TOKEN_SECRET",
+      "BACKUP_ENCRYPTION_PASSPHRASE",
+      "ANDROID_KEYSTORE_PASSWORD",
+      "ANDROID_KEY_ALIAS",
+      "ANDROID_KEY_PASSWORD"
+    ]
+  },
+  "notes": "--strict 통과용 예시값. 실제 계정 값이 아니다."
+}

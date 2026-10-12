@@ -23,6 +23,9 @@ export class AdminWriteModalComponent implements OnInit {
   selectedVideo: File | null = null;
   videoPreview: string | ArrayBuffer | null = null;
   videoThumbnail: string | null = null; // 동영상 썸네일 (첫 프레임)
+  /** 동영상 첨부 상한(MB). 안내 문구와 검사가 같은 값을 쓴다 (2-33차: 5 → 15) */
+  static readonly MAX_VIDEO_SIZE_MB = 15;
+  readonly maxVideoSizeMb = AdminWriteModalComponent.MAX_VIDEO_SIZE_MB;
   youtubeUrl: string = '';
   youtubeEmbedUrl: SafeResourceUrl | null = null;
   showYoutubeInput: boolean = false;
@@ -84,8 +87,8 @@ export class AdminWriteModalComponent implements OnInit {
   onVideoFileSelected(event: any) {
     const file = event.target.files[0];
     if (file) {
-      // 5MB 제한 체크
-      const maxSizeInMB = 5;
+      // 15MB 제한 체크 (2-33차: 5MB → 15MB, 클라이언트 요청으로 3배 확대)
+      const maxSizeInMB = AdminWriteModalComponent.MAX_VIDEO_SIZE_MB;
       const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
       
       if (file.size > maxSizeInBytes) {

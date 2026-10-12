@@ -1274,6 +1274,89 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	// ==========================================
+	// 🌟 [신규] 로비 Latest Contents 숏폼 (2-33차)
+	// ==========================================
+
+	/** 앱이 보내는 이벤트 종류. 그 외 값은 저장하지 않는다 */
+	public static final java.util.Set<String> LATEST_CONTENT_EVENT_TYPES = java.util.Collections.unmodifiableSet(
+			new java.util.HashSet<>(java.util.Arrays.asList("IMPRESSION", "PLAY", "CLICK", "PROFILE_CLICK")));
+	/** DEVICE_ID 컬럼 길이 */
+	static final int LATEST_CONTENT_DEVICE_ID_MAX = 100;
+
+	/** 이벤트 종류 정규화 (순수 함수 — 단위 테스트 대상). 허용 목록 밖이면 null */
+	public static String normalizeLatestContentEventType(Object raw) {
+		if (raw == null) return null;
+		String type = String.valueOf(raw).trim().toUpperCase();
+		return LATEST_CONTENT_EVENT_TYPES.contains(type) ? type : null;
+	}
+
+	/** 기기 ID 정규화 (순수 함수). 공백이면 null, 길면 컬럼 길이에 맞춰 자른다 */
+	public static String normalizeLatestContentDeviceId(Object raw) {
+		if (raw == null) return null;
+		String id = String.valueOf(raw).trim();
+		if (id.isEmpty() || "null".equalsIgnoreCase(id) || "undefined".equalsIgnoreCase(id)) return null;
+		return id.length() > LATEST_CONTENT_DEVICE_ID_MAX ? id.substring(0, LATEST_CONTENT_DEVICE_ID_MAX) : id;
+	}
+
+	/**
+	 * 로비 숏폼 캐러셀 목록. 로비 진입 시 1회 + 당겨서 새로고침.
+	 * 편성 상태·기간·검수 승인·스타 활성까지 SQL 에서 거른다. 어드민 저장 시 SuperAdminService 가 캐시를 비운다.
+	 */
+	@Cacheable(value = "latestContents", key = "'active'", unless = "#result == null")
+	public Map<String, Object> getLatestContents() throws Exception {
+		Map<String, Object> setting = dao.selectOne("superapp.selectLatestContentSetting");
+		int displayCount = 10;
+		int intervalSec = 4;
+		if (setting != null) {
+			displayCount = toInt(setting.get("displayCount"), 10);
+			intervalSec = toInt(setting.get("intervalSec"), 4);
+		}
+		Map<String, Object> param = new HashMap<>();
+		param.put("displayCount", displayCount);
+		List<Map<String, Object>> items = dao.selectList("superapp.selectLatestContentActiveList", param);
+
+		Map<String, Object> resultMap = new HashMap<>();
+		resultMap.put("result", "OK");
+		resultMap.put("intervalSec", intervalSec);
+		resultMap.put("items", items == null ? new ArrayList<Map<String, Object>>() : items);
+		return resultMap;
+	}
+
+	/**
+	 * 숏폼 이벤트 기록. 유효하지 않은 값은 조용히 버리고 항상 OK 를 돌려준다 — 통계 때문에 앱이 실패를 보면 안 된다.
+	 * 중복(기기·편성·종류·일자)은 UNIQUE 키 + INSERT IGNORE 로 1건만 남는다.
+	 */
+	public Map<String, Object> recordLatestContentEvent(Map<String, Object> params) {
+		Map<String, Object> resultMap = new HashMap<>();
+		resultMap.put("result", "OK");
+		try {
+			String eventType = normalizeLatestContentEventType(params.get("eventType"));
+			String deviceId = normalizeLatestContentDeviceId(params.get("deviceId"));
+			int lcId = toInt(params.get("lcId"), 0);
+			if (eventType == null || deviceId == null || lcId <= 0) {
+				return resultMap;
+			}
+			Map<String, Object> param = new HashMap<>();
+			param.put("lcId", lcId);
+			param.put("eventType", eventType);
+			param.put("deviceId", deviceId);
+			dao.insert("superapp.insertLatestContentEvent", param);
+		} catch (Exception e) {
+			System.out.println("[LATEST] event record failed: " + e.getMessage());
+		}
+		return resultMap;
+	}
+
+	private static int toInt(Object raw, int fallback) {
+		if (raw == null) return fallback;
+		try {
+			return Integer.parseInt(String.valueOf(raw).trim());
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
+	}
+
 	// 카테고리 탭 TOP100. rankType/category는 컨트롤러에서 화이트리스트 정규화 후 전달된다
 	// (캐시 키가 파라미터 기반이므로 임의 값 유입 시 키 오염 방지 목적)
 	@Cacheable(value = "categoryLeaderboard",
@@ -1676,25 +1759,8 @@ public class SuperAppService {
 	 * 🌟 [신규 추가] 동영상 썸네일 추출 헬퍼 메소드 (StarController에서 이전됨)
 	 */
 	private void generateVideoThumbnail(String videoPath, String thumbPath) {
-		try {
-			// 리눅스 서버 기준: /usr/bin/ffmpeg (로컬 윈도우 환경이면 환경변수에 등록된 ffmpeg가 실행됨)
-			String[] cmd = {
-					"ffmpeg", "-i", videoPath,
-					"-ss", "00:00:01", // 1초 지점 캡처
-					"-vframes", "1",
-					"-y", // 덮어쓰기 허용
-					thumbPath
-			};
-
-			ProcessBuilder pb = new ProcessBuilder(cmd);
-			pb.redirectErrorStream(true);
-			Process process = pb.start();
-			process.waitFor();
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("썸네일 생성 실패: " + e.getMessage());
-		}
+		// 2-33차: 어드민 직접 업로드와 같은 로직을 쓰도록 VideoTranscodeUtil 로 옮겼다 (옵션 동일)
+		com.sensible.common.util.VideoTranscodeUtil.extractThumbnail(Paths.get(videoPath), Paths.get(thumbPath));
 	}
 
 	// 헬퍼 메소드: 토큰 검증

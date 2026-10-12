@@ -1,0 +1,46 @@
+#-----------------------------------------------------------------------
+#  ${PLATFORM_ID}  globals.properties  (Config Factory 생성 ${GENERATED_AT})
+#  현 StarPlatform Master 와 같은 키 구조. 값은 platform.config.json + .env(비밀) 에서 주입.
+#-----------------------------------------------------------------------
+
+# DB 서버 타입 - datasource 및 sqlMap 파일 지정에 사용
+Globals.DbType = mysql
+Globals.DriverClassName = com.mysql.cj.jdbc.Driver
+
+Globals.Url = jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?allowMultiQueries=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+Globals.UserName = ${DB_USER}
+Globals.Password = ${DB_PASSWORD}
+
+# apple login 관련
+apple.keypath = ${APPLE_KEY_DIR}/AuthKey_${APPLE_KEY_ID}.p8
+apple.authUrl = https://appleid.apple.com
+apple.teamId = ${APPLE_TEAM_ID}
+apple.redirectUrl = ${API_BASE_URL}/api/super/apple/callback
+apple.clientId = ${APPLE_SERVICE_ID}
+apple.keyId = ${APPLE_KEY_ID}
+apple.keyPath = ${APPLE_KEY_DIR}
+
+# redis configuration
+redis.host = ${REDIS_HOST}
+redis.port = ${REDIS_PORT}
+redis.password = ${REDIS_PASSWORD}
+redis.timeout = 3000
+
+# system monitoring (관리자 실시간 모니터링 튜닝값)
+monitor.polling.interval = 5000
+monitor.disk.path = /
+monitor.cpu.threshold.warn = 70
+monitor.cpu.threshold.danger = 90
+monitor.disk.threshold.warn = 80
+monitor.disk.threshold.danger = 90
+
+# 구간 지표 수집기 (트래픽/요청량/디스크 추세)
+monitor.net.interface = auto
+monitor.history.size = 288
+monitor.dir.upload = ${UPLOAD_ROOT}/img
+monitor.dir.log = /var/log/tomcat7
+monitor.dir.temp = /var/lib/tomcat7/temp
+
+# 서명 비밀키 (예약 키 — 코드가 설정에서 읽도록 바뀐 뒤 유효)
+security.media.token.secret = ${MEDIA_TOKEN_SECRET}
+security.landing.token.secret = ${LANDING_TOKEN_SECRET}
