@@ -154,6 +154,8 @@ export class LobbyPage implements OnInit, OnDestroy {
   @ViewChild(LatestContentsCarouselComponent) latestCarousel: LatestContentsCarouselComponent;
   latestContents: LatestContentItem[] = [];
   latestIntervalSec = 4;
+  // 첫 조회가 끝날 때까지 스켈레톤을 보여 섹션이 "뿅" 나타나지 않게 한다. 당겨서 새로고침에는 다시 띄우지 않는다
+  isLoadingLatestContents = true;
   // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
   @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
@@ -617,13 +619,16 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 🎬 Latest Contents 숏폼 편성 목록 (2-33차). 서버 60초 캐시, 어드민 저장 시 즉시 비워진다.
   // 실패하면 빈 목록 그대로 — 섹션이 숨겨질 뿐 로비는 열린다
   loadLatestContents() {
-    this.http.get('/api/super/lobby/latest-contents').subscribe({
+    this.http.get('/api/super/lobby/latest-contents').pipe(
+      finalize(() => this.isLoadingLatestContents = false)
+    ).subscribe({
       next: (res: any) => {
         if (res && res.result === 'OK') {
           const had = this.latestContents.length > 0;
           this.latestContents = res.items || [];
           this.latestIntervalSec = res.intervalSec || 4;
-          // 섹션 최초 등장은 아래 광고 슬롯을 밀어내므로 렌더 후 위치 재전송
+          this.isLoadingLatestContents = false;
+          // 섹션 최초 등장(스켈레톤 → 카드)은 높이가 바뀌므로 렌더 후 광고 슬롯 위치 재전송 + 재생 시작
           if (!had && this.latestContents.length > 0) {
             setTimeout(() => {
               this.sendAdSlotPosition();
@@ -632,7 +637,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           }
         }
       },
-      error: () => { },
+      error: () => { },  // 실패하면 빈 목록 그대로 — 스켈레톤도 내리고 섹션은 숨긴다
     });
   }
 

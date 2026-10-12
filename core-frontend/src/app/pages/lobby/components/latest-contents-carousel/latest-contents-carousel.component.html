@@ -1,34 +1,45 @@
-<div class="latest-section" *ngIf="items.length > 0">
+<div class="latest-card" *ngIf="active as item">
   <div class="latest-header">
     <span class="latest-title">Latest Contents</span>
     <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+  </div>
+
+  <!-- 본문: 왼쪽 큰 영상(1:2) + 오른쪽 Next 썸네일. 가로 스와이프로 이전·다음 -->
+  <div class="latest-body" (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
+    <div class="latest-main" (click)="onVideoTap()">
+      <div class="latest-main-inner">
+        <!-- 한 번에 영상 하나만 그린다. src 가 바뀌면 브라우저가 새로 불러온다 -->
+        <video #video muted playsinline loop preload="auto"
+          [attr.src]="item.mediaUrl"
+          (playing)="onPlaying()" (pause)="onPaused()" (error)="onVideoError()"></video>
+        <!-- 재생이 시작되기 전까지 썸네일로 덮는다. 가로 영상·포스터도 같은 비율로 잘린다 -->
+        <img class="latest-poster" [class.is-hidden]="isPlaying" [src]="item.thumbUrl || ''" alt="" *ngIf="item.thumbUrl" />
+        <div class="play-overlay" *ngIf="showPlayButton" (click)="onPlayButton($event)">
+          <ion-icon name="play"></ion-icon>
+        </div>
+        <span class="featured-badge" *ngIf="item.isFeatured === 'Y'">Featured</span>
+      </div>
+    </div>
+
+    <div class="latest-side" *ngIf="next as nextItem">
+      <div class="latest-next" (click)="onNextTap($event)">
+        <div class="latest-next-inner">
+          <img [src]="nextItem.thumbUrl || ''" alt="" />
+        </div>
+      </div>
+      <div class="latest-next-label">Next</div>
+    </div>
+  </div>
+
+  <!-- 게시자: 아바타 + 이름 + StarPage. 한 클릭 영역, 영상 클릭과 분리 -->
+  <div class="latest-author" (click)="onProfileTap($event)">
+    <img class="latest-avatar" [src]="item.starImage || defaultAvatar" (error)="handleImageError($event)" alt="" />
+    <div class="latest-author-text">
+      <div class="latest-name">{{ item.starName }}</div>
+      <div class="latest-sub">StarPage <ion-icon name="chevron-forward"></ion-icon></div>
+    </div>
     <span class="latest-index">{{ activeIndex + 1 }} / {{ items.length }}</span>
   </div>
 
-  <!-- 가로 트랙: 세로 드래그는 ion-content 로 흘려보내고(touch-action), 왼쪽 끝 당김이 뒤로가기 제스처가 되지 않게 막는다 -->
-  <div class="latest-track" #track (touchstart)="onTouchStart()" (scroll)="onScroll()">
-    <div class="latest-card" #card *ngFor="let item of items; let i = index; trackBy: trackByLcId"
-      [class.is-active]="i === activeIndex" (click)="onVideoTap(item)">
-      <!-- src 는 활성 ±1 카드에만 붙인다. 나머지는 포스터만 -->
-      <video #video muted playsinline loop preload="metadata"
-        [attr.poster]="item.thumbUrl || null"
-        [attr.src]="isSrcBound(i) ? item.mediaUrl : null"
-        (error)="onVideoError(i)"></video>
-
-      <div class="play-overlay" *ngIf="showPlayButton[i]" (click)="onPlayButton(i, $event)">
-        <ion-icon name="play"></ion-icon>
-      </div>
-
-      <span class="featured-badge" *ngIf="item.isFeatured === 'Y'">Featured</span>
-
-      <!-- 게시자: 아바타 + 이름이 한 클릭 영역. 영상 클릭과 분리 -->
-      <div class="latest-footer" (click)="onProfileTap(item, $event)">
-        <img class="latest-avatar" [src]="item.starImage || defaultAvatar" (error)="handleImageError($event)" alt="" />
-        <span class="latest-name">{{ item.starName }}</span>
-        <ion-icon name="chevron-forward" class="latest-chevron"></ion-icon>
-      </div>
-    </div>
-    <!-- 마지막 카드도 왼쪽 스냅 위치까지 당겨지도록 하는 더미 -->
-    <div class="latest-spacer"></div>
-  </div>
+  <div class="latest-hint">Swipe to browse · Auto-play · Tap video to open</div>
 </div>

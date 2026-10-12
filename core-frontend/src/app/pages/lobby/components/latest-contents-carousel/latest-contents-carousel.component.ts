@@ -7,9 +7,7 @@ import {
   NgZone,
   OnDestroy,
   Output,
-  QueryList,
   ViewChild,
-  ViewChildren,
 } from '@angular/core';
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
@@ -18,20 +16,20 @@ import {
   LatestContentItem,
   canAutoAdvance,
   eventKey,
-  halfContentHeight,
-  indexFromScroll,
   nextIndex,
   normalizeIntervalMs,
-  shouldBindSrc,
+  prevIndex,
+  swipeDirection,
 } from '../../latest-contents-logic';
 
 /**
- * 로비 Latest Contents 숏폼 캐러셀 (2-33차) — 헤더와 VS 카드 사이.
+ * 로비 Latest Contents 숏폼 (2-33차) — 헤더와 VS 카드 사이. 클라이언트 시안 그대로:
+ * 어두운 카드 안에 왼쪽 큰 세로 영상(1:2) + 오른쪽 "Next" 썸네일, 아래에 게시자 프로필.
  *
- * - 가로 스크롤 + scroll-snap. 메인 카드 70% 폭, 오른쪽에 다음 카드 일부가 보인다
- * - 자동 이동(어드민 간격, 기본 4초) · 마지막→첫 카드 순환 · 손으로 넘기면 6초 보류
- * - 활성 카드 1개만 음소거 자동재생. 영상 src 는 활성 ±1장에만 붙인다(WebView 메모리)
- * - 자동재생이 거부되면(iOS 저전력 등) 포스터 위에 재생 버튼을 띄운다
+ * - 영상은 한 번에 하나만 그린다(활성 항목). 다음 항목은 썸네일만 보여 주고 누르면 넘어간다
+ * - 자동 이동(어드민 간격, 기본 4초) · 마지막→첫 항목 순환 · 손으로 넘기면 6초 보류
+ * - 활성 영상은 음소거 자동재생. 재생이 시작되기 전까지는 썸네일을 덮어 둔다(가로 영상도 잘림 없이 cover)
+ * - 자동재생이 거부되면(iOS 저전력 등) 썸네일 위에 재생 버튼
  * - 타이머는 로비가 start()/stop() 으로 켜고 끈다 (화면 이탈·백그라운드)
  */
 @Component({
@@ -40,21 +38,14 @@ import {
   styleUrls: ['./latest-contents-carousel.component.scss'],
 })
 export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy {
-  /** 스크롤이 멈췄다고 보는 시간. 구형 iOS WebView 에는 scrollend 가 없다 */
-  private static readonly SCROLL_SETTLE_MS = 120;
-  /** 프로그램 스크롤(자동 이동) 중 발생하는 scroll 이벤트를 수동 조작으로 오인하지 않는 시간 */
-  private static readonly PROGRAMMATIC_WINDOW_MS = 800;
-
   readonly defaultAvatar = 'assets/img/defaultImg/avatar.svg';
 
   @Input() set items(value: LatestContentItem[]) {
     this.itemList = value || [];
     this.activeIndex = 0;
-    this.showPlayButton = {};
-    if (this.track) {
-      this.track.nativeElement.scrollLeft = 0;
-    }
-    // 새 목록이 그려진 뒤 활성 카드를 다시 맞춘다 (videos.changes 에서 syncPlayback)
+    this.isPlaying = false;
+    this.showPlayButton = false;
+    setTimeout(() => this.syncPlayback());
   }
   get items(): LatestContentItem[] {
     return this.itemList;
@@ -70,23 +61,20 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   /** 영상 터치 → 게시물 ID */
   @Output() contentSelect = new EventEmitter<string>();
 
-  @ViewChild('track') track: ElementRef<HTMLElement>;
-  @ViewChildren('card') cards: QueryList<ElementRef<HTMLElement>>;
-  @ViewChildren('video') videos: QueryList<ElementRef<HTMLVideoElement>>;
+  @ViewChild('video') video: ElementRef<HTMLVideoElement>;
 
   activeIndex = 0;
-  showPlayButton: { [index: number]: boolean } = {};
+  /** 활성 영상이 실제로 재생 중인지. false 면 썸네일을 덮어 둔다 */
+  isPlaying = false;
+  showPlayButton = false;
 
   private itemList: LatestContentItem[] = [];
   private intervalMs = normalizeIntervalMs(undefined);
   private timerId: any = null;
   private running = false;
   private lastManualAt: number | null = null;
-  private programmaticUntil = 0;
-  private scrollSettleId: any = null;
-  private videosChangesSub: { unsubscribe: () => void } | null = null;
+  private touchStartX = 0;
   private readonly sentEvents = new Set<string>();
-  private readonly onResize = () => this.applyHeight();
 
   constructor(
     private http: HttpService,
@@ -94,38 +82,42 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     private ngZone: NgZone,
   ) { }
 
+  get active(): LatestContentItem | undefined {
+    return this.itemList[this.activeIndex];
+  }
+
+  /** 오른쪽 미리보기. 항목이 하나면 없다 */
+  get next(): LatestContentItem | undefined {
+    if (this.itemList.length < 2) return undefined;
+    return this.itemList[nextIndex(this.activeIndex, this.itemList.length)];
+  }
+
   ngAfterViewInit(): void {
-    // Ionic 이 --offset-top 을 채운 뒤 재야 하므로 한 틱 뒤에 잰다
-    setTimeout(() => this.applyHeight());
-    window.addEventListener('resize', this.onResize);
-    this.videosChangesSub = this.videos.changes.subscribe(() => setTimeout(() => this.syncPlayback()));
     setTimeout(() => this.syncPlayback());
   }
 
   ngOnDestroy(): void {
     this.stop();
-    window.removeEventListener('resize', this.onResize);
-    if (this.videosChangesSub) this.videosChangesSub.unsubscribe();
-    if (this.scrollSettleId) clearTimeout(this.scrollSettleId);
   }
 
   // ===== 로비가 호출하는 생명주기 =====
 
-  /** 자동 이동 시작 + 활성 카드 재생 (로비 진입·앱 복귀) */
+  /** 자동 이동 시작 + 활성 영상 재생 (로비 진입·앱 복귀) */
   start(): void {
     this.running = true;
     this.startTimer();
     this.syncPlayback();
   }
 
-  /** 자동 이동 정지 + 모든 영상 정지 (화면 이탈·백그라운드) */
+  /** 자동 이동 정지 + 영상 정지 (화면 이탈·백그라운드) */
   stop(): void {
     this.running = false;
     if (this.timerId) {
       clearInterval(this.timerId);
       this.timerId = null;
     }
-    this.pauseAll();
+    const video = this.videoEl();
+    if (video && !video.paused) video.pause();
   }
 
   // ===== 자동 이동 =====
@@ -143,140 +135,114 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   private tick(): void {
     if (!this.running || this.itemList.length < 2) return;
     if (!canAutoAdvance(Date.now(), this.lastManualAt)) return;
-    const next = nextIndex(this.activeIndex, this.itemList.length);
-    // 마지막→첫 카드는 모든 카드를 가로지르지 않도록 즉시 점프
-    this.ngZone.run(() => this.goTo(next, next !== 0));
+    this.ngZone.run(() => this.goTo(nextIndex(this.activeIndex, this.itemList.length)));
   }
 
-  private goTo(index: number, smooth: boolean): void {
-    const track = this.track ? this.track.nativeElement : null;
-    const card = this.cardAt(index);
-    if (track && card) {
-      this.programmaticUntil = Date.now() + LatestContentsCarouselComponent.PROGRAMMATIC_WINDOW_MS;
-      const left = card.offsetLeft - this.firstCardOffset();
-      try {
-        track.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
-      } catch (e) {
-        track.scrollLeft = left;
-      }
-    }
-    this.setActive(index);
+  private goTo(index: number): void {
+    if (index === this.activeIndex) return;
+    this.activeIndex = index;
+    this.isPlaying = false;
+    this.showPlayButton = false;
+    // 바인딩(src·썸네일)이 바뀐 뒤 재생해야 하므로 변경 감지 한 틱 뒤
+    setTimeout(() => this.syncPlayback());
   }
 
-  // ===== 수동 스와이프 =====
+  // ===== 수동 조작 =====
 
-  onTouchStart(): void {
+  onTouchStart(event: TouchEvent): void {
+    this.touchStartX = event.touches[0].clientX;
+  }
+
+  onTouchEnd(event: TouchEvent): void {
+    const dir = swipeDirection(event.changedTouches[0].clientX - this.touchStartX);
+    if (!dir) return;
     this.lastManualAt = Date.now();
+    this.goTo(dir === 'next'
+      ? nextIndex(this.activeIndex, this.itemList.length)
+      : prevIndex(this.activeIndex, this.itemList.length));
   }
 
-  onScroll(): void {
-    if (this.scrollSettleId) clearTimeout(this.scrollSettleId);
-    this.scrollSettleId = setTimeout(() => {
-      this.scrollSettleId = null;
-      const track = this.track ? this.track.nativeElement : null;
-      if (!track) return;
-      const step = this.stepWidth();
-      const index = indexFromScroll(track.scrollLeft, step, this.itemList.length);
-      const manual = Date.now() > this.programmaticUntil;
-      if (manual && index !== this.activeIndex) {
-        this.lastManualAt = Date.now();
-      }
-      if (index !== this.activeIndex) {
-        this.setActive(index);
-      }
-    }, LatestContentsCarouselComponent.SCROLL_SETTLE_MS);
+  /** 오른쪽 "Next" 썸네일 터치 → 다음 항목 */
+  onNextTap(event: Event): void {
+    event.stopPropagation();
+    this.lastManualAt = Date.now();
+    this.goTo(nextIndex(this.activeIndex, this.itemList.length));
   }
 
   // ===== 재생 제어 =====
 
-  private setActive(index: number): void {
-    this.activeIndex = index;
-    const item = this.itemList[index];
-    if (item) this.trackEvent(item, 'IMPRESSION');
-    // src 바인딩이 바뀐 뒤 재생해야 하므로 변경 감지 한 틱 뒤
-    setTimeout(() => this.syncPlayback());
+  private videoEl(): HTMLVideoElement | null {
+    return this.video ? this.video.nativeElement : null;
   }
 
-  /** 활성 카드만 재생, 나머지는 정지. 창 밖 카드는 src 를 떼어 디코더를 돌려준다 */
+  /** 활성 영상 재생 (로비가 활성일 때만). 노출 이벤트도 여기서 기록한다 */
   private syncPlayback(): void {
-    if (!this.videos) return;
-    const length = this.itemList.length;
-    // 첫 렌더는 setActive 를 거치지 않으므로 여기서도 노출을 기록한다 (세션 중복은 Set 이 거른다)
-    if (this.running && this.itemList[this.activeIndex]) {
-      this.trackEvent(this.itemList[this.activeIndex], 'IMPRESSION');
+    const video = this.videoEl();
+    const item = this.active;
+    if (!video || !item) return;
+    if (!this.running) {
+      if (!video.paused) video.pause();
+      return;
     }
-    this.videos.forEach((ref, i) => {
-      const video = ref.nativeElement;
-      if (!shouldBindSrc(i, this.activeIndex, length)) {
-        if (video.getAttribute('src') || video.currentSrc) {
-          video.pause();
-          video.removeAttribute('src');
-          try { video.load(); } catch (e) { /* 이미 비어 있음 */ }
-        }
-        return;
-      }
-      if (i !== this.activeIndex || !this.running) {
-        if (!video.paused) video.pause();
-        return;
-      }
-      this.playVideo(video, i, this.itemList[i]);
-    });
+    this.trackEvent(item, 'IMPRESSION');
+    this.playVideo(video);
   }
 
-  private playVideo(video: HTMLVideoElement, index: number, item: LatestContentItem | undefined): void {
-    // 이미 재생 중이면 다시 부르지 않는다 (첫 렌더 직후 start()와 QueryList 변경이 겹쳐 두 번 들어온다)
+  private playVideo(video: HTMLVideoElement): void {
     if (!video.paused && !video.ended) return;
     // iOS 는 속성(attribute)만으로는 부족하고 프로퍼티가 muted 여야 자동재생을 허용한다
     video.muted = true;
     video.defaultMuted = true;
     const promise = video.play();
     if (promise && typeof promise.then === 'function') {
-      promise.then(() => {
-        this.ngZone.run(() => {
-          this.showPlayButton[index] = false;
-          if (item) this.trackEvent(item, 'PLAY');
-        });
-      }).catch((err: any) => {
+      promise.catch((err: any) => {
         // 자동재생 거부(NotAllowedError: 저전력 모드 등)만 재생 버튼을 띄운다.
-        // 다음 카드로 넘어가며 pause() 로 끊긴 AbortError 는 정상 흐름이라 무시한다
-        const name = err && err.name;
-        if (name === 'NotAllowedError') {
-          this.ngZone.run(() => { this.showPlayButton[index] = true; });
+        // 다음 항목으로 넘어가며 끊긴 AbortError 는 정상 흐름이라 무시한다
+        if (err && err.name === 'NotAllowedError') {
+          this.ngZone.run(() => { this.showPlayButton = true; });
         }
       });
     }
   }
 
-  private pauseAll(): void {
-    if (!this.videos) return;
-    this.videos.forEach(ref => {
-      const video = ref.nativeElement;
-      if (!video.paused) video.pause();
-    });
+  /** 실제 프레임이 나오기 시작 — 썸네일을 걷고 재생 이벤트 기록 */
+  onPlaying(): void {
+    this.isPlaying = true;
+    this.showPlayButton = false;
+    if (this.active) this.trackEvent(this.active, 'PLAY');
+  }
+
+  onPaused(): void {
+    // 백그라운드 등으로 멈추면 다시 썸네일을 덮어 마지막 프레임이 멈춘 채 보이지 않게 한다
+    if (!this.running) this.isPlaying = false;
+  }
+
+  onVideoError(): void {
+    // 영상을 못 불러오면 썸네일만 남긴다 (재생 버튼은 눌러도 소용없으니 숨김)
+    this.isPlaying = false;
+    this.showPlayButton = false;
   }
 
   /** 재생 버튼 오버레이 — 사용자 제스처 안에서 play() 를 불러야 한다 */
-  onPlayButton(index: number, event: Event): void {
+  onPlayButton(event: Event): void {
     event.stopPropagation();
-    const ref = this.videos ? this.videos.toArray()[index] : null;
-    if (!ref) return;
-    this.playVideo(ref.nativeElement, index, this.itemList[index]);
-  }
-
-  onVideoError(index: number): void {
-    // 영상을 못 불러오면 포스터만 남기고 재생 버튼은 숨긴다 (눌러도 되지 않으므로)
-    this.showPlayButton[index] = false;
+    const video = this.videoEl();
+    if (video) this.playVideo(video);
   }
 
   // ===== 클릭 =====
 
-  onVideoTap(item: LatestContentItem): void {
+  onVideoTap(): void {
+    const item = this.active;
+    if (!item) return;
     this.trackEvent(item, 'CLICK');
     this.contentSelect.emit(String(item.conId));
   }
 
-  onProfileTap(item: LatestContentItem, event: Event): void {
+  onProfileTap(event: Event): void {
     event.stopPropagation();
+    const item = this.active;
+    if (!item) return;
     this.trackEvent(item, 'PROFILE_CLICK');
     this.profileSelect.emit(item.prsId);
   }
@@ -300,48 +266,6 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     } else {
       this.deviceIdService.resolve().then(send).catch(() => { });
     }
-  }
-
-  // ===== 레이아웃 =====
-
-  /** 캐러셀 높이 = 헤더를 뺀 콘텐츠 높이의 절반 (요청서 최종안) */
-  private applyHeight(): void {
-    const track = this.track ? this.track.nativeElement : null;
-    if (!track) return;
-    const content = track.closest('ion-content') as HTMLElement | null;
-    const contentHeight = content ? content.clientHeight : window.innerHeight;
-    let offsetTop = 0;
-    if (content) {
-      const raw = getComputedStyle(content).getPropertyValue('--offset-top');
-      offsetTop = parseFloat(raw) || 0;
-    }
-    track.style.height = `${halfContentHeight(contentHeight, offsetTop)}px`;
-  }
-
-  private cardAt(index: number): HTMLElement | null {
-    const list = this.cards ? this.cards.toArray() : [];
-    return list[index] ? list[index].nativeElement : null;
-  }
-
-  private firstCardOffset(): number {
-    const first = this.cardAt(0);
-    return first ? first.offsetLeft : 0;
-  }
-
-  /** 카드 폭 + 간격. 두 번째 카드가 없으면 첫 카드 폭 */
-  private stepWidth(): number {
-    const first = this.cardAt(0);
-    const second = this.cardAt(1);
-    if (first && second) return second.offsetLeft - first.offsetLeft;
-    return first ? first.offsetWidth : 0;
-  }
-
-  isSrcBound(index: number): boolean {
-    return shouldBindSrc(index, this.activeIndex, this.itemList.length);
-  }
-
-  trackByLcId(_: number, item: LatestContentItem): number {
-    return item.lcId;
   }
 
   handleImageError(event: any): void {
