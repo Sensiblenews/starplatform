@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "platformId": "master",
+  "displayName": "Star Platform",
+  "displayNameKo": "스타플랫폼",
+  "domain": "witch-hunting.com",
+  "apiBaseUrl": "https://witch-hunting.com",
+  "deeplinkHost": "witch-hunting.com",
+  "customScheme": "witchhunting",
+  "android": {
+    "packageName": "kr.co.sensiblenews.witchHuntingVU2D7F2P7E",
+    "versionName": "10.0.72",
+    "versionCode": 100072
+  },
+  "ios": {
+    "bundleId": "kr.co.sensiblenews.witchHunting",
+    "version": "10.0.72",
+    "buildNumber": 100072,
+    "teamId": "VU2D7F2P7E"
+  },
+  "admob": {
+    "mode": "production",
+    "androidAppId": "ca-app-pub-9109251900558498~1873722550",
+    "iosAppId": "ca-app-pub-9109251900558498~5969091176",
+    "units": {
+      "bannerAndroid": "ca-app-pub-9109251900558498/8055987527",
+      "bannerIos": "ca-app-pub-9109251900558498/2281073977",
+      "interstitialAndroid": "ca-app-pub-9109251900558498/1182509295",
+      "interstitialIos": "ca-app-pub-9109251900558498/4958549060",
+      "nativeAndroid": "ca-app-pub-9109251900558498/4011939762",
+      "nativeIos": "ca-app-pub-9109251900558498/7761452822"
+    }
+  },
+  "adsense": {
+    "publisherId": "ca-pub-9109251900558498"
+  },
+  "sns": {
+    "kakaoNativeKey": "2df520525f6a0b6f05464dbc7f96ee1a",
+    "kakaoJsKey": "cbd3449e358a3332c65d15b1ec7ddea0",
+    "facebookAppId": "1283614445756373",
+    "facebookClientToken": "0a692baf0a2433574b1aa4ff158084b3"
+  },
+  "googleAuth": {
+    "serverClientId": "1094374921494-j8drr5uml8ujvdfad1ikojique03ghnk.apps.googleusercontent.com",
+    "iosClientId": "1094374921494-pgl0pildk5iebhp6anktag31ir384apb.apps.googleusercontent.com"
+  },
+  "backend": {
+    "dbHost": "127.0.0.1",
+    "dbPort": 3306,
+    "dbName": "TODO_MASTER_DB_NAME_SERVER_ONLY",
+    "dbUser": "TODO_MASTER_DB_USER_SERVER_ONLY",
+    "redisHost": "127.0.0.1",
+    "redisPort": 6379,
+    "uploadRoot": "/var/lib/tomcat7/webapps",
+    "moderationRoot": "/var/lib/tomcat7/moderation",
+    "appleKeyDir": "/var/lib/tomcat7/keys"
+  },
+  "features": {
+    "ads": true,
+    "commerce": true,
+    "chat": true,
+    "vsBattlefield": true,
+    "liveNewsTicker": true,
+    "webLanding": true
+  },
+  "secretsRef": {
+    "envFile": ".env.master",
+    "keys": [
+      "DB_PASSWORD",
+      "REDIS_PASSWORD",
+      "APPLE_KEY_ID",
+      "APPLE_SERVICE_ID",
+      "MEDIA_TOKEN_SECRET",
+      "LANDING_TOKEN_SECRET"
+    ]
+  },
+  "notes": "master 의 backend.dbName/dbUser 는 서버 globals.properties 에만 있고 저장소에 두지 않는다. 호기 설정은 비밀 묶음(platform-security-configs)과 같은 규칙 starplatform_<id>/sp<id>_app 을 쓴다."
+}

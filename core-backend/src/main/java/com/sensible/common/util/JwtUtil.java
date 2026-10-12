@@ -44,6 +44,17 @@ public class JwtUtil {
         }
     }
 
+    // 토큰 발급 시각(ms). OTP 재설정 등으로 "이 시각 이전 토큰은 무효" 판정에 쓴다. 파싱 실패 시 -1
+    public static long getIssuedAtMillis(String token) {
+        try {
+            Claims claims = Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody();
+            Date iat = claims.getIssuedAt();
+            return (iat != null) ? iat.getTime() : -1L;
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
     // [추가됨] 토큰에서 권한(Auth) 꺼내기 (세션 복구용 필수 메서드)
     public static String getAuthFromToken(String token) {
         try {

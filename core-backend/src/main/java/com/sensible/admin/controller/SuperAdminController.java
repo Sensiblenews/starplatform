@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.sensible.admin.domain.UserVO;
 import com.sensible.admin.service.SuperAdminService;
@@ -2261,6 +2262,198 @@ public class SuperAdminController {
         }
         try {
             superAdminService.deleteLiveNews(params);
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    // ==========================================
+    // 🌟 [신규] 로비 Latest Contents 숏폼 편성 (2-33차, SM 전용)
+    // 운영자가 기존 영상 게시물을 고르거나 직접 올려 로비 캐러셀을 편성한다.
+    // ==========================================
+
+    private Map<String, Object> latestContentDenied() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", "fail");
+        result.put("msg", "권한이 없습니다.");
+        return result;
+    }
+
+    private boolean isSuperMaster(UserVO user) {
+        return user != null && "SM".equals(user.getPRS_AUTH());
+    }
+
+    /** [화면] 편성 목록 + 운영 설정 */
+    @RequestMapping(value = "/super/latest-contents/list.do")
+    public String latestContentsList(HttpServletRequest request, Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!isSuperMaster(user)) {
+            return "redirect:/super/dashboard.do";
+        }
+        model.addAttribute("itemList", superAdminService.getLatestContentAdminList());
+        model.addAttribute("setting", superAdminService.getLatestContentSetting());
+        model.addAttribute("countMin", SuperAdminService.LC_COUNT_MIN);
+        model.addAttribute("countMax", SuperAdminService.LC_COUNT_MAX);
+        model.addAttribute("intervalMin", SuperAdminService.LC_INTERVAL_MIN);
+        model.addAttribute("intervalMax", SuperAdminService.LC_INTERVAL_MAX);
+        model.addAttribute("titleMax", SuperAdminService.LC_TITLE_MAX_LENGTH);
+        model.addAttribute("uploadMaxMb", SuperAdminService.LC_UPLOAD_MAX_BYTES / 1024 / 1024);
+        model.addAttribute("activeMenu", "latest_contents");
+        return "super/latest_contents";
+    }
+
+    /** [API] 기존 게시물 검색 (검수 승인된 영상 글) */
+    @RequestMapping(value = "/super/latest-contents/search.do")
+    @ResponseBody
+    public Map<String, Object> searchLatestContentCandidates(HttpServletRequest request,
+            @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if ("GET".equalsIgnoreCase(request.getMethod()) && params.get("keyword") != null) {
+                params.put("keyword", decodeGetParameter(String.valueOf(params.get("keyword"))));
+            }
+            result.put("status", "success");
+            result.put("list", superAdminService.searchLatestContentCandidates(params));
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 기존 게시물로 편성 추가 */
+    @RequestMapping(value = "/super/latest-contents/insert.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> insertLatestContent(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            result.put("lcId", superAdminService.insertLatestContent(params, user.getPRS_ID()));
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 직접 업로드 — 지정 스타 명의 영상 글 생성(자동 승인) + 편성. 변환이 동기라 응답이 늦을 수 있다 */
+    @RequestMapping(value = "/super/latest-contents/upload.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> uploadLatestContent(HttpServletRequest request,
+            @RequestParam("videoFile") MultipartFile videoFile,
+            @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            result.put("lcId", superAdminService.uploadLatestContent(videoFile, params, user.getPRS_ID()));
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 편성 수정 (추천·기간·제목·게시 여부) */
+    @RequestMapping(value = "/super/latest-contents/update.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateLatestContent(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            superAdminService.updateLatestContent(params, user.getPRS_ID());
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 게시/숨김 토글 */
+    @RequestMapping(value = "/super/latest-contents/toggle.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> toggleLatestContent(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            superAdminService.toggleLatestContentUseYn(params, user.getPRS_ID());
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 노출 순서 저장 (드래그 정렬) — body: { lcIds: [..] } */
+    @RequestMapping(value = "/super/latest-contents/order.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveLatestContentOrder(HttpServletRequest request, @RequestBody Map<String, Object> payload) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object> lcIds = (List<Object>) payload.get("lcIds");
+            if (lcIds == null || lcIds.isEmpty()) {
+                throw new Exception("저장할 순서가 없습니다.");
+            }
+            superAdminService.saveLatestContentOrder(lcIds, user.getPRS_ID());
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 편성 삭제 (소프트) */
+    @RequestMapping(value = "/super/latest-contents/delete.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deleteLatestContent(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            superAdminService.deleteLatestContent(params, user.getPRS_ID());
+            result.put("status", "success");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("status", "fail");
+            result.put("msg", e.getMessage());
+        }
+        return result;
+    }
+
+    /** [API] 운영 설정 저장 (노출 개수·자동 이동 간격) */
+    @RequestMapping(value = "/super/latest-contents/setting.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveLatestContentSetting(HttpServletRequest request, @RequestParam Map<String, Object> params) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = new HashMap<>();
+        try {
+            superAdminService.saveLatestContentSetting(params, user.getPRS_ID());
             result.put("status", "success");
         } catch (Exception e) {
             e.printStackTrace();

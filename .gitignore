@@ -52,3 +52,6 @@ core-backend/target
 # 수백 MB짜리라 실수로 커밋되면 저장소를 되돌리기 어렵다
 core-frontend/*.zip
 core-frontend/platforms/
+
+# Config Factory — inject.js --apply 가 만드는 호기 globals.properties (비밀 포함)
+factory/.generated/

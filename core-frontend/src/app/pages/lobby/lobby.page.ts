@@ -19,6 +19,8 @@ import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carouse
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
 import { buildAdSlotPositions, emptyAdSlotFilled, slotIndexFromAdLoaded } from './lobby-ad-slots';
+import { LatestContentItem } from './latest-contents-logic';
+import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 import { OpeningOverlayService } from '../../services/opening-overlay.service';
@@ -144,6 +146,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   // ==========================================
   @ViewChild(VsCarouselComponent) vsCarousel: VsCarouselComponent;
   @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
+  // 🎬 Latest Contents 숏폼 캐러셀 (2-33차). 헤더와 VS 카드 사이. 진입 시 1회 + 당겨서 새로고침, 폴링 없음
+  @ViewChild(LatestContentsCarouselComponent) latestCarousel: LatestContentsCarouselComponent;
+  latestContents: LatestContentItem[] = [];
+  latestIntervalSec = 4;
   // 🌟 오프닝 오버레이 (2-29차). 재생 여부는 OpeningOverlayService가 프로세스당 1회로 판정한다
   @ViewChild(GlobalOpeningOverlayComponent) openingOverlay: GlobalOpeningOverlayComponent;
   vsCards: VsCard[] = [];
@@ -259,6 +265,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
+    this.loadLatestContents();
     this.loadCategoryTop100();
 
     this.searchSub = this.searchInput$.pipe(
@@ -367,6 +374,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
     if (this.newsTicker) this.newsTicker.start();
+    if (this.latestCarousel) this.latestCarousel.start();
 
     // 🌟 My Global Ranking 카드: 진입 즉시 1회 + 30초 갱신 (2-29차)
     this.startMyRankPolling();
@@ -412,6 +420,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.openingOverlay) this.openingOverlay.stop(false);
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
+    if (this.latestCarousel) this.latestCarousel.stop();
 
     if (this.backButtonSub) {
       this.backButtonSub.unsubscribe();
@@ -598,6 +607,28 @@ export class LobbyPage implements OnInit, OnDestroy {
           setTimeout(() => this.sendAdSlotPosition());
         }
       }
+    });
+  }
+
+  // 🎬 Latest Contents 숏폼 편성 목록 (2-33차). 서버 60초 캐시, 어드민 저장 시 즉시 비워진다.
+  // 실패하면 빈 목록 그대로 — 섹션이 숨겨질 뿐 로비는 열린다
+  loadLatestContents() {
+    this.http.get('/api/super/lobby/latest-contents').subscribe({
+      next: (res: any) => {
+        if (res && res.result === 'OK') {
+          const had = this.latestContents.length > 0;
+          this.latestContents = res.items || [];
+          this.latestIntervalSec = res.intervalSec || 4;
+          // 섹션 최초 등장은 아래 광고 슬롯을 밀어내므로 렌더 후 위치 재전송
+          if (!had && this.latestContents.length > 0) {
+            setTimeout(() => {
+              this.sendAdSlotPosition();
+              if (this.isViewActive && this.latestCarousel) this.latestCarousel.start();
+            });
+          }
+        }
+      },
+      error: () => { },
     });
   }
 
@@ -823,6 +854,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   doRefresh(event: any) {
     this.loadLobbyData(event);
     this.loadMyRank(); // My Global Ranking 카드도 함께 갱신 (2-29차)
+    this.loadLatestContents(); // 숏폼 편성도 함께 갱신 (2-33차)
   }
 
   toggleFavoriteList() {
@@ -1272,6 +1304,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startMyRankPolling(); // My Global Ranking 카드 즉시 갱신 + 30초 재개
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
           if (this.newsTicker) this.newsTicker.start();
+          if (this.latestCarousel) this.latestCarousel.start();
         }
         this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
       } else {
@@ -1284,6 +1317,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         if (this.openingOverlay) this.openingOverlay.stop(false);
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
+        if (this.latestCarousel) this.latestCarousel.stop();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
       }
     });

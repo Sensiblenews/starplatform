@@ -50,6 +50,13 @@
             <a href="/super/star/bio.do" class="nav-link <c:if test="${activeMenu eq 'star_bio'}">active</c:if>"><i class="fas fa-id-card me-2"></i> 스타 소개(Bio) 관리</a>
         </li>
 
+        <!-- 보안 · 이중인증(OTP): 내 등록 상태 (SM·LC 공통) -->
+        <li class="nav-item mb-1">
+            <a href="/super/mfa/manage.do" class="nav-link <c:if test="${activeMenu eq 'mfa_manage'}">active</c:if>" style="color: #b39ddb;">
+                <i class="fas fa-shield-halved me-2"></i> 보안 · 이중인증
+            </a>
+        </li>
+
         <c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'SM'}">
             <!-- 🌟 VS 배틀필드 카드 관리 (전 국가 공통 노출이므로 SM 전용) -->
             <li class="nav-item mb-1">
@@ -61,6 +68,12 @@
             <li class="nav-item mb-1">
                 <a href="/super/live-news/list.do" class="nav-link <c:if test="${activeMenu eq 'live_news'}">active</c:if>" style="color: #ffd166;">
                     <i class="fas fa-broadcast-tower me-2"></i> LIVE NEWS 관리
+                </a>
+            </li>
+            <!-- 🌟 로비 Latest Contents 숏폼 편성 (전 국가 공통 노출이므로 SM 전용, 2-33차) -->
+            <li class="nav-item mb-1">
+                <a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>" style="color: #80deea;">
+                    <i class="fas fa-film me-2"></i> Latest Contents 편성
                 </a>
             </li>
             <!-- 🌟 최고 권한 전용: 스타 일괄 등록 메뉴 추가 -->
@@ -94,6 +107,19 @@
             <li class="nav-item mb-1">
                 <a href="/super/system/panel.do" class="nav-link <c:if test="${activeMenu eq 'system_panel'}">active</c:if>" style="color: #4fc3f7;">
                     <i class="fas fa-server me-2"></i> 시스템 관리
+                </a>
+            </li>
+            <!-- 서버 위험 경보 센터 — 열린 경보 수를 배지로 표시 (60초 폴링) -->
+            <li class="nav-item mb-1">
+                <a href="/super/alert/center.do" class="nav-link <c:if test="${activeMenu eq 'alert_center'}">active</c:if>" style="color: #ef9a9a;">
+                    <i class="fas fa-bell me-2"></i> 경보 센터
+                    <span id="alertBadge" class="badge bg-danger ms-2" style="display:none;">0</span>
+                </a>
+            </li>
+            <!-- 보안 감사 로그 (로그인·OTP·경보 설정 변경) -->
+            <li class="nav-item mb-1">
+                <a href="/super/mfa/audit.do" class="nav-link <c:if test="${activeMenu eq 'audit_log'}">active</c:if>" style="color: #bcaaa4;">
+                    <i class="fas fa-clipboard-list me-2"></i> 감사 로그
                 </a>
             </li>
             <!-- 🌟 공개 웹 문의함 (2-29차) — witch-hunting.com/contact 접수분 -->
@@ -161,6 +187,35 @@
         // 즉시 한 번 호출하고 10초 주기로 폴링
         setTimeout(checkUnreadMessages, 1000);
         setInterval(checkUnreadMessages, 10000);
+        // 서버 경보: 배지 + 위험 이상이면 모든 어드민 화면 상단에 띠 표시 (60초 주기, 메모리 상태라 가볍다)
+        setTimeout(checkOpenAlerts, 1500);
+        setInterval(checkOpenAlerts, 60000);
+    }
+
+    function checkOpenAlerts() {
+        fetch('/super/alert/count.json', { credentials: 'same-origin' })
+        .then(res => res.json())
+        .then(data => {
+            const badge = document.getElementById('alertBadge');
+            if (badge) {
+                if (data.open > 0) { badge.innerText = data.open; badge.style.display = 'inline-block'; }
+                else { badge.style.display = 'none'; }
+            }
+            let bar = document.getElementById('globalAlertBar');
+            const serious = data.open > 0 && (data.maxSeverity === 'DANGER' || data.maxSeverity === 'CRITICAL');
+            if (serious) {
+                if (!bar) {
+                    bar = document.createElement('div');
+                    bar.id = 'globalAlertBar';
+                    bar.style.cssText = 'position:fixed;top:0;left:260px;right:0;z-index:1050;padding:8px 16px;font-size:14px;color:#fff;text-align:center;';
+                    document.body.appendChild(bar);
+                }
+                bar.style.background = data.maxSeverity === 'CRITICAL' ? '#e74c3c' : '#e67e22';
+                bar.innerHTML = '서버 경보 ' + data.open + '건 (최고 등급: ' + data.maxSeverityLabel + ') — <a href="/super/alert/center.do" style="color:#fff;text-decoration:underline;">경보 센터로 이동</a>';
+            } else if (bar) {
+                bar.remove();
+            }
+        }).catch(err => console.error('Error fetching alert count:', err));
     }
 
     function checkUnreadMessages() {

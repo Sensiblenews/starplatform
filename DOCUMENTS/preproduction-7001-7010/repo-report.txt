@@ -1,0 +1,43 @@
+Sensiblenews/platform-7001|https://github.com/Sensiblenews/platform-7001|true|main|2026-10-08T11:36:00Z
+  head|f8f9880515d4909ab8bda426b57c841933748fff|docs: platform-7001 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7002|https://github.com/Sensiblenews/platform-7002|true|main|2026-10-08T11:36:05Z
+  head|80f63803caf6b0d60c34ea04e174e5c829a31c54|docs: platform-7002 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7003|https://github.com/Sensiblenews/platform-7003|true|main|2026-10-08T11:36:11Z
+  head|ba879f01d8bac28af89981166426619326fe8b2f|docs: platform-7003 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7004|https://github.com/Sensiblenews/platform-7004|true|main|2026-10-08T11:36:16Z
+  head|a8ff8130a33d97962c79161485ab9b080a61c49c|docs: platform-7004 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7005|https://github.com/Sensiblenews/platform-7005|true|main|2026-10-08T11:36:20Z
+  head|69184aceadb12bb6b131bb27fd83c9ee8b792326|docs: platform-7005 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7006|https://github.com/Sensiblenews/platform-7006|true|main|2026-10-08T11:36:25Z
+  head|878bbdee0c3c66eb0c42ecfe8fe656ddaf65db03|docs: platform-7006 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7007|https://github.com/Sensiblenews/platform-7007|true|main|2026-10-08T11:36:31Z
+  head|7e90900476097e1c61b82ebf3bfec61e2f4f877d|docs: platform-7007 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7008|https://github.com/Sensiblenews/platform-7008|true|main|2026-10-08T11:36:37Z
+  head|673765001e134d620e6c799bbd74e34090493cd9|docs: platform-7008 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7009|https://github.com/Sensiblenews/platform-7009|true|main|2026-10-08T11:36:42Z
+  head|74ee5bad9d3f807addc750cbd5ae9bb8c80f9c15|docs: platform-7009 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+Sensiblenews/platform-7010|https://github.com/Sensiblenews/platform-7010|true|main|2026-10-08T11:36:49Z
+  head|fc89e65779ed0f36c121a708f2b5daf767e74c0a|docs: platform-7010 저장소 안내 — baseline-2026-10 Master 스냅샷, 팩토리 확정 전 수정 금지
+  tag|refs/tags/baseline-2026-10|10008ee496d6c2a02c88841421154a9345274207
+  collab|Sensiblenews|admin
+origin|https://github.com/Sensiblenews/starplatform|private=false|default=main
+  collab|gkrkdals|write
+  collab|Sensiblenews|admin
