@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 관리자 이중인증(OTP) · 복구 코드 · 보안 감사 로그.
+     테이블 DDL: core-backend/db/admin-mfa-audit.sql (배포 전 수동 실행)
+     계정은 WH_PRESS(PRS_ID) 기준이다 (WH_MEMBER 는 운영 DB에 없음). -->
+<mapper namespace="security">
+
+    <!-- 잠금 잔여시간·임시등록 유효여부는 DB 시간으로 계산한다 (WAS·DB 시계 차이 무관) -->
+    <select id="selectMfa" parameterType="string" resultType="hashmap">
+        SELECT
+            PRS_ID, OTP_ENABLED_YN, OTP_SECRET_ENC, PENDING_SECRET_ENC, PENDING_EXPIRES,
+            FAIL_COUNT, LOCKED_UNTIL, LAST_VERIFIED_DATE, LAST_USED_STEP, ENROLLED_DATE, UPDATED_DATE,
+            IFNULL(TIMESTAMPDIFF(SECOND, NOW(), LOCKED_UNTIL), 0) AS LOCK_REMAIN_SEC,
+            (PENDING_SECRET_ENC IS NOT NULL AND PENDING_EXPIRES IS NOT NULL AND PENDING_EXPIRES > NOW()) AS PENDING_VALID
+        FROM WH_ADMIN_MFA
+        WHERE PRS_ID = #{prsId}
+    </select>
+
+    <update id="upsertPending" parameterType="map">
+        INSERT INTO WH_ADMIN_MFA (PRS_ID, OTP_ENABLED_YN, PENDING_SECRET_ENC, PENDING_EXPIRES, FAIL_COUNT, UPDATED_DATE)
+        VALUES (#{PRS_ID}, 'N', #{PENDING_SECRET_ENC}, DATE_ADD(NOW(), INTERVAL #{minutes} MINUTE), 0, NOW())
+        ON DUPLICATE KEY UPDATE
+            PENDING_SECRET_ENC = VALUES(PENDING_SECRET_ENC),
+            PENDING_EXPIRES = VALUES(PENDING_EXPIRES),
+            UPDATED_DATE = NOW()
+    </update>
+
+    <update id="clearPending" parameterType="string">
+        UPDATE WH_ADMIN_MFA
+        SET PENDING_SECRET_ENC = NULL, PENDING_EXPIRES = NULL, UPDATED_DATE = NOW()
+        WHERE PRS_ID = #{prsId}
+    </update>
+
+    <!-- 임시 → 정식 확정. 실패 카운터·잠금도 함께 초기화 -->
+    <update id="activate" parameterType="map">
+        UPDATE WH_ADMIN_MFA
+        SET OTP_SECRET_ENC = #{OTP_SECRET_ENC},
+            OTP_ENABLED_YN = 'Y',
+            PENDING_SECRET_ENC = NULL,
+            PENDING_EXPIRES = NULL,
+            FAIL_COUNT = 0,
+            LOCKED_UNTIL = NULL,
+            LAST_USED_STEP = #{LAST_USED_STEP},
+            ENROLLED_DATE = NOW(),
+            LAST_VERIFIED_DATE = NOW(),
+            UPDATED_DATE = NOW()
+        WHERE PRS_ID = #{PRS_ID}
+    </update>
+
+    <!-- 실패 누적. lockMinutes 가 오면 잠금 시각을 건다 (카운터 계산은 서비스에서) -->
+    <update id="updateFailState" parameterType="map">
+        UPDATE WH_ADMIN_MFA
+        SET FAIL_COUNT = #{FAIL_COUNT},
+            <choose>
+                <when test="lockMinutes != null">
+                    LOCKED_UNTIL = DATE_ADD(NOW(), INTERVAL #{lockMinutes} MINUTE),
+                </when>
+                <otherwise>
+                    LOCKED_UNTIL = LOCKED_UNTIL,
+                </otherwise>
+            </choose>
+            UPDATED_DATE = NOW()
+        WHERE PRS_ID = #{PRS_ID}
+    </update>
+
+    <!-- 성공: 카운터·잠금 해제, 마지막 사용 단계 갱신(복구 코드면 null 이라 유지) -->
+    <update id="recordSuccess" parameterType="map">
+        UPDATE WH_ADMIN_MFA
+        SET FAIL_COUNT = 0,
+            LOCKED_UNTIL = NULL,
+            LAST_VERIFIED_DATE = NOW(),
+            LAST_USED_STEP = IFNULL(#{LAST_USED_STEP, jdbcType=BIGINT}, LAST_USED_STEP),
+            UPDATED_DATE = NOW()
+        WHERE PRS_ID = #{PRS_ID}
+    </update>
+
+    <delete id="deleteMfa" parameterType="string">
+        DELETE FROM WH_ADMIN_MFA WHERE PRS_ID = #{prsId}
+    </delete>
+
+    <!-- ============ 복구 코드 ============ -->
+
+    <insert id="insertBackupCode" parameterType="map">
+        INSERT INTO WH_ADMIN_MFA_BACKUP_CODE (PRS_ID, CODE_HASH, USED_YN, CREATED_DATE)
+        VALUES (#{PRS_ID}, #{CODE_HASH}, 'N', NOW())
+    </insert>
+
+    <select id="selectUnusedBackupCodes" parameterType="string" resultType="hashmap">
+        SELECT CODE_ID, CODE_HASH
+        FROM WH_ADMIN_MFA_BACKUP_CODE
+        WHERE PRS_ID = #{prsId} AND USED_YN = 'N'
+    </select>
+
+    <!-- USED_YN 조건을 함께 걸어 두 요청이 같은 코드를 동시에 써도 한쪽만 1건 갱신된다 -->
+    <update id="useBackupCode" parameterType="map">
+        UPDATE WH_ADMIN_MFA_BACKUP_CODE
+        SET USED_YN = 'Y', USED_DATE = NOW()
+        WHERE CODE_ID = #{CODE_ID} AND USED_YN = 'N'
+    </update>
+
+    <select id="countUnusedBackupCodes" parameterType="string" resultType="int">
+        SELECT COUNT(*) FROM WH_ADMIN_MFA_BACKUP_CODE WHERE PRS_ID = #{prsId} AND USED_YN = 'N'
+    </select>
+
+    <delete id="deleteBackupCodes" parameterType="string">
+        DELETE FROM WH_ADMIN_MFA_BACKUP_CODE WHERE PRS_ID = #{prsId}
+    </delete>
+
+    <!-- ============ 관리자 현황 (SM 화면) ============ -->
+
+    <select id="selectAdminMfaStatus" resultType="hashmap">
+        SELECT
+            P.PRS_ID, P.PRS_NAME, P.PRS_AUTH, P.PRS_COUNTRY, P.PRS_USE_YN,
+            IFNULL(M.OTP_ENABLED_YN, 'N') AS OTP_ENABLED_YN,
+            M.ENROLLED_DATE, M.LAST_VERIFIED_DATE, M.FAIL_COUNT,
+            IFNULL(TIMESTAMPDIFF(SECOND, NOW(), M.LOCKED_UNTIL), 0) AS LOCK_REMAIN_SEC,
+            (SELECT COUNT(*) FROM WH_ADMIN_MFA_BACKUP_CODE B WHERE B.PRS_ID = P.PRS_ID AND B.USED_YN = 'N') AS BACKUP_LEFT
+        FROM WH_PRESS P
+        LEFT JOIN WH_ADMIN_MFA M ON M.PRS_ID = P.PRS_ID
+        WHERE P.PRS_AUTH IN ('SM', 'LC')
+        ORDER BY FIELD(P.PRS_AUTH, 'SM', 'LC'), P.PRS_ID
+    </select>
+
+    <!-- ============ 감사 로그 ============ -->
+
+    <insert id="insertAuditLog" parameterType="map">
+        INSERT INTO WH_ADMIN_AUDIT_LOG
+            (PRS_ID, EVENT_TYPE, RESULT, REASON_CODE, TARGET_ID, CLIENT_IP, USER_AGENT, DETAIL, CREATED_DATE)
+        VALUES
+            (#{PRS_ID, jdbcType=VARCHAR}, #{EVENT_TYPE}, #{RESULT}, #{REASON_CODE, jdbcType=VARCHAR},
+             #{TARGET_ID, jdbcType=VARCHAR}, #{CLIENT_IP, jdbcType=VARCHAR}, #{USER_AGENT, jdbcType=VARCHAR},
+             #{DETAIL, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <sql id="auditWhere">
+        <where>
+            <if test="prsId != null">AND (PRS_ID = #{prsId} OR TARGET_ID = #{prsId})</if>
+            <if test="eventType != null">AND EVENT_TYPE = #{eventType}</if>
+        </where>
+    </sql>
+
+    <select id="selectAuditLogs" parameterType="map" resultType="hashmap">
+        SELECT LOG_ID, PRS_ID, EVENT_TYPE, RESULT, REASON_CODE, TARGET_ID, CLIENT_IP, USER_AGENT, DETAIL, CREATED_DATE
+        FROM WH_ADMIN_AUDIT_LOG
+        <include refid="auditWhere"/>
+        ORDER BY LOG_ID DESC
+        LIMIT #{start}, #{length}
+    </select>
+
+    <select id="countAuditLogs" parameterType="map" resultType="int">
+        SELECT COUNT(*) FROM WH_ADMIN_AUDIT_LOG
+        <include refid="auditWhere"/>
+    </select>
+
+    <select id="countRecentFailures" parameterType="map" resultType="int">
+        SELECT COUNT(*) FROM WH_ADMIN_AUDIT_LOG
+        WHERE EVENT_TYPE = #{eventType} AND RESULT = 'F'
+          AND CREATED_DATE &gt;= DATE_SUB(NOW(), INTERVAL #{minutes} MINUTE)
+    </select>
+
+</mapper>
