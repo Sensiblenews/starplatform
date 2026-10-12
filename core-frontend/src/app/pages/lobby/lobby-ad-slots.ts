@@ -18,9 +18,30 @@ export interface LobbyAdSlotPosition {
   hideAbove: number;
 }
 
+/** 네이티브가 높이를 알려 주지 않을 때(iOS, 구 빌드)의 카드 높이(css px = dp/pt) */
+export const LOBBY_AD_SLOT_DEFAULT_HEIGHT = 315;
+/** 네이티브가 보낸 높이의 허용 범위 — 비정상 값으로 플레이스홀더가 화면을 삼키지 않게 한다 */
+export const LOBBY_AD_SLOT_MIN_HEIGHT = 200;
+export const LOBBY_AD_SLOT_MAX_HEIGHT = 420;
+
 /** 모두 접힌 초기 상태 */
 export function emptyAdSlotFilled(): boolean[] {
   return new Array(LOBBY_AD_SLOT_COUNT).fill(false);
+}
+
+/** 모두 기본 높이인 초기 상태 */
+export function defaultAdSlotHeights(): number[] {
+  return new Array(LOBBY_AD_SLOT_COUNT).fill(LOBBY_AD_SLOT_DEFAULT_HEIGHT);
+}
+
+/**
+ * ad_loaded 이벤트의 detail.height(소재 비율로 측정한 카드 높이, Android 2-33차 7번)를 꺼낸다.
+ * 없거나 0 이하·숫자 아님이면 기본 315, 범위 밖이면 상·하한으로 자른다
+ */
+export function slotHeightFromAdLoaded(detail: unknown): number {
+  const height = detail && typeof detail === 'object' ? (detail as { height?: unknown }).height : undefined;
+  if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return LOBBY_AD_SLOT_DEFAULT_HEIGHT;
+  return Math.max(LOBBY_AD_SLOT_MIN_HEIGHT, Math.min(LOBBY_AD_SLOT_MAX_HEIGHT, Math.round(height)));
 }
 
 /**

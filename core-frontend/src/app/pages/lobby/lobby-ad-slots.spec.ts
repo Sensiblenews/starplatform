@@ -1,7 +1,10 @@
 import {
   LOBBY_AD_SLOT_COUNT,
+  LOBBY_AD_SLOT_DEFAULT_HEIGHT,
   buildAdSlotPositions,
+  defaultAdSlotHeights,
   emptyAdSlotFilled,
+  slotHeightFromAdLoaded,
   slotIndexFromAdLoaded
 } from './lobby-ad-slots';
 
@@ -10,6 +13,22 @@ describe('lobby-ad-slots', () => {
     it('슬롯 수만큼 false 로 채운다', () => {
       expect(emptyAdSlotFilled()).toEqual([false, false, false]);
       expect(emptyAdSlotFilled().length).toBe(LOBBY_AD_SLOT_COUNT);
+    });
+  });
+
+  describe('slotHeightFromAdLoaded', () => {
+    it('height 가 없으면(iOS·구 빌드) 기본 315', () => {
+      expect(slotHeightFromAdLoaded(undefined)).toBe(LOBBY_AD_SLOT_DEFAULT_HEIGHT);
+      expect(slotHeightFromAdLoaded({ slot: 1 })).toBe(315);
+      expect(slotHeightFromAdLoaded({ slot: 1, height: 0 })).toBe(315);
+      expect(slotHeightFromAdLoaded({ height: '300' })).toBe(315);
+      expect(defaultAdSlotHeights()).toEqual([315, 315, 315]);
+    });
+
+    it('측정값을 정수로 쓰고 범위 밖은 자른다', () => {
+      expect(slotHeightFromAdLoaded({ slot: 0, height: 296.4 })).toBe(296);
+      expect(slotHeightFromAdLoaded({ height: 120 })).toBe(200);
+      expect(slotHeightFromAdLoaded({ height: 900 })).toBe(420);
     });
   });
 

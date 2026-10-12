@@ -372,7 +372,7 @@
 
     <!-- 🌟 네이티브 광고 슬롯 1/3 — My Global Ranking 카드와 Today's TOP 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[0]"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
 
     <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).
          첫 화면에는 사진+이름만 보이고, 세로 스크롤을 시작하면 순위·조회수 줄이 펼쳐진다(2-29차 공간 확보) -->
@@ -447,7 +447,7 @@
 
     <!-- 🌟 네이티브 광고 슬롯 2/3 — Trending Now와 Discover Global Pages 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[1]"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[1]" [style.height.px]="adSlotFilled[1] ? adSlotHeight[1] : null"></div>
 
     <div class="discover-pages-section">
       <h3 class="discover-title">
@@ -520,7 +520,7 @@
 
     <!-- 🌟 네이티브 광고 슬롯 3/3 — TOP 100 리스트와 New Creators 사이 (sticky 탭 바 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[2]"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[2]" [style.height.px]="adSlotFilled[2] ? adSlotHeight[2] : null"></div>
 
     <div class="section-container" *ngIf="newCreators && newCreators.length > 0">
       <div class="section-header">
