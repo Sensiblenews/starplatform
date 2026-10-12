@@ -17,6 +17,7 @@ import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.compon
 import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
 import { MyRankingCardComponent } from './components/my-ranking-card/my-ranking-card.component';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
+import { LatestContentsPlayerComponent } from './components/latest-contents-carousel/latest-contents-player.component';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 
@@ -44,6 +45,7 @@ import { GlobalOpeningOverlayComponent } from '../../components/global-opening-o
     LiveNewsTickerComponent,
     MyRankingCardComponent,
     LatestContentsCarouselComponent,
+    LatestContentsPlayerComponent,
   ],
 })
 export class LobbyPageModule {}

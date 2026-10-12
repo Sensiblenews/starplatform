@@ -358,7 +358,7 @@
     <!-- 🎬 Latest Contents 숏폼 (2-33차) — 헤더와 VS 카드 사이. 첫 조회 동안 스켈레톤, 편성 0개면 섹션 자체를 숨긴다 -->
     <app-skeleton *ngIf="isLoadingLatestContents" variant="latest"></app-skeleton>
     <app-latest-contents-carousel *ngIf="!isLoadingLatestContents && latestContents.length > 0" [items]="latestContents" [intervalSec]="latestIntervalSec"
-      (profileSelect)="goToStarPage($event)" (contentSelect)="goToContentPage($event)"></app-latest-contents-carousel>
+      (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event)"></app-latest-contents-carousel>
 
     <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
     <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>

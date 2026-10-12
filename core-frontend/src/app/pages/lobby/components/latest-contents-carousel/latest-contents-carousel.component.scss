@@ -86,7 +86,8 @@
   }
 
   .latest-poster {
-    background: #000;
+    // 전역 img 회색 바탕(#eee)을 덮는다 — 썸네일이 오기 전에도 카드와 같은 어두운 색
+    background: #0d1117;
     transition: opacity 180ms ease;
 
     &.is-hidden {
@@ -125,6 +126,7 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    background: #1c2430;
   }
 }
 

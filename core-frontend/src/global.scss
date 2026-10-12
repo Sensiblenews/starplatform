@@ -153,6 +153,15 @@ ion-fab {
   }
 }
 
+// 로비 숏폼 전체 화면 플레이어 (2-33차) — 화면 전체, 모서리 없음, 검정 바탕
+ion-modal.latest-player-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --background: #000;
+  --ion-background-color: #000;
+}
+
 // 이미지가 내려오기 전 빈 흰 박스가 보이지 않도록 회색 바탕을 깔아둔다.
 // 텍스트는 먼저 렌더되고 이미지가 1~2초 늦게 도착하는 구간을 덮는 용도.
 img,

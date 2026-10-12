@@ -58,8 +58,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
 
   /** 프로필(아바타+이름) 터치 → 스타 ID */
   @Output() profileSelect = new EventEmitter<string>();
-  /** 영상 터치 → 게시물 ID */
-  @Output() contentSelect = new EventEmitter<string>();
+  /** 영상 터치 → 항목 전체 (로비가 전체 화면 플레이어를 연다) */
+  @Output() contentSelect = new EventEmitter<LatestContentItem>();
 
   @ViewChild('video') video: ElementRef<HTMLVideoElement>;
 
@@ -236,7 +236,7 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     const item = this.active;
     if (!item) return;
     this.trackEvent(item, 'CLICK');
-    this.contentSelect.emit(String(item.conId));
+    this.contentSelect.emit(item);
   }
 
   onProfileTap(event: Event): void {
@@ -245,6 +245,11 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     if (!item) return;
     this.trackEvent(item, 'PROFILE_CLICK');
     this.profileSelect.emit(item.prsId);
+  }
+
+  /** 전체 화면 플레이어에서 프로필로 이동한 경우 — 통계만 기록한다 (로비가 호출) */
+  trackProfileClick(item: LatestContentItem): void {
+    this.trackEvent(item, 'PROFILE_CLICK');
   }
 
   // ===== 통계 =====

@@ -21,6 +21,7 @@ import { shouldRevealTopMeta } from './lobby-reveal';
 import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
 import { LatestContentItem } from './latest-contents-logic';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
+import { LatestContentsPlayerComponent } from './components/latest-contents-carousel/latest-contents-player.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
 import { OpeningOverlayService } from '../../services/opening-overlay.service';
@@ -639,6 +640,26 @@ export class LobbyPage implements OnInit, OnDestroy {
       },
       error: () => { },  // 실패하면 빈 목록 그대로 — 스켈레톤도 내리고 섹션은 숨긴다
     });
+  }
+
+  // 🎬 숏폼 영상 터치 → 전체 화면 플레이어 (요청서 "콘텐츠 선택 시 전체 화면 재생").
+  // 플레이어가 떠 있는 동안 카드의 자동 이동·재생은 멈추고, 닫히면 다시 켠다.
+  // 플레이어 안의 프로필·게시물 버튼은 모달을 닫으면서 목적지를 돌려주고 여기서 이동한다
+  async openLatestPlayer(item: LatestContentItem) {
+    this.haptic.tap();
+    if (this.latestCarousel) this.latestCarousel.stop();
+    const modal = await this.modalCtrl.create({
+      component: LatestContentsPlayerComponent,
+      componentProps: { item },
+      cssClass: 'latest-player-modal',
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (this.isViewActive && this.latestCarousel && !(data && data.navigate)) this.latestCarousel.start();
+    if (data && data.navigate) {
+      if (data.reason === 'PROFILE_CLICK' && this.latestCarousel) this.latestCarousel.trackProfileClick(item);
+      this.router.navigate(data.navigate);
+    }
   }
 
   // 3초 폴링 — 서버 Redis 캐시 TTL 2초와 박자를 맞춰 항상 최신 데이터를 받는다
