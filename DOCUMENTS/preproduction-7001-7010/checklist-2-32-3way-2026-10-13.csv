@@ -1,0 +1,116 @@
+﻿No,Block,Item,Group,Bundle,OriginalMark,Note
+101,50단계 사전 생산준비,정상 운영 Master Source 확인,A,,PASS,"운영 브랜치·cb7c05e·버전표(앱 10.0.72/100072, WAR 1.0.0). 이후 main 에 #36~#42 머지"
+102,50단계 사전 생산준비,핵심 기능 Baseline 테스트,C,,IN PROGRESS,백엔드 90·앱 42 자동 테스트 통과. Login·Chat·Commerce·Ranking·VS 수동 QA 는 실기기·시나리오 실행 필요
+103,50단계 사전 생산준비,Master Source Backup,A,,PASS,git bundle 별도 위치 생성 → clone 복구 → 3168 파일 해시 일치
+104,50단계 사전 생산준비,Master Repository 확정,A,,PASS,"원본 1 + 사본 10 URL, 협업자·권한 표"
+105,50단계 사전 생산준비,Production Branch 확정,A,,PASS,main 보호 규칙(PR 필수·force push·삭제 금지·관리자 포함) 적용 전후 기록
+106,50단계 사전 생산준비,변경관리 규칙 설정,A,,PASS,브랜치 보호 + PR 리뷰 절차 + 변경관리 규칙 문서. HQ 승인란은 110 에서
+107,50단계 사전 생산준비,Baseline Git Tag 생성,A,,PASS,태그 master-baseline-v1.0 = cb7c05e 원격 푸시
+108,50단계 사전 생산준비,Database Baseline 확정,C,,IN PROGRESS,저장소 DDL 이력은 정리됨. 라이브 스키마 덤프는 DB 서버 접근 필요
+109,50단계 사전 생산준비,Server·API·Redis 기준 확인,C,,IN PROGRESS,공개 엔드포인트 9개 200·TLS·Cloudflare 확인. 톰캣·MariaDB·Redis 버전은 SSH 뒤
+110,50단계 사전 생산준비,Master 보호 기준 승인,C,,IN PROGRESS,"문서 완료, HQ 승인 대기(절차)"
+111,50단계 사전 생산준비,하드코딩 조사,A,,PASS,도메인 34파일·앱명 12·광고 ID·식별자·경로·브랜딩 전수표 + 재현 명령
+112,50단계 사전 생산준비,Platform ID 분리,B,B7,IN PROGRESS,설정·웹 번들 반영 확인. 앱(AAB·IPA) 빌드 반영은 앱 자동 빌드 과제
+113,50단계 사전 생산준비,App Name 분리,C,,NOT VERIFIED,strings.xml·title 주입 확인. 실제 앱 화면은 단말 설치
+114,50단계 사전 생산준비,Domain 분리,C,,NOT VERIFIED,호기 도메인 미확보(TODO_)
+115,50단계 사전 생산준비,API URL 분리,C,,IN PROGRESS,"번들에 7001 apiBaseUrl 주입, Master 도메인 0건. 네트워크 로그는 실행 환경"
+116,50단계 사전 생산준비,Android Package ID 분리,C,,IN PROGRESS,trapeze 주입 확인. 7001 서명 AAB 는 서명 키·계정
+117,50단계 사전 생산준비,iOS Bundle ID 분리,C,,IN PROGRESS,trapeze·capacitor appId 주입. Xcode 확인은 Mac 서명 환경
+118,50단계 사전 생산준비,Scheme·Deep Link 분리,C,,NOT VERIFIED,설정 주입됨. 단말 테스트 필요
+119,50단계 사전 생산준비,Branding·Assets 분리,B,B7,IN PROGRESS,자산 위치·교체 방식 조사 완료. 자동 교체 미구현(아이콘 도구 교체 승인 필요)
+120,50단계 사전 생산준비,광고·버전·스토어 정보 분리,C,,IN PROGRESS,광고 ID·버전·식별자 Config 분리 완료. 스토어 메타데이터는 계정 작업
+121,50단계 사전 생산준비,Config 표준 정의,A,,PASS,platform.config.schema.json: 필수·자료형·허용값·교차 검증
+122,50단계 사전 생산준비,7001 Config 작성,C,,IN PROGRESS,검증 PASS(경고). TODO_ 22건은 총운영사 자료 수령 뒤
+123,50단계 사전 생산준비,7002~7010 Config 작성,C,,IN PROGRESS,10개 전부 존재·누락 0·중복 0. TODO_ 동일
+124,50단계 사전 생산준비,Config Validation 구현,A,,PASS,"오류 픽스처 5종 FAIL, strict 완전 설정 PASS"
+125,50단계 사전 생산준비,Config 변경 테스트,A,,PASS,"7001 값 변경 → 7001 출력 9파일만 변경, 7002 불변"
+126,50단계 사전 생산준비,Build Injector 구축,A,,PASS,"worktree 주입 → ng build 성공, Master 체크아웃 불변. (10-13: SMTP 키 주입 추가)"
+127,50단계 사전 생산준비,Logo 자동 교체,B,B7,IN PROGRESS,미구현 — 로고 파일 매핑표부터
+128,50단계 사전 생산준비,Icon 자동 교체,B,B7,IN PROGRESS,cordova-res 불가 → @capacitor/assets 도입은 package.json 변경 승인
+129,50단계 사전 생산준비,Splash 자동 교체,B,B7,IN PROGRESS,아이콘과 같은 도구
+130,50단계 사전 생산준비,Theme·App Name 자동 변경,B,B7,IN PROGRESS,앱 이름 주입됨. 색상·테마는 토큰화 선행
+131,50단계 사전 생산준비,Android ID 자동 변경,B,B7,IN PROGRESS,applicationId 주입. 7001 AAB 빌드 자동화와 묶음
+132,50단계 사전 생산준비,iOS ID 자동 변경,C,,NOT VERIFIED,서명 설정은 Apple 계정·인증서
+133,50단계 사전 생산준비,Scheme·Deep Link 자동 변경,C,,NOT VERIFIED,단말 테스트
+134,50단계 사전 생산준비,Universal Link·App Links 검증,C,,NOT VERIFIED,Master AASA·assetlinks 200 확인. 호기 도메인·서명 지문 없음
+135,50단계 사전 생산준비,AdMob 설정 주입,C,,IN PROGRESS,test/production 구분 주입·검증기 차단 확인. 실제 노출은 단말
+136,50단계 사전 생산준비,Web Build 자동화,A,,PASS,Master·7001 웹 번들 빌드 성공(CI 는 초안)
+137,50단계 사전 생산준비,Android Build 자동화,B,B7,IN PROGRESS,Master 미서명 AAB 빌드 성공(JDK 17). 서명·7001 반영·CI
+138,50단계 사전 생산준비,iOS Build 자동화,C,,NOT VERIFIED,서명 자격·Xcode 아카이브
+139,50단계 사전 생산준비,Server 독립 생성,C,,NOT VERIFIED,호기 서버 없음
+140,50단계 사전 생산준비,DB 독립 생성,C,,NOT VERIFIED,DB명·계정 설계 + mysql-init.sql 준비. 인스턴스 없음
+141,50단계 사전 생산준비,Redis 독립 구성,C,,NOT VERIFIED,redis.conf.snippet 준비. 인스턴스 없음
+142,50단계 사전 생산준비,Storage·Auth·Secrets 분리,C,,NOT VERIFIED,비밀 묶음 호기별 분리 생성. 접근 거부 테스트는 서버
+143,50단계 사전 생산준비,Domain·SSL·CDN·WAF 검증,C,,NOT VERIFIED,도메인 없음
+144,50단계 사전 생산준비,Config Validation Test,A,,PASS,"정상·오류 Config 자동 테스트, 잘못된 설정 차단"
+145,50단계 사전 생산준비,Build Validation Test,C,,IN PROGRESS,Web PASS·Android 미서명 PASS·iOS 는 서명 환경
+146,50단계 사전 생산준비,Infrastructure Validation Test,C,,NOT VERIFIED,서버 없음
+147,50단계 사전 생산준비,Identity·Link Validation,C,,IN PROGRESS,식별자 표 생성(identity-matrix). 실동작은 단말·도메인
+148,50단계 사전 생산준비,Branding·Advertising Validation,C,,NOT VERIFIED,최종 화면 필요
+149,50단계 사전 생산준비,QA·Rollback Test,C,,IN PROGRESS,코드 롤백 PASS. 서버·DB 복구 테스트는 테스트 서버
+150,50단계 사전 생산준비,Factory Acceptance Test,C,,NOT VERIFIED,인프라·단말 미해결 → HQ 승인 불가 상태
+201,디자인·랭킹 Factory,Design & Ranking Order Form 접수,B,B9,📋 🆕,주문서 양식 + 양식→platform.config.json 변환 스크립트
+202,디자인·랭킹 Factory,플랫폼 성격·핵심 목적 확인,C,,📋,운영 절차(총운영사 인터뷰)
+203,디자인·랭킹 Factory,표준 Ranking 50개 중 7개 확정,B,B9,🆕,현재 8개 직군 프런트·서버 하드코딩. 카탈로그 50개 정의 + 코드 테이블화
+204,디자인·랭킹 Factory,대표 Ranking 1개 지정,B,B9,🆕,로비 상단 랭킹 모듈 고정 → 설정화
+205,디자인·랭킹 Factory,Home 구성·표시 우선순위,B,B9,🆕,로비 섹션 on/off·순서 설정 체계
+206,디자인·랭킹 Factory,Design Preset·브랜드 색상,B,B9,🔧,화면별 직접 지정 색 토큰화 선행
+207,디자인·랭킹 Factory,Logo·Icon·Hero·Banner 연결,B,B7,🔧,127~129 와 같은 과제(아이콘 도구 교체 승인)
+208,디자인·랭킹 Factory,platform.config.json 자동 생성,A,,✅(갱신),10-11 Factory: 호기별 설정 파일 11개 + 스키마 존재. 주문서→자동 생성은 201
+209,디자인·랭킹 Factory,JSON Schema·필수값 검증,A,,✅(갱신),10-11 Factory: schema + validate.js(strict·픽스처 5종)
+210,디자인·랭킹 Factory,Asset Fallback·Component Variant,B,B9,🆕,범위 한정 필요(카드 유형 2~3종)
+211,디자인·랭킹 Factory,모바일·웹 Preview,C,,🆕 🖥,스테이징 서버 필요
+212,디자인·랭킹 Factory,총운영사 디자인 승인,C,,📋,운영 절차
+213,디자인·랭킹 Factory,Design Freeze·Version·Hash,A,,📋,git 태그 + 커밋 SHA 로 충족(master-baseline-v1.0)
+214,디자인·랭킹 Factory,독립 Build 결과 확인,B,B7,🔧 🖥,android/ 미추적 파일(google-services·아이콘) 해소 선행 — gitignore 변경은 HQ 승인
+215,디자인·랭킹 Factory,검증 증빙·승인 기록,C,,📋,패키지 v1.0 제출. 승인 기록은 HQ
+301,긴급 초기 보안 조치,GitHub·Cloudflare·서버 계정 MFA,C,,📋 🖥,각 계정 로그인해 확인
+302,긴급 초기 보안 조치,미사용·퇴사자 계정 정리,C,,📋 🖥,GitHub 협업자 2명 확인. 나머지 계정은 소유자
+303,긴급 초기 보안 조치,SSH 접근 제한·키 인증,C,,🖥,개발진 SSH 접근 자체가 미결
+304,긴급 초기 보안 조치,포트 차단·MySQL·Redis 외부 차단,C,,🔧 🖥,외부(개발 PC)에서 운영 DB 직접 접속이 됨 → 차단 시 허용 IP·터널 필요
+305,긴급 초기 보안 조치,Cloudflare 프록시·DDoS 보호,A,,✅ 🖥,"프록시 적용 실측(server: cloudflare, ads.txt Worker). DDoS 설정값은 계정"
+306,긴급 초기 보안 조치,원본 IP 노출·우회 차단,C,,🖥,공개 DNS 에 원본 IP 노출 없음(실측). 원본 방화벽 CF IP 만 허용은 서버
+307,긴급 초기 보안 조치,Cloudflare WAF 기본 규칙,C,,🖥,계정 확인
+308,긴급 초기 보안 조치,로그인 API 요청 제한,B,B1,🆕(갱신),관리자: OTP 5회→10분 잠금 + 15분 20건 경보(10-12) ✅. 앱·스타 로그인 제한 없음
+309,긴급 초기 보안 조치,검색·게시물·좋아요·즐겨찾기·채팅 API 요청 제한,B,B1,🔧,방문·광고 로그·문의 폼만 버스트 가드
+310,긴급 초기 보안 조치,CPU·메모리·디스크·API 오류 모니터링·경보,A,,✅(갱신),"경보 센터(10-12): 디스크/RAM/CPU/힙/DB/Redis/5xx/로그인 실패, SMTP 메일. 실수신 확인은 운영"
+311,긴급 초기 보안 조치,MySQL 자동 백업,C,,🖥,factory/ops/backup.sh 준비. 서버 cron 등록은 서버
+312,긴급 초기 보안 조치,백업 저장소 분리,C,,🖥,미확인
+313,긴급 초기 보안 조치,삭제 방지·변경 불가 백업,C,,🖥,미확인
+314,긴급 초기 보안 조치,업로드 파일 백업 범위,C,,🖥,"대상 정의 완료(/img, /video, /video/thumnail, moderation/*). 실행은 서버"
+315,긴급 초기 보안 조치,별도 환경 복원 테스트,C,,🖥,미실시
+316,긴급 초기 보안 조치,소스 내 비밀정보 점검,즉시,,✅ 🔧(갱신),"키스토어·google-services·globals 미추적 ✅. 10-12 점검에서 SMTP 앱 비밀번호·JWT 서명 키가 public 저장소에 있음 발견 → SMTP 는 10-13 globals 이전(PR 대기), 비밀번호 폐기·JWT 키 이전·private 전환은 승인 즉시"
+317,긴급 초기 보안 조치,OS·런타임·라이브러리 보안 업데이트,B,B8,🔧 🖥,Java 8·Tomcat 7·Spring 4.1 지원 종료 — 대규모 별도 과제
+318,긴급 초기 보안 조치,호기별 저장소·배포 권한·비밀 분리,C,,🔧,저장소 10개·비밀 묶음 분리 완료. 배포 권한은 호기 서버 뒤
+319,긴급 초기 보안 조치,비상 연락망,C,,📋,운영 절차
+320,긴급 초기 보안 조치,공격 대응 절차,C,,📋,server-alert-runbook·system-management-guide 제공. 실행은 운영
+401,앱·웹 봇 보안,Googlebot 공개 페이지 허용·공식 검증,B,B1,🔧,공개 페이지 허용 ✅. 역방향 DNS 검증 없음
+402,앱·웹 봇 보안,Bingbot 등 정상 검색 봇 확인,B,B1,🆕 📋,허용 목록 없음
+403,앱·웹 봇 보안,SNS 링크 미리보기 봇 허용,A,,✅,"OG 메타 제공, 차단 규칙 없음"
+404,앱·웹 봇 보안,정상 봇 허용 목록 관리,C,,📋 🆕,운영 정책 결정 선행
+405,앱·웹 봇 보안,봇 위장 방지,B,B1,🆕,UA 외 검증 없음
+406,앱·웹 봇 보안,정상 봇 예외 범위 최소화,A,,✅,"봇 예외 규칙 없음, 민감 API 는 인증"
+407,앱·웹 봇 보안,robots.txt 점검,A,,✅,/adm /super /login /error /api Disallow
+408,앱·웹 봇 보안,XML Sitemap 점검,C,,✅ 🖥,sitemap.xml 동적 생성 ✅. Search Console 등록은 계정
+409,앱·웹 봇 보안,공개 페이지 검색 가능성,A,,✅,JSP 서버 렌더링
+410,앱·웹 봇 보안,비공개 페이지·noindex 정책,A,,✅,"승인 글 0건 스타 noindex, 비공개는 인증"
+411,앱·웹 봇 보안,중복 URL·canonical,A,,✅,canonical·JSON-LD
+412,앱·웹 봇 보안,Search Console·Bing 도구 검증,C,,🖥,계정
+413,앱·웹 봇 보안,기존 Cloudflare 보안 설정 점검,C,,🖥,계정. cloudflare-free-plan-checklist.md 제공
+414,앱·웹 봇 보안,요청 빈도 기반 제한,B,B1,🔧,IP+계정+경로 조합 없음
+415,앱·웹 봇 보안,로그인 자동화 공격 방어,B,B1,🆕(갱신),관리자 OTP 잠금·경보 ✅(10-12). 앱·스타 로그인은 없음
+416,앱·웹 봇 보안,콘텐츠 대량 수집 방어,B,B1,🔧,페이지 크기 상한만
+417,앱·웹 봇 보안,랭킹 조작·자동 참여 방어,B,B1,🔧,방문은 서버 검증 ✅. 좋아요·즐겨찾기·댓글 반복 제한 없음
+418,앱·웹 봇 보안,고비용 API 보호,B,B1,🔧,캐시·페이지 상한 ✅. 동시 실행·쿼리 비용 제한 없음
+419,앱·웹 봇 보안,단계별 대응 정책,C,,📋 🆕,운영 정책
+420,앱·웹 봇 보안,서버 측 검증,B,B1,✅ 🔧,HTMLTagFilter 가 JSON 바디를 못 거르는 갭
+421,앱·웹 봇 보안,인증·인가·데이터 소유권,A,,✅,스타 토큰 서버 검증·관리자 세션·소유자 확인
+422,앱·웹 봇 보안,요청 데이터·파일 업로드 검증,A,,✅ 🔧(갱신),이미지 매직 바이트·10MB·해상도 ✅. 영상도 2-33 에서 MIME·확장자·용량(15MB/어드민 100MB) 서버 검사 추가
+423,앱·웹 봇 보안,방문·수익·랭킹 무결성,B,B1,✅ 🔧,방문 가드·정산 제외 ✅. 좋아요 중복 서버 미검증
+424,앱·웹 봇 보안,캐시·DB 부하 보호,A,,✅(갱신),Redis TTL·CacheErrorHandler ✅ + 부하 경보(경보 센터) ✅
+425,앱·웹 봇 보안,관리자 경로·내부 API 보호,A,,✅(갱신),세션 권한 + OTP 이중인증 + 감사 로그(10-12). CF Access 는 권장
+426,앱·웹 봇 보안,봇 보안 로그 표준화,B,B2,🆕,로그 포맷·보관
+427,앱·웹 봇 보안,이상 트래픽 알림,A,,🆕(갱신),5xx·로그인 실패 경보 ✅(10-12). 트래픽 양 임계 경보는 요금제 확인 뒤(B2)
+428,앱·웹 봇 보안,정상 봇·공유 미리보기 테스트,C,,🖥,운영 도메인에서 실행
+429,앱·웹 봇 보안,악성 봇 방어 테스트,C,,🖥,승인된 테스트 환경. 운영 대상 부하 시험 금지
+430,앱·웹 봇 보안,7001~7010 적용·독립 검증,C,,🖥,호기별 서버·도메인·Cloudflare 없음
