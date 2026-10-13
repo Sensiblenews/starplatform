@@ -80,8 +80,19 @@ platform.id=WITCH           # 7001~7010 사본은 각 호기 ID
 monitor.disk.path=/         # 감시할 파일시스템
 ```
 
-SMTP 호스트·계정·비밀번호는 현재 `context-common.xml` 의 `mailSender` 빈에 있다. 이 파일은 Git 에 포함되므로
-**설정 파일(globals.properties)로 이전 + 비밀번호 교체**가 필요하다 — 승인 항목으로 분리했다 (검토 문서 4절).
+SMTP 계정은 2026-10-13 부터 `globals.properties` 에서 읽는다 (`context-common.xml` 의 `mailSender` 빈이 아래 키를 참조).
+호스트·포트 키가 없으면 Gmail 기본값(smtp.gmail.com:587)을 쓰고, 계정 키가 없으면 기동은 되지만 발송만 실패한다.
+
+```
+mail.smtp.host=smtp.gmail.com
+mail.smtp.port=587
+mail.smtp.username=witchhunting777@gmail.com   # 발신 전용 계정. 2단계 인증 + 앱 비밀번호
+mail.smtp.password=                            # Gmail 앱 비밀번호(16자). 이 파일 외에 적지 않는다
+```
+
+발신인(From)은 `alert.mail.from` 이 비어 있으면 이 계정 주소가 된다. Gmail 은 로그인 계정과 다른 From 을 허용하지 않으므로
+발신인을 바꾸려면 계정 자체를 바꾼다. 배포 순서는 **서버 globals 에 키 추가 → WAR 배포**. 이전 계정(개인 Gmail)의
+앱 비밀번호는 공개 저장소 이력에 남아 있으므로 Google 계정에서 **폐기**해야 한다 (47항 문서 A-1).
 
 ## 7. 7001~7010 호기 확대 적용
 

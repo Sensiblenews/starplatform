@@ -44,3 +44,9 @@ monitor.dir.temp = /var/lib/tomcat7/temp
 # 서명 비밀키 (예약 키 — 코드가 설정에서 읽도록 바뀐 뒤 유효)
 security.media.token.secret = ${MEDIA_TOKEN_SECRET}
 security.landing.token.secret = ${LANDING_TOKEN_SECRET}
+
+# 이메일 발송 (경보·문의 알림·앱 발송 공통). Gmail 이면 2단계 인증 + 앱 비밀번호. 값이 없으면 발송만 실패하고 기동은 된다
+mail.smtp.host = smtp.gmail.com
+mail.smtp.port = 587
+mail.smtp.username = ${SMTP_USERNAME}
+mail.smtp.password = ${SMTP_PASSWORD}

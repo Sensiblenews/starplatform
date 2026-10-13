@@ -198,7 +198,8 @@ const vars = {
   DB_HOST: cfg.backend.dbHost, DB_PORT: cfg.backend.dbPort, DB_NAME: cfg.backend.dbName, DB_USER: cfg.backend.dbUser, DB_PASSWORD: sec('DB_PASSWORD'),
   APPLE_KEY_DIR: cfg.backend.appleKeyDir, APPLE_KEY_ID: sec('APPLE_KEY_ID'), APPLE_TEAM_ID: cfg.ios.teamId, APPLE_SERVICE_ID: sec('APPLE_SERVICE_ID'), API_BASE_URL: cfg.apiBaseUrl,
   REDIS_HOST: cfg.backend.redisHost, REDIS_PORT: cfg.backend.redisPort, REDIS_PASSWORD: sec('REDIS_PASSWORD'), UPLOAD_ROOT: cfg.backend.uploadRoot,
-  MEDIA_TOKEN_SECRET: sec('MEDIA_TOKEN_SECRET'), LANDING_TOKEN_SECRET: sec('LANDING_TOKEN_SECRET')
+  MEDIA_TOKEN_SECRET: sec('MEDIA_TOKEN_SECRET'), LANDING_TOKEN_SECRET: sec('LANDING_TOKEN_SECRET'),
+  SMTP_USERNAME: sec('SMTP_USERNAME'), SMTP_PASSWORD: sec('SMTP_PASSWORD')
 };
 const globals = tpl.replace(/\$\{([A-Z_]+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 const gDest = applyDir ? path.join(applyDir, 'factory', '.generated', `${vars.PLATFORM_ID}.globals.properties`) : path.join(outDir, BE, 'src/main/resources/META-INF/props/globals.properties');
