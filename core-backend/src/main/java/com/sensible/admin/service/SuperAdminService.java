@@ -1107,12 +1107,28 @@ public class SuperAdminService {
     }
 
     /**
-     * 어드민 직접 업로드. 지정한 스타 명의의 영상 글을 만들고(검수 자동 승인) 바로 편성한다.
-     * 파일은 앱 업로드와 같은 경로를 탄다: 대기 보관소에 저장 → 웹 호환 MP4 변환 → 썸네일 → 공개 디렉터리로 이동.
-     * 변환이 요청 안에서 동기로 돌므로 큰 파일은 응답이 늦다 (화면에서 버튼을 잠근다).
+     * 어드민 직접 업로드의 1단계 결과. 요청 안에서 검증과 파일 저장까지 마친 상태이며,
+     * 2단계 {@link #completeLatestContentUpload}가 변환·편성을 이어받는다.
+     * 멀티파트 임시 파일은 요청이 끝나면 지워지므로 대기 보관소로의 저장은 반드시 1단계에서 한다.
      */
-    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
-    public int uploadLatestContent(org.springframework.web.multipart.MultipartFile videoFile,
+    public static final class PreparedUpload {
+        public String prsId;
+        public String body;
+        public String adminId;
+        public String uuid;
+        /** 저장된 원본 파일명 (uuid + 원본 확장자). 변환에 성공하면 uuid.mp4 로 바뀐다 */
+        public String videoName;
+        public String thumbName;
+        public java.nio.file.Path pendingDir;
+        public java.nio.file.Path savedPath;
+        public Map<String, Object> lcParam;
+    }
+
+    /**
+     * 어드민 직접 업로드 1단계: 입력 검증 + 대기 보관소에 파일 저장. 요청 안에서 동기로 돈다.
+     * 여기서 던지는 예외는 화면에 바로 "업로드 실패"로 보인다.
+     */
+    public PreparedUpload prepareLatestContentUpload(org.springframework.web.multipart.MultipartFile videoFile,
             Map<String, Object> params, String adminId) throws Exception {
         String prsId = params.get("prsId") == null ? "" : String.valueOf(params.get("prsId")).trim();
         if (prsId.isEmpty()) {
@@ -1126,18 +1142,52 @@ public class SuperAdminService {
             throw new Exception("영상 파일을 선택해주세요.");
         }
         String ext = validateLatestContentUpload(videoFile.getContentType(), videoFile.getOriginalFilename(), videoFile.getSize());
+
+        PreparedUpload p = new PreparedUpload();
+        p.prsId = prsId;
+        p.adminId = adminId;
         // 편성 필드는 파일을 건드리기 전에 먼저 검증한다 (기간 오류로 파일만 남는 일 방지)
-        Map<String, Object> lcParam = buildLatestContentParam(params, adminId);
-        String body = params.get("body") == null ? "" : String.valueOf(params.get("body")).trim();
+        p.lcParam = buildLatestContentParam(params, adminId);
+        p.body = params.get("body") == null ? "" : String.valueOf(params.get("body")).trim();
 
-        String uuid = java.util.UUID.randomUUID().toString().replace("-", "");
-        String videoName = uuid + ext;
-        String thumbName = uuid + "_thumb.jpg";
+        p.uuid = java.util.UUID.randomUUID().toString().replace("-", "");
+        p.videoName = p.uuid + ext;
+        p.thumbName = p.uuid + "_thumb.jpg";
 
-        java.nio.file.Path pendingDir = java.nio.file.Paths.get(com.sensible.common.Constants._PENDING_SAVE_PATH);
-        java.nio.file.Files.createDirectories(pendingDir);
-        java.nio.file.Path savedPath = pendingDir.resolve(videoName);
-        videoFile.transferTo(savedPath.toFile());
+        p.pendingDir = java.nio.file.Paths.get(com.sensible.common.Constants._PENDING_SAVE_PATH);
+        java.nio.file.Files.createDirectories(p.pendingDir);
+        p.savedPath = p.pendingDir.resolve(p.videoName);
+        videoFile.transferTo(p.savedPath.toFile());
+        return p;
+    }
+
+    /**
+     * 어드민 직접 업로드 (동기 전체). 1단계 + 2단계를 한 요청에서 돈다.
+     * 큰 파일은 변환 시간이 프록시 타임아웃을 넘기므로 화면은 이 메서드 대신
+     * 1단계만 요청 안에서 하고 2단계를 {@link LatestContentUploadJobs}로 넘긴다. 테스트·내부 호출용으로 남긴다.
+     */
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public int uploadLatestContent(org.springframework.web.multipart.MultipartFile videoFile,
+            Map<String, Object> params, String adminId) throws Exception {
+        return completeLatestContentUpload(prepareLatestContentUpload(videoFile, params, adminId));
+    }
+
+    /**
+     * 어드민 직접 업로드 2단계: 웹 호환 MP4 변환 → 썸네일 → 공개 디렉터리로 이동 →
+     * 지정한 스타 명의의 영상 글 생성(검수 자동 승인) → 편성. 백그라운드 스레드에서 돈다.
+     * 던지는 예외 메시지는 작업 상태의 실패 사유로 화면에 그대로 보인다.
+     */
+    @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
+    public int completeLatestContentUpload(PreparedUpload p) throws Exception {
+        String prsId = p.prsId;
+        String adminId = p.adminId;
+        String body = p.body;
+        String uuid = p.uuid;
+        String videoName = p.videoName;
+        String thumbName = p.thumbName;
+        java.nio.file.Path pendingDir = p.pendingDir;
+        java.nio.file.Path savedPath = p.savedPath;
+        Map<String, Object> lcParam = p.lcParam;
 
         java.nio.file.Path webPath = pendingDir.resolve(uuid + ".mp4");
         if (com.sensible.common.util.VideoTranscodeUtil.toWebMp4(savedPath, webPath)) {

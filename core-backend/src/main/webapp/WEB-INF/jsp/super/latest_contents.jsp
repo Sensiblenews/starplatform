@@ -702,25 +702,57 @@
                         if (!e.lengthComputable) return;
                         var pct = Math.round(e.loaded / e.total * 100);
                         $('#uploadProgress').css('width', pct + '%');
-                        if (pct >= 100) $('#uploadStatus').text('서버에서 변환·썸네일 생성 중… 창을 닫지 마세요.');
+                        if (pct >= 100) $('#uploadStatus').text('파일 전송 완료. 서버 접수 확인 중…');
                     });
                     return xhr;
                 },
                 success: function(res) {
-                    if (res.status === 'success') {
-                        alert('업로드와 편성이 완료되었습니다.');
-                        location.reload();
+                    if (res.status === 'success' && res.jobId) {
+                        // 변환·편성은 백그라운드 작업으로 넘어갔다. 결과를 폴링한다
+                        pollUploadJob(res.jobId, Date.now());
                     } else {
                         alert('업로드 실패: ' + (res.msg || ''));
-                        $('#uploadSubmitBtn, #uploadCancelBtn').prop('disabled', false);
-                        $('#uploadStatus').text('');
+                        unlockUploadForm();
                     }
                 },
                 error: function() {
-                    alert('서버 오류가 발생했습니다. 파일이 너무 크거나 변환 시간이 길었을 수 있습니다.');
-                    $('#uploadSubmitBtn, #uploadCancelBtn').prop('disabled', false);
-                    $('#uploadStatus').text('');
+                    alert('파일을 서버에 전달하지 못했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
+                    unlockUploadForm();
                 }
+            });
+        }
+
+        function unlockUploadForm() {
+            $('#uploadSubmitBtn, #uploadCancelBtn').prop('disabled', false);
+            $('#uploadStatus').text('');
+        }
+
+        // 업로드 작업 상태 폴링. 변환은 서버에서 계속 돌므로 창을 닫아도 작업은 끝난다.
+        // 서버가 재시작돼 작업을 모르면(UNKNOWN) 목록을 새로고침해 편성 여부를 확인하게 한다.
+        function pollUploadJob(jobId, startedAt) {
+            $.getJSON('/super/latest-contents/upload-status.json', { jobId: jobId }, function(res) {
+                if (res.state === 'DONE') {
+                    alert('업로드와 편성이 완료되었습니다.');
+                    location.reload();
+                    return;
+                }
+                if (res.state === 'FAILED') {
+                    alert('업로드 실패: ' + (res.msg || ''));
+                    unlockUploadForm();
+                    return;
+                }
+                if (res.state === 'UNKNOWN') {
+                    alert('서버가 재시작되어 변환 결과를 확인할 수 없습니다. 목록에서 편성 여부를 확인한 뒤 필요하면 다시 올려주세요.');
+                    location.reload();
+                    return;
+                }
+                var sec = Math.round((Date.now() - startedAt) / 1000);
+                var label = (res.state === 'QUEUED') ? '앞선 변환 작업 대기 중…' : '서버에서 변환·썸네일 생성 중…';
+                $('#uploadStatus').text(label + ' ' + sec + '초 경과. 창을 닫아도 작업은 계속됩니다.');
+                setTimeout(function() { pollUploadJob(jobId, startedAt); }, 3000);
+            }).fail(function() {
+                // 일시적 네트워크 오류는 작업 실패가 아니다. 조금 뒤 다시 묻는다
+                setTimeout(function() { pollUploadJob(jobId, startedAt); }, 5000);
             });
         }
     </script>
