@@ -33,6 +33,9 @@ public class SuperAdminController {
     @Resource(name = "superAdminService")
     private SuperAdminService superAdminService;
 
+    @Resource(name = "latestContentUploadJobs")
+    private com.sensible.admin.service.LatestContentUploadJobs latestContentUploadJobs;
+
     // 공개 웹 문의함(2-29차). 접수는 공개 사이트(/contact)가 하고 여기서는 읽기·처리만 한다
     @Resource(name = "contactService")
     private com.sensible.api.service.ContactService contactService;
@@ -2348,7 +2351,12 @@ public class SuperAdminController {
         return result;
     }
 
-    /** [API] 직접 업로드 — 지정 스타 명의 영상 글 생성(자동 승인) + 편성. 변환이 동기라 응답이 늦을 수 있다 */
+    /**
+     * [API] 직접 업로드 — 지정 스타 명의 영상 글 생성(자동 승인) + 편성.
+     * 요청 안에서는 검증과 파일 저장까지만 하고 즉시 작업 ID 를 돌려준다. 변환·편성은 백그라운드에서 돌고
+     * 화면은 upload-status.json 으로 결과를 폴링한다. (큰 파일에서 변환이 프록시 타임아웃을 넘겨
+     * "서버 오류"가 떴는데 실제로는 편성된 문제의 수정)
+     */
     @RequestMapping(value = "/super/latest-contents/upload.do", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> uploadLatestContent(HttpServletRequest request,
@@ -2358,13 +2366,35 @@ public class SuperAdminController {
         if (!isSuperMaster(user)) return latestContentDenied();
         Map<String, Object> result = new HashMap<>();
         try {
-            result.put("lcId", superAdminService.uploadLatestContent(videoFile, params, user.getPRS_ID()));
+            final SuperAdminService.PreparedUpload prepared =
+                    superAdminService.prepareLatestContentUpload(videoFile, params, user.getPRS_ID());
+            // 2단계는 프록시(superAdminService)를 통해 불러야 @CacheEvict 가 동작한다
+            com.sensible.admin.service.LatestContentUploadJobs.Job job = latestContentUploadJobs.submit(videoFile.getOriginalFilename(),
+                    new java.util.concurrent.Callable<Integer>() {
+                        @Override
+                        public Integer call() throws Exception {
+                            return superAdminService.completeLatestContentUpload(prepared);
+                        }
+                    });
+            result.put("jobId", job.id);
             result.put("status", "success");
         } catch (Exception e) {
             e.printStackTrace();
             result.put("status", "fail");
             result.put("msg", e.getMessage());
         }
+        return result;
+    }
+
+    /** [API] 직접 업로드 작업 상태 조회 (폴링). state: QUEUED / RUNNING / DONE / FAILED / UNKNOWN */
+    @RequestMapping(value = "/super/latest-contents/upload-status.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> uploadLatestContentStatus(HttpServletRequest request,
+            @RequestParam("jobId") String jobId) {
+        UserVO user = getLoginUser(request);
+        if (!isSuperMaster(user)) return latestContentDenied();
+        Map<String, Object> result = latestContentUploadJobs.status(jobId, System.currentTimeMillis());
+        result.put("status", "success");
         return result;
     }
 
