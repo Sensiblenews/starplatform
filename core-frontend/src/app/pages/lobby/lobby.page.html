@@ -121,29 +121,37 @@
 
   <div class="section-container" *ngIf="isShowingFavorites && !isSearching">
     <div class="section-header">
-      <ion-icon [name]="activeFavoriteTab === 'M' ? 'star' : (activeFavoriteTab === 'F' ? 'people' : 'eye')"
+      <ion-icon [name]="activeFavoriteTab === 'I' ? 'stats-chart' : (activeFavoriteTab === 'M' ? 'star' : (activeFavoriteTab === 'F' ? 'people' : 'eye'))"
         class="title-icon"
-        [style.color]="activeFavoriteTab === 'M' ? '#ffca28' : (activeFavoriteTab === 'F' ? '#3880ff' : '#2ecc71')"></ion-icon>
+        [style.color]="activeFavoriteTab === 'I' ? '#7c4dff' : (activeFavoriteTab === 'M' ? '#ffca28' : (activeFavoriteTab === 'F' ? '#3880ff' : '#2ecc71'))"></ion-icon>
+      <ion-label *ngIf="activeFavoriteTab === 'I'">Insight</ion-label>
       <ion-label *ngIf="activeFavoriteTab === 'M'">My Favorites ({{ favoriteStars.length }})</ion-label>
       <ion-label *ngIf="activeFavoriteTab === 'F'">Followers ({{ followerStars.length }})</ion-label>
       <ion-label *ngIf="activeFavoriteTab === 'V'">Visitors ({{ visitorStars.length }})</ion-label>
     </div>
 
-    <!-- M, F, V Tabs (Only for stars/creators) -->
+    <!-- I, V, F, M Tabs (Only for stars/creators) — 2-34차: I(Insight) 신설, 순서 I·V·F·M -->
     <div class="ranking-menu-container" *ngIf="isStar" style="padding-bottom: 10px;">
-      <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'M'" (click)="setFavoriteTab('M')">
-        <span class="card-icon">⭐</span>
-        <span class="card-title">M</span>
-      </div>
-      <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'F'" (click)="setFavoriteTab('F')">
-        <span class="card-icon">👥</span>
-        <span class="card-title">F</span>
+      <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'I'" (click)="setFavoriteTab('I')">
+        <span class="card-icon">📊</span>
+        <span class="card-title">I</span>
       </div>
       <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'V'" (click)="setFavoriteTab('V')">
         <span class="card-icon">👁️</span>
         <span class="card-title">V</span>
       </div>
+      <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'F'" (click)="setFavoriteTab('F')">
+        <span class="card-icon">👥</span>
+        <span class="card-title">F</span>
+      </div>
+      <div class="ranking-menu-card" [class.active]="activeFavoriteTab === 'M'" (click)="setFavoriteTab('M')">
+        <span class="card-icon">⭐</span>
+        <span class="card-title">M</span>
+      </div>
     </div>
+
+    <!-- I (Insight) Content — 글로벌 랭킹·방문자·즐겨찾기·좋아요·게시물 그래프 (2-34차) -->
+    <app-insight-charts *ngIf="activeFavoriteTab === 'I' && isStar" [starId]="starId"></app-insight-charts>
 
     <!-- M (My Favorites) Content -->
     <ng-container *ngIf="activeFavoriteTab === 'M'">

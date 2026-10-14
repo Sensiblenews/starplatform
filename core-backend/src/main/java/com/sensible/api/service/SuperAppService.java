@@ -2046,6 +2046,36 @@ public class SuperAppService {
 		return Integer.parseInt(String.valueOf(conId));
 	}
 
+	/**
+	 * 기기 ID 들의 즐겨찾기 스타 ID (2-34차). 기기별 마지막 기록이 FOLLOW 인 스타만, 최근 순 최대 500.
+	 * 기기 ID 는 최대 5개·각 100자 — 앱은 기기 ID 와 로그인 스타 ID 두 개를 보낸다
+	 */
+	public Map<String, Object> getFavoriteStarIdsByDevices(Object raw) {
+		Map<String, Object> result = new HashMap<>();
+		List<String> ids = new ArrayList<>();
+		if (raw instanceof List) {
+			for (Object o : (List<?>) raw) {
+				String id = normalizeLatestContentDeviceId(o);
+				if (id != null && !ids.contains(id) && ids.size() < 5) ids.add(id);
+			}
+		}
+		result.put("result", "OK");
+		if (ids.isEmpty()) {
+			result.put("starIds", new ArrayList<String>());
+			return result;
+		}
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("deviceIds", ids);
+			List<String> starIds = dao.selectList("superapp.selectFavoriteStarIdsByDevices", param);
+			result.put("starIds", starIds == null ? new ArrayList<String>() : starIds);
+		} catch (Exception e) {
+			System.out.println("[FAVORITES] restore failed: " + e.getMessage());
+			result.put("result", "FAIL");
+		}
+		return result;
+	}
+
 	/** 업로드 작업 상태. state: QUEUED / RUNNING / DONE / FAILED / UNKNOWN(서버 재시작 등) */
 	public Map<String, Object> getStarFeedUploadStatus(String jobId) {
 		Map<String, Object> status = uploadJobs.status(jobId, System.currentTimeMillis());

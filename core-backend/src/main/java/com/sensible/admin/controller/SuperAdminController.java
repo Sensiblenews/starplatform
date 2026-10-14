@@ -55,6 +55,9 @@ public class SuperAdminController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sensible.admin.scheduler.SystemMetricsCollector metricsCollector;
 
+    @javax.annotation.Resource(name = "starInsightService")
+    private com.sensible.api.service.StarInsightService starInsightService;
+
     // 헬퍼 메소드: 로그인 유저 확인
     private UserVO getLoginUser(HttpServletRequest request) {
         return (UserVO) request.getSession().getAttribute("SUPER_USER_SESSION");
@@ -2272,6 +2275,89 @@ public class SuperAdminController {
             result.put("msg", e.getMessage());
         }
         return result;
+    }
+
+    // ==========================================
+    // 🌟 [신규] 인사이트 (2-34차 2-2) — 글로벌(SM)·국가(LC) 어드민. 지표별 스타 순위 목록 + 스타별 그래프
+    // ==========================================
+
+    private boolean isInsightAdmin(UserVO user) {
+        return user != null && ("SM".equals(user.getPRS_AUTH()) || "LC".equals(user.getPRS_AUTH()));
+    }
+
+    /** LC 는 자기 국가 스타만 볼 수 있다 */
+    private boolean canViewStarInsight(UserVO user, String prsId) {
+        if (!isInsightAdmin(user) || prsId == null || prsId.isEmpty()) return false;
+        if ("SM".equals(user.getPRS_AUTH())) return true;
+        String country = starInsightService.starCountry(prsId);
+        return country != null && country.equals(user.getPRS_COUNTRY());
+    }
+
+    /** [화면] 지표별 순위 목록. metric = RANK | VISIT | FOLLOW | LIKE | POST, period = DAY … Y1 */
+    @RequestMapping(value = "/super/insight/list.do")
+    public String insightList(HttpServletRequest request,
+            @RequestParam(value = "metric", required = false, defaultValue = "RANK") String metric,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!isInsightAdmin(user))
+            return "redirect:/super/dashboard.do";
+
+        Map<String, Object> data = starInsightService.getRanking(metric, period, getFilterCountry(user), page);
+        int total = (Integer) data.get("total");
+        int pageSize = (Integer) data.get("pageSize");
+        int current = (Integer) data.get("page");
+        int totalPages = Math.max(1, (int) Math.ceil((double) total / pageSize));
+        int startPage = Math.max(1, current - 4);
+        int endPage = Math.min(totalPages, startPage + 9);
+        if (endPage - startPage < 9) startPage = Math.max(1, endPage - 9);
+
+        model.addAllAttributes(data);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
+        model.addAttribute("isLC", "LC".equals(user.getPRS_AUTH()));
+        model.addAttribute("activeMenu", "insight_" + String.valueOf(data.get("metric")).toLowerCase());
+        return "super/insight_list";
+    }
+
+    /** [화면] 스타 한 명의 인사이트 그래프 (목록에서 클릭) */
+    @RequestMapping(value = "/super/insight/star.do")
+    public String insightStar(HttpServletRequest request,
+            @RequestParam(value = "id") String prsId,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period,
+            @RequestParam(value = "from", required = false, defaultValue = "RANK") String from,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!canViewStarInsight(user, prsId))
+            return "redirect:/super/insight/list.do";
+        String metric = com.sensible.api.service.StarInsightService.normalizeMetric(from);
+        model.addAttribute("star", starInsightService.starHeader(prsId));
+        model.addAttribute("period", com.sensible.api.service.StarInsightService.Period.parse(period).name());
+        model.addAttribute("fromMetric", metric);
+        model.addAttribute("activeMenu", "insight_" + metric.toLowerCase());
+        return "super/insight_star";
+    }
+
+    /** [API] 스타 한 명의 그래프 데이터 */
+    @RequestMapping(value = "/super/insight/series.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> insightSeries(HttpServletRequest request,
+            @RequestParam(value = "id") String prsId,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (!canViewStarInsight(user, prsId)) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("result", "FAIL");
+            denied.put("msg", "권한이 없습니다.");
+            return denied;
+        }
+        return starInsightService.getSeries(prsId, period);
     }
 
     // ==========================================

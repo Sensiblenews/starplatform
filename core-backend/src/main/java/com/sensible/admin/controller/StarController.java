@@ -27,6 +27,9 @@ public class StarController {
     @Resource(name="DefaultDAO")
     private DefaultDAO dao;
 
+    @Resource(name = "starInsightService")
+    private com.sensible.api.service.StarInsightService starInsightService;
+
     // 세션 체크 헬퍼
     private UserVO getLoginStar(HttpServletRequest request) {
         UserVO user = (UserVO) request.getSession().getAttribute("SUPER_USER_SESSION");
@@ -34,6 +37,23 @@ public class StarController {
             return user;
         }
         return null;
+    }
+
+    /**
+     * [API] 인사이트 그래프 데이터 (2-34차 2-1, 스타 본인 어드민 마이페이지). period = DAY … Y1
+     */
+    @RequestMapping(value = "/star/insight.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> insightSeries(HttpServletRequest request,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period) throws Exception {
+        UserVO user = getLoginStar(request);
+        if (user == null) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("result", "FAIL");
+            denied.put("msg", "Please log in again.");
+            return denied;
+        }
+        return starInsightService.getSeries(user.getPRS_ID(), period);
     }
 
     /**

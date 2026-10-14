@@ -36,6 +36,9 @@ public class SuperAppController {
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
 
+	@Resource(name = "starInsightService")
+	private com.sensible.api.service.StarInsightService starInsightService;
+
 	@Resource(name = "firebaseService")
 	private com.sensible.api.service.FirebaseService firebaseService;
 
@@ -689,6 +692,30 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> getCommentBlockList(@RequestBody Map<String, Object> params) throws Exception {
 		return superAppService.getCommentBlockList(params);
+	}
+
+	// 🌟 [신규] 인사이트 그래프 5종 (2-34차 별 메뉴 I 탭). body: { starId, starToken, period: DAY|WEEK|MONTH|M3|M6|Y1 }.
+	// 본인 확인 필수, 사용자별 데이터라 캐시하지 않는다
+	@RequestMapping(value = "/api/super/my-insight/series", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> getMyInsightSeries(@RequestBody Map<String, Object> params) throws Exception {
+		String starId = params.get("starId") == null ? "" : String.valueOf(params.get("starId"));
+		String starToken = params.get("starToken") == null ? "" : String.valueOf(params.get("starToken"));
+		if (starId.isEmpty() || !superAppService.verifyStarToken(starId, starToken)) {
+			Map<String, Object> fail = new HashMap<>();
+			fail.put("result", "FAIL");
+			fail.put("msg", "Your session has expired. Please log in again.");
+			return fail;
+		}
+		return starInsightService.getSeries(starId, params.get("period"));
+	}
+
+	// 🌟 [신규] 기기 ID 들로 즐겨찾기 목록 복원 (2-34차 My Favorites 0 수정). body: { deviceIds: [..] } → { starIds: [..] }
+	// 앱 즐겨찾기는 기기 localStorage 에만 있어 재설치·스타 로그인(ID 가 바뀜) 뒤 비어 보였다
+	@RequestMapping(value = "/api/super/star/favorites/by-device", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> getFavoriteStarIdsByDevice(@RequestBody Map<String, Object> params) {
+		return superAppService.getFavoriteStarIdsByDevices(params.get("deviceIds"));
 	}
 
 	// 🌟 [신규] 내 스타페이지 상세 통계 (My Insight)

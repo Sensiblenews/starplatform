@@ -1,0 +1,107 @@
+// 별 메뉴 I(Insight) 탭 (2-34차). 로비 목록 카드와 같은 밝은 바탕.
+
+:host {
+  display: block;
+  padding: 0 16px 16px;
+}
+
+.ic-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+
+  button {
+    border: 1px solid #ddd;
+    background: #fff;
+    color: #555;
+    border-radius: 14px;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 600;
+
+    &.active {
+      background: #222;
+      border-color: #222;
+      color: #fff;
+    }
+  }
+}
+
+.ic-message {
+  padding: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+.ic-grid {
+  display: grid;
+  gap: 10px;
+  transition: opacity 150ms ease;
+
+  &.is-loading { opacity: 0.55; }
+}
+
+.ic-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 12px 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.ic-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.ic-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #222;
+}
+
+.ic-summary {
+  font-size: 11px;
+  color: #888;
+}
+
+.ic-svg {
+  display: block;
+  width: 100%;
+  height: 90px;
+  overflow: visible;
+}
+
+.ic-labels {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+
+  span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #999;
+    white-space: nowrap;
+
+    &:first-child { transform: none; }
+    &:last-child { transform: translateX(-100%); }
+  }
+}
+
+.ic-axis {
+  stroke: #e5e5e5;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ic-empty {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+}
