@@ -596,6 +596,22 @@ public class SuperAppController {
 		return superAppService.addStarFeed(params);
 	}
 
+	// 🌟 [신규] 스타 피드 동영상 업로드 — 멀티파트 + 비동기 변환 (2-34차, 영상 95MB).
+	// 필드: video(파일), prsId, starToken, feedText, youtubeUrl, imageBase64(선택). 응답: { result, jobId }
+	@RequestMapping(value = "/api/super/star/feed/add-media", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> addStarFeedMedia(@RequestParam("video") org.springframework.web.multipart.MultipartFile video,
+			@RequestParam Map<String, Object> params) {
+		return superAppService.startStarFeedMediaUpload(video, params);
+	}
+
+	// 🌟 [신규] 스타 피드 동영상 업로드 상태 (2-34차). 앱이 3초마다 폴링한다
+	@RequestMapping(value = "/api/super/star/feed/upload-status", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getStarFeedUploadStatus(@RequestParam("jobId") String jobId) {
+		return superAppService.getStarFeedUploadStatus(jobId);
+	}
+
 	// SuperAppController.java 내부 추가
 
 	@RequestMapping(value = "/api/super/star/feed/delete", method = RequestMethod.POST)

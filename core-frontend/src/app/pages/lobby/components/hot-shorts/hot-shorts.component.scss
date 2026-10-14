@@ -116,3 +116,22 @@
 @media (prefers-reduced-motion: reduce) {
   .hs-card .hs-poster { transition: none; }
 }
+
+// 소리 아이콘 — 재생 중인 카드에만 (2-34차 자동 사운드)
+.hs-sound {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+
+  ion-icon { font-size: 17px; }
+}

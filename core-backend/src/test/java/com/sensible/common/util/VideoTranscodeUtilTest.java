@@ -40,6 +40,12 @@ public class VideoTranscodeUtilTest {
 		// 출력 경로가 마지막, 덮어쓰기 허용
 		assertEquals("/out/a.mp4", cmd.get(cmd.size() - 1));
 		assertTrue(cmd.contains("-y"));
+		// 2-34차: 짧은 변 1080 상한 + 최대 4Mbps
+		assertEquals("4M", cmd.get(cmd.indexOf("-maxrate") + 1));
+		assertEquals("8M", cmd.get(cmd.indexOf("-bufsize") + 1));
+		String vf = cmd.get(cmd.indexOf("-vf") + 1);
+		assertTrue(vf.contains("min(1080,iw)"));
+		assertTrue(vf.contains("min(1080,ih)"));
 	}
 
 	@Test

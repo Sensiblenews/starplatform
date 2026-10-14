@@ -7,7 +7,11 @@
         (playing)="onPlaying(item)"></video>
       <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="playingIndex === i"
         [src]="item.thumbUrl" alt="" loading="lazy" />
-      <span class="hs-video-badge"><ion-icon name="play"></ion-icon></span>
+      <button class="hs-sound" *ngIf="playingIndex === i" (click)="toggleSound($event)"
+        [attr.aria-label]="audio.isEffectivelyMuted() ? 'Unmute' : 'Mute'">
+        <ion-icon [name]="audio.isEffectivelyMuted() ? 'volume-mute' : 'volume-high'"></ion-icon>
+      </button>
+      <span class="hs-video-badge" *ngIf="playingIndex !== i"><ion-icon name="play"></ion-icon></span>
     </ng-container>
     <ng-template #photo>
       <img class="hs-photo" [src]="item.mediaUrl || item.thumbUrl || ''" alt="" loading="lazy" />

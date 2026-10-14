@@ -1,4 +1,5 @@
 import { pickActiveIndex } from '../latest-contents-logic';
+import { MediaAudioService } from 'src/app/services/media-audio.service';
 
 /**
  * 카드 여러 장 중 화면에 가장 많이 보이는 영상 카드 하나만 재생하고 나머지는 멈춘다 (2-34차 세로형·가로형 공용).
@@ -6,7 +7,7 @@ import { pickActiveIndex } from '../latest-contents-logic';
  *
  * - 카드 요소 안의 첫 <video> 를 제어한다. 사진 카드는 isVideo 로 건너뛴다
  * - start() 전·stop() 뒤에는 아무것도 재생하지 않는다 (로비 이탈·백그라운드)
- * - 자동재생은 음소거로 시작한다 (iOS 는 프로퍼티 muted 가 있어야 허용)
+ * - 재생·소리는 MediaAudioService 가 맡는다 — 앱 전체에서 재생 중인 영상은 하나, 기본 소리 켬 (2-34차 1-3)
  */
 export class VisibleVideoPlayer {
   /** 지금 재생 중인 카드 번호. 없으면 -1 */
@@ -18,6 +19,7 @@ export class VisibleVideoPlayer {
   private running = false;
 
   constructor(
+    private readonly audio: MediaAudioService,
     private readonly isVideo: (index: number) => boolean,
     private readonly onActiveChange?: (index: number) => void,
   ) { }
@@ -69,13 +71,12 @@ export class VisibleVideoPlayer {
       const video = card.querySelector('video');
       if (!video) return;
       if (i === next) {
-        if (video.paused) {
-          video.muted = true;
-          video.defaultMuted = true;
-          video.play().catch(() => { /* 자동재생 거부·전환 중 중단 — 포스터가 남는다 */ });
+        // 다른 섹션이 재생을 가져갔으면(isCurrent 아님) 화면에 가장 많이 보이게 된 지금 다시 가져온다
+        if (video.paused || !this.audio.isCurrent(video)) {
+          this.audio.play(video); // 거부되면 포스터가 남는다
         }
-      } else if (!video.paused) {
-        video.pause();
+      } else {
+        this.audio.pause(video);
       }
     });
     if (next !== this.activeIndex) {

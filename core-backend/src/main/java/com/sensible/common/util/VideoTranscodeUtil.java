@@ -17,13 +17,25 @@ import java.util.concurrent.TimeUnit;
  * 운영 영상 3개 중 2개가 HEVC 였고, 웹 카드의 자동재생 스크립트는 재생 실패 시 영상을 조용히 치웠다.
  * 서버에는 썸네일 생성용 ffmpeg 가 이미 있으므로 새 의존성 없이 같은 바이너리로 변환한다.
  *
- * 변환은 요청 안에서 동기로 돈다(비동기는 상태 컬럼이 필요해 DB 변경이 된다).
+ * 스타 피드 영상(2-34차부터)과 어드민 숏폼 업로드는 작업 큐(LatestContentUploadJobs)에서 비동기로 부른다.
  * 실패하면 원본을 그대로 쓴다 — 변환이 안 된다고 업로드가 막히지는 않는다.
  */
 public final class VideoTranscodeUtil {
 
+	/** 재생용 영상 비트레이트 상한 (요청서 권장 2.5~4Mbps 의 위쪽). bufsize 는 상한의 2배 */
+	static final String MAX_VIDEO_BITRATE = "4M";
+	static final String VIDEO_BUFSIZE = "8M";
+
+	/**
+	 * 짧은 변을 1080 이하로 줄이고(세로 영상은 폭, 가로 영상은 높이) 다른 변은 비율대로(-2 = 짝수 맞춤).
+	 * 원본이 더 작으면 그대로, 홀수 크기는 짝수로 내림 (yuv420p 는 홀수를 받지 않는다).
+	 * 쉼표가 필터 구분자로 읽히지 않게 식을 작은따옴표로 감싼다 (ProcessBuilder 라 셸을 거치지 않는다)
+	 */
+	static final String SCALE_FILTER =
+			"scale='if(lt(iw,ih),trunc(min(1080,iw)/2)*2,-2)':'if(lt(iw,ih),-2,trunc(min(1080,ih)/2)*2)'";
+
 	/** 변환 타임아웃. 넘기면 프로세스를 죽이고 원본을 쓴다 */
-	static final long TIMEOUT_SECONDS = 300L;
+	static final long TIMEOUT_SECONDS = 600L;
 
 	private VideoTranscodeUtil() {
 	}
@@ -47,13 +59,15 @@ public final class VideoTranscodeUtil {
 	 * - scale=trunc(iw/2)*2:...: yuv420p 는 홀수 크기를 받지 않는다
 	 * - movflags +faststart: moov 를 앞으로 옮겨 preload="none" 카드가 헤더만 먼저 받게 한다
 	 * - crf 23 / preset fast: 화질은 원본에 가깝게, 변환 시간은 업로드 응답 안에
+	 * - 짧은 변 1080 상한 + 최대 4Mbps (2-34차 1-3 — 95MB 원본을 재생용으로 줄인다. 작은 영상은 키우지 않는다)
 	 */
 	public static List<String> buildCommand(String inputPath, String outputPath) {
 		return new ArrayList<>(Arrays.asList(
 				"ffmpeg", "-i", inputPath,
 				"-c:v", "libx264", "-preset", "fast", "-crf", "23",
+				"-maxrate", MAX_VIDEO_BITRATE, "-bufsize", VIDEO_BUFSIZE,
 				"-pix_fmt", "yuv420p",
-				"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+				"-vf", SCALE_FILTER,
 				"-c:a", "aac", "-b:a", "128k",
 				"-movflags", "+faststart",
 				"-y", outputPath));

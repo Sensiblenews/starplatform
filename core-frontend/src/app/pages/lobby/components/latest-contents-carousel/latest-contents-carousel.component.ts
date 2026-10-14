@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
+import { MediaAudioService } from 'src/app/services/media-audio.service';
 import {
   LatestContentEventType,
   LatestContentItem,
@@ -29,7 +30,8 @@ import {
  *
  * - 영상은 한 번에 하나만 그린다(활성 항목). 다음 항목은 썸네일만 보여 주고 누르면 넘어간다
  * - 자동 이동(어드민 간격, 기본 4초) · 마지막→첫 항목 순환 · 손으로 넘기면 6초 보류
- * - 활성 영상은 음소거 자동재생. 재생이 시작되기 전까지는 썸네일을 덮어 둔다(가로 영상도 잘림 없이 cover)
+ * - 활성 영상은 자동재생 + 기본 소리 켬(2-34차 1-3, MediaAudioService). 카드가 화면에 절반 이상 보일 때만 재생한다.
+ *   재생이 시작되기 전까지는 썸네일을 덮어 둔다(가로 영상도 잘림 없이 cover)
  * - 자동재생이 거부되면(iOS 저전력 등) 썸네일 위에 재생 버튼
  * - 타이머는 로비가 start()/stop() 으로 켜고 끈다 (화면 이탈·백그라운드)
  */
@@ -76,11 +78,16 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   private lastManualAt: number | null = null;
   private touchStartX = 0;
   private readonly sentEvents = new Set<string>();
+  /** 카드가 화면에 절반 이상 보이는지 (2-34차 — 아래 섹션을 보는 동안 맨 위 숏폼이 소리를 내지 않게) */
+  private visible = true;
+  private visibilityObserver: IntersectionObserver | null = null;
 
   constructor(
     private http: HttpService,
     private deviceIdService: DeviceIdService,
     private ngZone: NgZone,
+    private host: ElementRef<HTMLElement>,
+    public audio: MediaAudioService,
   ) { }
 
   get active(): LatestContentItem | undefined {
@@ -94,11 +101,22 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   }
 
   ngAfterViewInit(): void {
+    if (typeof IntersectionObserver !== 'undefined') {
+      this.visibilityObserver = new IntersectionObserver(entries => {
+        const entry = entries[entries.length - 1];
+        const nowVisible = !!entry && entry.isIntersecting && entry.intersectionRatio >= 0.5;
+        if (nowVisible === this.visible) return;
+        this.visible = nowVisible;
+        this.ngZone.run(() => this.syncPlayback());
+      }, { threshold: [0, 0.5, 1] });
+      this.visibilityObserver.observe(this.host.nativeElement);
+    }
     setTimeout(() => this.syncPlayback());
   }
 
   ngOnDestroy(): void {
     this.stop();
+    if (this.visibilityObserver) this.visibilityObserver.disconnect();
   }
 
   // ===== 로비가 호출하는 생명주기 =====
@@ -117,8 +135,7 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
       clearInterval(this.timerId);
       this.timerId = null;
     }
-    const video = this.videoEl();
-    if (video && !video.paused) video.pause();
+    this.audio.pause(this.videoEl());
   }
 
   // ===== 자동 이동 =====
@@ -181,8 +198,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     const video = this.videoEl();
     const item = this.active;
     if (!video || !item) return;
-    if (!this.running) {
-      if (!video.paused) video.pause();
+    if (!this.running || !this.visible) {
+      this.audio.pause(video);
       return;
     }
     this.trackEvent(item, 'IMPRESSION');
@@ -190,20 +207,18 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   }
 
   private playVideo(video: HTMLVideoElement): void {
-    if (!video.paused && !video.ended) return;
-    // iOS 는 속성(attribute)만으로는 부족하고 프로퍼티가 muted 여야 자동재생을 허용한다
-    video.muted = true;
-    video.defaultMuted = true;
-    const promise = video.play();
-    if (promise && typeof promise.then === 'function') {
-      promise.catch((err: any) => {
-        // 자동재생 거부(NotAllowedError: 저전력 모드 등)만 재생 버튼을 띄운다.
-        // 다음 항목으로 넘어가며 끊긴 AbortError 는 정상 흐름이라 무시한다
-        if (err && err.name === 'NotAllowedError') {
-          this.ngZone.run(() => { this.showPlayButton = true; });
-        }
-      });
-    }
+    if (!video.paused && !video.ended && this.audio.isCurrent(video)) return;
+    // 소리 켬으로 시도하고, 막히면 음소거로 → 그것도 막히면(저전력 모드 등) 재생 버튼.
+    // 다음 항목으로 넘어가며 끊긴 AbortError 는 서비스가 성공으로 본다
+    this.audio.play(video).then(ok => {
+      if (!ok) this.ngZone.run(() => { this.showPlayButton = true; });
+    });
+  }
+
+  /** 소리 아이콘 — 앱 전체 소리 켬/끔 (영상 터치로 번지지 않게 막는다) */
+  toggleSound(event: Event): void {
+    event.stopPropagation();
+    this.audio.toggleSound();
   }
 
   /** 실제 프레임이 나오기 시작 — 썸네일을 걷고 재생 이벤트 기록 */

@@ -25,9 +25,12 @@ export class WriteModalService {
 
     const { data } = await modal.onDidDismiss();
     if (data && data.success) {
+      // 동영상 글은 서버 압축이 끝난 뒤 게시물이 만들어진다 (2-34차) — 끝나면 FeedUploadService 가 따로 알린다
       const alert = await this.alertCtrl.create({
         header: 'Notice',
-        message: 'Your post has been successfully created!',
+        message: data.processing
+          ? 'Your video has been uploaded. We are preparing it now and will let you know when it is ready.'
+          : 'Your post has been successfully created!',
         buttons: ['OK']
       });
       await alert.present();

@@ -4,13 +4,14 @@ import { Share } from '@capacitor/share';
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { HapticService } from 'src/app/services/haptic.service';
+import { MediaAudioService } from 'src/app/services/media-audio.service';
 import { CommentModalComponent } from 'src/app/pages/star-page/modals/comment-modal.component';
 import { ContentStats, LatestContentItem, compactNumber, toContentStats } from '../../latest-contents-logic';
 
 /**
  * 로비 숏폼 전체 화면 플레이어 (2-33차 — 요청서 "콘텐츠 선택 시 전체 화면 재생", 2-34차 오른쪽 액션 열 추가).
- * 로비 카드의 영상을 누르면 모달로 뜬다. 소리 켜고 자동 재생을 시도하고, 거부되면 음소거로 재생한 뒤
- * "Tap for sound" 버튼을 보여 준다.
+ * 로비 카드의 영상을 누르면 모달로 뜬다. 재생·소리는 로비와 같은 MediaAudioService (2-34차) —
+ * 소리 켬 상태면 소리와 함께 재생하고, 사용자가 음소거해 뒀거나 거부되면 "Tap for sound" 버튼을 보여 준다.
  *
  * 오른쪽 중간~아래 세로 열: 조회수 · 좋아요 · 댓글 · 저장 · 공유 + 숫자 (2-34차 1-4).
  * - 좋아요·댓글·공유는 스타 페이지와 같은 기존 API(/like/toggle, 댓글 모달, /share/add)
@@ -135,6 +136,7 @@ export class LatestContentsPlayerComponent implements OnInit, AfterViewInit, OnD
     private http: HttpService,
     private deviceIdService: DeviceIdService,
     private haptic: HapticService,
+    private audio: MediaAudioService,
   ) { }
 
   ngOnInit(): void {
@@ -162,23 +164,17 @@ export class LatestContentsPlayerComponent implements OnInit, AfterViewInit, OnD
   ngAfterViewInit(): void {
     const video = this.video ? this.video.nativeElement : null;
     if (!video) return;
-    // 사용자가 카드를 눌러 열었으므로 소리 켠 재생을 먼저 시도한다 (탭 직후라 대부분 허용된다).
-    // 거부되면(iOS 일부) 음소거로 재생하고 버튼으로 소리를 켜게 한다
-    video.muted = false;
-    const attempt = video.play();
-    if (attempt && typeof attempt.catch === 'function') {
-      attempt.catch(() => {
-        video.muted = true;
-        this.needsUnmute = true;
-        video.play().catch(() => { /* 포스터와 네이티브 컨트롤로 사용자가 직접 재생 */ });
-      });
-    }
+    // 로비 영상은 모달을 열기 전에 로비가 멈춘다. 서비스가 이 영상을 재생 담당으로 잡고 소리 상태를 맞춘다.
+    // 끝까지 거부되면 포스터와 네이티브 컨트롤로 사용자가 직접 재생한다
+    this.audio.play(video).then(() => {
+      this.needsUnmute = this.audio.isEffectivelyMuted();
+    });
   }
 
   ngOnDestroy(): void {
     const video = this.video ? this.video.nativeElement : null;
     if (video) {
-      video.pause();
+      this.audio.pause(video);
       video.removeAttribute('src');
       try { video.load(); } catch (e) { /* 이미 비어 있음 */ }
     }
@@ -301,12 +297,19 @@ export class LatestContentsPlayerComponent implements OnInit, AfterViewInit, OnD
 
   // ===== 소리·이동 =====
 
+  /** "Tap for sound" — 사용자가 음소거해 뒀으면 앱 전체 소리를 다시 켠다 (로비 카드 아이콘과 같은 상태) */
   unmute(): void {
     const video = this.video ? this.video.nativeElement : null;
     if (!video) return;
-    video.muted = false;
+    if (!this.audio.soundOn) {
+      this.audio.toggleSound();
+    } else {
+      // 소리 켬인데 막혀 있던 경우 — 이 터치가 제스처라 바로 켠다
+      video.muted = false;
+      video.defaultMuted = false;
+      video.play().catch(() => { });
+    }
     this.needsUnmute = false;
-    video.play().catch(() => { });
   }
 
   close(): void {
