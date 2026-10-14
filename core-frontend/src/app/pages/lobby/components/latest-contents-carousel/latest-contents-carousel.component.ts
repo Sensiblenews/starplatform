@@ -23,8 +23,9 @@ import {
 } from '../../latest-contents-logic';
 
 /**
- * 로비 Latest Contents 숏폼 (2-33차) — 헤더와 VS 카드 사이. 클라이언트 시안 그대로:
- * 어두운 카드 안에 왼쪽 큰 세로 영상(1:2) + 오른쪽 "Next" 썸네일, 아래에 게시자 프로필.
+ * 로비 Star Shorts 숏폼 (2-33차 신설 "Latest Contents", 2-34차 개편) — 로비 맨 위.
+ * 어두운 카드 안에 카드 폭 전체 메인 영상, 오른쪽 위에 다음 숏폼 미리보기(정지 썸네일)를 겹치고,
+ * 왼쪽 아래에 게시자 프로필을 오버레이한다. 내부 이름(latest-contents)·API 는 2-33차 그대로.
  *
  * - 영상은 한 번에 하나만 그린다(활성 항목). 다음 항목은 썸네일만 보여 주고 누르면 넘어간다
  * - 자동 이동(어드민 간격, 기본 4초) · 마지막→첫 항목 순환 · 손으로 넘기면 6초 보류
@@ -162,7 +163,7 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
       : prevIndex(this.activeIndex, this.itemList.length));
   }
 
-  /** 오른쪽 "Next" 썸네일 터치 → 다음 항목 */
+  /** 오른쪽 위 다음 숏폼 미리보기 터치 → 다음 항목 */
   onNextTap(event: Event): void {
     event.stopPropagation();
     this.lastManualAt = Date.now();

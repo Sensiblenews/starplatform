@@ -457,6 +457,27 @@ public class SuperAppController {
 		return superAppService.recordLatestContentEvent(params);
 	}
 
+	// 🌟 [신규] 게시물 숫자(조회·좋아요·댓글·저장·공유) + 이 기기의 좋아요·저장 여부 (2-34차, 숏폼 플레이어)
+	@RequestMapping(value = "/api/super/content/stats", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> getContentStats(@RequestBody Map<String, Object> params) {
+		return superAppService.getContentStats(params);
+	}
+
+	// 🌟 [신규] 조회 기록 (2-34차). 기기·게시물당 30분에 1회만 집계, 항상 OK
+	@RequestMapping(value = "/api/super/content/view", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> recordContentView(@RequestBody Map<String, Object> params) {
+		return superAppService.recordContentView(params);
+	}
+
+	// 🌟 [신규] 저장 / 저장 취소 (2-34차). saved=true|false
+	@RequestMapping(value = "/api/super/content/save", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> toggleContentSave(@RequestBody Map<String, Object> params) {
+		return superAppService.toggleContentSave(params);
+	}
+
 	// 🌟 [신규] 카테고리별 TOP100 (로비 탭 리스트)
 	// 파라미터: rankType=GLOBAL|DAILY, category=GLOBAL|STAR|CELEB|BRAND|ORG|UNIV|CITY|MEDIA
 	@RequestMapping(value = "/api/super/leaderboard/category", method = { RequestMethod.GET, RequestMethod.POST })

@@ -147,7 +147,7 @@
 // Latest Contents 숏폼 — latest-contents-carousel.component.scss 의 .latest-card 와 여백·비율을 같게 유지한다(2-33차)
 .sk-latest {
   margin: 10px 12px 4px;
-  padding: 12px 14px 12px;
+  padding: 10px 12px 12px;
   border-radius: 16px;
   background: #0d1117;
   box-sizing: border-box;
@@ -158,50 +158,24 @@
 }
 
 .sk-latest-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 
-  .sk-line { height: 18px; }
+  .sk-line { height: 12px; }
 }
 
-.sk-latest-body {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
+// 실제 카드와 같은 폭 전체 · 가로의 145% 높이 (latest-contents-carousel.component.scss .latest-main)
 .sk-latest-main {
-  flex: 0 0 66%;
-  max-width: 300px;
-  border-radius: 14px;
-  // 실제 카드와 같은 1:2 — 높이는 padding 으로 잡는다
-  height: 0;
-  padding-top: calc(66% * 2);
-}
-
-.sk-latest-side {
-  flex: 0 1 34%;
-  max-width: 150px;
-  min-width: 0;
-
-  .sk-line { margin-top: 10px; }
-}
-
-.sk-latest-next {
   width: 100%;
-  height: 0;
-  padding-top: 178%;
-  border-radius: 12px;
-}
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: 14px;
 
-.sk-latest-author {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
+  // padding % 는 부모 폭 기준이라 max-width 와 맞추려면 자식 의사 요소로 높이를 잡는다
+  &::before {
+    content: '';
+    display: block;
+    padding-top: 145%;
+  }
 }
 
 // 페이지 — 프로필 헤더 + 지표 + 본문

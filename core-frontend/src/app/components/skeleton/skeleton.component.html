@@ -50,27 +50,13 @@
   </div>
 </ng-container>
 
-<!-- Latest Contents 숏폼: 제목 + 왼쪽 큰 영상(1:2) + 오른쪽 Next 썸네일 + 게시자 줄 (2-33차) -->
+<!-- Star Shorts 숏폼: 작은 제목 + 카드 폭 전체 영상(오른쪽 위 미리보기·왼쪽 아래 게시자는 영상 위 오버레이) (2-34차) -->
 <ng-container *ngIf="variant === 'latest'">
   <div class="sk-latest">
     <div class="sk-latest-head">
-      <div class="sk sk-line w-45"></div>
-      <div class="sk sk-vs-badge"></div>
+      <div class="sk sk-line w-25"></div>
     </div>
-    <div class="sk-latest-body">
-      <div class="sk sk-latest-main"></div>
-      <div class="sk-latest-side">
-        <div class="sk sk-latest-next"></div>
-        <div class="sk sk-line w-50"></div>
-      </div>
-    </div>
-    <div class="sk-latest-author">
-      <div class="sk sk-avatar"></div>
-      <div class="sk-lines">
-        <div class="sk sk-line w-40"></div>
-        <div class="sk sk-line w-25"></div>
-      </div>
-    </div>
+    <div class="sk sk-latest-main"></div>
   </div>
 </ng-container>
 
