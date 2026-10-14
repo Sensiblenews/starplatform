@@ -2290,7 +2290,11 @@ public class SuperAdminController {
         return user != null && "SM".equals(user.getPRS_AUTH());
     }
 
-    /** [화면] 편성 목록 + 운영 설정 */
+    /**
+     * [화면] 편성 목록 + 운영 설정. ?section= 으로 구역을 고른다 (2-34차).
+     * 없음·SHORTS = Star Shorts 숏폼(2-33차 화면), LATEST = 세로형 자동재생, HOT = 가로형 미니숏폼.
+     * 세 메뉴가 같은 화면·같은 API 를 쓰고, 화면의 모든 요청에 section 이 실려 간다.
+     */
     @RequestMapping(value = "/super/latest-contents/list.do")
     public String latestContentsList(HttpServletRequest request, Model model) throws Exception {
         UserVO user = getLoginUser(request);
@@ -2299,15 +2303,19 @@ public class SuperAdminController {
         if (!isSuperMaster(user)) {
             return "redirect:/super/dashboard.do";
         }
-        model.addAttribute("itemList", superAdminService.getLatestContentAdminList());
-        model.addAttribute("setting", superAdminService.getLatestContentSetting());
+        String section = com.sensible.common.util.LobbySection.normalize(request.getParameter("section"));
+        model.addAttribute("section", section);
+        model.addAttribute("sectionTitle", com.sensible.common.util.LobbySection.adminTitle(section));
+        model.addAttribute("videoOnly", com.sensible.common.util.LobbySection.videoOnly(section));
+        model.addAttribute("itemList", superAdminService.getLatestContentAdminList(section));
+        model.addAttribute("setting", superAdminService.getLatestContentSetting(section));
         model.addAttribute("countMin", SuperAdminService.LC_COUNT_MIN);
         model.addAttribute("countMax", SuperAdminService.LC_COUNT_MAX);
         model.addAttribute("intervalMin", SuperAdminService.LC_INTERVAL_MIN);
         model.addAttribute("intervalMax", SuperAdminService.LC_INTERVAL_MAX);
         model.addAttribute("titleMax", SuperAdminService.LC_TITLE_MAX_LENGTH);
         model.addAttribute("uploadMaxMb", SuperAdminService.LC_UPLOAD_MAX_BYTES / 1024 / 1024);
-        model.addAttribute("activeMenu", "latest_contents");
+        model.addAttribute("activeMenu", com.sensible.common.util.LobbySection.activeMenu(section));
         return "super/latest_contents";
     }
 

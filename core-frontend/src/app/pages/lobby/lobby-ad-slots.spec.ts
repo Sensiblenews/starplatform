@@ -11,7 +11,7 @@ import {
 describe('lobby-ad-slots', () => {
   describe('emptyAdSlotFilled', () => {
     it('슬롯 수만큼 false 로 채운다', () => {
-      expect(emptyAdSlotFilled()).toEqual([false, false, false]);
+      expect(emptyAdSlotFilled()).toEqual([false, false, false, false, false, false]);
       expect(emptyAdSlotFilled().length).toBe(LOBBY_AD_SLOT_COUNT);
     });
   });
@@ -22,7 +22,7 @@ describe('lobby-ad-slots', () => {
       expect(slotHeightFromAdLoaded({ slot: 1 })).toBe(315);
       expect(slotHeightFromAdLoaded({ slot: 1, height: 0 })).toBe(315);
       expect(slotHeightFromAdLoaded({ height: '300' })).toBe(315);
-      expect(defaultAdSlotHeights()).toEqual([315, 315, 315]);
+      expect(defaultAdSlotHeights()).toEqual([315, 315, 315, 315, 315, 315]);
     });
 
     it('측정값을 정수로 쓰고 범위 밖은 자른다', () => {
@@ -42,10 +42,13 @@ describe('lobby-ad-slots', () => {
     it('detail.slot 을 그대로 쓴다', () => {
       expect(slotIndexFromAdLoaded({ slot: 0 })).toBe(0);
       expect(slotIndexFromAdLoaded({ slot: 2 })).toBe(2);
+      // 2-34차 세로형 Latest Content 안 슬롯
+      expect(slotIndexFromAdLoaded({ slot: 3 })).toBe(3);
+      expect(slotIndexFromAdLoaded({ slot: 5 })).toBe(5);
     });
 
     it('범위 밖·정수 아님은 -1', () => {
-      expect(slotIndexFromAdLoaded({ slot: 3 })).toBe(-1);
+      expect(slotIndexFromAdLoaded({ slot: 6 })).toBe(-1);
       expect(slotIndexFromAdLoaded({ slot: -1 })).toBe(-1);
       expect(slotIndexFromAdLoaded({ slot: 1.5 })).toBe(0);
       expect(slotIndexFromAdLoaded({ slot: '1' })).toBe(0);
@@ -77,8 +80,16 @@ describe('lobby-ad-slots', () => {
       ]);
     });
 
+    it('세로형 안 슬롯(3~5)은 헤더 하단에서 클리핑한다', () => {
+      const tabBar = 140;
+      expect(buildAdSlotPositions([null, null, null, 700, null, 1200], header, tabBar)).toEqual([
+        { index: 3, y: 700, hideAbove: header },
+        { index: 5, y: 1200, hideAbove: header }
+      ]);
+    });
+
     it('슬롯 수를 넘는 항목은 무시한다', () => {
-      expect(buildAdSlotPositions([10, 20, 30, 40], header, 0).length).toBe(3);
+      expect(buildAdSlotPositions([10, 20, 30, 40, 50, 60, 70], header, 0).length).toBe(6);
     });
   });
 });

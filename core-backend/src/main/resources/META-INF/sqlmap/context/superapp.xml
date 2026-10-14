@@ -2124,17 +2124,19 @@
 	     편성 테이블은 CON_ID 만 들고 있고, 영상·게시자는 원본에서 조인한다.
 	     ========================================== -->
 
-	<!-- 운영 설정 (단일 행). 행이 없으면 서비스가 기본값(10개·4초)을 쓴다 -->
-	<select id="selectLatestContentSetting" resultType="map">
+	<!-- 구역별 운영 설정 (ID 1=SHORTS 2=LATEST 3=HOT). 행이 없으면 서비스가 기본값(10개·4초)을 쓴다 -->
+	<select id="selectLatestContentSetting" parameterType="map" resultType="map">
 		SELECT
 			DISPLAY_COUNT AS displayCount,
 			INTERVAL_SEC AS intervalSec
 		FROM WH_LATEST_CONTENT_SETTING
-		WHERE ID = 1
+		WHERE ID = #{settingId}
 	</select>
 
-	<!-- 로비 노출 목록. 게시 중 + 기간 안 + 검수 승인 + 스타 활성 + 영상 있음 까지 전부 여기서 거른다.
+	<!-- 로비 노출 목록. 게시 중 + 기간 안 + 검수 승인 + 스타 활성 + 미디어 있음 까지 전부 여기서 거른다.
 	     INNER JOIN 이므로 원본이 지워지거나 차단되면 자동으로 빠진다 -->
+	<!-- 로비 편성 구역 목록 (2-33차 Star Shorts, 2-34차 세로형·가로형). 구역 조건은 항상 붙는다.
+	     Star Shorts(SHORTS)는 영상 글만, 세로형·가로형은 정렬 순서상 첫 미디어(사진이면 이미지 카드) -->
 	<select id="selectLatestContentActiveList" parameterType="map" resultType="map">
 		SELECT
 			L.LC_ID AS lcId,
@@ -2143,16 +2145,26 @@
 			P.PRS_NAME AS starName,
 			P.STORED_FILE_NM AS starImage,
 			IFNULL(L.TITLE_OVERRIDE, S.CON_BODY) AS title,
+			D.MEDIA_TYPE AS mediaType,
 			D.MEDIA_URL AS mediaUrl,
-			D.THUMB_URL AS thumbUrl,
+			IFNULL(D.THUMB_URL, IF(D.MEDIA_TYPE = 'VIDEO', NULL, D.MEDIA_URL)) AS thumbUrl,
 			L.IS_FEATURED AS isFeatured
 		FROM WH_LATEST_CONTENT L
 		JOIN WH_STAR_CONTENT S ON S.CON_ID = L.CON_ID AND S.MDR_STATUS = 'APPROVED'
 		JOIN WH_PRESS P ON P.PRS_ID = S.PRS_ID AND P.PRS_USE_YN = 'Y'
+		<choose>
+			<when test='section == "SHORTS"'>
 		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
 			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X
 								 WHERE X.CON_ID = S.CON_ID AND X.MEDIA_TYPE = 'VIDEO')
-		WHERE L.DEL_YN = 'N'
+			</when>
+			<otherwise>
+		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID
+			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X WHERE X.CON_ID = S.CON_ID)
+			</otherwise>
+		</choose>
+		WHERE L.SECTION = #{section}
+		  AND L.DEL_YN = 'N'
 		  AND L.USE_YN = 'Y'
 		  AND (L.START_AT IS NULL OR L.START_AT &lt;= NOW())
 		  AND (L.END_AT IS NULL OR L.END_AT &gt; NOW())

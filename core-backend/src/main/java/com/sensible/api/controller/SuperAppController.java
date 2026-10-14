@@ -443,11 +443,13 @@ public class SuperAppController {
 		return superAppService.getLiveNews();
 	}
 
-	// 🌟 [신규] 로비 Latest Contents 숏폼 캐러셀 (2-33차). Redis 60초 캐시, 어드민 저장 시 즉시 evict
+	// 🌟 [신규] 로비 편성 구역 목록 (2-33차 숏폼 캐러셀, 2-34차 구역 추가). Redis 60초 캐시, 어드민 저장 시 즉시 evict.
+	// ?section= SHORTS(기본, Star Shorts) | LATEST(세로형 Latest Content) | HOT(가로형 Hot Content).
+	// 파라미터 없이 부르는 2-33차 앱은 그대로 Star Shorts 를 받는다
 	@RequestMapping(value = "/api/super/lobby/latest-contents", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getLatestContents() throws Exception {
-		return superAppService.getLatestContents();
+	public Map<String, Object> getLatestContents(HttpServletRequest request) throws Exception {
+		return superAppService.getLatestContents(com.sensible.common.util.LobbySection.normalize(request.getParameter("section")));
 	}
 
 	// 🌟 [신규] 숏폼 이벤트(노출·재생·클릭·프로필 클릭) 기록 (2-33차). 항상 OK — 통계 실패가 앱에 보이면 안 된다

@@ -29,14 +29,19 @@ public class NativeBridge extends Plugin {
   private int initialPositionY1;
   private int initialPositionY2, initialPositionY3;
 
+  /** 광고 컨테이너 수. 로비는 6개 모두(2-34차 3→6, 세로형 Latest Content 안 3개 추가), 스타 페이지는 1~3만 */
+  static final int CONTAINER_COUNT = 6;
+
   FrameLayout adContainer1;
   FrameLayout adContainer2, adContainer3;
+  // 2-34차 로비 전용 (세로형 Latest Content 안의 광고 3개)
+  FrameLayout adContainer4, adContainer5, adContainer6;
   private boolean ad1Triggered = false;
   private boolean ad2Triggered = false;
   private boolean ad3Triggered = false;
 
   // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPositions)로 제어한다.
-  // 슬롯 3개(Today's TOP 위 / Discover 위 / New Creators 위)가 컨테이너 1~3 에 1:1 로 대응한다
+  // 슬롯 6개(Today's TOP 위 / Discover 위 / New Creators 위 / 세로형 Latest Content 안 3개)가 컨테이너 1~6 에 1:1 로 대응한다
   private boolean lobbyMode = false;
 
   /** 웹이 보내는 로비 슬롯 한 개의 좌표 (css px) */
@@ -109,10 +114,13 @@ public class NativeBridge extends Plugin {
       String page = call.getString("page");
       FrameLayout adWrapper = getActivity().findViewById(R.id.ad_wrapper);
 
-      if (adContainer1 == null || adContainer2 == null) {
+      if (adContainer1 == null || adContainer2 == null || adContainer4 == null) {
         adContainer1 = getActivity().findViewById(R.id.ad_container_1);
         adContainer2 = getActivity().findViewById(R.id.ad_container_2);
         adContainer3 = getActivity().findViewById(R.id.ad_container_3);
+        adContainer4 = getActivity().findViewById(R.id.ad_container_4);
+        adContainer5 = getActivity().findViewById(R.id.ad_container_5);
+        adContainer6 = getActivity().findViewById(R.id.ad_container_6);
       }
 
       if (Boolean.TRUE.equals(bool)) {
@@ -122,7 +130,7 @@ public class NativeBridge extends Plugin {
 
         MainActivity activity = (MainActivity) getActivity();
         if ("lobby".equals(page)) {
-          // 로비 모드: 슬롯 3개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기.
+          // 로비 모드: 슬롯 6개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기.
           // 카드는 315dp 고정이라 가로 크리에이티브만 요청한다
           lobbyMode = true;
           int lobbyHeight = activity.lobbyCardHeightPx();
@@ -134,17 +142,24 @@ public class NativeBridge extends Plugin {
           ad2Triggered = false;
           ad3Triggered = false;
 
-          activity.loadNativeAd(adContainer1, R.id.ad_container_1, true);
-          activity.loadNativeAd(adContainer2, R.id.ad_container_2, true);
-          activity.loadNativeAd(adContainer3, R.id.ad_container_3, true);
+          FrameLayout[] lobby = lobbyContainers();
+          int[] ids = MainActivity.adContainerIds();
+          for (int i = 0; i < lobby.length; i++) {
+            activity.loadNativeAd(lobby[i], ids[i], true);
+          }
         } else {
           // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로. 카드는 iOS 와 같이 화면 폭+85
           lobbyMode = false;
           int starHeight = activity.starCardHeightPx();
-          for (FrameLayout c : lobbyContainers()) {
+          for (FrameLayout c : starContainers()) {
             activity.setContainerHeight(c, starHeight);
             c.setClipBounds(null); // 로비 모드의 슬롯별 클리핑 해제
             c.setVisibility(View.VISIBLE);
+          }
+          // 로비 전용 컨테이너 4~6 은 스타 페이지에서 쓰지 않는다
+          for (FrameLayout c : lobbyOnlyContainers()) {
+            c.setClipBounds(null);
+            c.setVisibility(View.GONE);
           }
           reinitializePosition();
         }
@@ -237,9 +252,19 @@ public class NativeBridge extends Plugin {
     call.resolve();
   }
 
-  /** 로비 슬롯 순서(0~2)대로의 컨테이너 배열 */
+  /** 로비 슬롯 순서(0~5)대로의 컨테이너 배열 — MainActivity.adContainerIds() 와 같은 순서 */
   private FrameLayout[] lobbyContainers() {
+    return new FrameLayout[]{ adContainer1, adContainer2, adContainer3, adContainer4, adContainer5, adContainer6 };
+  }
+
+  /** 스타 페이지가 쓰는 컨테이너 (기존 3슬롯 하드코딩 좌표 경로) */
+  private FrameLayout[] starContainers() {
     return new FrameLayout[]{ adContainer1, adContainer2, adContainer3 };
+  }
+
+  /** 로비에서만 쓰는 컨테이너 (2-34차 세로형 Latest Content 안) */
+  private FrameLayout[] lobbyOnlyContainers() {
+    return new FrameLayout[]{ adContainer4, adContainer5, adContainer6 };
   }
 
   /** 로비 모드에서 좌표를 아직 못 받은(또는 광고가 없는) 컨테이너를 화면 밖에 둔다 */

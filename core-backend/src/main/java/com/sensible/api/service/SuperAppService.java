@@ -1303,9 +1303,12 @@ public class SuperAppService {
 	 * 로비 숏폼 캐러셀 목록. 로비 진입 시 1회 + 당겨서 새로고침.
 	 * 편성 상태·기간·검수 승인·스타 활성까지 SQL 에서 거른다. 어드민 저장 시 SuperAdminService 가 캐시를 비운다.
 	 */
-	@Cacheable(value = "latestContents", key = "'active'", unless = "#result == null")
-	public Map<String, Object> getLatestContents() throws Exception {
-		Map<String, Object> setting = dao.selectOne("superapp.selectLatestContentSetting");
+	@Cacheable(value = "latestContents", key = "'active:' + #section", unless = "#result == null")
+	public Map<String, Object> getLatestContents(String section) throws Exception {
+		// 구역은 컨트롤러에서 LobbySection.normalize 를 거쳐 들어온다 (SHORTS / LATEST / HOT)
+		Map<String, Object> settingKey = new HashMap<>();
+		settingKey.put("settingId", com.sensible.common.util.LobbySection.settingId(section));
+		Map<String, Object> setting = dao.selectOne("superapp.selectLatestContentSetting", settingKey);
 		int displayCount = 10;
 		int intervalSec = 4;
 		if (setting != null) {
@@ -1313,6 +1316,7 @@ public class SuperAppService {
 			intervalSec = toInt(setting.get("intervalSec"), 4);
 		}
 		Map<String, Object> param = new HashMap<>();
+		param.put("section", section);
 		param.put("displayCount", displayCount);
 		List<Map<String, Object>> items = dao.selectList("superapp.selectLatestContentActiveList", param);
 

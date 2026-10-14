@@ -95,9 +95,12 @@
                     <i class="fas fa-chevron-down group-caret"></i>
                 </a>
                 <ul class="nav-sub collapse" id="navGroupLobby">
-                    <li><a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>"><i class="fas fa-film me-2"></i> Latest Contents 숏폼</a></li>
+                    <li><a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>"><i class="fas fa-film me-2"></i> Star Shorts 숏폼</a></li>
                     <li><a href="/super/vs/list.do" class="nav-link <c:if test="${activeMenu eq 'vs_list'}">active</c:if>"><i class="fas fa-bolt me-2"></i> VS 배틀필드</a></li>
                     <li><a href="/super/live-news/list.do" class="nav-link <c:if test="${activeMenu eq 'live_news'}">active</c:if>"><i class="fas fa-broadcast-tower me-2"></i> LIVE NEWS</a></li>
+                    <%-- 2-34차: 같은 편성 화면을 구역별로 연다 (세로형 = 앱 "Latest Content", 가로형 = 앱 "Hot Content") --%>
+                    <li><a href="/super/latest-contents/list.do?section=LATEST" class="nav-link <c:if test="${activeMenu eq 'latest_feed'}">active</c:if>"><i class="fas fa-grip-lines me-2"></i> 세로형 자동재생</a></li>
+                    <li><a href="/super/latest-contents/list.do?section=HOT" class="nav-link <c:if test="${activeMenu eq 'hot_content'}">active</c:if>"><i class="fas fa-grip-lines-vertical me-2"></i> 가로형 미니숏폼</a></li>
                 </ul>
             </li>
 

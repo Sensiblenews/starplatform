@@ -355,18 +355,18 @@
 
   <ng-container *ngIf="!isSearching && !isShowingFavorites && !isShowingRanking">
 
-    <!-- 🎬 Latest Contents 숏폼 (2-33차) — 헤더와 VS 카드 사이. 첫 조회 동안 스켈레톤, 편성 0개면 섹션 자체를 숨긴다 -->
+    <!-- 🎬 Star Shorts 숏폼 (2-33차 Latest Contents → 2-34차 이름 변경) — 로비 맨 위. 첫 조회 동안 스켈레톤, 편성 0개면 섹션 자체를 숨긴다 -->
     <app-skeleton *ngIf="isLoadingLatestContents" variant="latest"></app-skeleton>
     <app-latest-contents-carousel *ngIf="!isLoadingLatestContents && latestContents.length > 0" [items]="latestContents" [intervalSec]="latestIntervalSec"
-      (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event)"></app-latest-contents-carousel>
+      (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event, 'SHORTS')"></app-latest-contents-carousel>
 
-    <!-- 🌟 VS 배틀필드 카드 (최상단, 5초 자동 순환) -->
-    <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
-    <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
-
-    <!-- 📰 라이브 뉴스 티커 (2-27차) — VS 카드 바로 아래, 방송 자막처럼 우→좌로 흐른다 -->
+    <!-- 📰 라이브 뉴스 티커 (2-27차) — 2-34차 요청으로 Star Shorts 와 VS 카드 사이로 이동. 방송 자막처럼 우→좌로 흐른다 -->
     <app-live-news-ticker *ngIf="!isLoadingVsCards && vsCards.length > 0" [cards]="vsCards" [news]="liveNews"
       (focusRequest)="onTickerFocus($event)"></app-live-news-ticker>
+
+    <!-- 🌟 VS 배틀필드 카드 (5초 자동 순환) -->
+    <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
+    <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
 
     <!-- 🌟 My Global Ranking 카드 (2-29차) — 로그인(스타): 내 순위·변동·pts·지표 / 비로그인·관리자: 페이지 만들기 유도.
          버튼은 기존 동작에 연결한다: My Star Page → 내 스타 페이지, Top Rankings → 상단 트로피와 같은 랭킹 화면 -->
@@ -377,7 +377,28 @@
 
     <!-- 🌟 네이티브 광고 슬롯 1/3 — My Global Ranking 카드와 Today's TOP 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot data-slot="0" [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
+
+    <!-- 🎬 세로형 자동재생 Latest Content (2-34차) — 첫 네이티브 광고와 Today's TOP 사이. 어드민 "세로형 자동재생" 편성.
+         콘텐츠 3·6·7번째 뒤에 네이티브 광고 슬롯 3·4·5 가 컴포넌트 안에 들어간다. 편성 0개면 섹션 자체를 숨긴다 -->
+    <div class="section-container lobby-feed-section" *ngIf="latestFeedItems.length > 0">
+      <div class="section-header">
+        <ion-icon name="play-circle" class="title-icon pink"></ion-icon>
+        <ion-label>Latest Content</ion-label>
+      </div>
+      <app-latest-feed [items]="latestFeedItems" [adFilled]="adSlotFilled" [adHeight]="adSlotHeight"
+        (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event, 'LATEST')"></app-latest-feed>
+    </div>
+
+    <!-- 🔥 가로형 미니 숏폼 Hot Content (2-34차) — 세로형 바로 아래, 한 화면에 1.5~2개. 어드민 "가로형 미니숏폼" 편성 -->
+    <div class="section-container lobby-feed-section" *ngIf="hotItems.length > 0">
+      <div class="section-header">
+        <ion-icon name="flame" class="title-icon orange"></ion-icon>
+        <ion-label>Hot Content</ion-label>
+      </div>
+      <app-hot-shorts [items]="hotItems"
+        (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event, 'HOT')"></app-hot-shorts>
+    </div>
 
     <!-- 🌟 Today's TOP (My Global Ranking 카드 아래 — 가로 스크롤).
          첫 화면에는 사진+이름만 보이고, 세로 스크롤을 시작하면 순위·조회수 줄이 펼쳐진다(2-29차 공간 확보) -->
@@ -452,7 +473,7 @@
 
     <!-- 🌟 네이티브 광고 슬롯 2/3 — Trending Now와 Discover Global Pages 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[1]" [style.height.px]="adSlotFilled[1] ? adSlotHeight[1] : null"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot data-slot="1" [class.filled]="adSlotFilled[1]" [style.height.px]="adSlotFilled[1] ? adSlotHeight[1] : null"></div>
 
     <div class="discover-pages-section">
       <h3 class="discover-title">
@@ -525,7 +546,7 @@
 
     <!-- 🌟 네이티브 광고 슬롯 3/3 — TOP 100 리스트와 New Creators 사이 (sticky 탭 바 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
          광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot [class.filled]="adSlotFilled[2]" [style.height.px]="adSlotFilled[2] ? adSlotHeight[2] : null"></div>
+    <div class="lobby-ad-slot" #lobbyAdSlot data-slot="2" [class.filled]="adSlotFilled[2]" [style.height.px]="adSlotFilled[2] ? adSlotHeight[2] : null"></div>
 
     <div class="section-container" *ngIf="newCreators && newCreators.length > 0">
       <div class="section-header">

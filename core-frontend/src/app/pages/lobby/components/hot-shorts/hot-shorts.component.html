@@ -1,0 +1,21 @@
+<!-- 가로형 Hot Content: 한 화면에 1.5~2장, 가로 스크롤 + 스냅 (2-34차) -->
+<div class="hs-track">
+  <div *ngFor="let item of items; let i = index; trackBy: trackByItem" #card class="hs-card" (click)="onCardTap(item)">
+    <ng-container *ngIf="isVideo(item); else photo">
+      <video muted playsinline loop preload="metadata"
+        [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
+        (playing)="onPlaying(item)"></video>
+      <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="playingIndex === i"
+        [src]="item.thumbUrl" alt="" loading="lazy" />
+      <span class="hs-video-badge"><ion-icon name="play"></ion-icon></span>
+    </ng-container>
+    <ng-template #photo>
+      <img class="hs-photo" [src]="item.mediaUrl || item.thumbUrl || ''" alt="" loading="lazy" />
+    </ng-template>
+
+    <div class="hs-author" (click)="onProfileTap(item, $event)">
+      <img class="hs-avatar" [src]="item.starImage || defaultAvatar" (error)="handleImageError($event)" alt="" />
+      <div class="hs-name">{{ item.starName }}</div>
+    </div>
+  </div>
+</div>

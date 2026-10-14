@@ -5,7 +5,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Latest Contents 편성 - Super Admin</title>
+    <title><c:out value="${sectionTitle}"/> 편성 - Super Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
@@ -56,16 +56,31 @@
 </head>
 <body>
     <!-- 공통 사이드바 include -->
-    <c:set var="activeMenu" value="latest_contents" scope="request" />
+    <%-- 2-34차: 같은 화면을 구역별(Star Shorts / 세로형 / 가로형)로 쓴다. 메뉴 키는 컨트롤러가 구역에 맞춰 넘긴다 --%>
+    <c:set var="activeMenu" value="${activeMenu}" scope="request" />
     <jsp:include page="/WEB-INF/jsp/super/sidebar.jsp" />
 
     <div class="main-content">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <div>
-                <h4 class="fw-bold mb-1"><i class="fas fa-film text-info me-2"></i>Latest Contents 편성</h4>
+                <h4 class="fw-bold mb-1"><i class="fas fa-film text-info me-2"></i><c:out value="${sectionTitle}"/> 편성</h4>
                 <div class="text-secondary small">
-                    로비 헤더와 VS 카드 사이의 숏폼 캐러셀에 나갈 영상을 편성합니다.
-                    검수 승인된 <b>영상 게시물</b>만 고를 수 있고, 게시 중 + 기간 안인 항목이 노출 순서대로 앱에 나갑니다.
+                    <c:choose>
+                        <c:when test="${section eq 'LATEST'}">
+                            로비 첫 네이티브 광고와 Today's TOP 사이의 <b>세로형 자동재생</b> 목록(앱 제목 "Latest Content")을 편성합니다.
+                            콘텐츠 3·6·7번째 뒤에는 네이티브 광고가 자동으로 들어갑니다.
+                            검수 승인된 <b>사진·영상 게시물</b>을 고를 수 있습니다.
+                        </c:when>
+                        <c:when test="${section eq 'HOT'}">
+                            세로형 목록 바로 아래 <b>가로형 미니숏폼</b>(앱 제목 "Hot Content")을 편성합니다.
+                            한 화면에 1.5~2개씩 보입니다. 검수 승인된 <b>사진·영상 게시물</b>을 고를 수 있습니다.
+                        </c:when>
+                        <c:otherwise>
+                            로비 맨 위 <b>Star Shorts</b> 숏폼 캐러셀에 나갈 영상을 편성합니다.
+                            검수 승인된 <b>영상 게시물</b>만 고를 수 있습니다.
+                        </c:otherwise>
+                    </c:choose>
+                    게시 중 + 기간 안인 항목이 노출 순서대로 앱에 나갑니다.
                     행을 드래그하거나 <b>노출순서</b> 칸에 숫자를 입력한 뒤 <b>순서 저장</b>을 눌러주세요.
                     저장 즉시 앱 캐시가 비워져 다음 로비 진입부터 반영됩니다.
                 </div>
@@ -137,7 +152,7 @@
                                         <c:choose>
                                             <c:when test="${not empty it.THUMB_URL}">
                                                 <img class="lc-thumb" src="<c:out value='${it.THUMB_URL}'/>" alt="">
-                                                <c:if test="${not empty it.MEDIA_URL}">
+                                                <c:if test="${not empty it.MEDIA_URL and it.MEDIA_TYPE eq 'VIDEO'}">
                                                     <i class="fas fa-play-circle play-btn" title="미리보기"
                                                        onclick="previewVideo('<c:out value='${it.MEDIA_URL}'/>', '<c:out value='${it.THUMB_URL}'/>')"></i>
                                                 </c:if>
@@ -243,7 +258,18 @@
                                 <div class="col-md-3"><input type="date" id="pickEnd" class="form-control" title="게시일 끝"></div>
                                 <div class="col-md-1 d-grid"><button class="btn btn-primary" onclick="searchPosts()"><i class="fas fa-search"></i></button></div>
                             </div>
-                            <div class="form-text mb-2">검수 승인된 영상 게시물, 최신순 최대 50건. 썸네일을 누르면 오른쪽에서 재생됩니다.</div>
+                            <c:if test="${not videoOnly}">
+                                <%-- 2-34차 요청: 세로형·가로형은 전체 게시물 / 동영상 게시물 구분 --%>
+                                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="게시물 종류">
+                                    <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaAll" value="ALL" checked onchange="searchPosts()">
+                                    <label class="btn btn-outline-secondary" for="pickMediaAll">전체 게시물</label>
+                                    <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaVideo" value="VIDEO" onchange="searchPosts()">
+                                    <label class="btn btn-outline-secondary" for="pickMediaVideo">동영상 게시물</label>
+                                </div>
+                            </c:if>
+                            <div class="form-text mb-2">
+                                검수 승인된 ${videoOnly ? '영상' : '사진·영상'} 게시물, 최신순 최대 50건. 썸네일을 누르면 오른쪽에서 미리 봅니다.
+                            </div>
                             <div id="candList" style="max-height: 480px; overflow-y: auto;">
                                 <div class="text-secondary text-center py-4">검색어를 입력하거나 그대로 검색을 눌러주세요.</div>
                             </div>
@@ -399,6 +425,9 @@
     </div>
 
     <script>
+        // 편성 구역 (SHORTS / LATEST / HOT). 서버가 정규화한 값이라 그대로 쓴다
+        var SECTION = '<c:out value="${section}"/>';
+
         // ===== 노출순서 (VS 배틀필드·LIVE NEWS 화면과 동일한 방식) =====
         function renumberOrderInputs() {
             $('#lcTableBody tr[data-lc-id]').each(function(idx) {
@@ -473,6 +502,7 @@
         // ===== 운영 설정 =====
         function saveSetting() {
             $.post('/super/latest-contents/setting.do', {
+                section: SECTION,
                 displayCount: $('#displayCount').val(),
                 intervalSec: $('#intervalSec').val()
             }, function(res) {
@@ -568,6 +598,8 @@
         function searchPosts() {
             $('#candList').html('<div class="text-secondary text-center py-4">검색 중…</div>');
             $.get('/super/latest-contents/search.do', {
+                section: SECTION,
+                mediaFilter: $('input[name=pickMediaFilter]:checked').val() || 'VIDEO',
                 keyword: $('#pickKeyword').val().trim(),
                 startDate: $('#pickStart').val(),
                 endDate: $('#pickEnd').val()
@@ -583,17 +615,20 @@
         function renderCandidates(list) {
             var $box = $('#candList').empty();
             if (list.length === 0) {
-                $box.append('<div class="text-secondary text-center py-4">조건에 맞는 영상 게시물이 없습니다.</div>');
+                $box.append('<div class="text-secondary text-center py-4">조건에 맞는 게시물이 없습니다.</div>');
                 return;
             }
             list.forEach(function(c) {
                 var already = c.ALREADY_YN === 'Y';
                 var $item = $('<div class="cand-item">').toggleClass('already', already);
                 var $thumb = $('<img class="cand-thumb" alt="">').attr('src', c.THUMB_URL || '')
-                    .on('click', function() { showPreview(c.MEDIA_URL, c.THUMB_URL); });
+                    .on('click', function() { showPreview(c.MEDIA_URL, c.THUMB_URL, c.MEDIA_TYPE); });
                 var $text = $('<div class="cand-text">');
                 $text.append($('<div>').append($('<b>').text(c.PRS_NAME || '')).append($('<span class="text-secondary small ms-1">').text('(' + c.PRS_ID + ')')));
                 $text.append($('<div class="cand-body">').text(c.CON_BODY || '(본문 없음)'));
+                if (c.MEDIA_TYPE && c.MEDIA_TYPE !== 'VIDEO') {
+                    $text.append($('<span class="badge bg-light text-dark border me-1">').text('사진'));
+                }
                 $text.append($('<div class="text-secondary small">').text('CON_ID ' + c.CON_ID + ' · ' + String(c.CREATED_DATE || '').substring(0, 16)));
                 var $btn = already
                     ? $('<span class="badge bg-secondary">이미 편성됨</span>')
@@ -601,16 +636,20 @@
                         pickedConId = c.CON_ID;
                         $('#pickSelectedLabel').text('CON_ID ' + c.CON_ID + ' · ' + (c.PRS_NAME || ''));
                         $('#pickSubmitBtn').prop('disabled', false);
-                        showPreview(c.MEDIA_URL, c.THUMB_URL);
+                        showPreview(c.MEDIA_URL, c.THUMB_URL, c.MEDIA_TYPE);
                     });
                 $item.append($thumb).append($text).append($btn);
                 $box.append($item);
             });
         }
 
-        function showPreview(url, poster) {
+        function showPreview(url, poster, mediaType) {
             var $pane = $('#previewPane').empty();
-            if (!url) { $pane.append('<span class="text-secondary">영상 주소가 없습니다</span>'); return; }
+            if (!url) { $pane.append('<span class="text-secondary">미디어 주소가 없습니다</span>'); return; }
+            if (mediaType && mediaType !== 'VIDEO') {
+                $pane.append($('<img alt="" style="max-width:100%;max-height:420px;border-radius:8px;">').attr('src', url));
+                return;
+            }
             var v = $('<video id="previewVideo" controls playsinline muted autoplay>').attr('src', url).attr('poster', poster || '');
             $pane.append(v);
         }
@@ -619,6 +658,7 @@
             if (!pickedConId) { alert('게시물을 선택해주세요.'); return; }
             $('#pickSubmitBtn').prop('disabled', true);
             $.post('/super/latest-contents/insert.do', {
+                section: SECTION,
                 conId: pickedConId,
                 isFeatured: $('#pickFeatured').is(':checked') ? 'Y' : 'N',
                 startAt: $('#pickStartAt').val(),
@@ -680,6 +720,7 @@
 
             var fd = new FormData();
             fd.append('videoFile', file);
+            fd.append('section', SECTION);
             fd.append('prsId', prsId);
             fd.append('body', $('#uploadBody').val());
             fd.append('isFeatured', $('#uploadFeatured').is(':checked') ? 'Y' : 'N');
