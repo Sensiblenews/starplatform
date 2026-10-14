@@ -243,6 +243,9 @@
         /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
         .ad-slot { position: relative; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; }
         .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #64748b; }
+        /* 광고가 실제로 들어간 자리는 점선·안내 글자를 걷는다 (2-34차 web-ads.js) */
+        .ad-slot.ad-live { background: transparent; border: 0; }
+        .ad-slot.ad-live::after { content: none; }
         .ad-lb { width: 728px; max-width: 100%; height: 90px; margin: 20px auto; }
         /* 포스트 D 는 PC 에서도 본문 끝 대형 사각형(2-32차). .ad-lb 보다 뒤에, 더 높은 특이성으로 */
         .ad-lb.ad-d { width: 336px; height: 280px; border-radius: 14px; }
@@ -377,7 +380,7 @@
                     <button type="button" class="st-tab" role="tab" aria-selected="false" aria-controls="tabAbout" id="tabBtnAbout">About</button>
                 </div>
 
-                <div class="st-panel" id="tabPosts" role="tabpanel" aria-labelledby="tabBtnPosts">
+                <div class="st-panel" id="tabPosts" role="tabpanel" aria-labelledby="tabBtnPosts" data-ad-content>
                     <c:choose>
                         <c:when test="${not empty relatedPosts}">
                             <div class="st-posts">
@@ -504,7 +507,7 @@
 
     <div class="lp-wrap">
         <div class="lp-grid">
-            <article class="lp-card po-card">
+            <article class="lp-card po-card" data-ad-content>
                 <a class="po-back" href="${pageContext.request.contextPath}/">&larr; Back to posts</a>
 
                 <c:if test="${isAdminPost}"><span class="po-admin">Official Announcement</span></c:if>
@@ -838,6 +841,8 @@
             setTimeout(send, 2600);
         })();
     </script>
+<%-- 2-34차 3-1: 광고 단위 삽입·게이트 (resources/js/web-ads.js — 승인 전에는 꺼져 있다) --%>
+<script src="/resources/js/web-ads.js" defer></script>
 </body>
 
 </html>
