@@ -2456,4 +2456,117 @@
 		ORDER BY B.CREATED_DATE DESC
 	</select>
 
+	<!-- ==========================================
+	     🌟 [신규] 스타 인사이트 일별 집계 (WH_STAR_DAILY_STAT, 2-34차)
+	     집계 문장은 [fromDate, toDate) 범위를 날짜별로 다시 쓴다 — 하루(스케줄러)든 여러 날이든 같은 문장.
+	     CREATED_DATE 에 함수를 씌우지 않고 범위 조건으로 걸러 인덱스를 탈 수 있게 한다
+	     ========================================== -->
+
+	<insert id="upsertDailyVisits" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, VISIT_CNT)
+		SELECT DATE(CREATED_DATE), PRS_ID, COUNT(*)
+		FROM WH_AD_LOG
+		WHERE ACTION = 'IMPRESSION' AND PRS_ID IS NOT NULL
+		  AND CREATED_DATE &gt;= #{fromDate} AND CREATED_DATE &lt; #{toDate}
+		GROUP BY DATE(CREATED_DATE), PRS_ID
+		ON DUPLICATE KEY UPDATE VISIT_CNT = VALUES(VISIT_CNT)
+	</insert>
+
+	<insert id="upsertDailyFollows" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, FOLLOW_CNT)
+		SELECT DATE(CREATED_DATE), PRS_ID, COUNT(*)
+		FROM WH_FOLLOWER_LOG
+		WHERE ACTION = 'FOLLOW' AND PRS_ID IS NOT NULL
+		  AND CREATED_DATE &gt;= #{fromDate} AND CREATED_DATE &lt; #{toDate}
+		GROUP BY DATE(CREATED_DATE), PRS_ID
+		ON DUPLICATE KEY UPDATE FOLLOW_CNT = VALUES(FOLLOW_CNT)
+	</insert>
+
+	<insert id="upsertDailyUnfollows" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, UNFOLLOW_CNT)
+		SELECT DATE(CREATED_DATE), PRS_ID, COUNT(*)
+		FROM WH_FOLLOWER_LOG
+		WHERE ACTION = 'UNFOLLOW' AND PRS_ID IS NOT NULL
+		  AND CREATED_DATE &gt;= #{fromDate} AND CREATED_DATE &lt; #{toDate}
+		GROUP BY DATE(CREATED_DATE), PRS_ID
+		ON DUPLICATE KEY UPDATE UNFOLLOW_CNT = VALUES(UNFOLLOW_CNT)
+	</insert>
+
+	<insert id="upsertDailyLikes" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, LIKE_CNT)
+		SELECT DATE(CREATED_DATE), PRS_ID, COUNT(*)
+		FROM WH_LIKE_LOG
+		WHERE ACTION = 'LIKE' AND PRS_ID IS NOT NULL
+		  AND CREATED_DATE &gt;= #{fromDate} AND CREATED_DATE &lt; #{toDate}
+		GROUP BY DATE(CREATED_DATE), PRS_ID
+		ON DUPLICATE KEY UPDATE LIKE_CNT = VALUES(LIKE_CNT)
+	</insert>
+
+	<insert id="upsertDailyPosts" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, POST_CNT)
+		SELECT DATE(CREATED_DATE), PRS_ID, COUNT(*)
+		FROM WH_STAR_CONTENT
+		WHERE PRS_ID IS NOT NULL
+		  AND CREATED_DATE &gt;= #{fromDate} AND CREATED_DATE &lt; #{toDate}
+		GROUP BY DATE(CREATED_DATE), PRS_ID
+		ON DUPLICATE KEY UPDATE POST_CNT = VALUES(POST_CNT)
+	</insert>
+
+	<!-- 글로벌 순위 스냅샷 (selectGlobalRankMap 결과를 그대로 받는다). rows: [{PRS_ID, GLOBAL_RANK}] -->
+	<insert id="upsertDailyRanks" parameterType="map">
+		INSERT INTO WH_STAR_DAILY_STAT (STAT_DATE, PRS_ID, GLOBAL_RANK) VALUES
+		<foreach collection="rows" item="r" separator=",">
+			(#{statDate}, #{r.PRS_ID}, #{r.GLOBAL_RANK})
+		</foreach>
+		ON DUPLICATE KEY UPDATE GLOBAL_RANK = VALUES(GLOBAL_RANK)
+	</insert>
+
+	<!-- 한 스타의 일별 행 (그래프 원본). 빈 날짜는 행이 없다 — 서비스가 0 으로 채운다 -->
+	<select id="selectStarDailyStats" parameterType="map" resultType="map">
+		SELECT
+			DATE_FORMAT(STAT_DATE, '%Y-%m-%d') AS statDate,
+			VISIT_CNT AS visits,
+			FOLLOW_CNT AS follows,
+			LIKE_CNT AS likes,
+			POST_CNT AS posts,
+			GLOBAL_RANK AS globalRank
+		FROM WH_STAR_DAILY_STAT
+		WHERE PRS_ID = #{prsId}
+		  AND STAT_DATE &gt;= #{fromDate} AND STAT_DATE &lt; #{toDate}
+		ORDER BY STAT_DATE
+	</select>
+
+	<!-- 오늘 몫은 아직 집계 전이라 원본 로그에서 바로 센다 (한 스타만이라 가볍다) -->
+	<select id="selectStarTodayStats" parameterType="map" resultType="map">
+		SELECT
+			(SELECT COUNT(*) FROM WH_AD_LOG WHERE PRS_ID = #{prsId} AND ACTION = 'IMPRESSION'
+			   AND CREATED_DATE &gt;= CURDATE()) AS visits,
+			(SELECT COUNT(*) FROM WH_FOLLOWER_LOG WHERE PRS_ID = #{prsId} AND ACTION = 'FOLLOW'
+			   AND CREATED_DATE &gt;= CURDATE()) AS follows,
+			(SELECT COUNT(*) FROM WH_LIKE_LOG WHERE PRS_ID = #{prsId} AND ACTION = 'LIKE'
+			   AND CREATED_DATE &gt;= CURDATE()) AS likes,
+			(SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE PRS_ID = #{prsId}
+			   AND CREATED_DATE &gt;= CURDATE()) AS posts
+	</select>
+
+	<!-- 기기 ID 들의 즐겨찾기 목록 복원 (My Favorites 0 수정). 스타별 마지막 기록이 FOLLOW 인 것만 -->
+	<select id="selectFavoriteStarIdsByDevices" parameterType="map" resultType="string">
+		SELECT L.PRS_ID
+		FROM WH_FOLLOWER_LOG L
+		JOIN (
+			SELECT PRS_ID, MAX(CREATED_DATE) AS LAST_DATE
+			FROM WH_FOLLOWER_LOG
+			WHERE DEVICE_ID IN
+			<foreach collection="deviceIds" item="d" open="(" separator="," close=")">#{d}</foreach>
+			GROUP BY PRS_ID
+		) X ON X.PRS_ID = L.PRS_ID AND X.LAST_DATE = L.CREATED_DATE
+		JOIN WH_PRESS P ON P.PRS_ID = L.PRS_ID AND P.PRS_USE_YN = 'Y'
+		WHERE L.DEVICE_ID IN
+		<foreach collection="deviceIds" item="d" open="(" separator="," close=")">#{d}</foreach>
+		GROUP BY L.PRS_ID
+		HAVING MAX(L.ACTION = 'FOLLOW') = 1 AND MAX(L.ACTION = 'UNFOLLOW') = 0
+		ORDER BY MAX(L.CREATED_DATE) DESC
+		LIMIT 500
+	</select>
+
 </mapper>

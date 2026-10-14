@@ -70,7 +70,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   isShowingFavorites: boolean = false;
   favoriteStars: any[] = [];
-  activeFavoriteTab: 'M' | 'F' | 'V' = 'M';
+  activeFavoriteTab: 'I' | 'M' | 'F' | 'V' = 'M';
   followerStars: any[] = [];
   visitorStars: any[] = [];
   isLoadingFollowers: boolean = false;
@@ -946,8 +946,9 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.isSearching = false;
       this.isShowingRanking = false;
       this.activeRankingTab = null;
-      this.activeFavoriteTab = 'M';
-      this.loadFavoriteStars();
+      // 2-34차: 스타는 I(Insight)가 첫 탭. 일반 사용자는 탭 없이 즐겨찾기 목록만 본다
+      this.activeFavoriteTab = this.isStar ? 'I' : 'M';
+      if (!this.isStar) this.loadFavoriteStars();
     }
     this.updateLobbyAd();
   }
@@ -1029,12 +1030,15 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.showHallOfFameInline = true;
   }
 
-  loadFavoriteStars() {
+  loadFavoriteStars(allowRestore = true) {
     const favIds = JSON.parse(localStorage.getItem('favorite_stars') || '[]');
 
     if (!favIds.length) {
       this.favoriteStars = [];
       this.setupMotionObserver();
+      // 2-34차 My Favorites 0 수정: 즐겨찾기는 기기 localStorage 에만 있어 재설치·스타 로그인(ID 가 starId 로 바뀜)
+      // 뒤 비어 보였다. 비어 있으면 서버 기록(WH_FOLLOWER_LOG)에서 이 기기 ID·로그인 스타 ID 의 즐겨찾기를 한 번 되살린다
+      if (allowRestore) this.restoreFavoriteStars();
       return;
     }
 
@@ -1063,7 +1067,29 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
   }
 
-  setFavoriteTab(tab: 'M' | 'F' | 'V') {
+  /** 앱 실행당 한 번만 복원을 시도한다 (빈 목록일 때 로비 새로고침마다 서버를 부르지 않게) */
+  private favoritesRestoreTried = false;
+
+  /** 서버 기록에서 즐겨찾기 복원 → localStorage 에 쓰고 목록 다시 그림 (빈 결과면 그대로 0) */
+  private restoreFavoriteStars() {
+    if (this.favoritesRestoreTried) return;
+    this.favoritesRestoreTried = true;
+    const ids = [this.deviceId, this.getEffectiveDeviceId()].filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+    if (!ids.length) return;
+    this.http.post('/api/super/star/favorites/by-device', { deviceIds: ids }).subscribe({
+      next: (res: any) => {
+        const starIds: string[] = res && res.result === 'OK' && Array.isArray(res.starIds) ? res.starIds.map(String) : [];
+        if (!starIds.length) return;
+        // 그새 사용자가 즐겨찾기를 눌렀으면 그 목록을 존중한다
+        if (JSON.parse(localStorage.getItem('favorite_stars') || '[]').length) return;
+        localStorage.setItem('favorite_stars', JSON.stringify(starIds));
+        this.loadFavoriteStars(false);
+      },
+      error: () => { },
+    });
+  }
+
+  setFavoriteTab(tab: 'I' | 'M' | 'F' | 'V') {
     this.activeFavoriteTab = tab;
     if (tab === 'M') {
       this.loadFavoriteStars();

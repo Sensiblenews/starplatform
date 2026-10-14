@@ -1207,4 +1207,76 @@
 		 WHERE CONTACT_ID = #{contactId}
 	</update>
 
+	<!-- ==========================================
+	     🌟 [신규] 어드민 인사이트 (2-34차 2-2). 일별 집계 WH_STAR_DAILY_STAT 의 기간 합으로 줄 세운다.
+	     metric 은 서비스가 화이트리스트로 정규화한다 (VISIT / FOLLOW / LIKE / POST). LC 는 country 로 자기 국가만
+	     ========================================== -->
+
+	<sql id="insightMetricSum">
+		<choose>
+			<when test='metric == "FOLLOW"'>SUM(FOLLOW_CNT)</when>
+			<when test='metric == "LIKE"'>SUM(LIKE_CNT)</when>
+			<when test='metric == "POST"'>SUM(POST_CNT)</when>
+			<otherwise>SUM(VISIT_CNT)</otherwise>
+		</choose>
+	</sql>
+
+	<select id="selectInsightRankingList" parameterType="map" resultType="map">
+		SELECT
+			P.PRS_ID,
+			P.PRS_NAME,
+			P.STORED_FILE_NM,
+			P.PRS_COUNTRY,
+			IFNULL(S.TOTAL, 0) AS TOTAL
+		FROM WH_PRESS P
+		LEFT JOIN (
+			SELECT PRS_ID, <include refid="insightMetricSum"/> AS TOTAL
+			FROM WH_STAR_DAILY_STAT
+			WHERE STAT_DATE &gt;= #{fromDate} AND STAT_DATE &lt; #{toDate}
+			GROUP BY PRS_ID
+		) S ON S.PRS_ID = P.PRS_ID
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		<if test="country != null and country != ''">
+		  AND P.PRS_COUNTRY = #{country}
+		</if>
+		ORDER BY TOTAL DESC, P.PRS_ID ASC
+		LIMIT #{start}, #{length}
+	</select>
+
+	<select id="selectInsightStarCount" parameterType="map" resultType="int">
+		SELECT COUNT(*) FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		<if test="country != null and country != ''">
+		  AND P.PRS_COUNTRY = #{country}
+		</if>
+	</select>
+
+	<!-- 랭킹 목록용 스타 기본 정보 (순위 자체는 앱과 같은 순위표 캐시에서 붙인다) -->
+	<select id="selectInsightStarBasics" parameterType="map" resultType="map">
+		SELECT P.PRS_ID, P.PRS_NAME, P.STORED_FILE_NM, P.PRS_COUNTRY
+		FROM WH_PRESS P
+		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
+		<if test="country != null and country != ''">
+		  AND P.PRS_COUNTRY = #{country}
+		</if>
+	</select>
+
+	<!-- 기간 시작 무렵 순위 (기간 안 첫 스냅샷 날짜). 순위 변동 표시용 -->
+	<select id="selectInsightStartRanks" parameterType="map" resultType="map">
+		SELECT PRS_ID, GLOBAL_RANK
+		FROM WH_STAR_DAILY_STAT
+		WHERE GLOBAL_RANK IS NOT NULL
+		  AND STAT_DATE = (SELECT MIN(STAT_DATE) FROM WH_STAR_DAILY_STAT
+		                    WHERE GLOBAL_RANK IS NOT NULL AND STAT_DATE &gt;= #{fromDate})
+	</select>
+
+	<!-- 스타 한 명의 국가 (LC 어드민 권한 확인) -->
+	<select id="selectInsightStarCountry" parameterType="string" resultType="string">
+		SELECT PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{prsId} AND IS_STAR = 'Y'
+	</select>
+
+	<select id="selectInsightStarHeader" parameterType="string" resultType="map">
+		SELECT PRS_ID, PRS_NAME, STORED_FILE_NM, PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{prsId}
+	</select>
+
 </mapper>

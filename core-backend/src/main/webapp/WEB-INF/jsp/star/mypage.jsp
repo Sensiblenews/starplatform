@@ -12,6 +12,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <%-- 인사이트 그래프 (2-34차 2-1) --%>
+    <link href="${ctx}/resources/css/insight-charts.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="${ctx}/resources/js/insight-charts.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Pretendard', sans-serif; }
         .profile-card { background: white; border-radius: 16px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; }
@@ -140,6 +144,20 @@
         </div>
 
         <div class="col-md-8">
+            <%-- 인사이트 (2-34차 2-1): 글로벌 랭킹·방문자·즐겨찾기·좋아요·게시물, 앱 별 메뉴 I 탭과 같은 데이터 --%>
+            <div class="mb-4">
+                <h4 class="fw-bold mb-2"><i class="fas fa-chart-line me-2"></i>Insight</h4>
+                <div class="insight-period" id="insightPeriods">
+                    <button type="button" data-period="DAY">Daily</button>
+                    <button type="button" data-period="WEEK" class="active">Weekly</button>
+                    <button type="button" data-period="MONTH">Monthly</button>
+                    <button type="button" data-period="M3">3 Months</button>
+                    <button type="button" data-period="M6">6 Months</button>
+                    <button type="button" data-period="Y1">1 Year</button>
+                </div>
+                <div class="insight-charts" id="insightCharts"></div>
+            </div>
+
 		    <div class="d-flex justify-content-between align-items-center mb-3">
 		      
                 <h4 class="fw-bold"><i class="fas fa-images me-2"></i>My Feed</h4>
@@ -663,6 +681,23 @@
             alert(res.msg);
         });
     }
+</script>
+<script>
+    // 인사이트 그래프 (2-34차 2-1) — 로그인한 스타 본인 데이터만 (/star/insight.json 이 세션으로 확인)
+    (function () {
+        function loadInsight(period) {
+            $('#insightPeriods button').removeClass('active').filter('[data-period="' + period + '"]').addClass('active');
+            $.getJSON('${ctx}/star/insight.json', { period: period }, function (res) {
+                if (!res || res.result !== 'OK') {
+                    $('#insightCharts').html('<div class="text-secondary">Insight is not available right now.</div>');
+                    return;
+                }
+                InsightCharts.render(document.getElementById('insightCharts'), res);
+            });
+        }
+        $('#insightPeriods').on('click', 'button', function () { loadInsight($(this).data('period')); });
+        loadInsight('WEEK');
+    })();
 </script>
 </body>
 </html>
