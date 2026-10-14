@@ -49,6 +49,10 @@ public class SuperAppService {
 	@Resource(name = "mediaAccessService")
 	private MediaAccessService mediaAccessService;
 
+	// 영상 변환 작업 큐 (2-33차 어드민 숏폼 업로드와 같은 단일 스레드 — ffmpeg 를 한 번에 하나만 돌린다)
+	@Resource(name = "latestContentUploadJobs")
+	private com.sensible.admin.service.LatestContentUploadJobs uploadJobs;
+
 	// 피드 페이징 기본값 (2-26차). limit/offset을 보내지 않는 기존 호출을 위한 값이며,
 	// 앱은 첫 화면 10건 + 무한 스크롤로 명시 전달한다.
 	public static final int DEFAULT_FEED_LIMIT = 20;
@@ -1762,29 +1766,14 @@ public class SuperAppService {
 			// 게시물도 PENDING이라 목록에 뜨지 않으며, 관리자가 승인할 때 파일이 옮겨지면서 함께 공개된다.
 			// MEDIA_URL에는 승인 후의 최종 주소를 미리 넣어둔다 — 승인 시 URL을 다시 쓸 필요가 없다.
 			if (imageBase64 != null && !imageBase64.isEmpty()) {
-				byte[] decodedBytes;
+				String fileName;
 				try {
-					decodedBytes = Base64.getDecoder()
-							.decode(ImageModerationUtil.base64Payload(imageBase64));
-				} catch (IllegalArgumentException e) {
+					fileName = savePendingFeedImage(imageBase64);
+				} catch (Exception rejected) {
 					result.put("result", "FAIL");
-					result.put("msg", "Invalid image data.");
+					result.put("msg", rejected.getMessage());
 					return result;
 				}
-
-				String declaredMime = ImageModerationUtil.mimeFromDataUri(imageBase64);
-				ImageModerationUtil.Result check =
-						ImageModerationUtil.validate(decodedBytes, null, declaredMime);
-
-				if (!check.isValid()) {
-					result.put("result", "FAIL");
-					result.put("msg", rejectionMessage(check.rejection));
-					return result;
-				}
-
-				// 확장자는 클라이언트 주장이 아니라 실제 형식을 따른다
-				String fileName = UUID.randomUUID().toString().replace("-", "") + "." + check.extension;
-				ImageModerationUtil.saveToPending(decodedBytes, fileName);
 
 				// 미디어 테이블 Insert
 				Map<String, Object> mediaParam = new HashMap<>();
@@ -1867,6 +1856,201 @@ public class SuperAppService {
 			result.put("msg", "Failed to save the post. Please try again.");
 		}
 		return result;
+	}
+
+	// ===== 스타 피드 동영상 업로드 — 멀티파트 + 비동기 변환 (2-34차 1-3) =====
+	//
+	// 기존 /feed/add 는 영상을 base64 JSON 으로 받고 같은 요청 안에서 ffmpeg 로 변환했다.
+	// 50MB 넘는 영상은 base64 로 1.33배가 돼 Cloudflare 본문 한도(100MB)를 넘고, 변환 시간이 응답 100초 한도를 넘는다.
+	// 그래서 영상은 파일 그대로(multipart) 받아 대기 보관소에 저장만 하고 바로 작업 ID 를 돌려준다.
+	// 변환·썸네일·게시물 생성은 작업 큐에서 하고, 앱은 upload-status 로 결과를 폴링한다.
+	// 게시물은 변환이 끝난 뒤에 만든다 — 변환 중이거나 실패한 글이 목록·검수함에 나타나지 않는다.
+	// 기존 /feed/add 는 사진·유튜브·구버전 앱용으로 그대로 둔다.
+
+	/** 영상 원본 상한. Cloudflare 본문 한도 100MB 에서 멀티파트 헤더·본문 텍스트 여유를 뺀 값 (사용자 확정 2026-10-15) */
+	public static final long FEED_VIDEO_MAX_BYTES = 95L * 1024 * 1024;
+
+	/** 업로드 영상 사전 검증 (순수 함수 — 단위 테스트 대상). 통과하면 저장에 쓸 원본 확장자를 돌려준다 */
+	public static String validateFeedVideo(String contentType, String originalName, long size) throws Exception {
+		if (size <= 0) {
+			throw new Exception("Please select a video file.");
+		}
+		if (size > FEED_VIDEO_MAX_BYTES) {
+			throw new Exception("Video size must be " + (FEED_VIDEO_MAX_BYTES / 1024 / 1024) + "MB or less.");
+		}
+		String mime = contentType == null ? "" : contentType.toLowerCase();
+		String name = originalName == null ? "" : originalName.toLowerCase();
+		boolean extOk = name.endsWith(".mp4") || name.endsWith(".mov") || name.endsWith(".webm")
+				|| name.endsWith(".m4v") || name.endsWith(".avi") || name.endsWith(".ogg") || name.endsWith(".3gp");
+		if (!mime.startsWith("video/") && !extOk) {
+			throw new Exception("Please select a valid video file (mp4, mov, webm, avi).");
+		}
+		if (mime.startsWith("video/")) {
+			return com.sensible.common.util.VideoTranscodeUtil.extensionFromDataUri(mime);
+		}
+		int dot = name.lastIndexOf('.');
+		return dot >= 0 ? name.substring(dot) : ".mp4";
+	}
+
+	/** 작업 큐로 넘기는 업로드 1건. 멀티파트 임시 파일은 요청이 끝나면 지워지므로 요청 안에서 대기 보관소로 옮겨 둔다 */
+	private static final class StarFeedUpload {
+		String prsId;
+		String feedText;
+		String youtubeUrl;
+		String uuid;
+		String videoName;
+		Path videoPath;
+		/** 함께 올린 사진 (대기 보관소 파일명). 없으면 null */
+		String imageName;
+	}
+
+	/**
+	 * 사진(base64)을 검증해 대기 보관소에 저장하고 파일명을 돌려준다. 거부되면 사용자에게 보일 문장으로 예외.
+	 * /feed/add 와 /feed/add-media 가 같이 쓴다 (2-26차 사진 검수 규칙 그대로)
+	 */
+	private String savePendingFeedImage(String imageBase64) throws Exception {
+		byte[] decodedBytes;
+		try {
+			decodedBytes = Base64.getDecoder().decode(ImageModerationUtil.base64Payload(imageBase64));
+		} catch (IllegalArgumentException e) {
+			throw new Exception("Invalid image data.");
+		}
+		String declaredMime = ImageModerationUtil.mimeFromDataUri(imageBase64);
+		ImageModerationUtil.Result check = ImageModerationUtil.validate(decodedBytes, null, declaredMime);
+		if (!check.isValid()) {
+			throw new Exception(rejectionMessage(check.rejection));
+		}
+		// 확장자는 클라이언트 주장이 아니라 실제 형식을 따른다
+		String fileName = UUID.randomUUID().toString().replace("-", "") + "." + check.extension;
+		ImageModerationUtil.saveToPending(decodedBytes, fileName);
+		return fileName;
+	}
+
+	/**
+	 * 1단계 (요청 안): 토큰 확인 → 영상 검증 → 대기 보관소에 저장 → 작업 등록. 바로 jobId 를 돌려준다.
+	 * 실패 사유는 앱이 그대로 보여 주므로 영어 문장이다.
+	 */
+	public Map<String, Object> startStarFeedMediaUpload(org.springframework.web.multipart.MultipartFile video,
+			Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			String prsId = params.get("prsId") == null ? "" : String.valueOf(params.get("prsId")).trim();
+			String starToken = params.get("starToken") == null ? "" : String.valueOf(params.get("starToken"));
+			if (prsId.isEmpty() || !verifyStarToken(prsId, starToken)) {
+				result.put("result", "FAIL");
+				result.put("msg", "Your session has expired. Please log in again.");
+				return result;
+			}
+			if (video == null || video.isEmpty()) {
+				result.put("result", "FAIL");
+				result.put("msg", "Please select a video file.");
+				return result;
+			}
+			String ext = validateFeedVideo(video.getContentType(), video.getOriginalFilename(), video.getSize());
+
+			final StarFeedUpload u = new StarFeedUpload();
+			u.prsId = prsId;
+			u.feedText = params.get("feedText") == null ? "" : String.valueOf(params.get("feedText"));
+			Object yt = params.get("youtubeUrl");
+			u.youtubeUrl = yt == null || "null".equals(String.valueOf(yt)) ? "" : String.valueOf(yt);
+
+			// 사진이 같이 오면 먼저 검증한다 (거부되면 영상을 저장하기 전에 끝낸다)
+			Object imageBase64 = params.get("imageBase64");
+			if (imageBase64 != null && !String.valueOf(imageBase64).isEmpty() && !"null".equals(String.valueOf(imageBase64))) {
+				u.imageName = savePendingFeedImage(String.valueOf(imageBase64));
+			}
+
+			u.uuid = UUID.randomUUID().toString().replace("-", "");
+			u.videoName = u.uuid + ext;
+			Path pendingDir = Paths.get(Constants._PENDING_SAVE_PATH);
+			Files.createDirectories(pendingDir);
+			u.videoPath = pendingDir.resolve(u.videoName);
+			video.transferTo(u.videoPath.toFile());
+
+			com.sensible.admin.service.LatestContentUploadJobs.Job job = uploadJobs.submit(video.getOriginalFilename(),
+					new java.util.concurrent.Callable<Integer>() {
+						@Override
+						public Integer call() throws Exception {
+							return completeStarFeedMediaUpload(u);
+						}
+					});
+			result.put("result", "OK");
+			result.put("jobId", job.id);
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("result", "FAIL");
+			result.put("msg", e.getMessage() != null ? e.getMessage() : "Failed to upload the video. Please try again.");
+		}
+		return result;
+	}
+
+	/**
+	 * 2단계 (작업 큐): 웹 호환 MP4 변환(실패하면 원본) → 썸네일 → 게시물·미디어 생성 → 검수 대기.
+	 * 던지는 예외 메시지는 앱에 실패 사유로 그대로 보인다. 돌려주는 값은 CON_ID.
+	 */
+	private int completeStarFeedMediaUpload(StarFeedUpload u) throws Exception {
+		Path pendingDir = u.videoPath.getParent();
+		String videoName = u.videoName;
+		Path videoPath = u.videoPath;
+		Path webPath = pendingDir.resolve(u.uuid + ".mp4");
+		if (com.sensible.common.util.VideoTranscodeUtil.toWebMp4(videoPath, webPath)) {
+			videoName = u.uuid + ".mp4";
+			videoPath = webPath;
+		}
+		String thumbName = u.uuid + "_thumb.jpg";
+		if (!com.sensible.common.util.VideoTranscodeUtil.extractThumbnail(videoPath, pendingDir.resolve(thumbName))) {
+			Files.deleteIfExists(videoPath);
+			throw new Exception("This video could not be processed. Please try a different file.");
+		}
+
+		Map<String, Object> masterParam = new HashMap<>();
+		masterParam.put("PRS_ID", u.prsId);
+		masterParam.put("CON_BODY", u.feedText);
+		masterParam.put("YOUTUBE_URL", u.youtubeUrl);
+		dao.insert("superapp.insertContentMaster", masterParam);
+		Object conId = masterParam.get("CON_ID");
+		if (conId == null) {
+			throw new Exception("Failed to save the post. Please try again.");
+		}
+
+		int sortOrder = 0;
+		if (u.imageName != null) {
+			Map<String, Object> imageParam = new HashMap<>();
+			imageParam.put("CON_ID", conId);
+			imageParam.put("MEDIA_TYPE", "PHOTO");
+			imageParam.put("MEDIA_URL", Constants._FILE_URL + u.imageName);
+			imageParam.put("THUMB_URL", Constants._FILE_URL + u.imageName);
+			imageParam.put("SORT_ORDER", sortOrder++);
+			dao.insert("superapp.insertContentMedia", imageParam);
+		}
+
+		Map<String, Object> mediaParam = new HashMap<>();
+		mediaParam.put("CON_ID", conId);
+		mediaParam.put("MEDIA_TYPE", "VIDEO");
+		mediaParam.put("MEDIA_URL", Constants._VIDEO_FILE_URL + videoName);
+		mediaParam.put("THUMB_URL", Constants._VIDEO_THUMNAIL_FILE_URL + thumbName);
+		mediaParam.put("SORT_ORDER", sortOrder);
+		dao.insert("superapp.insertContentMedia", mediaParam);
+
+		// 영상이 붙은 글은 검수 대상 (/feed/add 와 같은 상태·로그)
+		Map<String, Object> mdrParam = new HashMap<>();
+		mdrParam.put("CON_ID", conId);
+		mdrParam.put("MDR_STATUS", "PENDING");
+		dao.update("superapp.updateStarContentModeration", mdrParam);
+		Map<String, Object> logParam = new HashMap<>();
+		logParam.put("TARGET_TYPE", "STAR_FEED");
+		logParam.put("TARGET_ID", String.valueOf(conId));
+		logParam.put("ACTION", "PENDING");
+		logParam.put("REASON", "업로드 검수 대기");
+		dao.insert("superapp.insertModerationLog", logParam);
+		return Integer.parseInt(String.valueOf(conId));
+	}
+
+	/** 업로드 작업 상태. state: QUEUED / RUNNING / DONE / FAILED / UNKNOWN(서버 재시작 등) */
+	public Map<String, Object> getStarFeedUploadStatus(String jobId) {
+		Map<String, Object> status = uploadJobs.status(jobId, System.currentTimeMillis());
+		status.put("result", "OK");
+		return status;
 	}
 
 	/**

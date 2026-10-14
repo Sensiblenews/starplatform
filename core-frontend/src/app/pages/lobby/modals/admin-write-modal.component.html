@@ -47,6 +47,8 @@
             </div>
             <!-- 첨부 상한 안내 (2-33차) -->
             <div class="upload-hint">Video up to {{ maxVideoSizeMb }}MB</div>
+            <!-- 동영상 전송 실패 사유 — Post 를 다시 누르면 재시도 (2-34차) -->
+            <div class="upload-error" *ngIf="uploadError">{{ uploadError }}</div>
 
             <!-- 🎬 YouTube URL 입력 (클릭 시 슬림 바 노출) -->
             <div class="youtube-input-section" *ngIf="showYoutubeInput">
@@ -110,18 +112,23 @@
     </div>
 </ion-content>
 
-<!-- 🔄 로딩 오버레이 -->
+<!-- 🔄 로딩 오버레이 — 동영상은 전송 진행률을 함께 보여 준다 (2-34차) -->
 <div class="loading-overlay" *ngIf="isSubmitting">
     <div class="loading-content">
         <div class="spinner"></div>
-        <p class="loading-text">Saving your post...</p>
+        <ng-container *ngIf="uploadProgress !== null; else savingText">
+            <p class="loading-text">Uploading video... {{ uploadProgress }}%</p>
+            <div class="upload-progress"><div class="upload-progress-bar" [style.width.%]="uploadProgress"></div></div>
+            <p class="loading-subtext">Please keep the app open until the upload finishes.</p>
+        </ng-container>
+        <ng-template #savingText><p class="loading-text">Saving your post...</p></ng-template>
     </div>
 </div>
 
 <ion-footer class="ion-no-border">
     <ion-toolbar>
     <ion-button expand="block" color="danger" class="submit-btn" (click)="submitPost()" [disabled]="isSubmitting">
-        {{ isSubmitting ? 'Posting...' : 'Post' }}
+        {{ isSubmitting ? 'Posting...' : (uploadError ? 'Retry' : 'Post') }}
     </ion-button>
     </ion-toolbar>
 </ion-footer>
