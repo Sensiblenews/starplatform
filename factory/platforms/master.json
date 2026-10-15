@@ -73,7 +73,8 @@
       "MEDIA_TOKEN_SECRET",
       "LANDING_TOKEN_SECRET",
       "SMTP_USERNAME",
-      "SMTP_PASSWORD"
+      "SMTP_PASSWORD",
+      "JWT_SECRET"
     ]
   },
   "notes": "master 의 backend.dbName/dbUser 는 서버 globals.properties 에만 있고 저장소에 두지 않는다. 호기 설정은 비밀 묶음(platform-security-configs)과 같은 규칙 starplatform_<id>/sp<id>_app 을 쓴다."

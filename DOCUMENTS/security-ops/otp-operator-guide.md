@@ -76,6 +76,7 @@
 
 1. 운영 DB 에 `core-backend/db/admin-mfa-audit.sql` 실행 (테이블 3개 생성).
 2. `globals.properties` 에 `otp.encryption.key=<32자 이상 임의 문자열>` 추가. 이 값은 Git·메신저에 올리지 않고 서버에만 둡니다.
+   같은 파일에 `security.jwt.secret=<openssl rand -base64 64 결과>` 도 추가합니다 (2026-10-13 부터 필수 — 관리자 토큰 서명 키. 없으면 관리자 로그인이 전부 실패하고 기동 로그에 `[JWT] security.jwt.secret 미설정` ERROR 가 남습니다. 값을 바꾸면 기존 관리자 토큰은 무효가 됩니다).
    (선택) `otp.mode=required|optional|off`, `otp.required.auth=SM,LC`, `otp.issuer=StarPlatform Admin`
 3. WAS 재기동 → 기동 로그에 `[MFA] 관리자 이중인증 활성` 이 찍히는지 확인. `otp.encryption.key 미설정` ERROR 가 보이면 2번을 다시 확인.
 4. 서버 시간 동기화 확인: `timedatectl` (NTP synchronized: yes) 또는 `chronyc tracking`.

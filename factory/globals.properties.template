@@ -50,3 +50,6 @@ mail.smtp.host = smtp.gmail.com
 mail.smtp.port = 587
 mail.smtp.username = ${SMTP_USERNAME}
 mail.smtp.password = ${SMTP_PASSWORD}
+
+# 어드민 토큰(JWT) 서명 키. base64 문자열(openssl rand -base64 64). 없으면 관리자 로그인이 실패한다(의도적 fail-closed)
+security.jwt.secret = ${JWT_SECRET}

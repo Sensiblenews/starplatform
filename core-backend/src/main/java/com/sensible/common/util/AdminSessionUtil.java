@@ -51,8 +51,9 @@ public final class AdminSessionUtil {
 
 	/** 세션 저장 + JWT 쿠키 발급. 반환값은 권한별 첫 화면 */
 	public static String establish(HttpServletRequest request, HttpServletResponse response, UserVO user) {
-		request.getSession().setAttribute(SESSION_USER, user);
+		// 토큰을 먼저 만든다. 서명 키가 없으면 여기서 예외가 나고 세션도 남지 않는다 (키 없이 세션만으로 로그인되는 틈 방지)
 		String token = JwtUtil.generateToken(user.getPRS_ID(), user.getPRS_AUTH());
+		request.getSession().setAttribute(SESSION_USER, user);
 		// SameSite=Lax: 외부 사이트에서 시작된 POST 에 쿠키가 실리지 않게 한다 (CSRF 완화)
 		response.addHeader("Set-Cookie", TOKEN_COOKIE + "=" + token
 				+ "; Path=/; Max-Age=" + TOKEN_MAX_AGE_SEC + "; HttpOnly; SameSite=Lax");
