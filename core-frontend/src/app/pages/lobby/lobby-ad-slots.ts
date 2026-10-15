@@ -10,7 +10,7 @@
  */
 export const LOBBY_AD_SLOT_COUNT = 6;
 
-/** 세로형 Latest Content 안의 광고 슬롯 번호 — 콘텐츠 3·6·7번째 뒤(LATEST_FEED_AD_AFTER)에 순서대로 대응 */
+/** 세로형 Latest Content 안의 광고 슬롯 번호 — 콘텐츠 3·6·9번째 뒤(LATEST_FEED_AD_AFTER, 마지막 콘텐츠 뒤 제외)에 순서대로 대응 */
 export const LOBBY_FEED_AD_SLOTS: ReadonlyArray<number> = [3, 4, 5];
 
 /**

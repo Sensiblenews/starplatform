@@ -388,7 +388,7 @@
     <div class="lobby-ad-slot" #lobbyAdSlot data-slot="0" [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
 
     <!-- 🎬 세로형 자동재생 Latest Content (2-34차) — 첫 네이티브 광고와 Today's TOP 사이. 어드민 "세로형 자동재생" 편성.
-         콘텐츠 3·6·7번째 뒤에 네이티브 광고 슬롯 3·4·5 가 컴포넌트 안에 들어간다. 편성 0개면 섹션 자체를 숨긴다 -->
+         콘텐츠 3·6·9번째 뒤(마지막 콘텐츠 뒤는 제외)에 네이티브 광고 슬롯 3·4·5 가 컴포넌트 안에 들어간다. 편성 0개면 섹션 자체를 숨긴다 -->
     <div class="section-container lobby-feed-section" *ngIf="latestFeedItems.length > 0">
       <div class="section-header">
         <ion-icon name="play-circle" class="title-icon pink"></ion-icon>

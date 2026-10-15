@@ -147,18 +147,25 @@ describe('latest-contents-logic (2-34차 세로형 Latest Content)', () => {
   const shape = (rows: ReturnType<typeof buildLatestFeedRows>) =>
     rows.map(r => r.kind === 'ad' ? 'ad' + r.slot : String(r.item.lcId)).join(',');
 
-  it('광고 위치는 메모 그대로 3·6·7번째 뒤', () => {
-    expect(LATEST_FEED_AD_AFTER).toEqual([3, 6, 7]);
+  it('광고 위치는 3·6·9번째 뒤 (2-34 후속 클라이언트 요청)', () => {
+    expect(LATEST_FEED_AD_AFTER).toEqual([3, 6, 9]);
   });
 
-  it('10개면 3·6·7 뒤에 슬롯 3·4·5 가 순서대로 들어간다', () => {
-    expect(shape(buildLatestFeedRows(items(10), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7,ad5,8,9,10');
+  it('12개면 3·6·9 뒤에 슬롯 3·4·5 가 순서대로 들어간다', () => {
+    expect(shape(buildLatestFeedRows(items(12), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7,8,9,ad5,10,11,12');
+  });
+
+  it('마지막 콘텐츠 뒤에는 광고를 붙이지 않는다 (콘텐츠 사이에만)', () => {
+    expect(shape(buildLatestFeedRows(items(3), [3, 4, 5]))).toBe('1,2,3');
+    expect(shape(buildLatestFeedRows(items(4), [3, 4, 5]))).toBe('1,2,3,ad3,4');
+    expect(shape(buildLatestFeedRows(items(6), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6');
+    expect(shape(buildLatestFeedRows(items(7), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7');
+    expect(shape(buildLatestFeedRows(items(9), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7,8,9');
+    expect(shape(buildLatestFeedRows(items(10), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7,8,9,ad5,10');
   });
 
   it('콘텐츠가 모자라면 그 뒤 광고는 넣지 않는다', () => {
     expect(shape(buildLatestFeedRows(items(2), [3, 4, 5]))).toBe('1,2');
-    expect(shape(buildLatestFeedRows(items(3), [3, 4, 5]))).toBe('1,2,3,ad3');
-    expect(shape(buildLatestFeedRows(items(6), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4');
   });
 
   it('빈 목록·없는 목록은 빈 줄', () => {

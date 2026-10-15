@@ -68,7 +68,7 @@
                     <c:choose>
                         <c:when test="${section eq 'LATEST'}">
                             로비 첫 네이티브 광고와 Today's TOP 사이의 <b>세로형 자동재생</b> 목록(앱 제목 "Latest Content")을 편성합니다.
-                            콘텐츠 3·6·7번째 뒤에는 네이티브 광고가 자동으로 들어갑니다.
+                            콘텐츠 3·6·9번째 뒤에는 네이티브 광고가 자동으로 들어갑니다(마지막 콘텐츠 뒤에는 붙지 않습니다).
                             검수 승인된 <b>사진·영상 게시물</b>을 고를 수 있습니다.
                         </c:when>
                         <c:when test="${section eq 'HOT'}">

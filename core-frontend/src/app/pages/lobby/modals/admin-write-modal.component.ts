@@ -2,7 +2,6 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ModalController, AlertController, ToastController } from '@ionic/angular';
 import { HttpService } from 'src/app/services/http.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { HttpEventType } from '@angular/common/http';
 import { FeedUploadService } from 'src/app/services/feed-upload.service';
 
 @Component({
@@ -104,8 +103,12 @@ export class AdminWriteModalComponent implements OnInit {
       }
       
       // 비디오 파일 형식 검증
-      const videoFormats = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/3gpp', 'video/x-m4v'];
-      if (!videoFormats.includes(file.type)) {
+      // 형식 검사: Android 파일 선택기는 MIME 을 비워 주거나(video 외 다른 값) 하는 경우가 있어 확장자도 본다.
+      // 최종 판정은 서버(SuperAppService.validateFeedVideo)가 한다
+      const name = (file.name || '').toLowerCase();
+      const isVideoType = (file.type || '').startsWith('video/');
+      const isVideoExt = /\.(mp4|mov|m4v|webm|ogg|avi|3gp|3gpp|mkv)$/.test(name);
+      if (!isVideoType && !isVideoExt) {
         this.showError('Please select a valid video file (mp4, webm, ogg, mov, avi)');
         return;
       }
@@ -273,12 +276,10 @@ export class AdminWriteModalComponent implements OnInit {
 
     this.feedUpload.uploadStarVideo(form).subscribe({
       next: event => {
-        const progress = FeedUploadService.progressOf(event);
-        if (progress !== null) {
-          this.uploadProgress = progress;
+        if (typeof event.progress === 'number') {
+          this.uploadProgress = event.progress;
           return;
         }
-        if (event.type !== HttpEventType.Response) return;
         const res: any = event.body;
         if (res && res.result === 'OK' && res.jobId) {
           this.feedUpload.watchJob(res.jobId);
