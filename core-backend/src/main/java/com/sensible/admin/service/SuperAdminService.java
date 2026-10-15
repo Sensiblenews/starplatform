@@ -1038,12 +1038,24 @@ public class SuperAdminService {
         return dot >= 0 ? name.substring(dot) : ".mp4";
     }
 
-    public List<Map<String, Object>> getLatestContentAdminList() throws Exception {
-        return dao.selectList("super.selectLatestContentAdminList");
+    // 2-34차: 같은 편성 기능을 구역(SHORTS=Star Shorts / LATEST=세로형 / HOT=가로형)별로 쓴다.
+    // 구역 값은 전부 LobbySection.normalize 를 거친다 — 모르는 값은 SHORTS(2-33차 동작 그대로)
+
+    private static Map<String, Object> sectionKey(String section) {
+        Map<String, Object> key = new HashMap<>();
+        key.put("section", section);
+        key.put("settingId", com.sensible.common.util.LobbySection.settingId(section));
+        return key;
     }
 
-    public Map<String, Object> getLatestContentSetting() throws Exception {
-        Map<String, Object> row = dao.selectOne("super.selectLatestContentSetting");
+    public List<Map<String, Object>> getLatestContentAdminList(String section) throws Exception {
+        return dao.selectList("super.selectLatestContentAdminList",
+                sectionKey(com.sensible.common.util.LobbySection.normalize(section)));
+    }
+
+    public Map<String, Object> getLatestContentSetting(String section) throws Exception {
+        Map<String, Object> row = dao.selectOne("super.selectLatestContentSetting",
+                sectionKey(com.sensible.common.util.LobbySection.normalize(section)));
         if (row == null) {
             row = new HashMap<>();
             row.put("DISPLAY_COUNT", LC_COUNT_DEFAULT);
@@ -1052,13 +1064,18 @@ public class SuperAdminService {
         return row;
     }
 
+    /** 게시물 선택 검색. Star Shorts 는 영상 글만, 세로형·가로형은 mediaFilter(ALL/VIDEO) 로 고른다 */
     public List<Map<String, Object>> searchLatestContentCandidates(Map<String, Object> params) throws Exception {
+        String section = com.sensible.common.util.LobbySection.normalize(params.get("section"));
+        params.put("section", section);
+        params.put("mediaFilter", com.sensible.common.util.LobbySection.normalizeMediaFilter(section, params.get("mediaFilter")));
         return dao.selectList("super.selectLatestContentCandidates", params);
     }
 
     // 편성 공통 필드(추천·기간·제목·게시 여부)를 폼 값에서 뽑는다
     private Map<String, Object> buildLatestContentParam(Map<String, Object> params, String adminId) throws Exception {
         Map<String, Object> param = new HashMap<>();
+        param.put("section", com.sensible.common.util.LobbySection.normalize(params.get("section")));
         param.putAll(validateLatestContentPeriod(params.get("startAt"), params.get("endAt")));
         param.put("isFeatured", yn(params.get("isFeatured")));
         param.put("useYn", params.containsKey("useYn") ? yn(params.get("useYn")) : "Y");
@@ -1081,18 +1098,25 @@ public class SuperAdminService {
         }
     }
 
-    /** 기존 게시물을 편성에 추가. 승인된 영상 글만, 중복 불가 */
+    /**
+     * 기존 게시물을 편성에 추가. 같은 구역 안 중복 불가.
+     * Star Shorts 는 승인된 영상 글만, 세로형·가로형은 승인된 글 중 사진·영상이 붙은 글.
+     */
     @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
     public int insertLatestContent(Map<String, Object> params, String adminId) throws Exception {
         int conId = parseIntOr(params.get("conId"), 0);
         if (conId <= 0) {
             throw new Exception("게시물을 선택해주세요.");
         }
+        String section = com.sensible.common.util.LobbySection.normalize(params.get("section"));
+        boolean videoOnly = com.sensible.common.util.LobbySection.videoOnly(section);
         Map<String, Object> key = new HashMap<>();
         key.put("conId", conId);
-        int approved = dao.selectOne("super.selectLatestContentApprovedVideo", key);
+        key.put("section", section);
+        int approved = dao.selectOne(videoOnly ? "super.selectLatestContentApprovedVideo" : "super.selectLatestContentApprovedMedia", key);
         if (approved == 0) {
-            throw new Exception("검수 승인된 영상 게시물만 편성할 수 있습니다. (CON_ID " + conId + ")");
+            throw new Exception((videoOnly ? "검수 승인된 영상 게시물만" : "검수 승인된 사진·영상 게시물만")
+                    + " 편성할 수 있습니다. (CON_ID " + conId + ")");
         }
         int exists = dao.selectOne("super.selectLatestContentCountByConId", key);
         if (exists > 0) {
@@ -1102,7 +1126,7 @@ public class SuperAdminService {
         param.put("conId", conId);
         dao.insert("super.insertLatestContent", param);
         Object lcId = param.get("lcId");
-        writeLatestContentLog(lcId, "INSERT", adminId, "conId=" + conId);
+        writeLatestContentLog(lcId, "INSERT", adminId, "section=" + section + ", conId=" + conId);
         return parseIntOr(lcId, 0);
     }
 
@@ -1246,7 +1270,8 @@ public class SuperAdminService {
         lcParam.put("conId", conId);
         dao.insert("super.insertLatestContent", lcParam);
         Object lcId = lcParam.get("lcId");
-        writeLatestContentLog(lcId, "UPLOAD", adminId, "conId=" + conId + ", prsId=" + prsId + ", file=" + videoName);
+        writeLatestContentLog(lcId, "UPLOAD", adminId, "section=" + lcParam.get("section") + ", conId=" + conId
+                + ", prsId=" + prsId + ", file=" + videoName);
         return parseIntOr(lcId, 0);
     }
 
@@ -1298,9 +1323,12 @@ public class SuperAdminService {
 
     @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
     public void saveLatestContentSetting(Map<String, Object> params, String adminId) throws Exception {
+        String section = com.sensible.common.util.LobbySection.normalize(params.get("section"));
         Map<String, Object> param = normalizeLatestContentSetting(params.get("displayCount"), params.get("intervalSec"));
+        param.putAll(sectionKey(section));
         param.put("adminId", adminId);
         dao.insert("super.upsertLatestContentSetting", param);
-        writeLatestContentLog(null, "SETTING", adminId, "count=" + param.get("displayCount") + ", interval=" + param.get("intervalSec"));
+        writeLatestContentLog(null, "SETTING", adminId, "section=" + section + ", count=" + param.get("displayCount")
+                + ", interval=" + param.get("intervalSec"));
     }
 }

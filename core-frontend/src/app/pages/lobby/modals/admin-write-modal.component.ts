@@ -2,6 +2,8 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ModalController, AlertController, ToastController } from '@ionic/angular';
 import { HttpService } from 'src/app/services/http.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { HttpEventType } from '@angular/common/http';
+import { FeedUploadService } from 'src/app/services/feed-upload.service';
 
 @Component({
   selector: 'app-admin-write-modal',
@@ -23,8 +25,8 @@ export class AdminWriteModalComponent implements OnInit {
   selectedVideo: File | null = null;
   videoPreview: string | ArrayBuffer | null = null;
   videoThumbnail: string | null = null; // 동영상 썸네일 (첫 프레임)
-  /** 동영상 첨부 상한(MB). 안내 문구와 검사가 같은 값을 쓴다 (2-33차: 5 → 15) */
-  static readonly MAX_VIDEO_SIZE_MB = 15;
+  /** 동영상 첨부 상한(MB). 안내 문구와 검사가 같은 값을 쓴다 (2-33차: 5 → 15, 2-34차: 15 → 95 — 서버 압축 도입) */
+  static readonly MAX_VIDEO_SIZE_MB = FeedUploadService.MAX_VIDEO_SIZE_MB;
   readonly maxVideoSizeMb = AdminWriteModalComponent.MAX_VIDEO_SIZE_MB;
   youtubeUrl: string = '';
   youtubeEmbedUrl: SafeResourceUrl | null = null;
@@ -32,13 +34,18 @@ export class AdminWriteModalComponent implements OnInit {
 
   // 🔄 로딩 상태
   isSubmitting: boolean = false;
+  /** 동영상 전송 진행률(0~100). 동영상 업로드 중에만 숫자 (2-34차) */
+  uploadProgress: number | null = null;
+  /** 동영상 전송 실패 사유 — 모달을 닫지 않고 보여 주고 Post 로 다시 시도한다 */
+  uploadError: string | null = null;
 
   constructor(
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
     private http: HttpService,
     private sanitizer: DomSanitizer,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private feedUpload: FeedUploadService
   ) {}
 
   /** 모달이 닫힌 뒤에도 결과를 알리기 위한 토스트 */
@@ -87,7 +94,7 @@ export class AdminWriteModalComponent implements OnInit {
   onVideoFileSelected(event: any) {
     const file = event.target.files[0];
     if (file) {
-      // 15MB 제한 체크 (2-33차: 5MB → 15MB, 클라이언트 요청으로 3배 확대)
+      // 용량 제한 체크 (2-33차 15MB → 2-34차 95MB. 서버가 재생용으로 압축한다)
       const maxSizeInMB = AdminWriteModalComponent.MAX_VIDEO_SIZE_MB;
       const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
       
@@ -97,21 +104,18 @@ export class AdminWriteModalComponent implements OnInit {
       }
       
       // 비디오 파일 형식 검증
-      const videoFormats = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+      const videoFormats = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/3gpp', 'video/x-m4v'];
       if (!videoFormats.includes(file.type)) {
         this.showError('Please select a valid video file (mp4, webm, ogg, mov, avi)');
         return;
       }
       
       this.selectedVideo = file;
-      
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.videoPreview = reader.result;
-        // 동영상 썸네일 추출
-        this.extractVideoThumbnail(file);
-      };
-      reader.readAsDataURL(file);
+      this.uploadError = null;
+      // 2-34차: 큰 영상을 data URL 로 읽지 않는다 (95MB → 127MB 문자열이 WebView 메모리를 잡아먹는다).
+      // 미리보기는 첫 프레임 썸네일만 쓰고, 전송은 파일 그대로 multipart 로 한다
+      this.videoPreview = file.name;
+      this.extractVideoThumbnail(file);
     }
   }
 
@@ -194,6 +198,11 @@ export class AdminWriteModalComponent implements OnInit {
       return alert.present();
     }
 
+    // 🎥 스타 글 + 동영상은 파일 업로드 경로 (2-34차)
+    if (this.isStar && this.selectedVideo) {
+      return this.submitVideoPost();
+    }
+
     this.isSubmitting = true;
 
     // 🌟 스타인지 관리자인지에 따라 페이로드와 URL을 분기 처리
@@ -203,8 +212,8 @@ export class AdminWriteModalComponent implements OnInit {
       feedText: this.content.trim(),
       starToken: localStorage.getItem('starToken') || '', // 스타 인증 토큰
       imageBase64: this.imagePreview || null,
-      // 🎥 동영상과 YouTube URL을 각각 전송 가능
-      videoBase64: this.videoPreview || null,
+      // 동영상은 submitVideoPost(멀티파트)로 보낸다. 여기는 사진·유튜브·본문만
+      videoBase64: null,
       youtubeUrl: this.youtubeUrl || null
     } : {
       adminId: localStorage.getItem('adminId') || '',
@@ -212,8 +221,8 @@ export class AdminWriteModalComponent implements OnInit {
       adminLevel: this.adminLevel,
       content: this.content.trim(),
       imageBase64: this.imagePreview || null,
-      // 🎥 동영상과 YouTube URL을 각각 전송 가능
-      videoBase64: this.videoPreview || null,
+      // 관리자 피드 API 는 동영상을 받지 않는다 (서버가 무시하던 값 — 큰 base64 를 보내지 않는다)
+      videoBase64: null,
       youtubeUrl: this.youtubeUrl || null
     };
 
@@ -242,6 +251,58 @@ export class AdminWriteModalComponent implements OnInit {
       this.isSubmitting = false;
       this.modalCtrl.dismiss({ success: true });
     }, 500);
+  }
+
+  /**
+   * 동영상 글 (2-34차): 파일 그대로 전송하며 진행률을 보여 준다. 전송이 끝나면 서버가 작업 ID 를 주고
+   * 압축·썸네일·게시물 생성은 백그라운드에서 한다. 모달은 전송 완료 시 닫고, 결과는 FeedUploadService 가 토스트로 알린다.
+   * 전송이 실패하면 모달을 닫지 않고 사유를 보여 준다 — Post 를 다시 누르면 재시도.
+   */
+  private submitVideoPost() {
+    const form = new FormData();
+    form.append('video', this.selectedVideo as File, (this.selectedVideo as File).name);
+    form.append('prsId', this.starId);
+    form.append('starToken', localStorage.getItem('starToken') || '');
+    form.append('feedText', this.content.trim());
+    if (this.youtubeUrl) form.append('youtubeUrl', this.youtubeUrl);
+    if (this.imagePreview) form.append('imageBase64', String(this.imagePreview));
+
+    this.isSubmitting = true;
+    this.uploadError = null;
+    this.uploadProgress = 0;
+
+    this.feedUpload.uploadStarVideo(form).subscribe({
+      next: event => {
+        const progress = FeedUploadService.progressOf(event);
+        if (progress !== null) {
+          this.uploadProgress = progress;
+          return;
+        }
+        if (event.type !== HttpEventType.Response) return;
+        const res: any = event.body;
+        if (res && res.result === 'OK' && res.jobId) {
+          this.feedUpload.watchJob(res.jobId);
+          this.isSubmitting = false;
+          this.uploadProgress = null;
+          this.modalCtrl.dismiss({ success: true, processing: true });
+        } else {
+          this.failVideoUpload((res && res.msg) || 'Upload failed. Please try again.');
+        }
+      },
+      error: err => {
+        // 413 = 프록시 본문 한도 초과 (상한 검사를 통과했는데도 나면 네트워크 쪽 제한)
+        const msg = err && err.status === 413
+          ? `The video is too large. Please choose a video under ${this.maxVideoSizeMb}MB.`
+          : 'Upload failed. Please check your connection and try again.';
+        this.failVideoUpload(msg);
+      },
+    });
+  }
+
+  private failVideoUpload(message: string) {
+    this.isSubmitting = false;
+    this.uploadProgress = null;
+    this.uploadError = message;
   }
 
   async showError(msg: string) {

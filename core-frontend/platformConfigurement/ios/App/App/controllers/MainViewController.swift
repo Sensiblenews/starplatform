@@ -13,6 +13,12 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
   var adLoader1: AdLoader!
    var adLoader2: AdLoader! // 삭제
    var adLoader3: AdLoader! // 삭제
+
+  // 2-34차: 로비 세로형 Latest Content 안의 광고 3개(콘텐츠 3·6·7번째 뒤) — 로비 슬롯 3~5, tag 204~206.
+  // 스타 페이지는 쓰지 않는다
+  static let lobbyOnlyTags = [204, 205, 206]
+  var lobbyOnlyContainers: [UIView] = []
+  var lobbyOnlyLoaders: [AdLoader] = []
   
   var adHeight: Int!
 
@@ -81,6 +87,16 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
     adContainer3.tag = 203
     adContainer3.isHidden = true
     adWrapper.addSubview(adContainer3)
+
+    // 로비 전용 4~6번 컨테이너
+    for tag in MainViewController.lobbyOnlyTags {
+      let c = UIView(frame: CGRect(x: 0, y: 0, width: sw, height: containerHeight))
+      c.backgroundColor = .clear
+      c.tag = tag
+      c.isHidden = true
+      adWrapper.addSubview(c)
+      lobbyOnlyContainers.append(c)
+    }
     
     self.view.addSubview(adWrapper)
 
@@ -113,6 +129,14 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
       adContainer3.trailingAnchor.constraint(equalTo: adWrapper.trailingAnchor),
       adContainer3.topAnchor.constraint(equalTo: adWrapper.topAnchor),
     ])
+    for c in lobbyOnlyContainers {
+      NSLayoutConstraint.activate([
+        c.heightAnchor.constraint(equalToConstant: containerHeight),
+        c.leadingAnchor.constraint(equalTo: adWrapper.leadingAnchor),
+        c.trailingAnchor.constraint(equalTo: adWrapper.trailingAnchor),
+        c.topAnchor.constraint(equalTo: adWrapper.topAnchor),
+      ])
+    }
     
     loadNativeAd()
   }
@@ -133,6 +157,13 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
       subview.removeFromSuperview()
     }
 
+    // 로비 전용 컨테이너는 비우고 숨긴다 (스타 페이지는 1~3만 쓴다)
+    lobbyOnlyLoaders = []
+    for c in lobbyOnlyContainers {
+      c.subviews.forEach { $0.removeFromSuperview() }
+      c.isHidden = true
+    }
+
     adLoader1 = makeLoader()
     adLoader1.load(Request())
 
@@ -143,11 +174,11 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
     adLoader3.load(Request())
   }
 
-  // 로비 모드 로드 — 슬롯 3개 각각 단건 로드 (스타 페이지와 같은 광고 단위)
+  // 로비 모드 로드 — 슬롯 6개 각각 단건 로드 (스타 페이지와 같은 광고 단위)
   func loadLobbyAd() {
     lobbyAdMode = true
 
-    for container in [adContainer1, adContainer2, adContainer3] {
+    for container in [adContainer1, adContainer2, adContainer3] + lobbyOnlyContainers {
       for subview in container!.subviews {
         subview.removeFromSuperview()
       }
@@ -161,12 +192,16 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
 
     adLoader3 = makeLoader()
     adLoader3.load(Request())
+
+    lobbyOnlyLoaders = lobbyOnlyContainers.map { _ in makeLoader() }
+    lobbyOnlyLoaders.forEach { $0.load(Request()) }
   }
 
-  /// 로더 → 슬롯 번호(0~2). 컨테이너 1~3(tag 201~203)과 1:1 이며 웹 ad_loaded 의 detail.slot 으로 나간다
+  /// 로더 → 슬롯 번호(0~5). 컨테이너 1~6(tag 201~206)과 1:1 이며 웹 ad_loaded 의 detail.slot 으로 나간다
   private func slotIndex(of adLoader: AdLoader) -> Int {
     if adLoader == adLoader2 { return 1 }
     if adLoader == adLoader3 { return 2 }
+    if let i = lobbyOnlyLoaders.firstIndex(where: { $0 === adLoader }) { return 3 + i }
     return 0
   }
 
@@ -190,10 +225,12 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
         attach(nativeAd, into: adContainer2, delegate: self)
     } else if adLoader == adLoader3 {
         attach(nativeAd, into: adContainer3, delegate: self)
+    } else if let i = lobbyOnlyLoaders.firstIndex(where: { $0 === adLoader }) {
+        attach(nativeAd, into: lobbyOnlyContainers[i], delegate: self)
     }
 
     // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지).
-    // detail.slot 은 로비 슬롯 번호(0~2) — 웹이 어느 플레이스홀더를 펼칠지 가른다
+    // detail.slot 은 로비 슬롯 번호(0~5) — 웹이 어느 플레이스홀더를 펼칠지 가른다
     let js = "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: \(slotIndex(of: adLoader)) } }));"
     DispatchQueue.main.async {
         self.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
@@ -203,9 +240,11 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
   // 광고 로드 실패 — 실패한 로더의 컨테이너만 숨긴다 (로비 3슬롯에서 한 슬롯의 no-fill 이 나머지를 지우면 안 된다)
   func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: Error) {
     print("native ad failed slot=\(slotIndex(of: adLoader)):", error.localizedDescription)
-    switch slotIndex(of: adLoader) {
+    let slot = slotIndex(of: adLoader)
+    switch slot {
     case 1: adContainer2.isHidden = true
     case 2: adContainer3.isHidden = true
+    case 3...5: lobbyOnlyContainers[slot - 3].isHidden = true
     default: adContainer1.isHidden = true
     }
   }

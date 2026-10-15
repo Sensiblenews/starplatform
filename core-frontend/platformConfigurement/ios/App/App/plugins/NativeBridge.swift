@@ -18,7 +18,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   private var fixedPositionY3: CGFloat = 0
 
   // 로비 모드: 위치를 하드코딩 수식이 아니라 웹이 보내는 좌표(setSlotPositions)로 제어.
-  // 슬롯 3개(Today's TOP 위 / Discover 위 / New Creators 위)가 컨테이너 1~3(tag 201~203)에 1:1 로 대응
+  // 슬롯 6개(Today's TOP 위 / Discover 위 / New Creators 위 / 세로형 Latest Content 안 3개)가 컨테이너 1~6(tag 201~206)에 1:1 로 대응
   private var lobbyMode = false
 
   /// 웹이 보내는 로비 슬롯 한 개의 좌표 (css px = pt)
@@ -105,9 +105,9 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
       if show {
         // [핵심] 페이지에 따른 fixedPosition 분기 처리
         if page == "lobby" {
-            // 로비 모드: 슬롯 3개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기
+            // 로비 모드: 슬롯 6개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기
             self.lobbyMode = true
-            for c in [c1, c2, c3] {
+            for c in self.lobbyContainers() {
               self.parkOffscreen(c)
             }
 
@@ -128,6 +128,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
             c1?.isHidden = false
             c2?.isHidden = false
             c3?.isHidden = false
+            self.hideLobbyOnlyContainers()
         } else {
             // 일반 탭/로비 페이지: 상단에 고정 (예: 128pt)
             self.lobbyMode = false
@@ -139,6 +140,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
             c1?.isHidden = false
             c2?.isHidden = true
             c3?.isHidden = true
+            self.hideLobbyOnlyContainers()
         }
 
         self.reinitializePosition()
@@ -149,6 +151,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         c1?.isHidden = true
         c2?.isHidden = true
         c3?.isHidden = true
+        self.hideLobbyOnlyContainers()
       }
 
       call.resolve([:])
@@ -203,9 +206,22 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
     }
   }
 
-  /// 로비 슬롯 순서(0~2)대로의 컨테이너 배열
+  /// 로비 슬롯 순서(0~5)대로의 컨테이너 배열 (tag 201~206). 4~6 은 2-34차 세로형 Latest Content 안
   private func lobbyContainers() -> [UIView?] {
-    return [getAdContainer1(), getAdContainer2(), getAdContainer3()]
+    return [getAdContainer1(), getAdContainer2(), getAdContainer3()] + lobbyOnlyContainers()
+  }
+
+  /// 로비에서만 쓰는 컨테이너 (tag 204~206)
+  private func lobbyOnlyContainers() -> [UIView?] {
+    return MainViewController.lobbyOnlyTags.map { self.bridge?.viewController?.view.viewWithTag($0) }
+  }
+
+  /// 스타 페이지·일반 모드·숨김 전환 시 로비 전용 컨테이너를 숨긴다
+  private func hideLobbyOnlyContainers() {
+    for c in lobbyOnlyContainers() {
+      c?.layer.mask = nil
+      c?.isHidden = true
+    }
   }
 
   /// 로비 모드에서 좌표를 아직 못 받은(또는 광고가 없는) 컨테이너를 화면 밖에 둔다

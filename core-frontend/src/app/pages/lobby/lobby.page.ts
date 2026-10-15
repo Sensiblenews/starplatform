@@ -19,8 +19,10 @@ import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carouse
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
 import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
-import { LatestContentItem } from './latest-contents-logic';
+import { LatestContentItem, isVideoItem } from './latest-contents-logic';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
+import { LatestFeedComponent } from './components/latest-feed/latest-feed.component';
+import { HotShortsComponent } from './components/hot-shorts/hot-shorts.component';
 import { LatestContentsPlayerComponent } from './components/latest-contents-carousel/latest-contents-player.component';
 import { MyRankData, MyRankingCardComponent, RankDelta } from './components/my-ranking-card/my-ranking-card.component';
 import { GlobalOpeningOverlayComponent } from '../../components/global-opening-overlay/global-opening-overlay.component';
@@ -68,7 +70,7 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   isShowingFavorites: boolean = false;
   favoriteStars: any[] = [];
-  activeFavoriteTab: 'M' | 'F' | 'V' = 'M';
+  activeFavoriteTab: 'I' | 'M' | 'F' | 'V' = 'M';
   followerStars: any[] = [];
   visitorStars: any[] = [];
   isLoadingFollowers: boolean = false;
@@ -108,8 +110,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   private isViewActive = false;
   private appForeground = true;
 
-  // 🌟 네이티브 광고 슬롯 3개 (2-24차 단일 슬롯 → 3슬롯) — 위치는 웹이 측정해 네이티브로 전송.
-  // 템플릿의 #lobbyAdSlot 은 DOM 순서가 곧 슬롯 번호(0~2)이며 네이티브 컨테이너 1~3과 1:1
+  // 🌟 네이티브 광고 슬롯 6개 (2-24차 단일 슬롯 → 3슬롯 → 2-34차 6슬롯) — 위치는 웹이 측정해 네이티브로 전송.
+  // 슬롯 번호는 각 .lobby-ad-slot 의 data-slot 값(0~5)이며 네이티브 컨테이너 1~6과 1:1.
+  // 3~5 는 세로형 Latest Content 컴포넌트 안에 있어 @ViewChildren 으로 잡히지 않으므로 페이지 DOM 에서 찾는다
   @ViewChildren('lobbyAdSlot') lobbyAdSlots: QueryList<ElementRef>;
   adSlotFilled: boolean[] = emptyAdSlotFilled();
   // 슬롯별 카드 높이(css px). Android 는 소재 비율로 측정한 값을 보내고(2-33차 7번), iOS 는 기본 315
@@ -153,6 +156,11 @@ export class LobbyPage implements OnInit, OnDestroy {
   @ViewChild(LiveNewsTickerComponent) newsTicker: LiveNewsTickerComponent;
   // 🎬 Latest Contents 숏폼 캐러셀 (2-33차). 헤더와 VS 카드 사이. 진입 시 1회 + 당겨서 새로고침, 폴링 없음
   @ViewChild(LatestContentsCarouselComponent) latestCarousel: LatestContentsCarouselComponent;
+  // 🎬 세로형 Latest Content · 가로형 Hot Content (2-34차). 같은 편성 API 의 section=LATEST / HOT
+  @ViewChild(LatestFeedComponent) latestFeed: LatestFeedComponent;
+  @ViewChild(HotShortsComponent) hotShorts: HotShortsComponent;
+  latestFeedItems: LatestContentItem[] = [];
+  hotItems: LatestContentItem[] = [];
   latestContents: LatestContentItem[] = [];
   latestIntervalSec = 4;
   // 첫 조회가 끝날 때까지 스켈레톤을 보여 섹션이 "뿅" 나타나지 않게 한다. 당겨서 새로고침에는 다시 띄우지 않는다
@@ -219,6 +227,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private dm: DmService,
     private haptic: HapticService,
     private opening: OpeningOverlayService,
+    private hostEl: ElementRef<HTMLElement>,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -273,6 +282,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 🌟 VS 배틀필드 초기 로드 (폴링은 ionViewDidEnter에서 시작)
     this.loadVsCards();
     this.loadLatestContents();
+    this.loadLobbySections();
     this.loadCategoryTop100();
 
     this.searchSub = this.searchInput$.pipe(
@@ -381,7 +391,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.startVsPolling();
     if (this.vsCarousel) this.vsCarousel.startAutoPlay();
     if (this.newsTicker) this.newsTicker.start();
-    if (this.latestCarousel) this.latestCarousel.start();
+    this.startSectionMedia();
 
     // 🌟 My Global Ranking 카드: 진입 즉시 1회 + 30초 갱신 (2-29차)
     this.startMyRankPolling();
@@ -427,7 +437,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.openingOverlay) this.openingOverlay.stop(false);
     if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
     if (this.newsTicker) this.newsTicker.stop();
-    if (this.latestCarousel) this.latestCarousel.stop();
+    this.stopSectionMedia();
 
     if (this.backButtonSub) {
       this.backButtonSub.unsubscribe();
@@ -642,12 +652,51 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
   }
 
-  // 🎬 숏폼 영상 터치 → 전체 화면 플레이어 (요청서 "콘텐츠 선택 시 전체 화면 재생").
-  // 플레이어가 떠 있는 동안 카드의 자동 이동·재생은 멈추고, 닫히면 다시 켠다.
-  // 플레이어 안의 프로필·게시물 버튼은 모달을 닫으면서 목적지를 돌려주고 여기서 이동한다
-  async openLatestPlayer(item: LatestContentItem) {
-    this.haptic.tap();
+  // 🎬 세로형 Latest Content · 가로형 Hot Content 편성 목록 (2-34차). Star Shorts 와 같은 API·캐시에 section 만 다르다.
+  // 첫 등장 시 카드 높이만큼 아래 섹션이 밀리므로 광고 슬롯 위치를 다시 보낸다. 실패하면 섹션만 숨는다
+  loadLobbySections() {
+    const load = (section: 'LATEST' | 'HOT', apply: (items: LatestContentItem[]) => void) => {
+      this.http.get(`/api/super/lobby/latest-contents?section=${section}`).subscribe({
+        next: (res: any) => {
+          if (!res || res.result !== 'OK') return;
+          apply(res.items || []);
+          setTimeout(() => {
+            this.sendAdSlotPosition();
+            if (this.isViewActive) this.startSectionMedia();
+          });
+        },
+        error: () => { },
+      });
+    };
+    load('LATEST', items => this.latestFeedItems = items);
+    load('HOT', items => this.hotItems = items);
+  }
+
+  /** 로비 영상 섹션(Star Shorts·세로형·가로형) 재생 시작 — 로비 진입·앱 복귀·플레이어 닫힘 */
+  private startSectionMedia() {
+    if (this.latestCarousel) this.latestCarousel.start();
+    if (this.latestFeed) this.latestFeed.start();
+    if (this.hotShorts) this.hotShorts.start();
+  }
+
+  /** 로비 영상 섹션 정지 — 로비 이탈·백그라운드·플레이어 열림 */
+  private stopSectionMedia() {
     if (this.latestCarousel) this.latestCarousel.stop();
+    if (this.latestFeed) this.latestFeed.stop();
+    if (this.hotShorts) this.hotShorts.stop();
+  }
+
+  // 🎬 숏폼 영상 터치 → 전체 화면 플레이어 (요청서 "콘텐츠 선택 시 전체 화면 재생").
+  // Star Shorts·세로형·가로형 공용 (2-34차). 사진 글은 플레이어 대신 게시물 상세로 간다.
+  // 플레이어가 떠 있는 동안 로비 영상은 전부 멈추고, 닫히면 다시 켠다.
+  // 플레이어 안의 프로필·게시물 버튼은 모달을 닫으면서 목적지를 돌려주고 여기서 이동한다
+  async openLatestPlayer(item: LatestContentItem, source: 'SHORTS' | 'LATEST' | 'HOT' = 'SHORTS') {
+    this.haptic.tap();
+    if (!isVideoItem(item)) {
+      this.router.navigate([`/feed-detail/${item.conId}`]);
+      return;
+    }
+    this.stopSectionMedia();
     const modal = await this.modalCtrl.create({
       component: LatestContentsPlayerComponent,
       componentProps: { item },
@@ -655,9 +704,12 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
     await modal.present();
     const { data } = await modal.onDidDismiss();
-    if (this.isViewActive && this.latestCarousel && !(data && data.navigate)) this.latestCarousel.start();
+    if (this.isViewActive && !(data && data.navigate)) this.startSectionMedia();
     if (data && data.navigate) {
-      if (data.reason === 'PROFILE_CLICK' && this.latestCarousel) this.latestCarousel.trackProfileClick(item);
+      if (data.reason === 'PROFILE_CLICK') {
+        const tracker = source === 'LATEST' ? this.latestFeed : source === 'HOT' ? this.hotShorts : this.latestCarousel;
+        if (tracker) tracker.trackProfileClick(item);
+      }
       this.router.navigate(data.navigate);
     }
   }
@@ -885,6 +937,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.loadLobbyData(event);
     this.loadMyRank(); // My Global Ranking 카드도 함께 갱신 (2-29차)
     this.loadLatestContents(); // 숏폼 편성도 함께 갱신 (2-33차)
+    this.loadLobbySections(); // 세로형·가로형 편성도 함께 갱신 (2-34차)
   }
 
   toggleFavoriteList() {
@@ -893,8 +946,9 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.isSearching = false;
       this.isShowingRanking = false;
       this.activeRankingTab = null;
-      this.activeFavoriteTab = 'M';
-      this.loadFavoriteStars();
+      // 2-34차: 스타는 I(Insight)가 첫 탭. 일반 사용자는 탭 없이 즐겨찾기 목록만 본다
+      this.activeFavoriteTab = this.isStar ? 'I' : 'M';
+      if (!this.isStar) this.loadFavoriteStars();
     }
     this.updateLobbyAd();
   }
@@ -976,12 +1030,15 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.showHallOfFameInline = true;
   }
 
-  loadFavoriteStars() {
+  loadFavoriteStars(allowRestore = true) {
     const favIds = JSON.parse(localStorage.getItem('favorite_stars') || '[]');
 
     if (!favIds.length) {
       this.favoriteStars = [];
       this.setupMotionObserver();
+      // 2-34차 My Favorites 0 수정: 즐겨찾기는 기기 localStorage 에만 있어 재설치·스타 로그인(ID 가 starId 로 바뀜)
+      // 뒤 비어 보였다. 비어 있으면 서버 기록(WH_FOLLOWER_LOG)에서 이 기기 ID·로그인 스타 ID 의 즐겨찾기를 한 번 되살린다
+      if (allowRestore) this.restoreFavoriteStars();
       return;
     }
 
@@ -1010,7 +1067,29 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
   }
 
-  setFavoriteTab(tab: 'M' | 'F' | 'V') {
+  /** 앱 실행당 한 번만 복원을 시도한다 (빈 목록일 때 로비 새로고침마다 서버를 부르지 않게) */
+  private favoritesRestoreTried = false;
+
+  /** 서버 기록에서 즐겨찾기 복원 → localStorage 에 쓰고 목록 다시 그림 (빈 결과면 그대로 0) */
+  private restoreFavoriteStars() {
+    if (this.favoritesRestoreTried) return;
+    this.favoritesRestoreTried = true;
+    const ids = [this.deviceId, this.getEffectiveDeviceId()].filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+    if (!ids.length) return;
+    this.http.post('/api/super/star/favorites/by-device', { deviceIds: ids }).subscribe({
+      next: (res: any) => {
+        const starIds: string[] = res && res.result === 'OK' && Array.isArray(res.starIds) ? res.starIds.map(String) : [];
+        if (!starIds.length) return;
+        // 그새 사용자가 즐겨찾기를 눌렀으면 그 목록을 존중한다
+        if (JSON.parse(localStorage.getItem('favorite_stars') || '[]').length) return;
+        localStorage.setItem('favorite_stars', JSON.stringify(starIds));
+        this.loadFavoriteStars(false);
+      },
+      error: () => { },
+    });
+  }
+
+  setFavoriteTab(tab: 'I' | 'M' | 'F' | 'V') {
     this.activeFavoriteTab = tab;
     if (tab === 'M') {
       this.loadFavoriteStars();
@@ -1283,9 +1362,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   sendAdSlotPosition() {
     if (!this.isLobbyAdActive || !this.lobbyAdSlots || !this.adSlotFilled.some(Boolean)) return;
 
-    const slotEls = this.lobbyAdSlots.toArray();
+    const slotEls = this.findAdSlotElements();
     const slotTops = this.adSlotFilled.map((filled, i) =>
-      filled && slotEls[i] ? slotEls[i].nativeElement.getBoundingClientRect().top : null
+      filled && slotEls[i] ? slotEls[i]!.getBoundingClientRect().top : null
     );
     const header = document.querySelector('ion-header');
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
@@ -1295,6 +1374,21 @@ export class LobbyPage implements OnInit, OnDestroy {
     const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom);
     if (slots.length === 0) return;
     NativeBridge.setSlotPositions({ slots }).catch(() => { });
+  }
+
+  /**
+   * 슬롯 번호(data-slot) → 플레이스홀더 요소. 세로형 목록이 짧아 없는 슬롯은 null —
+   * 그 슬롯은 좌표를 보내지 않아 네이티브가 화면 밖에 둔다
+   */
+  private findAdSlotElements(): Array<HTMLElement | null> {
+    const result: Array<HTMLElement | null> = this.adSlotFilled.map(() => null);
+    const root: HTMLElement | null = this.hostEl ? this.hostEl.nativeElement : null;
+    if (!root) return result;
+    root.querySelectorAll<HTMLElement>('.lobby-ad-slot[data-slot]').forEach(el => {
+      const slot = parseInt(el.getAttribute('data-slot') || '', 10);
+      if (slot >= 0 && slot < result.length) result[slot] = el;
+    });
+    return result;
   }
 
   // 세로 스크롤 시작 시 Today's TOP의 순위·조회수 줄을 펼친다(2-29차 첫 화면 공간 확보).
@@ -1334,7 +1428,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           this.startMyRankPolling(); // My Global Ranking 카드 즉시 갱신 + 30초 재개
           if (this.vsCarousel) this.vsCarousel.startAutoPlay();
           if (this.newsTicker) this.newsTicker.start();
-          if (this.latestCarousel) this.latestCarousel.start();
+          this.startSectionMedia();
         }
         this.updateLobbyAd(); // 복귀 시 광고 재표시 (조건 미충족이면 내부에서 무시)
       } else {
@@ -1347,7 +1441,7 @@ export class LobbyPage implements OnInit, OnDestroy {
         if (this.openingOverlay) this.openingOverlay.stop(false);
         if (this.vsCarousel) this.vsCarousel.stopAutoPlay();
         if (this.newsTicker) this.newsTicker.stop();
-        if (this.latestCarousel) this.latestCarousel.stop();
+        this.stopSectionMedia();
         this.updateLobbyAd(); // 백그라운드 진입 시 광고 숨김
       }
     });

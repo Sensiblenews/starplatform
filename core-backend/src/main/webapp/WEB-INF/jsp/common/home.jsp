@@ -73,6 +73,9 @@
     /* 승인 전에는 자리가 어디인지 보이도록 점선 테두리 + "Advertisement" 라벨. ins 삽입 시 라벨 스타일은 지운다 */
     .ad-slot { position: relative; background: rgba(241, 245, 249, 0.92); border: 1px dashed #94a3b8; border-radius: 8px; }
     .ad-slot::after { content: "Advertisement"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #64748b; }
+    /* 광고가 실제로 들어간 자리는 점선·안내 글자를 걷는다 (2-34차 web-ads.js) */
+    .ad-slot.ad-live { background: transparent; border: 0; }
+    .ad-slot.ad-live::after { content: none; }
     .ad-slot-hero { flex: 0 0 auto; width: 728px; height: 90px; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); }
     /* 2026-10-06 메일: 300×600 고정 + sticky 로 스크롤 따라오게. (9-28 에는 버그로 보고돼 해제했었음) 상단 네비 64px + 간격 20px */
     .ad-slot-side { width: 300px; height: 600px; position: sticky; top: 84px; }
@@ -383,5 +386,7 @@
 <%@ include file="/WEB-INF/jsp/common/include/web-footer.jsp"%>
 <%@ include file="/WEB-INF/jsp/common/include/web-tabbar.jsp"%>
 <%@ include file="/WEB-INF/jsp/common/include/web-video-autoplay.jsp"%>
+<%-- 2-34차 3-1: 광고 단위 삽입·게이트 (resources/js/web-ads.js — 승인 전에는 꺼져 있다) --%>
+<script src="/resources/js/web-ads.js" defer></script>
 </body>
 </html>

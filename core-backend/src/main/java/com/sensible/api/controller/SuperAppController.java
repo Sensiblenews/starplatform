@@ -36,6 +36,9 @@ public class SuperAppController {
 	@Resource(name = "superAppService")
 	private SuperAppService superAppService;
 
+	@Resource(name = "starInsightService")
+	private com.sensible.api.service.StarInsightService starInsightService;
+
 	@Resource(name = "firebaseService")
 	private com.sensible.api.service.FirebaseService firebaseService;
 
@@ -443,11 +446,13 @@ public class SuperAppController {
 		return superAppService.getLiveNews();
 	}
 
-	// 🌟 [신규] 로비 Latest Contents 숏폼 캐러셀 (2-33차). Redis 60초 캐시, 어드민 저장 시 즉시 evict
+	// 🌟 [신규] 로비 편성 구역 목록 (2-33차 숏폼 캐러셀, 2-34차 구역 추가). Redis 60초 캐시, 어드민 저장 시 즉시 evict.
+	// ?section= SHORTS(기본, Star Shorts) | LATEST(세로형 Latest Content) | HOT(가로형 Hot Content).
+	// 파라미터 없이 부르는 2-33차 앱은 그대로 Star Shorts 를 받는다
 	@RequestMapping(value = "/api/super/lobby/latest-contents", method = { RequestMethod.GET, RequestMethod.POST })
 	@ResponseBody
-	public Map<String, Object> getLatestContents() throws Exception {
-		return superAppService.getLatestContents();
+	public Map<String, Object> getLatestContents(HttpServletRequest request) throws Exception {
+		return superAppService.getLatestContents(com.sensible.common.util.LobbySection.normalize(request.getParameter("section")));
 	}
 
 	// 🌟 [신규] 숏폼 이벤트(노출·재생·클릭·프로필 클릭) 기록 (2-33차). 항상 OK — 통계 실패가 앱에 보이면 안 된다
@@ -594,6 +599,22 @@ public class SuperAppController {
 		return superAppService.addStarFeed(params);
 	}
 
+	// 🌟 [신규] 스타 피드 동영상 업로드 — 멀티파트 + 비동기 변환 (2-34차, 영상 95MB).
+	// 필드: video(파일), prsId, starToken, feedText, youtubeUrl, imageBase64(선택). 응답: { result, jobId }
+	@RequestMapping(value = "/api/super/star/feed/add-media", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> addStarFeedMedia(@RequestParam("video") org.springframework.web.multipart.MultipartFile video,
+			@RequestParam Map<String, Object> params) {
+		return superAppService.startStarFeedMediaUpload(video, params);
+	}
+
+	// 🌟 [신규] 스타 피드 동영상 업로드 상태 (2-34차). 앱이 3초마다 폴링한다
+	@RequestMapping(value = "/api/super/star/feed/upload-status", method = { RequestMethod.GET, RequestMethod.POST })
+	@ResponseBody
+	public Map<String, Object> getStarFeedUploadStatus(@RequestParam("jobId") String jobId) {
+		return superAppService.getStarFeedUploadStatus(jobId);
+	}
+
 	// SuperAppController.java 내부 추가
 
 	@RequestMapping(value = "/api/super/star/feed/delete", method = RequestMethod.POST)
@@ -671,6 +692,30 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> getCommentBlockList(@RequestBody Map<String, Object> params) throws Exception {
 		return superAppService.getCommentBlockList(params);
+	}
+
+	// 🌟 [신규] 인사이트 그래프 5종 (2-34차 별 메뉴 I 탭). body: { starId, starToken, period: DAY|WEEK|MONTH|M3|M6|Y1 }.
+	// 본인 확인 필수, 사용자별 데이터라 캐시하지 않는다
+	@RequestMapping(value = "/api/super/my-insight/series", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> getMyInsightSeries(@RequestBody Map<String, Object> params) throws Exception {
+		String starId = params.get("starId") == null ? "" : String.valueOf(params.get("starId"));
+		String starToken = params.get("starToken") == null ? "" : String.valueOf(params.get("starToken"));
+		if (starId.isEmpty() || !superAppService.verifyStarToken(starId, starToken)) {
+			Map<String, Object> fail = new HashMap<>();
+			fail.put("result", "FAIL");
+			fail.put("msg", "Your session has expired. Please log in again.");
+			return fail;
+		}
+		return starInsightService.getSeries(starId, params.get("period"));
+	}
+
+	// 🌟 [신규] 기기 ID 들로 즐겨찾기 목록 복원 (2-34차 My Favorites 0 수정). body: { deviceIds: [..] } → { starIds: [..] }
+	// 앱 즐겨찾기는 기기 localStorage 에만 있어 재설치·스타 로그인(ID 가 바뀜) 뒤 비어 보였다
+	@RequestMapping(value = "/api/super/star/favorites/by-device", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> getFavoriteStarIdsByDevice(@RequestBody Map<String, Object> params) {
+		return superAppService.getFavoriteStarIdsByDevices(params.get("deviceIds"));
 	}
 
 	// 🌟 [신규] 내 스타페이지 상세 통계 (My Insight)

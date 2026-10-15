@@ -47,9 +47,25 @@ public class MainActivity extends BridgeActivity {
   WebView webView;
   private FrameLayout wrapper;
 
-  private NativeAd currentNativeAd1;
-  private NativeAd currentNativeAd2;
-  private NativeAd currentNativeAd3;
+  // 컨테이너별 현재 광고 (ad_container_1~6 순서). 로비는 6개 모두, 스타 페이지는 1~3만 쓴다 (2-34차 3→6)
+  private final NativeAd[] currentNativeAds = new NativeAd[NativeBridge.CONTAINER_COUNT];
+
+  /** 광고 컨테이너 id. 배열 순서 = 로비 슬롯 번호(0~5) = 웹 lobby-ad-slots.ts 의 슬롯 번호 */
+  static int[] adContainerIds() {
+    return new int[]{
+      R.id.ad_container_1, R.id.ad_container_2, R.id.ad_container_3,
+      R.id.ad_container_4, R.id.ad_container_5, R.id.ad_container_6
+    };
+  }
+
+  /** 컨테이너 id → 슬롯 번호(0~5). 모르는 id 는 0 */
+  static int adContainerIndexOf(int adId) {
+    int[] ids = adContainerIds();
+    for (int i = 0; i < ids.length; i++) {
+      if (ids[i] == adId) return i;
+    }
+    return 0;
+  }
 
 
   @Override
@@ -117,12 +133,9 @@ public class MainActivity extends BridgeActivity {
 
   private void addAdOverlays() {
     // 탭은 광고, 드래그는 웹뷰 스크롤로 나눠 보내는 컨테이너 (AdTouchRouterLayout 주석 참조)
-    FrameLayout adContainer1 = new AdTouchRouterLayout(this, webView);
-    FrameLayout adContainer2 = new AdTouchRouterLayout(this, webView);
-    FrameLayout adContainer3 = new AdTouchRouterLayout(this, webView);
-    setUpContainer(adContainer1, R.id.ad_container_1);
-    setUpContainer(adContainer2, R.id.ad_container_2);
-    setUpContainer(adContainer3, R.id.ad_container_3);
+    for (int id : adContainerIds()) {
+      setUpContainer(new AdTouchRouterLayout(this, webView), id);
+    }
   }
 
   /**
@@ -136,18 +149,9 @@ public class MainActivity extends BridgeActivity {
 //    AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-3940256099942544/1044960115")
     AdLoader adLoader = new AdLoader.Builder(this, "ca-app-pub-9109251900558498/4011939762")
       .forNativeAd(nativeAd -> {
-        NativeAd oldAd = null;
-        if (adId == R.id.ad_container_1) {
-          oldAd = currentNativeAd1;
-          currentNativeAd1 = nativeAd; // 새 광고 객체 저장
-        }
-        else if (adId == R.id.ad_container_2) {
-          oldAd = currentNativeAd2;
-          currentNativeAd2 = nativeAd; // 새 광고 객체 저장
-        } else if (adId == R.id.ad_container_3) {
-          oldAd = currentNativeAd3;
-          currentNativeAd3 = nativeAd; // 새 광고 객체 저장
-        }
+        int slot = adContainerIndexOf(adId);
+        NativeAd oldAd = currentNativeAds[slot];
+        currentNativeAds[slot] = nativeAd; // 새 광고 객체 저장
 
         if (oldAd != null) {
           oldAd.destroy();
@@ -197,11 +201,11 @@ public class MainActivity extends BridgeActivity {
           }
 
           // 로드 성공을 웹에 알림 — 로비 슬롯이 이 이벤트를 받아야 플레이스홀더를 펼친다 (no-fill 시 공백 방지).
-          // detail.slot 은 로비 슬롯 번호(0~2), detail.height 는 소재 비율로 측정한 카드 높이(dp = css px).
+          // detail.slot 은 로비 슬롯 번호(0~5), detail.height 는 소재 비율로 측정한 카드 높이(dp = css px).
           // height 가 0 이면(스타 페이지) 웹은 기본 315 를 쓴다
           if (webView != null) {
             webView.evaluateJavascript(
-              "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: " + lobbySlotIndexOf(adId)
+              "window.dispatchEvent(new CustomEvent('ad_loaded', { detail: { slot: " + adContainerIndexOf(adId)
                 + ", height: " + lobbyCardHeightDp + " } }));",
               null
             );
@@ -401,13 +405,6 @@ public class MainActivity extends BridgeActivity {
     return clamped;
   }
 
-  /** 컨테이너 id → 로비 슬롯 번호(0~2). NativeBridge.lobbyContainers() 의 순서와 같다 */
-  private int lobbySlotIndexOf(int adId) {
-    if (adId == R.id.ad_container_2) return 1;
-    if (adId == R.id.ad_container_3) return 2;
-    return 0;
-  }
-
   /** 로비 슬롯 카드 높이(px). 웹 플레이스홀더 315px·iOS 315pt 와 통일 */
   public int lobbyCardHeightPx() {
     return (int) (315 * getResources().getDisplayMetrics().density);
@@ -435,15 +432,7 @@ public class MainActivity extends BridgeActivity {
 
   // 외부(NativeBridge)에서 호출
   public void triggerAdPlayback(int adId) {
-    NativeAd targetAd = null;
-    if (adId == R.id.ad_container_1) {
-      targetAd = currentNativeAd1;
-    }
-    else if (adId == R.id.ad_container_2) {
-      targetAd = currentNativeAd2;
-    } else if (adId == R.id.ad_container_3) {
-      targetAd = currentNativeAd3;
-    }
+    NativeAd targetAd = currentNativeAds[adContainerIndexOf(adId)];
 
     // 재생은 SDK 가 MediaView 안에서 알아서 한다(시작 음소거는 VideoOptions). 여기서는 가시성 진입만 기록한다
     if (targetAd != null && targetAd.getMediaContent() != null && targetAd.getMediaContent().hasVideoContent()) {

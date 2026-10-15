@@ -55,6 +55,9 @@ public class SuperAdminController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sensible.admin.scheduler.SystemMetricsCollector metricsCollector;
 
+    @javax.annotation.Resource(name = "starInsightService")
+    private com.sensible.api.service.StarInsightService starInsightService;
+
     // 헬퍼 메소드: 로그인 유저 확인
     private UserVO getLoginUser(HttpServletRequest request) {
         return (UserVO) request.getSession().getAttribute("SUPER_USER_SESSION");
@@ -2275,6 +2278,89 @@ public class SuperAdminController {
     }
 
     // ==========================================
+    // 🌟 [신규] 인사이트 (2-34차 2-2) — 글로벌(SM)·국가(LC) 어드민. 지표별 스타 순위 목록 + 스타별 그래프
+    // ==========================================
+
+    private boolean isInsightAdmin(UserVO user) {
+        return user != null && ("SM".equals(user.getPRS_AUTH()) || "LC".equals(user.getPRS_AUTH()));
+    }
+
+    /** LC 는 자기 국가 스타만 볼 수 있다 */
+    private boolean canViewStarInsight(UserVO user, String prsId) {
+        if (!isInsightAdmin(user) || prsId == null || prsId.isEmpty()) return false;
+        if ("SM".equals(user.getPRS_AUTH())) return true;
+        String country = starInsightService.starCountry(prsId);
+        return country != null && country.equals(user.getPRS_COUNTRY());
+    }
+
+    /** [화면] 지표별 순위 목록. metric = RANK | VISIT | FOLLOW | LIKE | POST, period = DAY … Y1 */
+    @RequestMapping(value = "/super/insight/list.do")
+    public String insightList(HttpServletRequest request,
+            @RequestParam(value = "metric", required = false, defaultValue = "RANK") String metric,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!isInsightAdmin(user))
+            return "redirect:/super/dashboard.do";
+
+        Map<String, Object> data = starInsightService.getRanking(metric, period, getFilterCountry(user), page);
+        int total = (Integer) data.get("total");
+        int pageSize = (Integer) data.get("pageSize");
+        int current = (Integer) data.get("page");
+        int totalPages = Math.max(1, (int) Math.ceil((double) total / pageSize));
+        int startPage = Math.max(1, current - 4);
+        int endPage = Math.min(totalPages, startPage + 9);
+        if (endPage - startPage < 9) startPage = Math.max(1, endPage - 9);
+
+        model.addAllAttributes(data);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
+        model.addAttribute("isLC", "LC".equals(user.getPRS_AUTH()));
+        model.addAttribute("activeMenu", "insight_" + String.valueOf(data.get("metric")).toLowerCase());
+        return "super/insight_list";
+    }
+
+    /** [화면] 스타 한 명의 인사이트 그래프 (목록에서 클릭) */
+    @RequestMapping(value = "/super/insight/star.do")
+    public String insightStar(HttpServletRequest request,
+            @RequestParam(value = "id") String prsId,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period,
+            @RequestParam(value = "from", required = false, defaultValue = "RANK") String from,
+            Model model) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null)
+            return "redirect:/super/login.do";
+        if (!canViewStarInsight(user, prsId))
+            return "redirect:/super/insight/list.do";
+        String metric = com.sensible.api.service.StarInsightService.normalizeMetric(from);
+        model.addAttribute("star", starInsightService.starHeader(prsId));
+        model.addAttribute("period", com.sensible.api.service.StarInsightService.Period.parse(period).name());
+        model.addAttribute("fromMetric", metric);
+        model.addAttribute("activeMenu", "insight_" + metric.toLowerCase());
+        return "super/insight_star";
+    }
+
+    /** [API] 스타 한 명의 그래프 데이터 */
+    @RequestMapping(value = "/super/insight/series.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> insightSeries(HttpServletRequest request,
+            @RequestParam(value = "id") String prsId,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (!canViewStarInsight(user, prsId)) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("result", "FAIL");
+            denied.put("msg", "권한이 없습니다.");
+            return denied;
+        }
+        return starInsightService.getSeries(prsId, period);
+    }
+
+    // ==========================================
     // 🌟 [신규] 로비 Latest Contents 숏폼 편성 (2-33차, SM 전용)
     // 운영자가 기존 영상 게시물을 고르거나 직접 올려 로비 캐러셀을 편성한다.
     // ==========================================
@@ -2290,7 +2376,11 @@ public class SuperAdminController {
         return user != null && "SM".equals(user.getPRS_AUTH());
     }
 
-    /** [화면] 편성 목록 + 운영 설정 */
+    /**
+     * [화면] 편성 목록 + 운영 설정. ?section= 으로 구역을 고른다 (2-34차).
+     * 없음·SHORTS = Star Shorts 숏폼(2-33차 화면), LATEST = 세로형 자동재생, HOT = 가로형 미니숏폼.
+     * 세 메뉴가 같은 화면·같은 API 를 쓰고, 화면의 모든 요청에 section 이 실려 간다.
+     */
     @RequestMapping(value = "/super/latest-contents/list.do")
     public String latestContentsList(HttpServletRequest request, Model model) throws Exception {
         UserVO user = getLoginUser(request);
@@ -2299,15 +2389,19 @@ public class SuperAdminController {
         if (!isSuperMaster(user)) {
             return "redirect:/super/dashboard.do";
         }
-        model.addAttribute("itemList", superAdminService.getLatestContentAdminList());
-        model.addAttribute("setting", superAdminService.getLatestContentSetting());
+        String section = com.sensible.common.util.LobbySection.normalize(request.getParameter("section"));
+        model.addAttribute("section", section);
+        model.addAttribute("sectionTitle", com.sensible.common.util.LobbySection.adminTitle(section));
+        model.addAttribute("videoOnly", com.sensible.common.util.LobbySection.videoOnly(section));
+        model.addAttribute("itemList", superAdminService.getLatestContentAdminList(section));
+        model.addAttribute("setting", superAdminService.getLatestContentSetting(section));
         model.addAttribute("countMin", SuperAdminService.LC_COUNT_MIN);
         model.addAttribute("countMax", SuperAdminService.LC_COUNT_MAX);
         model.addAttribute("intervalMin", SuperAdminService.LC_INTERVAL_MIN);
         model.addAttribute("intervalMax", SuperAdminService.LC_INTERVAL_MAX);
         model.addAttribute("titleMax", SuperAdminService.LC_TITLE_MAX_LENGTH);
         model.addAttribute("uploadMaxMb", SuperAdminService.LC_UPLOAD_MAX_BYTES / 1024 / 1024);
-        model.addAttribute("activeMenu", "latest_contents");
+        model.addAttribute("activeMenu", com.sensible.common.util.LobbySection.activeMenu(section));
         return "super/latest_contents";
     }
 

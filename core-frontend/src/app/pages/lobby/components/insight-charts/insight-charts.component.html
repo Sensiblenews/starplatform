@@ -1,0 +1,31 @@
+<!-- 별 메뉴 I(Insight) 탭 — 기간 칩 + 그래프 5종 (2-34차) -->
+<div class="ic-periods">
+  <button *ngFor="let p of periods" type="button" [class.active]="p.key === period" (click)="selectPeriod(p.key)">{{ p.label }}</button>
+</div>
+
+<div class="ic-message" *ngIf="error">{{ error }}</div>
+<div class="ic-message" *ngIf="loading && !charts.length">Loading insight...</div>
+
+<div class="ic-grid" [class.is-loading]="loading" *ngIf="!error">
+  <div class="ic-card" *ngFor="let c of charts; trackBy: trackByKey">
+    <div class="ic-head">
+      <span class="ic-title">{{ c.title }}</span>
+      <span class="ic-summary">{{ c.summary }}</span>
+    </div>
+    <!-- 폭에 맞춰 늘어나는 그래프 (글자는 늘어나지 않게 SVG 밖 HTML 로 둔다) -->
+    <svg class="ic-svg" [attr.viewBox]="'0 0 ' + width + ' ' + height" preserveAspectRatio="none">
+      <line x1="0" [attr.y1]="height" [attr.x2]="width" [attr.y2]="height" class="ic-axis"></line>
+      <ng-container *ngIf="c.kind === 'bar'">
+        <rect *ngFor="let b of c.bars" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h" [attr.fill]="c.color" rx="1.5"></rect>
+      </ng-container>
+      <ng-container *ngIf="c.kind === 'line'">
+        <path [attr.d]="c.line.d" fill="none" [attr.stroke]="c.color" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        <circle *ngFor="let p of c.line.dots" [attr.cx]="p.x" [attr.cy]="p.y" r="2" [attr.fill]="c.color"></circle>
+      </ng-container>
+    </svg>
+    <div class="ic-labels">
+      <span *ngFor="let l of c.labels" [style.left.%]="(l.x / width) * 100">{{ l.text }}</span>
+    </div>
+    <div class="ic-empty" *ngIf="c.empty">{{ c.kind === 'line' ? 'Ranking history starts collecting from today.' : 'No activity in this period.' }}</div>
+  </div>
+</div>

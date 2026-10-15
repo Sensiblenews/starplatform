@@ -1,0 +1,137 @@
+// 로비 가로형 Hot Content (2-34차). 카드 폭 58% → 한 화면에 약 1.7장.
+
+:host {
+  display: block;
+}
+
+.hs-track {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 16px 14px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 16px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+// 세로 9:16 카드
+.hs-card {
+  position: relative;
+  flex: 0 0 58%;
+  max-width: 240px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0d1117;
+  scroll-snap-align: start;
+  contain: layout paint;
+
+  &::before {
+    content: '';
+    display: block;
+    padding-top: 178%;
+  }
+
+  video,
+  .hs-poster,
+  .hs-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hs-poster,
+  .hs-photo {
+    background: #0d1117;
+  }
+
+  .hs-poster {
+    transition: opacity 180ms ease;
+
+    &.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+}
+
+.hs-video-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+
+  ion-icon {
+    font-size: 11px;
+    color: #fff;
+  }
+}
+
+.hs-author {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #fff;
+
+  .hs-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    background: #333;
+    flex-shrink: 0;
+  }
+
+  .hs-name {
+    min-width: 0;
+    padding-right: 1px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-card .hs-poster { transition: none; }
+}
+
+// 소리 아이콘 — 재생 중인 카드에만 (2-34차 자동 사운드)
+.hs-sound {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+
+  ion-icon { font-size: 17px; }
+}

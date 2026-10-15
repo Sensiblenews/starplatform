@@ -87,6 +87,21 @@
             </ul>
         </li>
 
+        <!-- 인사이트 — 지표별 스타 순위와 스타별 그래프 (2-34차, SM 전체 / LC 자국) -->
+        <li class="nav-group" data-group="insight">
+            <a class="nav-group-toggle" data-bs-toggle="collapse" href="#navGroupInsight" role="button" aria-expanded="false" aria-controls="navGroupInsight">
+                <i class="fas fa-chart-line group-icon" style="color: #90caf9;"></i> 인사이트
+                <i class="fas fa-chevron-down group-caret"></i>
+            </a>
+            <ul class="nav-sub collapse" id="navGroupInsight">
+                <li><a href="/super/insight/list.do?metric=RANK" class="nav-link <c:if test="${activeMenu eq 'insight_rank'}">active</c:if>"><i class="fas fa-trophy me-2"></i> 랭킹</a></li>
+                <li><a href="/super/insight/list.do?metric=VISIT" class="nav-link <c:if test="${activeMenu eq 'insight_visit'}">active</c:if>"><i class="fas fa-eye me-2"></i> 방문자수</a></li>
+                <li><a href="/super/insight/list.do?metric=FOLLOW" class="nav-link <c:if test="${activeMenu eq 'insight_follow'}">active</c:if>"><i class="fas fa-star me-2"></i> 즐겨찾기</a></li>
+                <li><a href="/super/insight/list.do?metric=LIKE" class="nav-link <c:if test="${activeMenu eq 'insight_like'}">active</c:if>"><i class="fas fa-heart me-2"></i> 좋아요</a></li>
+                <li><a href="/super/insight/list.do?metric=POST" class="nav-link <c:if test="${activeMenu eq 'insight_post'}">active</c:if>"><i class="fas fa-file-alt me-2"></i> 게시물</a></li>
+            </ul>
+        </li>
+
         <c:if test="${isSM}">
             <!-- ② 로비 편성 — 앱 로비에 전 국가 공통으로 노출되는 요소 (SM 전용) -->
             <li class="nav-group" data-group="lobby">
@@ -95,9 +110,12 @@
                     <i class="fas fa-chevron-down group-caret"></i>
                 </a>
                 <ul class="nav-sub collapse" id="navGroupLobby">
-                    <li><a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>"><i class="fas fa-film me-2"></i> Latest Contents 숏폼</a></li>
+                    <li><a href="/super/latest-contents/list.do" class="nav-link <c:if test="${activeMenu eq 'latest_contents'}">active</c:if>"><i class="fas fa-film me-2"></i> Star Shorts 숏폼</a></li>
                     <li><a href="/super/vs/list.do" class="nav-link <c:if test="${activeMenu eq 'vs_list'}">active</c:if>"><i class="fas fa-bolt me-2"></i> VS 배틀필드</a></li>
                     <li><a href="/super/live-news/list.do" class="nav-link <c:if test="${activeMenu eq 'live_news'}">active</c:if>"><i class="fas fa-broadcast-tower me-2"></i> LIVE NEWS</a></li>
+                    <%-- 2-34차: 같은 편성 화면을 구역별로 연다 (세로형 = 앱 "Latest Content", 가로형 = 앱 "Hot Content") --%>
+                    <li><a href="/super/latest-contents/list.do?section=LATEST" class="nav-link <c:if test="${activeMenu eq 'latest_feed'}">active</c:if>"><i class="fas fa-grip-lines me-2"></i> 세로형 자동재생</a></li>
+                    <li><a href="/super/latest-contents/list.do?section=HOT" class="nav-link <c:if test="${activeMenu eq 'hot_content'}">active</c:if>"><i class="fas fa-grip-lines-vertical me-2"></i> 가로형 미니숏폼</a></li>
                 </ul>
             </li>
 

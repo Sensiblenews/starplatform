@@ -1,15 +1,23 @@
-// 로비 네이티브 광고 슬롯 3개의 좌표·클리핑 경계 계산 (2-24차 단일 슬롯을 3슬롯으로 확장).
+// 로비 네이티브 광고 슬롯 6개의 좌표·클리핑 경계 계산 (2-24차 단일 슬롯 → 3슬롯 → 2-34차 6슬롯).
 // LobbyPage에서 분리한 이유: 로비 페이지는 Capacitor 플러그인·네이티브 브리지를 import하므로
 // Karma에서 통째로 불러오기 어렵다. 순수 함수만 여기에 두고 spec은 이 모듈만 본다.
 
-/** 로비 슬롯 수 — 네이티브 컨테이너(ad_container_1~3 / tag 201~203)와 1:1 */
-export const LOBBY_AD_SLOT_COUNT = 3;
+/**
+ * 로비 슬롯 수 — 네이티브 컨테이너(ad_container_1~6 / tag 201~206)와 1:1.
+ * 슬롯 번호는 화면 순서가 아니라 템플릿의 data-slot 값이다 (세로형 목록이 짧으면 그 안의 슬롯이 아예 없을 수 있다):
+ *   0 = My Global Ranking 아래 · 1 = Trending 아래 · 2 = TOP 100 아래 (2-24차부터 그대로)
+ *   3·4·5 = 세로형 Latest Content 안 (2-34차, LOBBY_FEED_AD_SLOTS)
+ */
+export const LOBBY_AD_SLOT_COUNT = 6;
+
+/** 세로형 Latest Content 안의 광고 슬롯 번호 — 콘텐츠 3·6·7번째 뒤(LATEST_FEED_AD_AFTER)에 순서대로 대응 */
+export const LOBBY_FEED_AD_SLOTS: ReadonlyArray<number> = [3, 4, 5];
 
 /**
- * 슬롯별 클리핑 경계. 슬롯 1·2는 랭킹 탭 바보다 위에 있어 헤더 하단에서 잘리고,
- * 슬롯 3은 sticky 탭 바 아래에 있어 탭 바 하단에서 잘린다 (그렇지 않으면 오버레이가 탭 바를 덮는다)
+ * 슬롯별 클리핑 경계. 슬롯 0·1과 세로형 안의 3~5는 랭킹 탭 바보다 위에 있어 헤더 하단에서 잘리고,
+ * 슬롯 2는 sticky 탭 바 아래에 있어 탭 바 하단에서 잘린다 (그렇지 않으면 오버레이가 탭 바를 덮는다)
  */
-export const LOBBY_AD_SLOT_BELOW_TAB_BAR: ReadonlyArray<boolean> = [false, false, true];
+export const LOBBY_AD_SLOT_BELOW_TAB_BAR: ReadonlyArray<boolean> = [false, false, true, false, false, false];
 
 /** 네이티브로 보내는 슬롯 한 개의 위치. 단위는 css px(= iOS pt, Android는 네이티브가 density를 곱한다) */
 export interface LobbyAdSlotPosition {

@@ -1,5 +1,10 @@
 import {
   LATEST_DEFAULT_INTERVAL_SEC,
+  LATEST_FEED_AD_AFTER,
+  LatestContentItem,
+  buildLatestFeedRows,
+  isVideoItem,
+  pickActiveIndex,
   LATEST_MANUAL_PAUSE_MS,
   LATEST_SWIPE_THRESHOLD_PX,
   canAutoAdvance,
@@ -127,5 +132,49 @@ describe('latest-contents-logic (2-34차 플레이어 숫자)', () => {
     it('응답이 없으면 전부 0·false', () => {
       expect(toContentStats(undefined)).toEqual({ viewCnt: 0, likeCnt: 0, commentCnt: 0, saveCnt: 0, shareCnt: 0, liked: false, saved: false });
     });
+  });
+});
+
+describe('latest-contents-logic (2-34차 세로형 Latest Content)', () => {
+  const item = (n: number, mediaType: string | null = 'VIDEO'): LatestContentItem => ({
+    lcId: n, conId: n, prsId: 'p' + n, starName: 'S' + n, starImage: null, title: null,
+    mediaUrl: 'm' + n, thumbUrl: null, isFeatured: 'N', mediaType,
+  });
+  const items = (n: number) => Array.from({ length: n }, (_, i) => item(i + 1));
+  const shape = (rows: ReturnType<typeof buildLatestFeedRows>) =>
+    rows.map(r => r.kind === 'ad' ? 'ad' + r.slot : String(r.item.lcId)).join(',');
+
+  it('광고 위치는 메모 그대로 3·6·7번째 뒤', () => {
+    expect(LATEST_FEED_AD_AFTER).toEqual([3, 6, 7]);
+  });
+
+  it('10개면 3·6·7 뒤에 슬롯 3·4·5 가 순서대로 들어간다', () => {
+    expect(shape(buildLatestFeedRows(items(10), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4,7,ad5,8,9,10');
+  });
+
+  it('콘텐츠가 모자라면 그 뒤 광고는 넣지 않는다', () => {
+    expect(shape(buildLatestFeedRows(items(2), [3, 4, 5]))).toBe('1,2');
+    expect(shape(buildLatestFeedRows(items(3), [3, 4, 5]))).toBe('1,2,3,ad3');
+    expect(shape(buildLatestFeedRows(items(6), [3, 4, 5]))).toBe('1,2,3,ad3,4,5,6,ad4');
+  });
+
+  it('빈 목록·없는 목록은 빈 줄', () => {
+    expect(buildLatestFeedRows([], [3, 4, 5])).toEqual([]);
+    expect(buildLatestFeedRows(null as any, [3, 4, 5])).toEqual([]);
+  });
+
+  it('isVideoItem — mediaType 이 없으면(2-33 숏폼) 영상, PHOTO 는 아님', () => {
+    expect(isVideoItem(item(1, null))).toBe(true);
+    expect(isVideoItem(item(1, 'VIDEO'))).toBe(true);
+    expect(isVideoItem(item(1, 'PHOTO'))).toBe(false);
+    expect(isVideoItem(undefined)).toBe(false);
+  });
+
+  it('pickActiveIndex — 가장 많이 보이는 영상, 동률은 앞, 절반 미만·사진은 제외', () => {
+    expect(pickActiveIndex([0.2, 0.9, 0.6], [true, true, true])).toBe(1);
+    expect(pickActiveIndex([0.8, 0.8], [true, true])).toBe(0);
+    expect(pickActiveIndex([1, 0.7], [false, true])).toBe(1);
+    expect(pickActiveIndex([0.4, 0.3], [true, true])).toBe(-1);
+    expect(pickActiveIndex([], [])).toBe(-1);
   });
 });

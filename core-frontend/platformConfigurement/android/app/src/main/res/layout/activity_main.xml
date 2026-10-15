@@ -44,5 +44,30 @@
       android:background="@android:color/transparent"
       android:clickable="true"
       android:focusable="true" />
+    <!-- 2-34차: 로비 세로형 Latest Content 안의 광고 3개(콘텐츠 3·6·7번째 뒤). 실제 컨테이너는 MainActivity 가 만들고 id 만 여기서 쓴다 -->
+    <FrameLayout
+      android:id="@+id/ad_container_4"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true" />
+    <FrameLayout
+      android:id="@+id/ad_container_5"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true" />
+    <FrameLayout
+      android:id="@+id/ad_container_6"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:background="@android:color/transparent"
+      android:clickable="true"
+      android:focusable="true" />
   </FrameLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,182 @@
+// 로비 세로형 Latest Content (2-34차). 카드 바탕·모서리는 Star Shorts·VS 카드와 맞춘다.
+
+:host {
+  display: block;
+  padding: 0 12px 4px;
+}
+
+.lf-card {
+  margin-bottom: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0d1117;
+  color: #fff;
+  contain: layout paint;
+}
+
+// 미디어 4:5 — 세로 영상은 위아래가 조금 잘리고, 한 화면에 카드 1.5장 정도가 보인다
+.lf-media {
+  position: relative;
+  width: 100%;
+  background: #000;
+
+  &::before {
+    content: '';
+    display: block;
+    padding-top: 125%;
+  }
+
+  video,
+  .lf-poster,
+  .lf-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  // 전역 img 회색 바탕(#eee)을 카드색으로 덮는다
+  .lf-poster,
+  .lf-photo {
+    background: #0d1117;
+  }
+
+  .lf-poster {
+    transition: opacity 180ms ease;
+
+    &.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+}
+
+.lf-video-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+
+  ion-icon {
+    font-size: 12px;
+    color: #fff;
+  }
+}
+
+.lf-featured {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(255, 193, 7, 0.92);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.lf-author {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.45);
+
+  .lf-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    background: #333;
+    flex-shrink: 0;
+  }
+
+  .lf-author-text {
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .lf-name {
+    max-width: 200px;
+    padding-right: 1px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lf-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+
+    ion-icon { font-size: 9px; }
+  }
+}
+
+.lf-title {
+  padding: 10px 12px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+// 로비 .lobby-ad-slot 과 같은 규칙 (컴포넌트 스타일이 갇혀 있어 여기 다시 둔다)
+.lobby-ad-slot {
+  height: 0;
+  overflow: hidden;
+  margin: 0 -12px;
+
+  &.filled {
+    height: 315px;
+    margin: 0 -12px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-media .lf-poster { transition: none; }
+}
+
+// 소리 아이콘 — 재생 중인 카드에만 (2-34차 자동 사운드)
+.lf-sound {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+
+  ion-icon { font-size: 17px; }
+}

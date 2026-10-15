@@ -4,7 +4,8 @@
         ("https".equals(scheme) && serverPort !=443)) { portStr=":" + serverPort; } String fallbackBaseUrl="" ; if
         ("localhost".equals(serverName) || "127.0.0.1" .equals(serverName) || serverName.startsWith("192.168.")) {
         fallbackBaseUrl=scheme + "://" + serverName + portStr; } else { fallbackBaseUrl="https://witch-hunting.com" ; }
-        request.setAttribute("fallbackBaseUrl", fallbackBaseUrl); %>
+        request.setAttribute("fallbackBaseUrl", fallbackBaseUrl);
+        request.setAttribute("isCrawler", com.sensible.api.service.LandingVisitService.isCrawler(request.getHeader("User-Agent"))); %>
         <!DOCTYPE html>
         <html>
 
@@ -124,6 +125,9 @@
 
             <script>
                 var ua = navigator.userAgent.toLowerCase();
+                <%-- 2-34차 AdSense 대응: 검색·광고 심사 크롤러(Googlebot, Mediapartners-Google 등)에게는 앱 자동 이동을 걸지 않는다.
+                     서버 판정(LandingVisitService.isCrawler — 방문 집계와 같은 기준). 화면 내용은 사람과 같고 이동 스크립트만 멈춘다 --%>
+                var isCrawler = ${isCrawler ? 'true' : 'false'};
                 // 🌟 페이스북 및 인스타그램 인앱 브라우저 통합 감지
                 var isFacebookApp = ua.indexOf('fban') > -1 || ua.indexOf('fbav') > -1 || ua.indexOf('instagram') > -1;
                 var isKakaoTalk = ua.indexOf('kakaotalk') > -1;
@@ -187,6 +191,7 @@
 
                  // 🚀 4. 자동 실행 로직
                 window.onload = function () {
+                    if (isCrawler) return;
                     var isIOS = ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1 || ua.indexOf('ipod') > -1;
                     var isAOS = ua.indexOf('android') > -1;
 

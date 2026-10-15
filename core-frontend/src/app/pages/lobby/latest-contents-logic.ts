@@ -13,6 +13,8 @@ export interface LatestContentItem {
   mediaUrl: string;
   thumbUrl: string | null;
   isFeatured: string;
+  /** VIDEO | PHOTO (2-34차 세로형·가로형만 사진 글이 있다. 없으면 영상) */
+  mediaType?: string | null;
 }
 
 /** 서버에 기록하는 이벤트 종류 */
@@ -122,4 +124,58 @@ export function compactNumber(value: unknown): string {
   if (n < 1_000_000) return fmt(n / 1000, 'K');
   if (n < 1_000_000_000) return fmt(n / 1_000_000, 'M');
   return fmt(n / 1_000_000_000, 'B');
+}
+
+// ===== 세로형 Latest Content (2-34차 1-2) =====
+
+/** 세로형 목록에서 광고를 넣을 위치 — 콘텐츠 N개 "뒤". 클라이언트 메모 그대로 3·6·7 (사용자 확인 2026-10-15) */
+export const LATEST_FEED_AD_AFTER: ReadonlyArray<number> = [3, 6, 7];
+
+/** 세로형 목록 한 줄 — 콘텐츠 또는 광고 자리 */
+export type LatestFeedRow =
+  | { kind: 'item'; item: LatestContentItem; index: number }
+  | { kind: 'ad'; slot: number };
+
+/**
+ * 콘텐츠 목록 사이에 광고 자리를 끼운다. afterCounts[i] 개 뒤에 adSlots[i] 번 슬롯.
+ * 콘텐츠가 그 개수보다 적으면 그 광고는 넣지 않는다 (목록 맨 끝에 광고만 덩그러니 남지 않게 마지막 콘텐츠 "뒤"까지만)
+ */
+export function buildLatestFeedRows(
+  items: ReadonlyArray<LatestContentItem>,
+  adSlots: ReadonlyArray<number>,
+  afterCounts: ReadonlyArray<number> = LATEST_FEED_AD_AFTER,
+): LatestFeedRow[] {
+  const rows: LatestFeedRow[] = [];
+  const list = items || [];
+  list.forEach((item, index) => {
+    rows.push({ kind: 'item', item, index });
+    const count = index + 1;
+    afterCounts.forEach((after, i) => {
+      if (after === count && i < adSlots.length) rows.push({ kind: 'ad', slot: adSlots[i] });
+    });
+  });
+  return rows;
+}
+
+/** 영상 항목인지 — 세로형·가로형은 사진 글도 편성된다 (mediaType 이 없으면 2-33차 숏폼 응답이므로 영상) */
+export function isVideoItem(item: LatestContentItem | null | undefined): boolean {
+  if (!item) return false;
+  return !item.mediaType || item.mediaType === 'VIDEO';
+}
+
+/**
+ * 여러 카드 중 지금 재생할 하나를 고른다 — 보이는 비율이 가장 큰 영상 카드, 동률이면 앞의 것.
+ * 절반 미만으로 보이는 카드는 고르지 않는다. 영상이 아니면 -1 로 건너뛴다
+ */
+export function pickActiveIndex(visibleRatios: ReadonlyArray<number>, isVideo: ReadonlyArray<boolean>, minRatio = 0.5): number {
+  let best = -1;
+  let bestRatio = -1;
+  visibleRatios.forEach((ratio, i) => {
+    if (!isVideo[i] || !(ratio >= minRatio)) return;
+    if (ratio > bestRatio) {
+      best = i;
+      bestRatio = ratio;
+    }
+  });
+  return best;
 }
