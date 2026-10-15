@@ -14,10 +14,6 @@
           (playing)="onPlaying(row.item)"></video>
         <img class="lf-poster" *ngIf="row.item.thumbUrl" [class.is-hidden]="playingIndex === row.index"
           [src]="row.item.thumbUrl" alt="" loading="lazy" />
-        <button class="lf-sound" *ngIf="playingIndex === row.index" (click)="toggleSound($event)"
-          [attr.aria-label]="audio.isEffectivelyMuted() ? 'Unmute' : 'Mute'">
-          <ion-icon [name]="audio.isEffectivelyMuted() ? 'volume-mute' : 'volume-high'"></ion-icon>
-        </button>
         <span class="lf-video-badge" *ngIf="playingIndex !== row.index"><ion-icon name="play"></ion-icon></span>
       </ng-container>
       <ng-template #photo>

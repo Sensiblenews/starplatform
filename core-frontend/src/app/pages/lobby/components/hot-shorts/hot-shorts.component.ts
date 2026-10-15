@@ -63,8 +63,6 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
 
   /** 지금 재생 중인 카드들 (최대 2장) */
   playingIndexes: number[] = [];
-  /** 소리를 내는 카드 (재생 중인 첫 장). 없으면 -1 */
-  soundIndex = -1;
 
   private intervalMs = normalizeIntervalMs(undefined);
   private timerId: any = null;
@@ -79,14 +77,13 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
     private http: HttpService,
     private deviceIdService: DeviceIdService,
     private ngZone: NgZone,
-    public audio: MediaAudioService,
+    private audio: MediaAudioService,
   ) {
     this.player = new VisibleVideoPlayer(
       this.audio,
       i => isVideoItem(this.itemList[i]),
       indexes => this.ngZone.run(() => {
         this.playingIndexes = indexes;
-        this.soundIndex = indexes.length ? indexes[0] : -1;
         indexes.forEach(i => {
           const item = this.itemList[i];
           if (item) this.track(item, 'IMPRESSION');
@@ -177,12 +174,6 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
 
   trackProfileClick(item: LatestContentItem): void {
     this.track(item, 'PROFILE_CLICK');
-  }
-
-  /** 카드의 소리 아이콘 — 앱 전체 소리 켬/끔 (카드 터치로 번지지 않게 막는다) */
-  toggleSound(event: Event): void {
-    event.stopPropagation();
-    this.audio.toggleSound();
   }
 
   handleImageError(event: any): void {
