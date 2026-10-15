@@ -64,6 +64,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   @Output() profileSelect = new EventEmitter<string>();
   /** 영상 터치 → 항목 전체 (로비가 전체 화면 플레이어를 연다) */
   @Output() contentSelect = new EventEmitter<LatestContentItem>();
+  /** 액션 열의 댓글 창·공유 시트가 열리고 닫힐 때 — 로비가 그동안 네이티브 광고를 숨긴다 (2-34 후속) */
+  @Output() overlayChange = new EventEmitter<boolean>();
 
   @ViewChild('video') video: ElementRef<HTMLVideoElement>;
   @ViewChild(ContentActionsComponent) actions: ContentActionsComponent;
@@ -221,6 +223,7 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
 
   /** 액션 열의 댓글 모달·공유 시트가 떠 있는 동안 자동 이동·재생을 멈춘다 (2-34 후속) */
   onActionsBusy(busy: boolean): void {
+    this.overlayChange.emit(busy);
     if (busy) {
       this.pausedByActions = this.running;
       this.stop();

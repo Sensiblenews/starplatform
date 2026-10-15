@@ -31,7 +31,8 @@
         </div>
       </div>
     </div>
-    <div class="lf-title" *ngIf="row.item.title">{{ row.item.title }}</div>
+    <!-- 미리보기 글: 빈 줄 제거 후 두 줄. 자르기는 안쪽 span 에 걸어 세 번째 줄이 아래 여백으로 새지 않게 -->
+    <div class="lf-title" *ngIf="titleOf(row.item) as text"><span class="lf-title-text">{{ text }}</span></div>
   </div>
 
 </ng-container>

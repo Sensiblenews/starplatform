@@ -6,6 +6,7 @@ import {
   isVideoItem,
   pickActiveIndex,
   pickActiveIndexes,
+  previewText,
   nextScrollLeft,
   LATEST_MANUAL_PAUSE_MS,
   LATEST_SWIPE_THRESHOLD_PX,
@@ -195,5 +196,17 @@ describe('latest-contents-logic (2-34 후속 가로형 2장 재생·자동 넘�
     expect(nextScrollLeft(1000, 230, 1000)).toBe(0);
     expect(nextScrollLeft(999, 230, 1000)).toBe(0);
     expect(nextScrollLeft(0, 230, 0)).toBe(0);
+  });
+});
+
+describe('previewText (2-34 후속 세로형 카드 글)', () => {
+  it('빈 줄을 빼서 두 번째 줄에 말줄임표만 남지 않게', () => {
+    expect(previewText('들꽃\n\nhttps://youtube.com/x')).toBe('들꽃\nhttps://youtube.com/x');
+    expect(previewText('  a  \r\n\r\n\n b ')).toBe('a\nb');
+  });
+
+  it('비었으면 빈 문자열', () => {
+    expect(previewText(null)).toBe('');
+    expect(previewText('\n \n')).toBe('');
   });
 });

@@ -139,11 +139,16 @@
   font-size: 13px;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.88);
+}
+
+// 두 줄 자르기는 여백 없는 안쪽 요소에 건다 — 바깥에 걸면 잘린 세 번째 줄이 아래 여백(padding) 안에 비쳐 보인다
+.lf-title-text {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-line;
+  word-break: break-all;
 }
 
 // 로비 .lobby-ad-slot 과 같은 규칙 (컴포넌트 스타일이 갇혀 있어 여기 다시 둔다)

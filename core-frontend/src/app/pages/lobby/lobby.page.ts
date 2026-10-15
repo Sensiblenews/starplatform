@@ -1,7 +1,7 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
-import { Platform, ModalController, PopoverController, AlertController, IonSearchbar, ScrollDetail } from '@ionic/angular';
+import { Platform, ModalController, PopoverController, AlertController, IonContent, IonSearchbar, ScrollDetail } from '@ionic/angular';
 import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs/operators';
 import { MarketMenuPopoverComponent } from './market-menu-popover.component';
@@ -118,20 +118,26 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 슬롯별 카드 높이(css px). Android 는 소재 비율로 측정한 값을 보내고(2-33차 7번), iOS 는 기본 315
   adSlotHeight: number[] = defaultAdSlotHeights();
   private isLobbyAdActive = false;
+  @ViewChild(IonContent) lobbyContent: IonContent;
+  /** 이번 광고 표시(setShow) 뒤 실제로 다시 채워진 슬롯 — 돌아왔을 때 다시 안 채워진 자리만 접는다 (2-34 후속) */
+  private slotsLoadedSinceShow = new Set<number>();
+  private slotReconcileTimer: any = null;
+  /** 돌아온 뒤 이 시간 안에 다시 채워지지 않은 슬롯은 no-fill 로 보고 접는다 */
+  private static readonly SLOT_RELOAD_GRACE_MS = 8000;
   private onNativeAdLoaded = (ev: Event) => this.ngZone.run(() => {
     if (!this.isLobbyAdActive) return; // star-page 광고의 ad_loaded는 무시
     const detail = (ev as CustomEvent).detail;
     const index = slotIndexFromAdLoaded(detail);
     if (index < 0) return;
-    this.adSlotFilled[index] = true;
-    this.adSlotHeight[index] = slotHeightFromAdLoaded(detail);
+    this.slotsLoadedSinceShow.add(index);
+    this.setAdSlot(index, true, slotHeightFromAdLoaded(detail));
     // 슬롯이 펼쳐진 뒤 레이아웃 반영을 기다렸다가 위치 전송
     setTimeout(() => this.sendAdSlotPosition(), 50);
   });
   private onNativeAdClicked = () => this.ngZone.run(async () => {
     if (!this.isLobbyAdActive) return; // star-page 클릭은 star-page가 처리
     await this.adProtection.lockAd('lobby');
-    this.hideLobbyAd();
+    this.hideLobbyAd(false);
   });
 
   // 🌟 [신규] 상단 슬롯머신(슬라이드) 제어 변수
@@ -229,6 +235,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private haptic: HapticService,
     private opening: OpeningOverlayService,
     private hostEl: ElementRef<HTMLElement>,
+    private cdr: ChangeDetectorRef,
     // private globalFeedback: GlobalFeedbackService,
   ) { }
 
@@ -361,7 +368,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.unbindDmState();
     window.removeEventListener('ad_loaded', this.onNativeAdLoaded);
     window.removeEventListener('ad_click_detected', this.onNativeAdClicked);
-    if (this.isLobbyAdActive) this.hideLobbyAd();
+    if (this.isLobbyAdActive) this.hideLobbyAd(false);
+    if (this.slotReconcileTimer) clearTimeout(this.slotReconcileTimer);
     if (this.searchSub) this.searchSub.unsubscribe();
     if (this.observer) this.observer.disconnect();
   }
@@ -701,6 +709,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       return;
     }
     this.stopSectionMedia();
+    this.setOverlayOpen(true);
     const modal = await this.modalCtrl.create({
       component: LatestContentsPlayerComponent,
       componentProps: { item },
@@ -708,6 +717,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     });
     await modal.present();
     const { data } = await modal.onDidDismiss();
+    this.setOverlayOpen(false);
     if (this.isViewActive && !(data && data.navigate)) this.startSectionMedia();
     if (data && data.navigate) {
       if (data.reason === 'PROFILE_CLICK') {
@@ -1336,8 +1346,21 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   // 노출 조건: 네이티브 앱 && 로비 화면 활성 && 섹션 목록 표시 중 && 포그라운드
   private canShowLobbyAd(): boolean {
-    return this.platform.is('capacitor') && this.isViewActive && this.appForeground
+    return this.platform.is('capacitor') && this.isViewActive && this.appForeground && !this.isOverlayOpen
       && !this.isSearching && !this.isShowingFavorites && !this.isShowingRanking;
+  }
+
+  /**
+   * 로비 위에 모달이 떠 있는지 (전체 화면 플레이어·댓글 창, 2-34 후속).
+   * 모달은 페이지 이탈(ionViewWillLeave)이 아니어서 네이티브 광고가 그대로 남아 모달 위에 겹쳤다 — 떠 있는 동안 숨긴다
+   */
+  private isOverlayOpen = false;
+
+  /** 모달이 열리고 닫힐 때 — 광고를 숨겼다가(자리 높이는 유지) 닫히면 다시 띄운다 */
+  setOverlayOpen(open: boolean) {
+    if (this.isOverlayOpen === open) return;
+    this.isOverlayOpen = open;
+    this.updateLobbyAd();
   }
 
   // 조건 변화 시마다 호출 — 필요할 때만 setShow를 보내 불필요한 광고 재로드를 막는다
@@ -1347,18 +1370,73 @@ export class LobbyPage implements OnInit, OnDestroy {
     const shouldShow = this.canShowLobbyAd() && await this.adProtection.shouldShowAd('lobby');
     if (shouldShow && !this.isLobbyAdActive) {
       this.isLobbyAdActive = true;
-      this.adSlotFilled = emptyAdSlotFilled();
+      // 2-34 후속: 다른 화면에 다녀오는 동안 유지해 둔 슬롯 높이는 그대로 두고 광고만 다시 받는다.
+      // 다시 채워지지 않은 슬롯은 잠시 뒤 접는다 (화면 위쪽 슬롯이면 스크롤을 같이 보정)
+      this.slotsLoadedSinceShow.clear();
+      this.scheduleSlotReconcile();
       NativeBridge.setShow({ show: true, page: 'lobby' }).catch(() => { });
     } else if (!shouldShow && this.isLobbyAdActive) {
-      this.hideLobbyAd();
+      // 다른 화면으로 가거나 백그라운드로 갈 때는 자리 높이를 남겨 둔다 — 비우면 돌아왔을 때 위쪽이
+      // 줄어든 만큼 스크롤이 아래로 밀려 있었다(클라이언트 보고). 검색·즐겨찾기·랭킹 화면 전환은 섹션 자체가 숨으므로 접는다
+      this.hideLobbyAd(!this.isViewActive || !this.appForeground || this.isOverlayOpen);
     }
   }
 
-  private hideLobbyAd() {
+  /**
+   * 네이티브 광고를 숨긴다. keepLayout 이면 웹 자리(플레이스홀더) 높이는 그대로 둔다 —
+   * 로비로 돌아와 광고가 다시 채워질 때까지 레이아웃이 흔들리지 않게 (2-34 후속)
+   */
+  private hideLobbyAd(keepLayout: boolean) {
     this.isLobbyAdActive = false;
-    this.adSlotFilled = emptyAdSlotFilled();
+    if (this.slotReconcileTimer) {
+      clearTimeout(this.slotReconcileTimer);
+      this.slotReconcileTimer = null;
+    }
+    if (!keepLayout) {
+      this.adSlotFilled.forEach((filled, i) => {
+        if (filled) this.setAdSlot(i, false, this.adSlotHeight[i]);
+      });
+    }
     NativeBridge.setShow({ show: false, page: 'lobby' }).catch(() => { });
   }
+
+  /** 돌아온 뒤 다시 채워지지 않은 슬롯(no-fill)을 접는다 */
+  private scheduleSlotReconcile() {
+    if (this.slotReconcileTimer) clearTimeout(this.slotReconcileTimer);
+    this.slotReconcileTimer = setTimeout(() => this.ngZone.run(() => {
+      this.slotReconcileTimer = null;
+      if (!this.isLobbyAdActive) return;
+      this.adSlotFilled.forEach((filled, i) => {
+        if (filled && !this.slotsLoadedSinceShow.has(i)) this.setAdSlot(i, false, this.adSlotHeight[i]);
+      });
+      this.sendAdSlotPosition();
+    }), LobbyPage.SLOT_RELOAD_GRACE_MS);
+  }
+
+  /**
+   * 광고 자리를 펼치거나 접는다. 자리가 지금 보이는 영역보다 위에 있으면 높이 변화만큼 스크롤을 보정해
+   * 사용자가 보던 콘텐츠가 그대로 제자리에 있게 한다 (2-34 후속 — 세로형·가로형을 눌렀다 돌아오면
+   * 스크롤이 내려가 있던 문제. 위쪽 자리가 접히거나 펼쳐지면서 내용이 밀렸다)
+   */
+  private setAdSlot(index: number, filled: boolean, height: number) {
+    if (this.adSlotFilled[index] === filled && (!filled || this.adSlotHeight[index] === height)) return;
+    const el = this.findAdSlotElements()[index];
+    const header = document.querySelector('ion-header');
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    const aboveView = !!el && el.getBoundingClientRect().bottom <= headerBottom + 1;
+    const scrollEl = aboveView ? this.lobbyScrollElement : null;
+    const before = scrollEl ? scrollEl.scrollHeight : 0;
+
+    this.adSlotFilled[index] = filled;
+    this.adSlotHeight[index] = height;
+    if (!scrollEl) return;
+    this.cdr.detectChanges(); // 바뀐 높이를 지금 그려야 차이를 잴 수 있다
+    const delta = scrollEl.scrollHeight - before;
+    if (delta !== 0) scrollEl.scrollTop += delta;
+  }
+
+  /** ion-content 의 실제 스크롤 요소 (onLobbyScroll 이 처음 받을 때 저장) */
+  private lobbyScrollElement: HTMLElement | null = null;
 
   // 펼쳐진 슬롯들의 뷰포트 좌표와 클리핑 경계를 네이티브로 한 번에 전송.
   // 슬롯 1·2는 랭킹 탭 바보다 위라 헤더 하단에서, 슬롯 3은 sticky 탭 바 아래라 탭 바 하단에서 잘려 들어간다.
@@ -1400,6 +1478,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 광고 슬롯 위치도 매번 바뀐다. 콜드 스타트마다 초기화되므로 "첫 화면" 인상에는 충분하다.
   onLobbyScroll(ev?: CustomEvent<ScrollDetail>) {
     const scrollTop = ev && ev.detail ? ev.detail.scrollTop : 0;
+    if (!this.lobbyScrollElement && this.lobbyContent) {
+      this.lobbyContent.getScrollElement().then(el => this.lobbyScrollElement = el).catch(() => { });
+    }
     if (!this.isTopMetaRevealed && shouldRevealTopMeta(scrollTop)) {
       this.isTopMetaRevealed = true;
       // 펼침 트랜지션(0.35초)이 끝난 뒤 광고 슬롯 위치를 다시 보낸다

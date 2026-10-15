@@ -198,3 +198,16 @@ export function nextScrollLeft(current: number, step: number, maxScroll: number)
   if (current >= maxScroll - 2) return 0;
   return Math.min(maxScroll, current + step);
 }
+
+/**
+ * 카드 미리보기 글 (2-34 후속). 빈 줄을 빼고 줄마다 앞뒤 공백을 지운다.
+ * 본문이 "들꽃 + 빈 줄 + 링크" 이면 두 줄 자르기에서 두 번째(빈) 줄에 말줄임표만 찍혔다(클라이언트 보고)
+ */
+export function previewText(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return String(raw)
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
+}
