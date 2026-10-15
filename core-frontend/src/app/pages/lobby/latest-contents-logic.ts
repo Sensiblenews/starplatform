@@ -179,3 +179,22 @@ export function pickActiveIndex(visibleRatios: ReadonlyArray<number>, isVideo: R
   });
   return best;
 }
+
+/**
+ * 여러 카드를 동시에 재생할 때 고르기 (2-34 후속 — 가로형 Hot Content 는 보이는 2장을 함께 재생).
+ * 절반 이상 보이는 영상 카드 중 화면 순서(인덱스)대로 최대 max 개. 첫 번째가 소리 담당
+ */
+export function pickActiveIndexes(visibleRatios: ReadonlyArray<number>, isVideo: ReadonlyArray<boolean>, max: number, minRatio = 0.5): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < visibleRatios.length && out.length < max; i++) {
+    if (isVideo[i] && visibleRatios[i] >= minRatio) out.push(i);
+  }
+  return out;
+}
+
+/** 가로 자동 넘김의 다음 스크롤 위치 — 한 칸(step) 앞으로, 끝에 닿았으면 처음으로 (순수 함수) */
+export function nextScrollLeft(current: number, step: number, maxScroll: number): number {
+  if (!(step > 0) || !(maxScroll > 0)) return 0;
+  if (current >= maxScroll - 2) return 0;
+  return Math.min(maxScroll, current + step);
+}

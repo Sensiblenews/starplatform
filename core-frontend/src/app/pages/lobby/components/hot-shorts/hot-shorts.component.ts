@@ -8,19 +8,30 @@ import {
   OnDestroy,
   Output,
   QueryList,
+  ViewChild,
   ViewChildren,
 } from '@angular/core';
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { MediaAudioService } from 'src/app/services/media-audio.service';
-import { LatestContentItem, isVideoItem } from '../../latest-contents-logic';
+import {
+  LatestContentItem,
+  canAutoAdvance,
+  isVideoItem,
+  nextScrollLeft,
+  normalizeIntervalMs,
+} from '../../latest-contents-logic';
 import { VisibleVideoPlayer } from '../visible-video-player';
 import { sendLatestContentEvent } from '../latest-content-events';
 
 /**
  * 로비 가로형 미니 숏폼 "Hot Content" (2-34차 1-2) — 세로형 Latest Content 바로 아래.
  * 어드민 "가로형 미니숏폼" 편성(section=HOT)을 한 화면에 1.5~2장 보이는 가로 스크롤로 보여 준다.
- * 가장 많이 보이는 영상 카드 하나만 음소거 자동재생. 터치 동작은 세로형과 같다(영상 → 플레이어, 사진 → 상세).
+ * 터치 동작은 세로형과 같다(영상 → 플레이어, 사진 → 상세).
+ *
+ * 2-34 후속(클라이언트 피드백 "왼쪽 1개와 오른쪽 1개 등 2개 모두 자동재생, 가로 스와이프 자동 처리"):
+ * - 절반 이상 보이는 영상 카드 2장을 함께 재생한다. 소리는 왼쪽 장만(MediaAudioService.play), 오른쪽은 음소거(playMuted)
+ * - 어드민 설정 간격(기본 4초)마다 한 칸씩 자동으로 넘기고 끝에서 처음으로 돌아간다. 손으로 넘기면 6초 쉰다
  */
 @Component({
   selector: 'app-hot-shorts',
@@ -34,6 +45,12 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
     this.itemList = value || [];
     setTimeout(() => this.bindCards());
   }
+
+  /** 자동 넘김 간격(초) — 어드민 "가로형 미니숏폼" 설정. 범위 밖이면 4초 */
+  @Input() set intervalSec(value: unknown) {
+    this.intervalMs = normalizeIntervalMs(value);
+    if (this.timerId) this.startTimer();
+  }
   get items(): LatestContentItem[] {
     return this.itemList;
   }
@@ -42,8 +59,15 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
   @Output() contentSelect = new EventEmitter<LatestContentItem>();
 
   @ViewChildren('card') cardEls: QueryList<ElementRef<HTMLElement>>;
+  @ViewChild('track') trackEl: ElementRef<HTMLElement>;
 
-  playingIndex = -1;
+  /** 지금 재생 중인 카드들 (최대 2장) */
+  playingIndexes: number[] = [];
+
+  private intervalMs = normalizeIntervalMs(undefined);
+  private timerId: any = null;
+  private running = false;
+  private lastManualAt: number | null = null;
 
   private itemList: LatestContentItem[] = [];
   private readonly sentEvents = new Set<string>();
@@ -53,16 +77,19 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
     private http: HttpService,
     private deviceIdService: DeviceIdService,
     private ngZone: NgZone,
-    public audio: MediaAudioService,
+    private audio: MediaAudioService,
   ) {
     this.player = new VisibleVideoPlayer(
       this.audio,
       i => isVideoItem(this.itemList[i]),
-      i => this.ngZone.run(() => {
-        this.playingIndex = i;
-        const item = this.itemList[i];
-        if (item) this.track(item, 'IMPRESSION');
+      indexes => this.ngZone.run(() => {
+        this.playingIndexes = indexes;
+        indexes.forEach(i => {
+          const item = this.itemList[i];
+          if (item) this.track(item, 'IMPRESSION');
+        });
       }),
+      2,
     );
   }
 
@@ -71,15 +98,55 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stop();
     this.player.destroy();
   }
 
   start(): void {
+    this.running = true;
     this.player.start();
+    this.startTimer();
   }
 
   stop(): void {
+    this.running = false;
     this.player.stop();
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+  }
+
+  isPlayingAt(index: number): boolean {
+    return this.playingIndexes.indexOf(index) >= 0;
+  }
+
+  /** 손으로 넘기기 시작하면 자동 넘김을 잠시 쉰다 */
+  onManualScroll(): void {
+    this.lastManualAt = Date.now();
+  }
+
+  // ===== 자동 넘김 =====
+
+  private startTimer(): void {
+    if (this.timerId) clearInterval(this.timerId);
+    this.timerId = null;
+    if (!this.running) return;
+    // 타이머 틱은 Angular 존 밖에서 — 스크롤이 일어나면 IntersectionObserver 가 재생 카드를 바꾼다
+    this.ngZone.runOutsideAngular(() => {
+      this.timerId = setInterval(() => this.autoAdvance(), this.intervalMs);
+    });
+  }
+
+  private autoAdvance(): void {
+    const el = this.trackEl ? this.trackEl.nativeElement : null;
+    const first = this.cardEls && this.cardEls.first ? this.cardEls.first.nativeElement : null;
+    if (!el || !first || this.itemList.length < 2) return;
+    if (!canAutoAdvance(Date.now(), this.lastManualAt)) return;
+    const gap = parseFloat(getComputedStyle(el).columnGap || '0') || 0;
+    const step = first.offsetWidth + gap;
+    const target = nextScrollLeft(el.scrollLeft, step, el.scrollWidth - el.clientWidth);
+    el.scrollTo({ left: target, behavior: 'smooth' });
   }
 
   trackByItem(_: number, item: LatestContentItem): number {
@@ -107,12 +174,6 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
 
   trackProfileClick(item: LatestContentItem): void {
     this.track(item, 'PROFILE_CLICK');
-  }
-
-  /** 카드의 소리 아이콘 — 앱 전체 소리 켬/끔 (카드 터치로 번지지 않게 막는다) */
-  toggleSound(event: Event): void {
-    event.stopPropagation();
-    this.audio.toggleSound();
   }
 
   handleImageError(event: any): void {

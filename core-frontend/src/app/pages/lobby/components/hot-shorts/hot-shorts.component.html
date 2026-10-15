@@ -1,17 +1,14 @@
-<!-- 가로형 Hot Content: 한 화면에 1.5~2장, 가로 스크롤 + 스냅 (2-34차) -->
-<div class="hs-track">
+<!-- 가로형 Hot Content: 한 화면에 1.5~2장, 가로 스크롤 + 스냅 (2-34차).
+     2-34 후속: 보이는 2장을 함께 자동재생(소리는 왼쪽 장만), 일정 간격으로 한 칸씩 자동 넘김 -->
+<div class="hs-track" #track (touchstart)="onManualScroll()" (wheel)="onManualScroll()">
   <div *ngFor="let item of items; let i = index; trackBy: trackByItem" #card class="hs-card" (click)="onCardTap(item)">
     <ng-container *ngIf="isVideo(item); else photo">
-      <video muted playsinline loop preload="metadata"
+      <video class="no-native-controls" muted playsinline loop preload="metadata" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
         [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
         (playing)="onPlaying(item)"></video>
-      <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="playingIndex === i"
+      <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="isPlayingAt(i)"
         [src]="item.thumbUrl" alt="" loading="lazy" />
-      <button class="hs-sound" *ngIf="playingIndex === i" (click)="toggleSound($event)"
-        [attr.aria-label]="audio.isEffectivelyMuted() ? 'Unmute' : 'Mute'">
-        <ion-icon [name]="audio.isEffectivelyMuted() ? 'volume-mute' : 'volume-high'"></ion-icon>
-      </button>
-      <span class="hs-video-badge" *ngIf="playingIndex !== i"><ion-icon name="play"></ion-icon></span>
+      <span class="hs-video-badge" *ngIf="!isPlayingAt(i)"><ion-icon name="play"></ion-icon></span>
     </ng-container>
     <ng-template #photo>
       <img class="hs-photo" [src]="item.mediaUrl || item.thumbUrl || ''" alt="" loading="lazy" />

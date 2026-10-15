@@ -71,19 +71,19 @@
   }
 }
 
-// 다음 숏폼 미리보기: 기존 Next 썸네일(본문 폭의 34%)의 절반 크기, 세로 영상 비율(9:16).
-// 메인 영상 오른쪽 위 모서리에 겹친다
+// 다음 숏폼 미리보기: 세로 영상 비율(9:16), 메인 영상 오른쪽 위 모서리에 겹친다.
+// 2-34 후속: 18% 도 크다는 피드백으로 가로·세로 다시 절반(9%)
 .latest-next {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 2;
-  width: 18%;
-  min-width: 56px;
-  border-radius: 10px;
+  width: 9%;
+  min-width: 32px;
+  border-radius: 6px;
   overflow: hidden;
   background: #1c2430;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 
   &::before {
@@ -139,7 +139,7 @@
   left: 8px;
   bottom: 8px;
   z-index: 2;
-  max-width: calc(100% - 16px);
+  max-width: calc(100% - 64px); // 오른쪽 액션 열 자리
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -184,23 +184,13 @@
   }
 }
 
-// 소리 아이콘 — 오른쪽 아래 (오른쪽 위는 다음 숏폼 미리보기 자리)
-.latest-sound {
+// 오른쪽 중간~아래 액션 열 (2-34 후속). 맨 아래(공유 숫자)가 왼쪽 프로필 이름 줄과 같은 높이 —
+// 게시자 오버레이(bottom 8px, 높이 34px)에서 이름 줄 하단은 바닥에서 약 31px (실측)
+.latest-actions {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 4px;
+  bottom: 31px;
   z-index: 2;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-
-  ion-icon { font-size: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

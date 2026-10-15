@@ -65,12 +65,13 @@ export class LatestFeedComponent implements AfterViewInit, OnDestroy {
     private http: HttpService,
     private deviceIdService: DeviceIdService,
     private ngZone: NgZone,
-    public audio: MediaAudioService,
+    private audio: MediaAudioService,
   ) {
     this.player = new VisibleVideoPlayer(
       this.audio,
       i => isVideoItem(this.itemList[i]),
-      i => this.ngZone.run(() => {
+      indexes => this.ngZone.run(() => {
+        const i = indexes.length ? indexes[0] : -1;
         this.playingIndex = i;
         const item = this.itemList[i];
         if (item) this.track(item, 'IMPRESSION');
@@ -122,12 +123,6 @@ export class LatestFeedComponent implements AfterViewInit, OnDestroy {
   /** 전체 화면 플레이어에서 프로필로 이동한 경우 — 통계만 기록한다 (로비가 호출) */
   trackProfileClick(item: LatestContentItem): void {
     this.track(item, 'PROFILE_CLICK');
-  }
-
-  /** 카드의 소리 아이콘 — 앱 전체 소리 켬/끔 (카드 터치로 번지지 않게 막는다) */
-  toggleSound(event: Event): void {
-    event.stopPropagation();
-    this.audio.toggleSound();
   }
 
   handleImageError(event: any): void {

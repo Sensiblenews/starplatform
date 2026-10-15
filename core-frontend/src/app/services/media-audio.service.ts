@@ -4,8 +4,9 @@ import { BehaviorSubject } from 'rxjs';
 /**
  * 로비 영상 재생·소리 관리 (2-34차 1-3 "숏폼·세로형·가로형 자동재생 시 자동 사운드").
  *
- * - 앱 전체에서 재생 중인 영상은 하나뿐이다. 다른 영상이 play() 를 요청하면 앞의 것을 멈춘다
+ * - 앱 전체에서 소리를 맡은(play) 영상은 하나뿐이다. 다른 영상이 play() 를 요청하면 앞의 것을 멈춘다
  *   (Star Shorts·세로형·가로형·전체 화면 플레이어가 같은 서비스를 쓴다)
+ * - 예외: 가로형 Hot Content 는 보이는 2장을 함께 재생한다(2-34 후속). 두 번째 장은 playMuted 로 소리 없이 돈다
  * - 기본은 소리 켬. 사용자가 음소거 아이콘을 누르면 앱 전체가 음소거로 바뀌고 앱을 다시 켤 때까지 유지된다
  * - Capacitor 웹뷰는 사용자 제스처 없는 소리 재생을 허용한다 (Android Bridge.setMediaPlaybackRequiresUserGesture(false),
  *   iOS mediaTypesRequiringUserActionForPlayback = []). 그래도 거부되면(NotAllowedError — 개발용 브라우저 등)
@@ -62,6 +63,16 @@ export class MediaAudioService {
         return !!(e && e.name === 'AbortError');
       }
     }
+  }
+
+  /**
+   * 소리 없이 함께 재생 (가로형 두 번째 카드). 재생 담당(current)은 바꾸지 않고 다른 영상도 멈추지 않는다.
+   * 이 영상이 재생 담당이었다면 담당에서 뺀다 — 소리는 첫 번째 카드만 낸다
+   */
+  playMuted(video: HTMLVideoElement): void {
+    if (this.current === video) this.current = null;
+    this.applyMuted(video, true);
+    if (video.paused) video.play().catch(() => { /* 자동재생 거부 — 포스터가 남는다 */ });
   }
 
   /** 이 영상을 멈추고 재생 담당에서 뺀다 (화면 밖·로비 이탈) */

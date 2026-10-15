@@ -161,6 +161,7 @@ export class LobbyPage implements OnInit, OnDestroy {
   @ViewChild(HotShortsComponent) hotShorts: HotShortsComponent;
   latestFeedItems: LatestContentItem[] = [];
   hotItems: LatestContentItem[] = [];
+  hotIntervalSec = 4;
   latestContents: LatestContentItem[] = [];
   latestIntervalSec = 4;
   // 첫 조회가 끝날 때까지 스켈레톤을 보여 섹션이 "뿅" 나타나지 않게 한다. 당겨서 새로고침에는 다시 띄우지 않는다
@@ -655,11 +656,11 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 🎬 세로형 Latest Content · 가로형 Hot Content 편성 목록 (2-34차). Star Shorts 와 같은 API·캐시에 section 만 다르다.
   // 첫 등장 시 카드 높이만큼 아래 섹션이 밀리므로 광고 슬롯 위치를 다시 보낸다. 실패하면 섹션만 숨는다
   loadLobbySections() {
-    const load = (section: 'LATEST' | 'HOT', apply: (items: LatestContentItem[]) => void) => {
+    const load = (section: 'LATEST' | 'HOT', apply: (items: LatestContentItem[], intervalSec: number) => void) => {
       this.http.get(`/api/super/lobby/latest-contents?section=${section}`).subscribe({
         next: (res: any) => {
           if (!res || res.result !== 'OK') return;
-          apply(res.items || []);
+          apply(res.items || [], res.intervalSec || 4);
           setTimeout(() => {
             this.sendAdSlotPosition();
             if (this.isViewActive) this.startSectionMedia();
@@ -669,7 +670,10 @@ export class LobbyPage implements OnInit, OnDestroy {
       });
     };
     load('LATEST', items => this.latestFeedItems = items);
-    load('HOT', items => this.hotItems = items);
+    load('HOT', (items, intervalSec) => {
+      this.hotItems = items;
+      this.hotIntervalSec = intervalSec; // 가로형 자동 넘김 간격 (2-34 후속)
+    });
   }
 
   /** 로비 영상 섹션(Star Shorts·세로형·가로형) 재생 시작 — 로비 진입·앱 복귀·플레이어 닫힘 */
