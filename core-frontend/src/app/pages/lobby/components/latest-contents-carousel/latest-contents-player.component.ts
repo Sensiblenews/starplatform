@@ -19,7 +19,7 @@ import { ContentActionsComponent } from '../content-actions/content-actions.comp
   selector: 'app-latest-contents-player',
   template: `
     <div class="player" *ngIf="item">
-      <video #video class="player-video" playsinline loop
+      <video #video class="player-video no-native-controls" playsinline loop webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
         [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
         (click)="togglePause()" (playing)="onPlaying()" (pause)="isPaused = true"></video>
 

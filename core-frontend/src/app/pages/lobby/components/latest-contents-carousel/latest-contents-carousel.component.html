@@ -8,7 +8,7 @@
     <div class="latest-main-inner">
       <!-- 한 번에 영상 하나만 그린다. src 가 바뀌면 브라우저가 새로 불러온다 -->
       <!-- poster 도 함께 준다: Android WebView 는 poster 가 없으면 첫 프레임 전까지 회색 바탕 + 검은 재생 버튼을 그린다 -->
-      <video #video muted playsinline loop preload="auto"
+      <video class="no-native-controls" #video muted playsinline loop preload="auto" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
         [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
         (playing)="onPlaying()" (pause)="onPaused()" (error)="onVideoError()"></video>
       <!-- 재생이 시작되기 전까지 썸네일로 덮는다. 가로 영상·포스터도 같은 비율로 잘린다 -->

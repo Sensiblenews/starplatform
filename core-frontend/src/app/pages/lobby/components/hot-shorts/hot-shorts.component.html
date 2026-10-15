@@ -3,7 +3,7 @@
 <div class="hs-track" #track (touchstart)="onManualScroll()" (wheel)="onManualScroll()">
   <div *ngFor="let item of items; let i = index; trackBy: trackByItem" #card class="hs-card" (click)="onCardTap(item)">
     <ng-container *ngIf="isVideo(item); else photo">
-      <video muted playsinline loop preload="metadata"
+      <video class="no-native-controls" muted playsinline loop preload="metadata" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
         [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
         (playing)="onPlaying(item)"></video>
       <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="isPlayingAt(i)"

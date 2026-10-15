@@ -168,3 +168,19 @@ img,
 ion-img {
   background-color: #eeeeee;
 }
+
+// 로비 숏폼·세로형·가로형·전체 화면 플레이어 영상의 WebKit 기본 컨트롤 숨김 (2-34 후속).
+// controls 속성을 빼도 iOS WKWebView 는 가운데 재생/일시정지 버튼·시작 재생 버튼을 그릴 수 있어
+// (클라이언트 보고: 전체 화면 가운데 II 버튼이 오래 남음) 그림자 DOM 요소까지 감춘다.
+// 일시정지/재개는 각 화면이 자체 처리한다(플레이어는 화면 터치)
+video.no-native-controls::-webkit-media-controls,
+video.no-native-controls::-webkit-media-controls-enclosure,
+video.no-native-controls::-webkit-media-controls-panel,
+video.no-native-controls::-webkit-media-controls-overlay-play-button,
+video.no-native-controls::-webkit-media-controls-start-playback-button,
+video.no-native-controls::-webkit-media-controls-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
