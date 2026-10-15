@@ -7,7 +7,7 @@
 --         LATEST = 첫 네이티브 광고와 Today's TOP 사이 세로형 "Latest Content"
 --         HOT    = 그 아래 가로형 미니 숏폼 "Hot Content"
 --       노출 개수·자동 이동 간격은 구역마다 따로 둔다. 설정 테이블은 ID 로 구분한다
---         (1=SHORTS 기존 행, 2=LATEST, 3=HOT — SuperAdminService.latestContentSettingId 와 같은 값).
+--         (1=SHORTS 기존 행, 2=LATEST, 3=HOT — LobbySection.settingId 와 같은 값).
 --       이벤트 테이블은 LC_ID 가 이미 구역별 행이라 바꾸지 않는다.
 --
 -- 적용: 운영 DB에 수동 1회 실행. 애플리케이션 배포 "전"에 실행할 것.
