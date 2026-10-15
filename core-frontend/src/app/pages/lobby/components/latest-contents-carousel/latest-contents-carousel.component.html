@@ -18,11 +18,10 @@
       </div>
       <span class="featured-badge" *ngIf="item.isFeatured === 'Y'">Featured</span>
 
-      <!-- 소리 아이콘 (2-34차 자동 사운드) — 오른쪽 아래, 게시자 오버레이와 같은 높이 -->
-      <button class="latest-sound" *ngIf="isPlaying" (click)="toggleSound($event)"
-        [attr.aria-label]="audio.isEffectivelyMuted() ? 'Unmute' : 'Mute'">
-        <ion-icon [name]="audio.isEffectivelyMuted() ? 'volume-mute' : 'volume-high'"></ion-icon>
-      </button>
+      <!-- 오른쪽 중간~아래 액션 열 (2-34 후속 — 전체 화면 플레이어와 같은 조회수·좋아요·댓글·저장·공유).
+           맨 아래가 왼쪽 프로필 이름 줄까지 내려온다. 소리 아이콘은 클라이언트 요청으로 없앴다(앱을 켜면 바로 소리) -->
+      <app-content-actions class="latest-actions" [conId]="item.conId" size="card"
+        (busyChange)="onActionsBusy($event)"></app-content-actions>
 
       <!-- 다음 숏폼: 정지 썸네일만 (영상 두 개가 동시에 돌지 않게). 누르면 메인으로 전환 -->
       <div class="latest-next" *ngIf="next as nextItem" (click)="onNextTap($event)">

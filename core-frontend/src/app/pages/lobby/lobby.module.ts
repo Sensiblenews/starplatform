@@ -17,6 +17,7 @@ import { VsCarouselComponent } from './components/vs-carousel/vs-carousel.compon
 import { LiveNewsTickerComponent } from './components/live-news-ticker/live-news-ticker.component';
 import { MyRankingCardComponent } from './components/my-ranking-card/my-ranking-card.component';
 import { InsightChartsComponent } from './components/insight-charts/insight-charts.component';
+import { ContentActionsComponent } from './components/content-actions/content-actions.component';
 import { LatestFeedComponent } from './components/latest-feed/latest-feed.component';
 import { HotShortsComponent } from './components/hot-shorts/hot-shorts.component';
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
@@ -50,6 +51,7 @@ import { GlobalOpeningOverlayComponent } from '../../components/global-opening-o
     LatestContentsCarouselComponent,
     LatestContentsPlayerComponent,
     LatestFeedComponent,
+    ContentActionsComponent,
     InsightChartsComponent,
     HotShortsComponent,
   ],

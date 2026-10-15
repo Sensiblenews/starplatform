@@ -70,7 +70,8 @@ export class LatestFeedComponent implements AfterViewInit, OnDestroy {
     this.player = new VisibleVideoPlayer(
       this.audio,
       i => isVideoItem(this.itemList[i]),
-      i => this.ngZone.run(() => {
+      indexes => this.ngZone.run(() => {
+        const i = indexes.length ? indexes[0] : -1;
         this.playingIndex = i;
         const item = this.itemList[i];
         if (item) this.track(item, 'IMPRESSION');

@@ -404,7 +404,7 @@
         <ion-icon name="flame" class="title-icon orange"></ion-icon>
         <ion-label>Hot Content</ion-label>
       </div>
-      <app-hot-shorts [items]="hotItems"
+      <app-hot-shorts [items]="hotItems" [intervalSec]="hotIntervalSec"
         (profileSelect)="goToStarPage($event)" (contentSelect)="openLatestPlayer($event, 'HOT')"></app-hot-shorts>
     </div>
 

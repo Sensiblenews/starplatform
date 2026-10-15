@@ -5,6 +5,8 @@ import {
   buildLatestFeedRows,
   isVideoItem,
   pickActiveIndex,
+  pickActiveIndexes,
+  nextScrollLeft,
   LATEST_MANUAL_PAUSE_MS,
   LATEST_SWIPE_THRESHOLD_PX,
   canAutoAdvance,
@@ -176,5 +178,22 @@ describe('latest-contents-logic (2-34차 세로형 Latest Content)', () => {
     expect(pickActiveIndex([1, 0.7], [false, true])).toBe(1);
     expect(pickActiveIndex([0.4, 0.3], [true, true])).toBe(-1);
     expect(pickActiveIndex([], [])).toBe(-1);
+  });
+});
+
+describe('latest-contents-logic (2-34 후속 가로형 2장 재생·자동 넘김)', () => {
+  it('pickActiveIndexes — 절반 이상 보이는 영상을 앞에서부터 최대 2개', () => {
+    expect(pickActiveIndexes([1, 0.7, 0.2], [true, true, true], 2)).toEqual([0, 1]);
+    expect(pickActiveIndexes([1, 0.7, 0.6], [false, true, true], 2)).toEqual([1, 2]);
+    expect(pickActiveIndexes([0.3, 0.4], [true, true], 2)).toEqual([]);
+    expect(pickActiveIndexes([1, 1, 1], [true, true, true], 1)).toEqual([0]);
+  });
+
+  it('nextScrollLeft — 한 칸씩, 끝에서 처음으로', () => {
+    expect(nextScrollLeft(0, 230, 1000)).toBe(230);
+    expect(nextScrollLeft(900, 230, 1000)).toBe(1000);
+    expect(nextScrollLeft(1000, 230, 1000)).toBe(0);
+    expect(nextScrollLeft(999, 230, 1000)).toBe(0);
+    expect(nextScrollLeft(0, 230, 0)).toBe(0);
   });
 });

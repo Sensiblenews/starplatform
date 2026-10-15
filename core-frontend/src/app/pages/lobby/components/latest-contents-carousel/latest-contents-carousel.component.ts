@@ -12,6 +12,7 @@ import {
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { MediaAudioService } from 'src/app/services/media-audio.service';
+import { ContentActionsComponent } from '../content-actions/content-actions.component';
 import {
   LatestContentEventType,
   LatestContentItem,
@@ -65,6 +66,7 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   @Output() contentSelect = new EventEmitter<LatestContentItem>();
 
   @ViewChild('video') video: ElementRef<HTMLVideoElement>;
+  @ViewChild(ContentActionsComponent) actions: ContentActionsComponent;
 
   activeIndex = 0;
   /** 활성 영상이 실제로 재생 중인지. false 면 썸네일을 덮어 둔다 */
@@ -80,6 +82,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   private readonly sentEvents = new Set<string>();
   /** 카드가 화면에 절반 이상 보이는지 (2-34차 — 아래 섹션을 보는 동안 맨 위 숏폼이 소리를 내지 않게) */
   private visible = true;
+  /** 액션 열 모달 때문에 멈춘 상태인지 (닫히면 원래대로 켠다) */
+  private pausedByActions = false;
   private visibilityObserver: IntersectionObserver | null = null;
 
   constructor(
@@ -215,10 +219,15 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     });
   }
 
-  /** 소리 아이콘 — 앱 전체 소리 켬/끔 (영상 터치로 번지지 않게 막는다) */
-  toggleSound(event: Event): void {
-    event.stopPropagation();
-    this.audio.toggleSound();
+  /** 액션 열의 댓글 모달·공유 시트가 떠 있는 동안 자동 이동·재생을 멈춘다 (2-34 후속) */
+  onActionsBusy(busy: boolean): void {
+    if (busy) {
+      this.pausedByActions = this.running;
+      this.stop();
+    } else if (this.pausedByActions) {
+      this.pausedByActions = false;
+      this.start();
+    }
   }
 
   /** 실제 프레임이 나오기 시작 — 썸네일을 걷고 재생 이벤트 기록 */
@@ -226,6 +235,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
     this.isPlaying = true;
     this.showPlayButton = false;
     if (this.active) this.trackEvent(this.active, 'PLAY');
+    // 로비 카드 재생도 조회 1회로 센다 (서버가 기기·게시물·30분 단위로 중복을 거른다)
+    if (this.actions) this.actions.reportView();
   }
 
   onPaused(): void {
