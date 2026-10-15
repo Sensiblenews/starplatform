@@ -77,3 +77,49 @@ export function normalizeIntervalMs(intervalSec: unknown): number {
 export function eventKey(lcId: number, type: LatestContentEventType): string {
   return `${lcId}:${type}`;
 }
+
+/** /api/super/content/stats 응답의 stats (2-34차 플레이어 오른쪽 숫자) */
+export interface ContentStats {
+  viewCnt: number;
+  likeCnt: number;
+  commentCnt: number;
+  saveCnt: number;
+  shareCnt: number;
+  liked: boolean;
+  saved: boolean;
+}
+
+/** 서버 응답(문자열·Y/N 섞임)을 ContentStats 로. 숫자가 아니면 0, 음수도 0 */
+export function toContentStats(raw: any): ContentStats {
+  const num = (v: any) => {
+    const n = typeof v === 'number' ? v : parseInt(String(v), 10);
+    return isNaN(n) || n < 0 ? 0 : n;
+  };
+  const flag = (v: any) => v === true || v === 'Y' || v === 1 || v === '1';
+  const r = raw || {};
+  return {
+    viewCnt: num(r.viewCnt),
+    likeCnt: num(r.likeCnt),
+    commentCnt: num(r.commentCnt),
+    saveCnt: num(r.saveCnt),
+    shareCnt: num(r.shareCnt),
+    liked: flag(r.liked),
+    saved: flag(r.saved),
+  };
+}
+
+/**
+ * 아이콘 아래 숫자 축약 — 999 까지 그대로, 1.2K · 12K · 1.2M. 소수 첫째 자리는 내림(올려서 부풀리지 않는다)
+ */
+export function compactNumber(value: unknown): string {
+  const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+  if (isNaN(n) || n <= 0) return '0';
+  const fmt = (v: number, unit: string) => {
+    const floored = v >= 10 ? Math.floor(v) : Math.floor(v * 10) / 10;
+    return `${floored}${unit}`;
+  };
+  if (n < 1000) return String(Math.floor(n));
+  if (n < 1_000_000) return fmt(n / 1000, 'K');
+  if (n < 1_000_000_000) return fmt(n / 1_000_000, 'M');
+  return fmt(n / 1_000_000_000, 'B');
+}

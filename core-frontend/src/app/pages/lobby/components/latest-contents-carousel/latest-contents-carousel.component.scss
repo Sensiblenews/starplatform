@@ -1,10 +1,11 @@
-// 로비 Latest Contents 숏폼 (2-33차) — 클라이언트 시안: 어두운 카드, 왼쪽 큰 세로 영상(1:2), 오른쪽 Next 썸네일.
+// 로비 Star Shorts 숏폼 (2-33차 신설, 2-34차 개편) — 어두운 카드, 카드 폭 전체를 쓰는 메인 영상,
+// 오른쪽 위에 겹친 다음 숏폼 미리보기(기존 Next 썸네일의 가로·세로 약 50%), 왼쪽 아래 게시자 오버레이.
 // 카드 바탕·모서리·여백은 VS 카드(vs-carousel.component.scss .vs-card)와 맞춘다.
 // 스켈레톤(skeleton.component.scss .sk-latest)과 높이 구성을 같게 유지할 것.
 
 .latest-card {
   margin: 10px 12px 4px;
-  padding: 12px 14px 12px;
+  padding: 10px 12px 12px;
   border-radius: 16px;
   background: #0d1117;
   color: #fff;
@@ -14,51 +15,24 @@
 .latest-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 
+  // VS 카드 머리글(.vs-type-label 12px)과 같은 크기
   .latest-title {
-    font-size: 18px;
+    font-size: 12px;
     font-weight: 800;
-    letter-spacing: -0.2px;
+    letter-spacing: 0.3px;
+    color: rgba(255, 255, 255, 0.92);
   }
 }
 
-// 시안의 "● LIVE": 빨간 점 + 빨간 글자, 배경 없음
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #ff5252;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-
-  .live-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #ff1744;
-    animation: lc-blink 1.2s infinite;
-  }
-}
-
-@keyframes lc-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
-.latest-body {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-// 왼쪽 큰 영상: 폭의 2/3, 세로는 가로의 2배 (padding-top 트릭 — 구형 WebView 의 aspect-ratio 미지원 대비)
+// 메인 영상: 카드 폭 전체. 높이는 2-33 카드(1:2 영상 + 게시자 줄)와 비슷하게 가로의 145%.
+// padding-top 트릭 — 구형 WebView 의 aspect-ratio 미지원 대비. 태블릿·PC 폭에서는 상한을 둔다
 .latest-main {
-  flex: 0 0 66%;
-  max-width: 300px;
   position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
   border-radius: 14px;
   overflow: hidden;
   background: #000;
@@ -66,7 +40,7 @@
   &::before {
     content: '';
     display: block;
-    padding-top: 200%;
+    padding-top: 145%;
   }
 }
 
@@ -97,31 +71,30 @@
   }
 }
 
-// 오른쪽 Next 썸네일: 폭의 1/3, 세로 영상 비율(9:16)로 위 정렬. 태블릿·PC 폭에서는 메인과 같이 상한을 둔다
-.latest-side {
-  flex: 0 1 34%;
-  max-width: 150px;
-  min-width: 0;
-}
-
+// 다음 숏폼 미리보기: 기존 Next 썸네일(본문 폭의 34%)의 절반 크기, 세로 영상 비율(9:16).
+// 메인 영상 오른쪽 위 모서리에 겹친다
 .latest-next {
-  position: relative;
-  border-radius: 12px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 18%;
+  min-width: 56px;
+  border-radius: 10px;
   overflow: hidden;
   background: #1c2430;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 
   &::before {
     content: '';
     display: block;
     padding-top: 178%;
   }
-}
-
-.latest-next-inner {
-  position: absolute;
-  inset: 0;
 
   img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -130,16 +103,10 @@
   }
 }
 
-.latest-next-label {
-  margin-top: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
 .play-overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -156,6 +123,7 @@
   position: absolute;
   top: 10px;
   left: 10px;
+  z-index: 2;
   padding: 3px 8px;
   border-radius: 8px;
   background: rgba(255, 193, 7, 0.92);
@@ -165,30 +133,40 @@
   letter-spacing: 0.3px;
 }
 
-// 게시자 줄: 아바타 + 이름 + StarPage
+// 게시자 오버레이: 원형 프로필(26px) + 이름(11px) + StarPage(10px), 반투명 배경
 .latest-author {
-  display: flex;
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 7px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.45);
 
   .latest-avatar {
-    width: 40px;
-    height: 40px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.9);
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
     background: #333;
     flex-shrink: 0;
   }
 
   .latest-author-text {
-    flex: 1;
     min-width: 0;
+    line-height: 1.2;
   }
 
   .latest-name {
-    font-size: 16px;
+    // 칸 폭이 글자 폭으로 정해지는 오버레이라 소수점 반올림만으로 말줄임이 생긴다 — 1px 여유를 둔다
+    max-width: 200px;
+    padding-right: 1px;
+    font-size: 11px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -198,23 +176,14 @@
   .latest-sub {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
+    gap: 1px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
 
-    ion-icon { font-size: 11px; }
-  }
-
-  .latest-index {
-    font-size: 12px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
+    ion-icon { font-size: 9px; }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .live-badge .live-dot { animation: none; }
   .latest-main-inner .latest-poster { transition: none; }
 }

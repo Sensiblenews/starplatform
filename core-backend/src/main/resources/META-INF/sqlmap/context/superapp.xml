@@ -2166,6 +2166,57 @@
 		VALUES (#{lcId}, #{eventType}, #{deviceId}, CURDATE(), NOW())
 	</insert>
 
+	<!-- ===== 게시물 조회수·저장 (2-34차 1-4) ===== -->
+
+	<!-- 플레이어 오른쪽 숫자 + 이 기기의 좋아요·저장 여부. 검수 승인 글만 -->
+	<select id="selectContentStats" parameterType="map" resultType="map">
+		SELECT
+			S.CON_ID AS conId,
+			IFNULL(S.VIEW_CNT, 0) AS viewCnt,
+			IFNULL(S.LIKE_CNT, 0) AS likeCnt,
+			IFNULL(S.COMMENT_CNT, 0) AS commentCnt,
+			IFNULL(S.SAVE_CNT, 0) AS saveCnt,
+			IFNULL(S.SHARE_CNT, 0) AS shareCnt,
+			IF(EXISTS (SELECT 1 FROM WH_GUEST_LIKE G
+			            WHERE G.TARGET_TYPE = 'FEED' AND G.TARGET_ID = S.CON_ID AND G.DEVICE_ID = #{deviceId}), 'Y', 'N') AS liked,
+			IF(EXISTS (SELECT 1 FROM WH_CONTENT_SAVE V
+			            WHERE V.CON_ID = S.CON_ID AND V.DEVICE_ID = #{deviceId}), 'Y', 'N') AS saved
+		FROM WH_STAR_CONTENT S
+		WHERE S.CON_ID = #{conId}
+		  AND S.MDR_STATUS = 'APPROVED'
+	</select>
+
+	<!-- 조회 기록. 같은 기기·게시물·30분 구간은 무시된다 (영향 행 수 0). 승인 글만 기록 -->
+	<insert id="insertContentView" parameterType="map">
+		INSERT IGNORE INTO WH_CONTENT_VIEW (CON_ID, DEVICE_ID, BUCKET, CREATED_DATE)
+		SELECT S.CON_ID, #{deviceId}, #{bucket}, NOW()
+		FROM WH_STAR_CONTENT S
+		WHERE S.CON_ID = #{conId} AND S.MDR_STATUS = 'APPROVED'
+	</insert>
+
+	<update id="increaseContentViewCount" parameterType="map">
+		UPDATE WH_STAR_CONTENT SET VIEW_CNT = VIEW_CNT + 1 WHERE CON_ID = #{conId}
+	</update>
+
+	<!-- 저장. 이미 저장돼 있으면 무시된다 (영향 행 수 0). 승인 글만 -->
+	<insert id="insertContentSave" parameterType="map">
+		INSERT IGNORE INTO WH_CONTENT_SAVE (CON_ID, DEVICE_ID, CREATED_DATE)
+		SELECT S.CON_ID, #{deviceId}, NOW()
+		FROM WH_STAR_CONTENT S
+		WHERE S.CON_ID = #{conId} AND S.MDR_STATUS = 'APPROVED'
+	</insert>
+
+	<delete id="deleteContentSave" parameterType="map">
+		DELETE FROM WH_CONTENT_SAVE WHERE CON_ID = #{conId} AND DEVICE_ID = #{deviceId}
+	</delete>
+
+	<!-- 저장 수는 증감 대신 실제 행 수로 맞춘다 (동시 요청·과거 오차에도 정확) -->
+	<update id="syncContentSaveCount" parameterType="map">
+		UPDATE WH_STAR_CONTENT
+		SET SAVE_CNT = (SELECT COUNT(*) FROM WH_CONTENT_SAVE WHERE CON_ID = #{conId})
+		WHERE CON_ID = #{conId}
+	</update>
+
 	<!-- ==========================================
 	     🌟 [신규] 1:1 메신저 (WH_DM_MESSAGE, 2-29차)
 	     살아 있는 메시지 = EXPIRE_AT > NOW(). 만료 행은 스케줄러가 파일과 함께 지운다

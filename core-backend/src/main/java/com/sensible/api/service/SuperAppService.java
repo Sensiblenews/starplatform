@@ -1348,6 +1348,116 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	// ===== 게시물 조회수·저장 (2-34차 1-4) =====
+
+	/** 같은 기기의 재조회를 1번으로 묶는 구간 길이(초) — 30분 */
+	static final int CONTENT_VIEW_BUCKET_SEC = 1800;
+
+	/** 조회 중복 판정 구간 (순수 함수 — 단위 테스트 대상). epoch 밀리초 → 30분 단위 번호 */
+	public static int contentViewBucket(long epochMillis) {
+		return (int) (epochMillis / 1000L / CONTENT_VIEW_BUCKET_SEC);
+	}
+
+	/** 게시물 ID 정규화 (순수 함수). 양의 정수가 아니면 0 */
+	public static int normalizeContentId(Object raw) {
+		int id = toInt(raw, 0);
+		return id > 0 ? id : 0;
+	}
+
+	/**
+	 * 플레이어 오른쪽 숫자(조회·좋아요·댓글·저장·공유) + 이 기기의 좋아요·저장 여부.
+	 * 숏폼 목록은 60초 캐시라 숫자가 늦으므로 영상이 열릴 때 따로 부른다. 승인 글이 아니면 FAIL.
+	 */
+	public Map<String, Object> getContentStats(Map<String, Object> params) {
+		Map<String, Object> resultMap = new HashMap<>();
+		int conId = normalizeContentId(params.get("conId"));
+		String deviceId = normalizeLatestContentDeviceId(params.get("deviceId"));
+		if (conId <= 0) {
+			resultMap.put("result", "FAIL");
+			return resultMap;
+		}
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("conId", conId);
+			param.put("deviceId", deviceId == null ? "" : deviceId);
+			Map<String, Object> stats = dao.selectOne("superapp.selectContentStats", param);
+			if (stats == null) {
+				resultMap.put("result", "FAIL");
+				return resultMap;
+			}
+			resultMap.put("result", "OK");
+			resultMap.put("stats", stats);
+		} catch (Exception e) {
+			System.out.println("[CONTENT] stats failed: " + e.getMessage());
+			resultMap.put("result", "FAIL");
+		}
+		return resultMap;
+	}
+
+	/**
+	 * 조회 기록. 같은 기기·게시물은 30분에 한 번만 센다 (INSERT IGNORE 로 1행이 들어갔을 때만 +1).
+	 * 통계 실패가 재생을 막으면 안 되므로 항상 OK 를 돌려주고 counted 로 집계 여부만 알린다.
+	 */
+	public Map<String, Object> recordContentView(Map<String, Object> params) {
+		Map<String, Object> resultMap = new HashMap<>();
+		resultMap.put("result", "OK");
+		resultMap.put("counted", false);
+		int conId = normalizeContentId(params.get("conId"));
+		String deviceId = normalizeLatestContentDeviceId(params.get("deviceId"));
+		if (conId <= 0 || deviceId == null) return resultMap;
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("conId", conId);
+			param.put("deviceId", deviceId);
+			param.put("bucket", contentViewBucket(System.currentTimeMillis()));
+			if (dao.insert("superapp.insertContentView", param) == 1) {
+				dao.update("superapp.increaseContentViewCount", param);
+				resultMap.put("counted", true);
+			}
+		} catch (Exception e) {
+			System.out.println("[CONTENT] view record failed: " + e.getMessage());
+		}
+		return resultMap;
+	}
+
+	/**
+	 * 저장 / 저장 취소. saved=true 면 저장, false 면 취소. 저장 수는 실제 행 수로 다시 맞춰 돌려준다.
+	 * 회원 로그인이 없어 좋아요와 같은 기기 ID 기준이다.
+	 */
+	public Map<String, Object> toggleContentSave(Map<String, Object> params) {
+		Map<String, Object> resultMap = new HashMap<>();
+		int conId = normalizeContentId(params.get("conId"));
+		String deviceId = normalizeLatestContentDeviceId(params.get("deviceId"));
+		if (conId <= 0 || deviceId == null) {
+			resultMap.put("result", "FAIL");
+			return resultMap;
+		}
+		boolean save = !"false".equalsIgnoreCase(String.valueOf(params.get("saved")));
+		try {
+			Map<String, Object> param = new HashMap<>();
+			param.put("conId", conId);
+			param.put("deviceId", deviceId);
+			if (save) {
+				dao.insert("superapp.insertContentSave", param);
+			} else {
+				dao.delete("superapp.deleteContentSave", param);
+			}
+			dao.update("superapp.syncContentSaveCount", param);
+			Map<String, Object> stats = dao.selectOne("superapp.selectContentStats", param);
+			if (stats == null) {
+				resultMap.put("result", "FAIL");
+				return resultMap;
+			}
+			resultMap.put("result", "OK");
+			resultMap.put("saved", "Y".equals(stats.get("saved")));
+			resultMap.put("saveCnt", stats.get("saveCnt"));
+		} catch (Exception e) {
+			System.out.println("[CONTENT] save toggle failed: " + e.getMessage());
+			resultMap.put("result", "FAIL");
+		}
+		return resultMap;
+	}
+
 	private static int toInt(Object raw, int fallback) {
 		if (raw == null) return fallback;
 		try {
