@@ -32,6 +32,8 @@ import { sendLatestContentEvent } from '../latest-content-events';
  * 2-34 후속(클라이언트 피드백 "왼쪽 1개와 오른쪽 1개 등 2개 모두 자동재생, 가로 스와이프 자동 처리"):
  * - 절반 이상 보이는 영상 카드 2장을 함께 재생한다. 소리는 왼쪽 장만(MediaAudioService.play), 오른쪽은 음소거(playMuted)
  * - 어드민 설정 간격(기본 4초)마다 한 칸씩 자동으로 넘기고 끝에서 처음으로 돌아간다. 손으로 넘기면 6초 쉰다
+ * - 자동 넘김은 섹션이 화면에 절반 이상 보일 때만 돈다. 화면 밖에서는 멈춰 있다가, 보이기 시작하면
+ *   간격만큼 기다린 뒤 넘기기 시작한다 (보자마자 휙 넘어가지 않게)
  */
 @Component({
   selector: 'app-hot-shorts',
@@ -49,7 +51,7 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
   /** 자동 넘김 간격(초) — 어드민 "가로형 미니숏폼" 설정. 범위 밖이면 4초 */
   @Input() set intervalSec(value: unknown) {
     this.intervalMs = normalizeIntervalMs(value);
-    if (this.timerId) this.startTimer();
+    this.startTimer();
   }
   get items(): LatestContentItem[] {
     return this.itemList;
@@ -68,6 +70,9 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
   private timerId: any = null;
   private running = false;
   private lastManualAt: number | null = null;
+  /** 섹션(가로 트랙)이 화면에 절반 이상 보이는지 */
+  private visible = false;
+  private visibilityObserver: IntersectionObserver | null = null;
 
   private itemList: LatestContentItem[] = [];
   private readonly sentEvents = new Set<string>();
@@ -95,11 +100,27 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.bindCards();
+    const el = this.trackEl ? this.trackEl.nativeElement : null;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      this.visible = true; // 판정할 수 없는 환경 — 예전처럼 항상 넘긴다
+      this.startTimer();
+      return;
+    }
+    this.visibilityObserver = new IntersectionObserver(entries => {
+      const entry = entries[entries.length - 1];
+      const nowVisible = !!entry && entry.isIntersecting && entry.intersectionRatio >= 0.5;
+      if (nowVisible === this.visible) return;
+      this.visible = nowVisible;
+      this.startTimer(); // 보이면 처음부터 간격을 다시 센다, 안 보이면 멈춘다
+    }, { threshold: [0, 0.5, 1] });
+    this.visibilityObserver.observe(el);
   }
 
   ngOnDestroy(): void {
     this.stop();
     this.player.destroy();
+    if (this.visibilityObserver) this.visibilityObserver.disconnect();
   }
 
   start(): void {
@@ -131,7 +152,7 @@ export class HotShortsComponent implements AfterViewInit, OnDestroy {
   private startTimer(): void {
     if (this.timerId) clearInterval(this.timerId);
     this.timerId = null;
-    if (!this.running) return;
+    if (!this.running || !this.visible) return;
     // 타이머 틱은 Angular 존 밖에서 — 스크롤이 일어나면 IntersectionObserver 가 재생 카드를 바꾼다
     this.ngZone.runOutsideAngular(() => {
       this.timerId = setInterval(() => this.autoAdvance(), this.intervalMs);
