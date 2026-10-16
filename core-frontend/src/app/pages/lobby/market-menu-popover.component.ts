@@ -35,6 +35,12 @@ import { DeepLinkService } from '../../services/deep-link.service';
         <ion-label class="fw-bold text-dark" style="font-size: 15px;">Logout</ion-label>
       </ion-item>
 
+      <!-- 계정 삭제 (2026-10-17 App Store 심사 5.1.1(v)) — 크리에이터 계정만. 관리자 계정은 앱에서 만들지 않는다 -->
+      <ion-item button *ngIf="isLoggedIn && !isAdmin" (click)="selectMenu('delete_account')">
+        <ion-icon name="trash-outline" slot="start" style="color: #ff3b30; font-size: 20px;"></ion-icon>
+        <ion-label class="fw-bold" style="font-size: 15px; color: #ff3b30;">Delete Account</ion-label>
+      </ion-item>
+
       <ion-item lines="none" *ngIf="isLoggedIn && !isAdmin">
         <ion-icon name="notifications-outline" slot="start" color="warning"></ion-icon>
         <ion-label class="fw-bold text-dark" style="font-size: 15px;">Visitor Push</ion-label>

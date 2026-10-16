@@ -617,6 +617,16 @@ public class SuperAppController {
 
 	// SuperAppController.java 내부 추가
 
+	/**
+	 * 크리에이터 계정 삭제 (2026-10-17 App Store 심사 5.1.1(v)).
+	 * body: { starId, starToken }. 본인 확인과 삭제 범위는 SuperAppService.deleteStarAccount 참조
+	 */
+	@RequestMapping(value = "/api/super/star/account/delete", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> deleteStarAccount(@RequestBody Map<String, Object> params) {
+		return superAppService.deleteStarAccount(params);
+	}
+
 	@RequestMapping(value = "/api/super/star/feed/delete", method = RequestMethod.POST)
 	@ResponseBody
 	public Map<String, Object> deleteStarFeed(@RequestBody Map<String, Object> params) {

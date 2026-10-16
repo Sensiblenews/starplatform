@@ -57,6 +57,8 @@ platforms:
               - FacebookDisplayName: 스타플랫폼
 
               - NSCameraUsageDescription: 게시글 등록을 위해 카메라권한을 허용합니다.
+              # 2-34 심사 크래시(2.1a): 글쓰기에서 "비디오 촬영"은 마이크를 쓰는데 문구가 없어 iOS 가 앱을 종료시켰다
+              - NSMicrophoneUsageDescription: This app uses the microphone to record sound when you shoot a video for your post.
               - NSPhotoLibraryAddUsageDescription: 게시글 등록을 위해 앨범 접근권한을 허용합니다.
               - NSPhotoLibraryUsageDescription: 게시글 등록을 위해 앨범 접근권한을 허용합니다.
               - NSUserTrackingUsageDescription: 사용자 맞춤 광고를 위해 추적을 허용합니다.
