@@ -410,7 +410,11 @@ public class DeepLinkController {
 					int approvedPostCount = addRelatedPosts(model, id, null, baseUrl, postsPage, id);
 					// 🌟 웹 품질 게이트: 승인 게시물이 없는 스타 페이지는 색인 제외.
 					// 판단 기준은 오직 "렌더되는 콘텐츠 유무"다 — UA(크롤러) 분기를 섞으면 클로킹 소지가 있어 금지.
-					if (approvedPostCount == 0) {
+					// 2-34차 3-1: 게시물이 있어도 소개문이 짧고 색인 가능한 글(본문 기준 글자 수 이상)이 없으면 색인 제외
+					//   (AdSense "가치 없는 콘텐츠" 대응 — WebIndexPolicy)
+					Object starBioRaw = starInfo.get("PRS_BIO");
+					if (approvedPostCount == 0 || !com.sensible.common.util.WebIndexPolicy.isIndexableStar(
+							starBioRaw == null ? null : String.valueOf(starBioRaw), superAppService.starHasIndexablePost(id))) {
 						model.addAttribute("robotsNoindex", true);
 					}
 					// 뒷페이지는 1페이지의 부분 집합이라 색인하지 않는다. 범위 밖(빈) 페이지는 404
@@ -599,6 +603,11 @@ public class DeepLinkController {
 					// 🌟 [2-27차] 관리자 공지는 작성자 카드 대신 배지로 표기 (스타 페이지 링크가 없으므로)
 					if (isAdminPost) {
 						model.addAttribute("isAdminPost", true);
+					}
+					// 2-34차 3-1: 본문(링크·태그 제외)이 기준 글자 수 미만인 얇은 글은 색인 제외 (WebIndexPolicy).
+					// 사람·크롤러에게 같은 화면이고 색인 여부만 다르다. 사이트맵에서도 같은 기준으로 빠진다
+					if (!com.sensible.common.util.WebIndexPolicy.isIndexablePost(fullBody)) {
+						model.addAttribute("robotsNoindex", true);
 					}
 					view = "/common/content_landing";
 				}
