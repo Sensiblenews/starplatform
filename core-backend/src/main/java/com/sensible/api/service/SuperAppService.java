@@ -623,6 +623,12 @@ public class SuperAppService {
 			result.put("result", "OK");
 		} catch (Exception e) {
 			e.printStackTrace();
+			// 예외를 잡아 정상 반환하면 트랜잭션(context-transaction.xml)이 커밋돼 앞 단계 삭제만 남는다 — 전부 되돌린다
+			try {
+				org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			} catch (Exception noTx) {
+				System.out.println("[AccountDelete] no active transaction to roll back: " + noTx.getMessage());
+			}
 			result.put("result", "FAIL");
 			result.put("msg", "Failed to delete your account. Please try again.");
 		}
