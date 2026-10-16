@@ -2330,6 +2330,7 @@ public class SuperAdminController {
             @RequestParam(value = "id") String prsId,
             @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period,
             @RequestParam(value = "from", required = false, defaultValue = "RANK") String from,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
             Model model) throws Exception {
         UserVO user = getLoginUser(request);
         if (user == null)
@@ -2338,6 +2339,15 @@ public class SuperAdminController {
             return "redirect:/super/insight/list.do";
         String metric = com.sensible.api.service.StarInsightService.normalizeMetric(from);
         model.addAttribute("star", starInsightService.starHeader(prsId));
+        // 2-34 3차 5번: 그래프 아래에 이 스타의 게시물 전체(검수 상태 무관)를 페이지로
+        int postSize = 30;
+        int postTotal = starInsightService.starPostCount(prsId);
+        int postTotalPages = Math.max(1, (postTotal + postSize - 1) / postSize);
+        int postPage = Math.min(Math.max(1, page), postTotalPages);
+        model.addAttribute("posts", starInsightService.starPosts(prsId, postPage, postSize));
+        model.addAttribute("postTotal", postTotal);
+        model.addAttribute("postPage", postPage);
+        model.addAttribute("postTotalPages", postTotalPages);
         model.addAttribute("period", com.sensible.api.service.StarInsightService.Period.parse(period).name());
         model.addAttribute("fromMetric", metric);
         model.addAttribute("activeMenu", "insight_" + metric.toLowerCase());

@@ -322,6 +322,20 @@ public class StarInsightService {
 		return dao.selectOne("super.selectInsightStarHeader", prsId);
 	}
 
+	/** 어드민 인사이트 스타 화면 — 게시물 전체 한 페이지 (2-34 3차 5번, 검수 상태 무관) */
+	public List<Map<String, Object>> starPosts(String prsId, int page, int size) {
+		Map<String, Object> param = new HashMap<>();
+		param.put("prsId", prsId);
+		param.put("offset", (Math.max(1, page) - 1) * size);
+		param.put("size", size);
+		return dao.selectList("super.selectInsightStarPosts", param);
+	}
+
+	public int starPostCount(String prsId) {
+		Integer count = dao.selectOne("super.countInsightStarPosts", prsId);
+		return count == null ? 0 : count;
+	}
+
 	// ===== 하루 집계 (스케줄러) =====
 
 	/** [fromDate, toDate) 범위의 방문·즐겨찾기·좋아요·게시물을 다시 쓴다 */

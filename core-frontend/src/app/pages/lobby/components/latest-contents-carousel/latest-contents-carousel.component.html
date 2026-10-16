@@ -1,9 +1,6 @@
 <div class="latest-card" *ngIf="active as item">
-  <div class="latest-header">
-    <span class="latest-title">Star Shorts</span>
-  </div>
-
-  <!-- 본문: 카드 폭 전체를 쓰는 메인 영상 + 오른쪽 위에 겹친 다음 숏폼 미리보기. 가로 스와이프로 이전·다음 -->
+  <!-- 본문: 화면 폭 전체를 쓰는 메인 영상 + 오른쪽 위에 겹친 다음 숏폼 미리보기. 가로 스와이프로 이전·다음.
+       2-34 3차 피드백: 카드 테두리(어두운 여백)·위 제목 줄을 없애고 영상만 꽉 채운다. 제목은 영상 왼쪽 위에 얹는다 -->
   <div class="latest-main" (click)="onVideoTap()" (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
     <div class="latest-main-inner">
       <!-- 한 번에 영상 하나만 그린다. src 가 바뀌면 브라우저가 새로 불러온다 -->
@@ -16,6 +13,7 @@
       <div class="play-overlay" *ngIf="showPlayButton" (click)="onPlayButton($event)">
         <ion-icon name="play"></ion-icon>
       </div>
+      <span class="latest-title">Star Shorts</span>
       <span class="featured-badge" *ngIf="item.isFeatured === 'Y'">Featured</span>
 
       <!-- 오른쪽 중간~아래 액션 열 (2-34 후속 — 전체 화면 플레이어와 같은 조회수·좋아요·댓글·저장·공유).
@@ -28,12 +26,11 @@
         <img [src]="nextItem.thumbUrl || ''" alt="" />
       </div>
 
-      <!-- 게시자: 아바타 + 이름 + StarPage. 영상 위 왼쪽 아래 오버레이, 영상 클릭과 분리 -->
+      <!-- 게시자: 아바타 + 이름. 영상 위 왼쪽 아래 오버레이, 영상 클릭과 분리 (2-34 3차: StarPage 문구 제거) -->
       <div class="latest-author" (click)="onProfileTap($event)">
         <img class="latest-avatar" [src]="item.starImage || defaultAvatar" (error)="handleImageError($event)" alt="" />
         <div class="latest-author-text">
           <div class="latest-name">{{ item.starName }}</div>
-          <div class="latest-sub">StarPage <ion-icon name="chevron-forward"></ion-icon></div>
         </div>
       </div>
     </div>

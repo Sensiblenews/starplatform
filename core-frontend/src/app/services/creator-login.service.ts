@@ -82,7 +82,16 @@ export class CreatorLoginService {
         ? await this.firebaseAuth.signInWithGoogle()
         : await this.firebaseAuth.signInWithApple();
 
-      if (!user || !user.email) return { ok: false, starId: '' };
+      if (!user || !user.email) {
+        // 2-34 3차 1번: 인증 실패를 조용히 넘기지 않는다 (사용자가 직접 취소한 경우만 조용히)
+        const err = this.firebaseAuth.lastError;
+        if (err && !err.cancelled) {
+          await this.alert(`Sign-in failed. Please try again.<br><small>(${this.escape(err.message)})</small>`);
+        } else if (user && !user.email) {
+          await this.alert('Your account did not share an email address. Please try another sign-in method.');
+        }
+        return { ok: false, starId: '' };
+      }
 
       const res: any = await this.http.post('/api/super/star/login/social', {
         email: user.email,
@@ -103,6 +112,8 @@ export class CreatorLoginService {
       return { ok: true, starId: res.starId };
     } catch (e) {
       console.error('Social login error', e);
+      // 2-34 3차 1번: 서버 통신 실패도 알린다 (예전에는 아무 반응 없이 끝났다)
+      await this.alert('Login failed. Please check your connection and try again.');
       return { ok: false, starId: '' };
     }
   }
@@ -140,6 +151,10 @@ export class CreatorLoginService {
     };
     setTimeout(sendCachedToken, 1500);
     setTimeout(sendCachedToken, 4000);
+  }
+
+  private escape(text: string): string {
+    return text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as any)[c]);
   }
 
   private async alert(msg: string) {

@@ -879,3 +879,9 @@
     border: 2px solid #1e1e1e;
   }
 }
+
+// 2-34 3차: Star Shorts 영상이 라이브 뉴스 티커까지 바로 이어지도록 — 숏폼 바로 다음 티커만 위 간격을 줄인다
+// (숏폼 편성이 0개라 티커가 맨 위에 올 때는 기존 15px 유지)
+app-latest-contents-carousel + app-live-news-ticker ::ng-deep .ticker-bar {
+  margin-top: 6px;
+}

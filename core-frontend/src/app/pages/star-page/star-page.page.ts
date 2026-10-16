@@ -1398,7 +1398,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const res = await this.creatorLogin.promptLogin();
+    // 2-34 3차: 로그인 시트·알림이 네이티브 광고 밑으로 숨지 않게 떠 있는 동안 광고를 숨긴다
+    const hideAd = this.platform.is('capacitor') && !this.isAdLocked;
+    if (hideAd) NativeBridge.setShow({ show: false, page: 'star' });
+    let res = { ok: false, starId: '' };
+    try {
+      res = await this.creatorLogin.promptLogin();
+    } finally {
+      if (hideAd) NativeBridge.setShow({ show: true, page: 'star' });
+    }
     if (!res.ok) return;
 
     this.myIsStar = true;

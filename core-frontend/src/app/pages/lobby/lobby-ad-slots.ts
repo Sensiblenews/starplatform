@@ -5,7 +5,7 @@
 /**
  * 로비 슬롯 수 — 네이티브 컨테이너(ad_container_1~6 / tag 201~206)와 1:1.
  * 슬롯 번호는 화면 순서가 아니라 템플릿의 data-slot 값이다 (세로형 목록이 짧으면 그 안의 슬롯이 아예 없을 수 있다):
- *   0 = My Global Ranking 아래 · 1 = Trending 아래 · 2 = TOP 100 아래 (2-24차부터 그대로)
+ *   0 = My Global Ranking 위(2-34 3차에 아래→위) · 1 = Trending 아래 · 2 = TOP 100 아래 (2-24차부터 그대로)
  *   3·4·5 = 세로형 Latest Content 안 (2-34차, LOBBY_FEED_AD_SLOTS)
  */
 export const LOBBY_AD_SLOT_COUNT = 6;
