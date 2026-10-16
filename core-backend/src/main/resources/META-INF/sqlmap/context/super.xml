@@ -1279,4 +1279,23 @@
 		SELECT PRS_ID, PRS_NAME, STORED_FILE_NM, PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{prsId}
 	</select>
 
+	<!-- 어드민 인사이트 스타 화면의 게시물 전체 (2-34 3차 5번). 검수 상태와 무관하게 전부, 글만 있는 게시물도 포함(첫 미디어 LEFT JOIN) -->
+	<select id="selectInsightStarPosts" parameterType="map" resultType="map">
+		SELECT
+			S.CON_ID, S.CON_BODY, S.CREATED_DATE, S.MDR_STATUS, S.IS_PINNED,
+			IFNULL(S.VIEW_CNT, 0) AS VIEW_CNT, IFNULL(S.LIKE_CNT, 0) AS LIKE_CNT,
+			IFNULL(S.COMMENT_CNT, 0) AS COMMENT_CNT, IFNULL(S.SAVE_CNT, 0) AS SAVE_CNT,
+			IFNULL(S.SHARE_CNT, 0) AS SHARE_CNT,
+			D.THUMB_URL, D.MEDIA_URL, D.MEDIA_TYPE
+		FROM WH_STAR_CONTENT S
+		LEFT JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.SORT_ORDER = 0
+		WHERE S.PRS_ID = #{prsId}
+		ORDER BY S.CON_ID DESC
+		LIMIT #{offset}, #{size}
+	</select>
+
+	<select id="countInsightStarPosts" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE PRS_ID = #{prsId}
+	</select>
+
 </mapper>

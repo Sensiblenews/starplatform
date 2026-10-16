@@ -1229,8 +1229,11 @@ export class LobbyPage implements OnInit, OnDestroy {
       translucent: true
     });
 
+    // 2-34 3차: 메뉴가 네이티브 광고 밑으로 숨지 않게 떠 있는 동안 광고를 숨긴다
+    this.setOverlayOpen(true);
     await popover.present();
     const { data } = await popover.onDidDismiss();
+    this.setOverlayOpen(false);
 
     if (data && data.action) {
       if (data.action === 'ipo') this.openAvailablePageModal();
@@ -1248,7 +1251,14 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 스타페이지 글쓰기 버튼도 같은 로그인 유도를 쓰기 때문이다.
   // 여기서는 로그인 성공 후 로비 상태만 갱신한다.
   async openCreatorLogin() {
-    const res = await this.creatorLogin.promptLogin();
+    // 2-34 3차: 로그인 시트·알림은 웹 화면이라 네이티브 광고 오버레이 밑으로 숨는다 — 떠 있는 동안 광고를 숨긴다
+    this.setOverlayOpen(true);
+    let res = { ok: false, starId: '' };
+    try {
+      res = await this.creatorLogin.promptLogin();
+    } finally {
+      this.setOverlayOpen(false);
+    }
     if (res.ok) {
       this.isStar = true;
       this.starId = res.starId;
@@ -1267,9 +1277,12 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   async openAvailablePageModal() {
     const modal = await this.modalCtrl.create({ component: AvailablePageModalComponent });
+    // 2-34 3차: 페이지 만들기 모달도 네이티브 광고 밑으로 숨지 않게 떠 있는 동안 광고를 숨긴다
+    this.setOverlayOpen(true);
     await modal.present();
 
     const { data } = await modal.onDidDismiss();
+    this.setOverlayOpen(false);
     console.log(data);
 
     if (data && data.isSuccessful) {
@@ -1356,7 +1369,7 @@ export class LobbyPage implements OnInit, OnDestroy {
    */
   private isOverlayOpen = false;
 
-  /** 모달이 열리고 닫힐 때 — 광고를 숨겼다가(자리 높이는 유지) 닫히면 다시 띄운다 */
+  /** 모달·로그인 시트가 열리고 닫힐 때 — 광고를 숨겼다가(자리 높이는 유지) 닫히면 다시 띄운다 */
   setOverlayOpen(open: boolean) {
     if (this.isOverlayOpen === open) return;
     this.isOverlayOpen = open;
@@ -1652,6 +1665,9 @@ export class LobbyPage implements OnInit, OnDestroy {
         }
       ]
     });
+    // 2-34 3차: 로그인 창이 네이티브 광고 밑으로 숨지 않게 떠 있는 동안 광고를 숨긴다
+    this.setOverlayOpen(true);
+    alert.onDidDismiss().then(() => this.setOverlayOpen(false));
     await alert.present();
   }
 

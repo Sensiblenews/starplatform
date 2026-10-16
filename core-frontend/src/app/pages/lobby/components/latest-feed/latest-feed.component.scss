@@ -85,10 +85,11 @@
   font-weight: 800;
 }
 
+// 2-34 3차: StarPage 문구 제거·4px 아래로 (Star Shorts 와 같게)
 .lf-author {
   position: absolute;
   left: 8px;
-  bottom: 8px;
+  bottom: 4px;
   z-index: 2;
   max-width: calc(100% - 16px);
   display: inline-flex;
@@ -121,16 +122,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .lf-sub {
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.7);
-
-    ion-icon { font-size: 9px; }
   }
 }
 

@@ -376,6 +376,11 @@
     <app-skeleton *ngIf="isLoadingVsCards" variant="vs"></app-skeleton>
     <app-vs-carousel *ngIf="!isLoadingVsCards" [cards]="vsCards" (centerSelect)="onVsCenterSelect($event)"></app-vs-carousel>
 
+    <!-- 🌟 네이티브 광고 슬롯 1/3 — VS 카드와 My Global Ranking 카드 사이 (헤더 하단에서 클리핑).
+         2-34 3차: 카드 아래에 있으면 Re-Login 로그인 시트가 광고 밑으로 숨어 보여 카드 위로 옮겼다. 네이티브 오버레이가 얹힐 자리.
+         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
+    <div class="lobby-ad-slot" #lobbyAdSlot data-slot="0" [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
+
     <!-- 🌟 My Global Ranking 카드 (2-29차) — 로그인(스타): 내 순위·변동·pts·지표 / 비로그인·관리자: 페이지 만들기 유도.
          버튼은 기존 동작에 연결한다: My Star Page → 내 스타 페이지, Top Rankings → 상단 트로피와 같은 랭킹 화면 -->
     <app-my-ranking-card [loggedIn]="isStar && !!starId" [data]="myRank" [loading]="isLoadingMyRank"
@@ -383,11 +388,7 @@
       (myPage)="goToMyStarPage()" (topRankings)="toggleRankingList()" (createPage)="openAvailablePageModal()" (reLogin)="openCreatorLogin()">
     </app-my-ranking-card>
 
-    <!-- 🌟 네이티브 광고 슬롯 1/3 — My Global Ranking 카드와 Today's TOP 사이 (헤더 하단에서 클리핑). 네이티브 오버레이가 얹힐 자리.
-         광고 로드 성공(ad_loaded) 시에만 펼쳐져 no-fill 시 빈 공백이 남지 않는다 -->
-    <div class="lobby-ad-slot" #lobbyAdSlot data-slot="0" [class.filled]="adSlotFilled[0]" [style.height.px]="adSlotFilled[0] ? adSlotHeight[0] : null"></div>
-
-    <!-- 🎬 세로형 자동재생 Latest Content (2-34차) — 첫 네이티브 광고와 Today's TOP 사이. 어드민 "세로형 자동재생" 편성.
+    <!-- 🎬 세로형 자동재생 Latest Content (2-34차) — My Global Ranking 카드와 Today's TOP 사이. 어드민 "세로형 자동재생" 편성.
          콘텐츠 3·6·9번째 뒤(마지막 콘텐츠 뒤는 제외)에 네이티브 광고 슬롯 3·4·5 가 컴포넌트 안에 들어간다. 편성 0개면 섹션 자체를 숨긴다 -->
     <div class="section-container lobby-feed-section" *ngIf="latestFeedItems.length > 0">
       <div class="section-header">
