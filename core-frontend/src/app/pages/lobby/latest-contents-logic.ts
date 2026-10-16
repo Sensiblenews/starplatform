@@ -128,8 +128,8 @@ export function compactNumber(value: unknown): string {
 
 // ===== 세로형 Latest Content (2-34차 1-2) =====
 
-/** 세로형 목록에서 광고를 넣을 위치 — 콘텐츠 N개 "뒤". 클라이언트 메모 그대로 3·6·7 (사용자 확인 2026-10-15) */
-export const LATEST_FEED_AD_AFTER: ReadonlyArray<number> = [3, 6, 7];
+/** 세로형 목록에서 광고를 넣을 위치 — 콘텐츠 N개 "뒤". 2-34 후속: 3·6·7 → 3·6·9 (클라이언트 요청 2026-10-16) */
+export const LATEST_FEED_AD_AFTER: ReadonlyArray<number> = [3, 6, 9];
 
 /** 세로형 목록 한 줄 — 콘텐츠 또는 광고 자리 */
 export type LatestFeedRow =
@@ -138,7 +138,8 @@ export type LatestFeedRow =
 
 /**
  * 콘텐츠 목록 사이에 광고 자리를 끼운다. afterCounts[i] 개 뒤에 adSlots[i] 번 슬롯.
- * 콘텐츠가 그 개수보다 적으면 그 광고는 넣지 않는다 (목록 맨 끝에 광고만 덩그러니 남지 않게 마지막 콘텐츠 "뒤"까지만)
+ * 광고는 콘텐츠 "사이"에만 — 그 뒤에 콘텐츠가 더 있을 때만 넣는다. 마지막 콘텐츠 뒤에는 붙이지 않는다
+ * (2-34 후속: 딱 7개면 마지막 1개 뒤에 광고가 붙던 것. 3개·6개·9개일 때도 마찬가지)
  */
 export function buildLatestFeedRows(
   items: ReadonlyArray<LatestContentItem>,
@@ -151,7 +152,7 @@ export function buildLatestFeedRows(
     rows.push({ kind: 'item', item, index });
     const count = index + 1;
     afterCounts.forEach((after, i) => {
-      if (after === count && i < adSlots.length) rows.push({ kind: 'ad', slot: adSlots[i] });
+      if (after === count && count < list.length && i < adSlots.length) rows.push({ kind: 'ad', slot: adSlots[i] });
     });
   });
   return rows;
@@ -197,4 +198,17 @@ export function nextScrollLeft(current: number, step: number, maxScroll: number)
   if (!(step > 0) || !(maxScroll > 0)) return 0;
   if (current >= maxScroll - 2) return 0;
   return Math.min(maxScroll, current + step);
+}
+
+/**
+ * 카드 미리보기 글 (2-34 후속). 빈 줄을 빼고 줄마다 앞뒤 공백을 지운다.
+ * 본문이 "들꽃 + 빈 줄 + 링크" 이면 두 줄 자르기에서 두 번째(빈) 줄에 말줄임표만 찍혔다(클라이언트 보고)
+ */
+export function previewText(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return String(raw)
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
 }

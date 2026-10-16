@@ -13,14 +13,14 @@ import {
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { MediaAudioService } from 'src/app/services/media-audio.service';
-import { LatestContentItem, LatestFeedRow, buildLatestFeedRows, isVideoItem } from '../../latest-contents-logic';
+import { LatestContentItem, LatestFeedRow, buildLatestFeedRows, isVideoItem, previewText } from '../../latest-contents-logic';
 import { LOBBY_FEED_AD_SLOTS } from '../../lobby-ad-slots';
 import { VisibleVideoPlayer } from '../visible-video-player';
 import { sendLatestContentEvent } from '../latest-content-events';
 
 /**
  * 로비 세로형 자동재생 "Latest Content" (2-34차 1-2) — 첫 네이티브 광고와 Today's TOP 사이.
- * 어드민 "세로형 자동재생" 편성(section=LATEST)을 세로 카드로 쌓고, 콘텐츠 3·6·7번째 뒤에 네이티브 광고 자리를 둔다.
+ * 어드민 "세로형 자동재생" 편성(section=LATEST)을 세로 카드로 쌓고, 콘텐츠 3·6·9번째 뒤에 네이티브 광고 자리를 둔다(마지막 콘텐츠 뒤는 제외).
  *
  * - 광고 자리는 로비의 다른 슬롯과 같은 .lobby-ad-slot + data-slot(3·4·5). 로비가 data-slot 으로 좌표를 재서
  *   네이티브로 보낸다 (컴포넌트 안이라 로비의 @ViewChildren 으로는 안 잡히므로 DOM 으로 찾는다)
@@ -99,6 +99,10 @@ export class LatestFeedComponent implements AfterViewInit, OnDestroy {
 
   trackByRow(_: number, row: LatestFeedRow): string {
     return row.kind === 'ad' ? 'ad' + row.slot : 'lc' + row.item.lcId;
+  }
+
+  titleOf(item: LatestContentItem): string {
+    return previewText(item.title);
   }
 
   isVideo(item: LatestContentItem): boolean {
