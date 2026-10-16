@@ -2356,12 +2356,41 @@ public class SuperAppService {
 		}
 	}
 
+	/** 스타 페이지 색인 판정용 — 승인 글 중 색인 기준을 넘는 글이 하나라도 있는지 (2-34차) */
+	public boolean starHasIndexablePost(String prsId) {
+		try {
+			List<String> bodies = dao.selectList("superapp.selectApprovedPostBodiesByStar", prsId);
+			for (String body : bodies) {
+				if (com.sensible.common.util.WebIndexPolicy.isIndexablePost(body)) return true;
+			}
+		} catch (Exception e) {
+			// 판정 실패 시에는 색인을 막지 않는다 (기존 동작 유지)
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * 🌟 [신규] sitemap.xml용: 활성 스타 ID 목록 조회
 	 */
 	public List<Map<String, Object>> getSitemapStars() {
 		try {
-			return dao.selectList("superapp.selectSitemapStars", new HashMap<>());
+			// 2-34차 색인 기준: 소개문이 충분하거나 색인 가능한 글이 하나라도 있는 스타만 (WebIndexPolicy)
+			java.util.Set<String> starsWithIndexablePost = new java.util.HashSet<>();
+			for (Map<String, Object> post : getSitemapPosts()) {
+				if (post.get("PRS_ID") != null) starsWithIndexablePost.add(String.valueOf(post.get("PRS_ID")));
+			}
+			List<Map<String, Object>> stars = dao.selectList("superapp.selectSitemapStars", new HashMap<>());
+			List<Map<String, Object>> indexable = new ArrayList<>();
+			for (Map<String, Object> star : stars) {
+				String prsId = String.valueOf(star.get("PRS_ID"));
+				Object bio = star.get("PRS_BIO");
+				if (com.sensible.common.util.WebIndexPolicy.isIndexableStar(bio == null ? null : String.valueOf(bio),
+						starsWithIndexablePost.contains(prsId))) {
+					indexable.add(star);
+				}
+			}
+			return indexable;
 		} catch (Exception e) {
 			// 조회 실패 시에도 사이트맵은 루트 URL만으로 응답한다
 			e.printStackTrace();
@@ -2374,7 +2403,16 @@ public class SuperAppService {
 	 */
 	public List<Map<String, Object>> getSitemapPosts() {
 		try {
-			return dao.selectList("superapp.selectSitemapPosts", new HashMap<>());
+			// 2-34차 색인 기준: 본문(링크·태그 제외)이 기준 글자 수 이상인 글만 (WebIndexPolicy)
+			List<Map<String, Object>> posts = dao.selectList("superapp.selectSitemapPosts", new HashMap<>());
+			List<Map<String, Object>> indexable = new ArrayList<>();
+			for (Map<String, Object> post : posts) {
+				Object body = post.get("CON_BODY");
+				if (com.sensible.common.util.WebIndexPolicy.isIndexablePost(body == null ? null : String.valueOf(body))) {
+					indexable.add(post);
+				}
+			}
+			return indexable;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ArrayList<>();

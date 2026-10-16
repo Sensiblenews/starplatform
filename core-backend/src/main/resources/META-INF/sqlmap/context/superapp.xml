@@ -528,7 +528,7 @@
 	     활성 스타 대부분(1.4만+)이 게시물 없는 빈 페이지라, 전부 넣으면 검색엔진에 대량 빈약 콘텐츠로 비친다.
 	     (사이트맵 파일당 URL 5만 개 제한 대비 상한 유지) -->
 	<select id="selectSitemapStars" parameterType="map" resultType="map">
-		SELECT P.PRS_ID
+		SELECT P.PRS_ID, P.PRS_BIO
 		FROM WH_PRESS P
 		WHERE P.PRS_USE_YN = 'Y' AND P.IS_STAR = 'Y'
 		  AND EXISTS (SELECT 1 FROM WH_STAR_CONTENT M WHERE M.PRS_ID = P.PRS_ID AND M.MDR_STATUS = 'APPROVED')
@@ -597,13 +597,23 @@
 		ORDER BY P.STAR_CATEGORY, IFNULL(P.FOLLOWER_CNT, 0) DESC, P.PRS_ID
 	</select>
 
+	<!-- 2-34차: 본문 길이 판정(WebIndexPolicy)은 서비스에서 한다 — 링크 제외 등 정규식을 DB 버전에 기대지 않으려고 본문을 같이 받는다 -->
 	<select id="selectSitemapPosts" parameterType="map" resultType="map">
-		SELECT M.CON_ID, M.CREATED_DATE
+		SELECT M.CON_ID, M.CREATED_DATE, M.PRS_ID, M.CON_BODY
 		FROM WH_STAR_CONTENT M
 		JOIN WH_PRESS P ON M.PRS_ID = P.PRS_ID AND P.PRS_USE_YN = 'Y'
 		WHERE M.MDR_STATUS = 'APPROVED'
 		ORDER BY M.CON_ID
 		LIMIT 39000
+	</select>
+
+	<!-- 스타 페이지 색인 판정용: 그 스타의 승인 글 본문 (2-34차 WebIndexPolicy — 색인 가능한 글이 하나라도 있는지) -->
+	<select id="selectApprovedPostBodiesByStar" parameterType="string" resultType="string">
+		SELECT M.CON_BODY
+		FROM WH_STAR_CONTENT M
+		WHERE M.PRS_ID = #{prsId} AND M.MDR_STATUS = 'APPROVED'
+		ORDER BY M.CON_ID DESC
+		LIMIT 500
 	</select>
 
 	<!-- [신규] 웹 랜딩 관련 콘텐츠 카드용: 해당 스타의 최근 게시물 (현재 글 제외, 20건)
