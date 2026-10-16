@@ -101,6 +101,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>게시글 등록을 위해 카메라권한을 허용합니다.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app uses the microphone to record sound when you shoot a video for your post.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>게시글 등록을 위해 앨범 접근권한을 허용합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

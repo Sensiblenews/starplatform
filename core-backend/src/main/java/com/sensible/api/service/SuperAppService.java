@@ -569,6 +569,97 @@ public class SuperAppService {
 		return result;
 	}
 
+	/**
+	 * 크리에이터 계정 삭제 (2026-10-17 App Store 심사 5.1.1(v), A안).
+	 * 스타 계정은 미리 만들어진 페이지를 클레임한 소유권이라, 페이지 행은 남기고 소유를 해제한다.
+	 * 지우는 것: 작성 게시물(미디어·좋아요·댓글·조회·저장 포함)과 업로드 파일, DM·차단·본인이 넣은 신고,
+	 * 로그인 정보(이메일·Firebase UID·비밀번호·토큰)·푸시 토큰·소개문·프로필 사진, Firebase 인증 계정.
+	 * Apple 로그인 토큰 해지는 앱(iOS)이 삭제 요청 전에 직접 한다 (revokeAccessToken).
+	 * 본인 확인은 다른 스타 쓰기 API 와 같은 starToken 검증이다
+	 */
+	public Map<String, Object> deleteStarAccount(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		String starId = params.get("starId") == null ? "" : String.valueOf(params.get("starId"));
+		String starToken = params.get("starToken") == null ? "" : String.valueOf(params.get("starToken"));
+		if (starId.isEmpty() || starToken.isEmpty()) {
+			result.put("result", "FAIL");
+			result.put("msg", "Your session has expired. Please log in again.");
+			return result;
+		}
+		try {
+			Map<String, Object> tokenParam = new HashMap<>();
+			tokenParam.put("starId", starId);
+			tokenParam.put("starToken", starToken);
+			int validTokenCount = dao.selectOne("superapp.checkStarToken", tokenParam);
+			if (validTokenCount == 0) {
+				result.put("result", "FAIL");
+				result.put("msg", "Your session has expired. Please log in again.");
+				return result;
+			}
+
+			Map<String, Object> account = dao.selectOne("superapp.selectAccountForDeletion", starId);
+			Object firebaseUid = account == null ? null : account.get("FIREBASE_UID");
+			// 파일 경로는 게시물 행을 지우기 전에 모아 둔다
+			List<Map<String, Object>> mediaRows = dao.selectList("superapp.selectStarMediaUrlsForDeletion", starId);
+
+			dao.delete("superapp.deleteStarPostLikes", starId);
+			dao.delete("superapp.deleteStarPostComments", starId);
+			dao.delete("superapp.deleteStarPostViews", starId);
+			dao.delete("superapp.deleteStarPostSaves", starId);
+			dao.update("superapp.unlistStarPostsFromLobby", starId);
+			dao.delete("superapp.deleteStarPostMedia", starId);
+			dao.delete("superapp.deleteStarPosts", starId);
+			dao.delete("superapp.deleteStarDms", starId);
+			dao.delete("superapp.deleteStarDmBlocks", starId);
+			dao.delete("superapp.deleteStarDmReportsFiled", starId);
+			dao.update("superapp.releaseStarOwnership", starId);
+
+			// 여기부터는 실패해도 계정 삭제 자체는 끝난 것으로 본다 (DB 에서 이미 연결이 끊겼다)
+			int removedFiles = deleteUploadedFiles(mediaRows);
+			boolean firebaseDeleted = deleteFirebaseUser(firebaseUid == null ? null : String.valueOf(firebaseUid));
+			System.out.println("[AccountDelete] " + starId + " posts/media removed, files=" + removedFiles
+					+ ", firebaseUser=" + (firebaseDeleted ? "deleted" : "skipped"));
+
+			result.put("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("result", "FAIL");
+			result.put("msg", "Failed to delete your account. Please try again.");
+		}
+		return result;
+	}
+
+	/** 게시물 미디어·썸네일 파일 삭제 (공개·검수 대기·숨김 폴더). 지운 개수 */
+	private int deleteUploadedFiles(List<Map<String, Object>> mediaRows) {
+		int removed = 0;
+		if (mediaRows == null) return 0;
+		for (Map<String, Object> row : mediaRows) {
+			for (String key : new String[] { "MEDIA_URL", "THUMB_URL" }) {
+				Object url = row.get(key);
+				for (String path : com.sensible.common.util.AccountDeletionFiles.candidates(url == null ? null : String.valueOf(url))) {
+					try {
+						if (Files.deleteIfExists(Paths.get(path))) removed++;
+					} catch (Exception e) {
+						System.out.println("[AccountDelete] file delete failed: " + path + " " + e.getMessage());
+					}
+				}
+			}
+		}
+		return removed;
+	}
+
+	/** Firebase 인증 계정 삭제 (Google·Apple 로그인 기록). 앱 시작 때 FirebaseConfig 가 기본 앱을 초기화한다 */
+	private boolean deleteFirebaseUser(String uid) {
+		if (uid == null || uid.isEmpty()) return false;
+		try {
+			com.google.firebase.auth.FirebaseAuth.getInstance().deleteUser(uid);
+			return true;
+		} catch (Exception e) {
+			System.out.println("[AccountDelete] firebase user delete failed: " + e.getMessage());
+			return false;
+		}
+	}
+
 	// 댓글 삭제 (비밀번호 검증)
 	public Map<String, Object> deleteComment(Map<String, Object> map) throws Exception {
 		Map<String, Object> resultMap = new HashMap<>();

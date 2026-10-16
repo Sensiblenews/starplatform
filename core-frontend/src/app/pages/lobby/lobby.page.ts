@@ -11,6 +11,7 @@ import { WriteModalService } from '../../services/write-modal.service';
 import { MessageModalComponent } from './modals/message-modal.component';
 import { AvailablePageModalComponent } from './modals/available-page-modal.component';
 import { CreatorLoginService } from 'src/app/services/creator-login.service';
+import { AccountDeletionService } from 'src/app/services/account-deletion.service';
 import { GeneralRankingModalComponent } from './modals/rankings/general-ranking-modal.component';
 import { RevenueRankingModalComponent } from './modals/rankings/revenue-ranking-modal.component';
 import { DailyRankingModalComponent } from './modals/rankings/daily-ranking-modal.component';
@@ -225,6 +226,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
     private creatorLogin: CreatorLoginService,
+    private accountDeletion: AccountDeletionService,
     private writeModalService: WriteModalService,
     private adProtection: AdProtectionService,
     private ngZone: NgZone,
@@ -1244,6 +1246,7 @@ export class LobbyPage implements OnInit, OnDestroy {
       // 사람 아이콘 팝오버에서 이곳으로 옮겨온 항목
       else if (data.action === 'messages') this.openMessageModal();
       else if (data.action === 'logout') this.logout();
+      else if (data.action === 'delete_account') this.deleteAccount();
     }
   }
 
@@ -1671,6 +1674,46 @@ export class LobbyPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  /** 로그아웃·계정 삭제 뒤 화면의 로그인 상태를 비운다 (2026-10-17 logout 에서 분리) */
+  private resetLoginState() {
+    this.isAdmin = false;
+    this.adminLevel = '';
+    this.isStar = false;
+    this.starId = '';
+
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('adminId');
+    localStorage.removeItem('adminPw');
+    localStorage.removeItem('adminLevel');
+    localStorage.removeItem('isStar');
+    localStorage.removeItem('starId');
+    localStorage.removeItem('starPw');
+    localStorage.removeItem('fcmToken'); // 로컬 토큰 캐시도 정리
+
+    // My Global Ranking 카드를 비로그인 변형으로 되돌린다 (lastSeen 키는 starId별이라 그대로 둔다)
+    this.myRank = null;
+    this.myRankDelta = { dir: 'none', amount: 0 };
+    this.myRankStarId = '';
+
+    // this.globalFeedback.stopPolling();
+  }
+
+  /**
+   * 계정 삭제 (2026-10-17 App Store 심사 5.1.1(v)). + 메뉴 → 확인 → 삭제. 확인 창이 네이티브 광고 밑으로
+   * 숨지 않게 떠 있는 동안 광고를 숨긴다. 서버가 푸시 토큰까지 지우므로 로그아웃의 토큰 해제 호출은 필요 없다
+   */
+  async deleteAccount() {
+    const starId = this.starId;
+    this.setOverlayOpen(true);
+    let deleted = false;
+    try {
+      deleted = await this.accountDeletion.confirmAndDelete(starId);
+    } finally {
+      this.setOverlayOpen(false);
+    }
+    if (deleted) this.resetLoginState();
+  }
+
   async logout() {
     const alert = await this.alertCtrl.create({
       header: 'Logout',
@@ -1682,27 +1725,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           handler: () => {
             // 🔴 [Critical Fix] 초기화 전에 starId를 백업 (토큰 삭제 API에 필요)
             const prevStarId = this.starId;
-
-            this.isAdmin = false;
-            this.adminLevel = '';
-            this.isStar = false;
-            this.starId = '';
-
-            localStorage.removeItem('isAdmin');
-            localStorage.removeItem('adminId');
-            localStorage.removeItem('adminPw');
-            localStorage.removeItem('adminLevel');
-            localStorage.removeItem('isStar');
-            localStorage.removeItem('starId');
-            localStorage.removeItem('starPw');
-            localStorage.removeItem('fcmToken'); // 로컬 토큰 캐시도 정리
-
-            // My Global Ranking 카드를 비로그인 변형으로 되돌린다 (lastSeen 키는 starId별이라 그대로 둔다)
-            this.myRank = null;
-            this.myRankDelta = { dir: 'none', amount: 0 };
-            this.myRankStarId = '';
-
-            // this.globalFeedback.stopPolling();
+            this.resetLoginState();
 
             this.showSimpleAlert('Logged out successfully.');
 
