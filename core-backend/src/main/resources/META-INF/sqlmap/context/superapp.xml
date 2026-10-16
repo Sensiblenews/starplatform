@@ -2651,18 +2651,22 @@
 		DELETE FROM WH_DM_REPORT WHERE REPORTER_PRS_ID = #{prsId}
 	</delete>
 
-	<!-- 소유 해제: 로그인·연락처·푸시·소개·프로필 사진을 비우고, 비밀번호를 NULL 로 돌려 다시 클레임 가능한 빈 페이지로
-	     (selectAvailablePages 조건: OWNER_EMAIL IS NULL AND PRS_PWD 비어 있음) -->
+	<!-- 소유 해제: 로그인·연락처·푸시·소개·프로필 사진을 비워 다시 클레임 가능한 빈 페이지로
+	     (selectAvailablePages 조건: OWNER_EMAIL IS NULL AND PRS_PWD 비어 있음).
+	     2026-10-17 운영 실패: NOT NULL 컬럼에 NULL 을 넣어 이 UPDATE 가 터졌다(스키마 DDL 이 저장소에 없어 미리 몰랐다).
+	     그래서 OWNER_EMAIL 만 NULL(미클레임 판정이 IS NULL 이고, 미클레임 페이지가 이미 NULL 로 존재하니 NULL 허용이 확실하다),
+	     나머지 문자열은 빈 문자열로 비운다 — 앱·웹은 빈 사진을 기본 아바타로, 빈 비밀번호를 미클레임으로 본다.
+	     토큰 만료일은 지금으로 당겨 남은 토큰이 바로 무효가 되게 한다(checkStarToken 은 만료일 > NOW()) -->
 	<update id="releaseStarOwnership" parameterType="string">
 		UPDATE WH_PRESS
 		SET OWNER_EMAIL = NULL,
-			FIREBASE_UID = NULL,
-			PRS_PWD = NULL,
-			PRS_TOKEN = NULL,
-			TOKEN_EXPIRED_DATE = NULL,
-			FCM_TOKEN = NULL,
-			PRS_BIO = NULL,
-			STORED_FILE_NM = NULL
+			FIREBASE_UID = '',
+			PRS_PWD = '',
+			PRS_TOKEN = '',
+			TOKEN_EXPIRED_DATE = NOW(),
+			FCM_TOKEN = '',
+			PRS_BIO = '',
+			STORED_FILE_NM = ''
 		WHERE PRS_ID = #{prsId}
 	</update>
 
