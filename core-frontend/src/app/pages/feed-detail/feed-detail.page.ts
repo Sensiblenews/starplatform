@@ -1,12 +1,16 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { AlertController, NavController, PopoverController } from '@ionic/angular';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AlertController, ModalController, NavController, PopoverController } from '@ionic/angular';
 import { Share } from '@capacitor/share';
 import { HttpService } from '../../services/http.service';
 import { environment } from 'src/environments/environment';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import { AdMobService } from '../../services/ad-mob.service';
 import { FeedMenuComponent } from './feed-menu.component';
+import { DeepLinkService } from '../../services/deep-link.service';
+import { WriteModalService } from '../../services/write-modal.service';
+import { handleLinkClick, linkifyText } from '../../pipes/linkify';
+import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 
 @Component({
   selector: 'app-feed-detail',
@@ -39,8 +43,36 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     private admob: AdMobService,
     private navCtrl: NavController,
     private popoverCtrl: PopoverController,
-    private alertCtrl: AlertController
+    private alertCtrl: AlertController,
+    private router: Router,
+    private deepLink: DeepLinkService,
+    private writeModalService: WriteModalService,
+    private modalCtrl: ModalController
   ) {}
+
+  /** 로그인한 스타 본인 글인지 (2-35차 — 수정·삭제 메뉴 노출). 실제 권한은 서버가 다시 확인한다 */
+  get isOwnPost(): boolean {
+    const myStarId = localStorage.getItem('starId') || '';
+    return localStorage.getItem('isStar') === 'true' && !!myStarId
+      && this.contentInfo?.FEED_TYPE === 'STAR' && String(this.contentInfo?.PRS_ID) === myStarId;
+  }
+
+  /** 본문 링크 탭 — 앱 안/인앱 브라우저로 연다 (2-35차) */
+  onBodyClick(event: Event) {
+    handleLinkClick(event, this.deepLink, this.router);
+  }
+
+  /** 사진 탭 → 전체 화면 뷰어 (2-35차 — 두 손가락 확대·축소) */
+  async openPhotoViewer(index: number) {
+    const urls = this.getPhotoList().map(m => m.displayUrl).filter(u => !!u);
+    if (!urls.length) return;
+    const modal = await this.modalCtrl.create({
+      component: PhotoViewerComponent,
+      componentProps: { urls, startIndex: Math.min(index, urls.length - 1) },
+      cssClass: 'photo-viewer-modal'
+    });
+    await modal.present();
+  }
 
   // 헤더 로고 탭 → 로비 (스타 페이지 goBack 과 동일한 동작)
   goLobby() {
@@ -51,6 +83,7 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   async presentMenu(ev: Event) {
     const popover = await this.popoverCtrl.create({
       component: FeedMenuComponent,
+      componentProps: { canEdit: this.isOwnPost },
       event: ev,
       translucent: false,
       showBackdrop: true,
@@ -76,7 +109,59 @@ export class FeedDetailPage implements OnInit, OnDestroy {
       case 'report':
         this.openReportDialog();
         break;
+      case 'edit':
+        this.editPost();
+        break;
+      case 'delete':
+        this.deletePost();
+        break;
     }
+  }
+
+  // 수정 (2-35차) — 스타 페이지 연필 아이콘과 같은 작성판을 수정 모드로 연다. 영상은 멈춰 둔다
+  editPost() {
+    const starId = localStorage.getItem('starId') || '';
+    this.pauseVideos();
+    this.writeModalService.openEditModal(starId, this.conId, () => this.loadFeedDetail());
+  }
+
+  // 삭제 (2-35차) — 스타 페이지 휴지통과 같은 API. 지우면 이전 화면으로 돌아간다
+  async deletePost() {
+    const alert = await this.alertCtrl.create({
+      header: 'Delete Post',
+      message: 'Are you sure you want to delete this post? This cannot be undone.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            const payload = {
+              starId: localStorage.getItem('starId') || '',
+              starToken: localStorage.getItem('starToken') || '',
+              conId: this.conId
+            };
+            this.http.post('/api/super/star/feed/delete', payload).subscribe((res: any) => {
+              if (res && res.result === 'OK') {
+                this.navCtrl.back();
+              } else {
+                this.showNotice((res && res.msg) || 'Failed to delete.');
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async showNotice(msg: string) {
+    const alert = await this.alertCtrl.create({ header: 'Notice', message: msg, buttons: ['OK'] });
+    await alert.present();
+  }
+
+  private pauseVideos() {
+    document.querySelectorAll('app-feed-detail video').forEach((v: any) => { try { v.pause(); } catch (e) { } });
   }
 
   // 공유 — 스타 페이지의 글 공유와 같은 공개 주소(/post/{id})와 집계 API 를 쓴다
@@ -163,9 +248,11 @@ export class FeedDetailPage implements OnInit, OnDestroy {
       this.isLoaded = true;
       this.contentInfo = res.content;
       this.safeContentHtml = this.sanitizer.bypassSecurityTrustHtml(
-        this.linkifyContent(this.contentInfo?.CON_BODY || '')
+        linkifyText(this.contentInfo?.CON_BODY || '')
       );
 
+      // 수정으로 유튜브 주소를 지웠을 수 있다 — 새로고침 때 이전 값이 남지 않게 매번 다시 정한다
+      this.safeYoutubeUrl = null;
       if (this.contentInfo.YOUTUBE_URL) {
          const embedUrl = this.convertToYoutubeEmbedUrl(this.contentInfo.YOUTUBE_URL);
          this.safeYoutubeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
@@ -187,10 +274,10 @@ export class FeedDetailPage implements OnInit, OnDestroy {
 
           if (media.MEDIA_TYPE === 'VIDEO') {
               media.isMuted = true; // 기본 음소거 상태 추가
-              // 검수 대기 영상은 작성자 본인에게도 재생을 주지 않는다 — 썸네일 + "Under review" (2-32차 확정).
+              // 검수 대기 영상도 작성자 본인에게는 토큰 주소로 재생한다 (2-35차 — 2-32차엔 썸네일만이라 오류로 보였다).
               // 승인 전에는 서버가 MEDIA_URL·THUMB_URL 을 비우므로 토큰 주소가 썸네일이 된다
               media.isPendingOwn = isPending && !!tokenUrl;
-              media.displayUrl = media.MEDIA_URL || null;
+              media.displayUrl = media.MEDIA_URL || (media.isPendingOwn ? `${tokenUrl}&kind=video` : null);
               media.posterUrl = media.THUMB_URL || (media.isPendingOwn && !hasPhoto ? tokenUrl : null);
               media.isUnderReview = isPending && !media.displayUrl;
               return media;
@@ -215,22 +302,6 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   
   handleImgError(ev: any) {
     ev.target.src = 'assets/img/defaultImg/avatar.svg';
-  }
-
-  private linkifyContent(text: string): string {
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-    const withLinks = escaped.replace(
-      /(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
-
-    return withLinks.replace(/\n/g, '<br />');
   }
 
   // 🖼️ [신규] 이미지 목록만 필터링 (1순위)

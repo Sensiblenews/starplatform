@@ -694,7 +694,10 @@
   }
 }
 
+// 글쓰기 버튼 — 2-35차 클라이언트 요청으로 기본 56px 의 절반(28px)으로 줄였다 (로비·스타페이지 공통)
 .glass-fab {
+  width: 28px;
+  height: 28px;
   --background: rgba(255, 255, 255, 0.85);
   --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
@@ -706,6 +709,11 @@
 
   &:active {
     --background: rgba(255, 255, 255, 0.95);
+  }
+
+  .glass-fab-icon {
+    font-size: 13px;
+    line-height: 1;
   }
 }
 

@@ -40,7 +40,9 @@
 
         <!-- 스타 소개문 — 이름 바로 아래 1줄 말줄임. 탭하면 소유자는 편집, 방문자는 전문 보기(2-28차) -->
         <div class="star-bio-line" *ngIf="starInfo?.PRS_BIO || isStar">
-          <span class="bio-text" *ngIf="starInfo?.PRS_BIO" (click)="onBioClick()">{{ starInfo?.PRS_BIO }}</span>
+          <!-- 주소는 파란 링크로 (2-35차). 방문자가 탭하면 전문 보기 오버레이 -->
+          <span class="bio-text" *ngIf="starInfo?.PRS_BIO"
+            [innerHTML]="getBioHtml(false)" (click)="onBioClick($event)"></span>
           <span class="bio-placeholder" *ngIf="!starInfo?.PRS_BIO" (click)="editBio()">Add a short bio</span>
           <ion-icon *ngIf="isStar && starInfo?.PRS_BIO" name="pencil" class="edit-bio-icon" (click)="editBio()"></ion-icon>
         </div>
@@ -132,16 +134,14 @@
             <ion-spinner name="crescent"></ion-spinner>
           </div>
 
-          <!-- 🎥 1순위: 동영상 재생. 검수 대기 영상은 주소가 없어 아래 이미지 분기(썸네일)로 떨어진다(2-32차) -->
-          <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO' && item.MEDIA_URL">
+          <!-- 🎥 1순위: 동영상 재생. 작성자 본인의 검수 대기 영상은 토큰 주소로 재생한다(2-35차 — 예전엔 썸네일만).
+               소리 아이콘은 클라이언트 요청으로 뺐다(2-35차) — 항상 음소거 자동재생 -->
+          <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO' && (item.MEDIA_URL || item.pendingVideoUrl)">
             <div class="video-thumbnail-wrapper">
-              <video #feedVideo [muted]="item.isMuted" autoplay loop playsinline [poster]="item.image"
+              <video #feedVideo [muted]="true" autoplay loop playsinline [poster]="item.image || item.pendingImageUrl"
                 class="video-thumbnail" (loadeddata)="onMediaLoaded(item)" (error)="onMediaLoaded(item)">
-                <source [src]="item.MEDIA_URL" type="video/mp4">
+                <source [src]="item.MEDIA_URL || item.pendingVideoUrl" type="video/mp4">
               </video>
-              <div class="sound-btn" (click)="toggleSound(item, $event)">
-                <ion-icon [name]="item.isMuted ? 'volume-mute' : 'volume-high'"></ion-icon>
-              </div>
             </div>
           </ng-container>
 
@@ -149,7 +149,7 @@
           <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차).
                작성자 본인의 대기 영상도 여기로 — 토큰 주소가 영상 썸네일이다(2-32차).
                사진과 똑같이 아무 표시 없이 보여준다 (클라이언트: 본인 화면의 Under review 칩 제거 요청) -->
-          <img *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !item.MEDIA_URL) && (item.image || item.pendingImageUrl)"
+          <img *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !(item.MEDIA_URL || item.pendingVideoUrl)) && (item.image || item.pendingImageUrl)"
             [src]="item.image || item.pendingImageUrl" loading="lazy"
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
@@ -192,6 +192,14 @@
               </span>
             </div>
 
+            <!-- ✏️ 수정 (2-35차) — 스타 본인 글만. 휴지통 바로 왼쪽 -->
+            <ion-icon
+              *ngIf="isStar && item.FEED_TYPE === 'STAR'"
+              name="create-outline"
+              aria-label="Edit post"
+              style="font-size: 20px; color: #999; position: absolute; right: 30px; top: 50%; transform: translateY(-50%); padding: 4px; cursor: pointer;"
+              (click)="editFeed(item, $event)">
+            </ion-icon>
             <ion-icon
               *ngIf="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')"
               name="trash-outline"
@@ -275,11 +283,20 @@
        어느 스타페이지에서 눌러도 내 글을 쓰고, 비로그인이면 크리에이터 로그인을 유도한다 -->
   <ion-fab vertical="bottom" horizontal="end" slot="fixed">
     <ion-fab-button class="glass-fab" (click)="handleWriteButtonClick()">
-      <span style="font-size: 24px; transform: translateY(-1px);">✏️</span>
+      <span class="glass-fab-icon">✏️</span>
     </ion-fab-button>
   </ion-fab>
 
   <!-- 🌟 프로필 사진 확대 모달 -->
+  <!-- 소개문 전문 (2-35차) — 링크를 누를 수 있다 -->
+  <div class="bio-viewer-backdrop" *ngIf="isBioViewerOpen" (click)="closeBioViewer()">
+    <div class="bio-viewer-card" (click)="onBioViewerClick($event)">
+      <div class="bio-viewer-title">{{ starInfo?.name || 'About' }}</div>
+      <div class="bio-viewer-body" [innerHTML]="getBioHtml(true)"></div>
+      <button type="button" class="bio-viewer-close" (click)="closeBioViewer()">Close</button>
+    </div>
+  </div>
+
   <div class="profile-viewer-backdrop" *ngIf="isProfileViewerOpen" (click)="closeProfileViewer()">
     <div class="profile-viewer-container" (click)="$event.stopPropagation()">
       <div class="profile-viewer-image-wrapper">

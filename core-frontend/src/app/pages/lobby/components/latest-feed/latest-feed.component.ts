@@ -13,7 +13,7 @@ import {
 import { HttpService } from 'src/app/services/http.service';
 import { DeviceIdService } from 'src/app/services/device-id.service';
 import { MediaAudioService } from 'src/app/services/media-audio.service';
-import { LatestContentItem, LatestFeedRow, buildLatestFeedRows, isVideoItem, previewText } from '../../latest-contents-logic';
+import { LatestContentItem, LatestFeedRow, buildLatestFeedRows, isVideoItem, previewText, videoPoster } from '../../latest-contents-logic';
 import { LOBBY_FEED_AD_SLOTS } from '../../lobby-ad-slots';
 import { VisibleVideoPlayer } from '../visible-video-player';
 import { sendLatestContentEvent } from '../latest-content-events';
@@ -34,6 +34,9 @@ import { sendLatestContentEvent } from '../latest-content-events';
   styleUrls: ['./latest-feed.component.scss'],
 })
 export class LatestFeedComponent implements AfterViewInit, OnDestroy {
+  /** 썸네일 없는 영상의 poster (2-35차 — Android 기본 회색 배너 방지) */
+  readonly videoPoster = videoPoster;
+
   readonly defaultAvatar = 'assets/img/defaultImg/avatar.svg';
 
   @Input() set items(value: LatestContentItem[]) {

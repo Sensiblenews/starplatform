@@ -1064,11 +1064,11 @@ public class SuperAdminService {
         return row;
     }
 
-    /** 게시물 선택 검색. Star Shorts 는 영상 글만, 세로형·가로형은 mediaFilter(ALL/VIDEO) 로 고른다 */
+    /** 게시물 선택 검색. 세 구역 모두 mediaFilter(ALL/VIDEO) 로 고른다 (2-35차: Star Shorts 도 사진 글 허용) */
     public List<Map<String, Object>> searchLatestContentCandidates(Map<String, Object> params) throws Exception {
         String section = com.sensible.common.util.LobbySection.normalize(params.get("section"));
         params.put("section", section);
-        params.put("mediaFilter", com.sensible.common.util.LobbySection.normalizeMediaFilter(section, params.get("mediaFilter")));
+        params.put("mediaFilter", com.sensible.common.util.LobbySection.normalizeMediaFilter(params.get("mediaFilter")));
         return dao.selectList("super.selectLatestContentCandidates", params);
     }
 
@@ -1100,7 +1100,7 @@ public class SuperAdminService {
 
     /**
      * 기존 게시물을 편성에 추가. 같은 구역 안 중복 불가.
-     * Star Shorts 는 승인된 영상 글만, 세로형·가로형은 승인된 글 중 사진·영상이 붙은 글.
+     * 승인된 글 중 사진·영상이 붙은 글 (2-35차: Star Shorts 도 세로형·가로형과 같은 규칙).
      */
     @org.springframework.cache.annotation.CacheEvict(value = "latestContents", allEntries = true)
     public int insertLatestContent(Map<String, Object> params, String adminId) throws Exception {
@@ -1109,14 +1109,12 @@ public class SuperAdminService {
             throw new Exception("게시물을 선택해주세요.");
         }
         String section = com.sensible.common.util.LobbySection.normalize(params.get("section"));
-        boolean videoOnly = com.sensible.common.util.LobbySection.videoOnly(section);
         Map<String, Object> key = new HashMap<>();
         key.put("conId", conId);
         key.put("section", section);
-        int approved = dao.selectOne(videoOnly ? "super.selectLatestContentApprovedVideo" : "super.selectLatestContentApprovedMedia", key);
+        int approved = dao.selectOne("super.selectLatestContentApprovedMedia", key);
         if (approved == 0) {
-            throw new Exception((videoOnly ? "검수 승인된 영상 게시물만" : "검수 승인된 사진·영상 게시물만")
-                    + " 편성할 수 있습니다. (CON_ID " + conId + ")");
+            throw new Exception("검수 승인된 사진·영상 게시물만 편성할 수 있습니다. (CON_ID " + conId + ")");
         }
         int exists = dao.selectOne("super.selectLatestContentCountByConId", key);
         if (exists > 0) {

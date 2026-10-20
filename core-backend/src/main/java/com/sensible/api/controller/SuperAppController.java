@@ -86,10 +86,25 @@ public class SuperAppController {
 	 * 앱이 쓰는 다른 API도 전부 그 아래에 있다.
 	 */
 	@RequestMapping(value = "/api/super/media/pending", method = RequestMethod.GET)
-	public void getPendingMedia(@RequestParam("t") String token, HttpServletResponse response) throws Exception {
+	public void getPendingMedia(@RequestParam("t") String token,
+			@RequestParam(value = "kind", required = false) String kind,
+			HttpServletRequest request, HttpServletResponse response) throws Exception {
 		MediaAccessService.Grant grant = mediaAccessService.verify(token);
 		if (grant == null) {
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+			return;
+		}
+
+		// 검수 대기 영상 재생 (2-35차). 플레이어가 Range 요청으로 탐색하므로 206 으로 답한다
+		if ("video".equals(kind)) {
+			java.io.File video = superAppService.resolvePendingVideo(grant.targetType, grant.targetId);
+			if (video == null) {
+				response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+				return;
+			}
+			response.setHeader("Cache-Control", "no-store");
+			com.sensible.common.util.RangeStreamUtil.write(video,
+					com.sensible.common.util.RangeStreamUtil.contentTypeFor(video.getName()), request, response);
 			return;
 		}
 
@@ -625,6 +640,14 @@ public class SuperAppController {
 	@ResponseBody
 	public Map<String, Object> deleteStarAccount(@RequestBody Map<String, Object> params) {
 		return superAppService.deleteStarAccount(params);
+	}
+
+	// 스타 피드 수정 (2-35차). body: { starId, starToken, conId, feedText, youtubeUrl, removeSortOrders, imageBase64 }
+	@RequestMapping(value = "/api/super/star/feed/update", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> updateStarFeed(@RequestBody Map<String, Object> params) {
+		// 본인 글 확인과 재검수 처리는 Service에서 전담
+		return superAppService.updateStarFeed(params);
 	}
 
 	@RequestMapping(value = "/api/super/star/feed/delete", method = RequestMethod.POST)

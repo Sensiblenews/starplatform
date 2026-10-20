@@ -2091,6 +2091,56 @@
 		(#{TARGET_TYPE}, #{TARGET_ID}, #{ACTION}, #{REASON}, #{ADMIN_ID}, NOW())
 	</insert>
 
+	<!-- ===== 스타 게시물 수정 (2-35차) ===== -->
+
+	<!-- 수정·삭제 전 소유자와 검수 상태 확인. 클라이언트가 보낸 conId 만으로 권한을 주지 않는다 -->
+	<select id="selectStarContentOwner" parameterType="map" resultType="map">
+		SELECT CON_ID, PRS_ID, MDR_STATUS
+		FROM WH_STAR_CONTENT
+		WHERE CON_ID = #{conId}
+	</select>
+
+	<!-- 본문·유튜브만 고친다. 고정·링크·카운터·검수 상태는 건드리지 않는다 -->
+	<update id="updateStarContentBody" parameterType="map">
+		UPDATE WH_STAR_CONTENT
+		SET
+			CON_BODY    = #{CON_BODY},
+			YOUTUBE_URL = #{YOUTUBE_URL}
+		WHERE CON_ID = #{CON_ID}
+		  AND PRS_ID = #{PRS_ID}
+	</update>
+
+	<!-- 미디어 행에는 고유 키가 없어 (CON_ID, SORT_ORDER) 로 식별한다 -->
+	<select id="selectContentMediaSortOrders" parameterType="map" resultType="int">
+		SELECT SORT_ORDER
+		FROM STAR_CONTENT_MEDIA
+		WHERE CON_ID = #{CON_ID}
+		ORDER BY SORT_ORDER ASC
+	</select>
+
+	<delete id="deleteContentMediaBySort" parameterType="map">
+		DELETE FROM STAR_CONTENT_MEDIA
+		WHERE CON_ID = #{CON_ID}
+		  AND SORT_ORDER = #{SORT_ORDER}
+	</delete>
+
+	<!-- 목록 대표 이미지는 SORT_ORDER = 0 이므로 삭제 후 0 부터 다시 매긴다 -->
+	<update id="updateContentMediaSort" parameterType="map">
+		UPDATE STAR_CONTENT_MEDIA
+		SET SORT_ORDER = #{NEW_SORT}
+		WHERE CON_ID = #{CON_ID}
+		  AND SORT_ORDER = #{OLD_SORT}
+	</update>
+
+	<!-- 검수 대기 영상 스트리밍용 (2-35차 — 작성자 본인 미리보기 재생) -->
+	<select id="selectPendingVideoTarget" parameterType="map" resultType="map">
+		SELECT S.MDR_STATUS,
+			(SELECT D.MEDIA_URL FROM STAR_CONTENT_MEDIA D
+			  WHERE D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO' ORDER BY D.SORT_ORDER LIMIT 1) AS VIDEO_URL
+		FROM WH_STAR_CONTENT S
+		WHERE S.CON_ID = #{targetId}
+	</select>
+
 
 	<!-- 검수 대기 이미지 스트리밍용. 상태와 파일 주소를 한 번에 확인한다(2-26차).
 	     작성자 본인에게는 항상 "이미지"만 돌려준다 — 영상만 있는 글은 영상 썸네일(2-32차).
@@ -2146,7 +2196,7 @@
 	<!-- 로비 노출 목록. 게시 중 + 기간 안 + 검수 승인 + 스타 활성 + 미디어 있음 까지 전부 여기서 거른다.
 	     INNER JOIN 이므로 원본이 지워지거나 차단되면 자동으로 빠진다 -->
 	<!-- 로비 편성 구역 목록 (2-33차 Star Shorts, 2-34차 세로형·가로형). 구역 조건은 항상 붙는다.
-	     Star Shorts(SHORTS)는 영상 글만, 세로형·가로형은 정렬 순서상 첫 미디어(사진이면 이미지 카드) -->
+	     세 구역 모두 정렬 순서상 첫 미디어(사진이면 이미지 카드). 2-35차 전까지 Star Shorts 는 영상 글만 걸렀다 -->
 	<select id="selectLatestContentActiveList" parameterType="map" resultType="map">
 		SELECT
 			L.LC_ID AS lcId,
@@ -2162,17 +2212,8 @@
 		FROM WH_LATEST_CONTENT L
 		JOIN WH_STAR_CONTENT S ON S.CON_ID = L.CON_ID AND S.MDR_STATUS = 'APPROVED'
 		JOIN WH_PRESS P ON P.PRS_ID = S.PRS_ID AND P.PRS_USE_YN = 'Y'
-		<choose>
-			<when test='section == "SHORTS"'>
-		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
-			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X
-								 WHERE X.CON_ID = S.CON_ID AND X.MEDIA_TYPE = 'VIDEO')
-			</when>
-			<otherwise>
 		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID
 			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X WHERE X.CON_ID = S.CON_ID)
-			</otherwise>
-		</choose>
 		WHERE L.SECTION = #{section}
 		  AND L.DEL_YN = 'N'
 		  AND L.USE_YN = 'Y'

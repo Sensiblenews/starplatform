@@ -246,7 +246,7 @@
           <div class="m-posts" id="mPosts">
             <c:forEach var="p" items="${postCards}" varStatus="ps">
               <a class="m-post" href="${pageContext.request.contextPath}/post/${p.conId}">
-                <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if><%-- [2-31차] 영상 글은 화면에 보일 때 재생 --%><c:if test="${not empty p.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${p.video}" poster="${p.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg></span></c:if></span>
+                <span class="m-post-img"><c:if test="${not empty p.image}"><img src="${p.image}" alt="${p.alt}" loading="lazy" onerror="this.style.visibility='hidden'"></c:if><%-- [2-31차] 영상 글은 화면에 보일 때 재생 --%><c:if test="${not empty p.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${p.video}" poster="${p.image}" muted playsinline loop preload="none" aria-hidden="true"></video></c:if></span>
                 <span class="m-post-body">
                   <span class="m-post-author">
                     <c:choose><c:when test="${not empty p.authorImage}"><img src="${p.authorImage}" alt="" loading="lazy"></c:when><c:otherwise><span class="m-post-author-empty"></span></c:otherwise></c:choose>

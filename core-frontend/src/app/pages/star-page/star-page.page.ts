@@ -20,6 +20,8 @@ import { environment } from 'src/environments/environment';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { DmService } from 'src/app/services/dm.service';
 import { openDmChat } from 'src/app/modals/dm-chat/dm-chat.component';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { handleLinkClick, linkifyText } from 'src/app/pipes/linkify';
 
 
 @Component({
@@ -127,6 +129,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private dm: DmService,
     private haptic: HapticService,
     private tickSound: TickSoundService,
+    private sanitizer: DomSanitizer,
   ) { }
 
   // 로그인한 스타가 다른 스타 페이지를 볼 때만 채팅 아이콘 (2-29차 메신저, 스타 소유자끼리 1:1)
@@ -523,6 +526,9 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(item.pendingImageToken)}`
       : null;
 
+    // 작성자 본인의 대기 영상은 같은 토큰으로 영상 파일을 받아 재생한다(2-35차 — 2-32차엔 썸네일만이라 오류로 보였다)
+    item.pendingVideoUrl = (item.pendingImageUrl && item.MEDIA_TYPE === 'VIDEO') ? `${item.pendingImageUrl}&kind=video` : null;
+
     // 볼 권한이 없는 대기 글에만 "검토 중" 자리를 그린다.
     // 작성자 본인의 대기 영상은 재생 대신 썸네일(토큰)만 보인다 — 사진과 같이 별도 표시는 없다(2-32차 후속)
     item.isUnderReview = isPending && !item.pendingImageUrl;
@@ -901,11 +907,6 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  toggleSound(item: any, event: Event) {
-    event.stopPropagation();
-    item.isMuted = !item.isMuted;
-  }
-
   startPolling() {
     // 재진입 시 중복 인터벌 방지
     this.stopPolling();
@@ -1227,26 +1228,53 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     await alert.present();
   }
 
-  // 소개문 탭: 소유자는 편집, 방문자는 전문 보기 (헤더에는 1줄 말줄임만 보인다 — 2-28차)
-  onBioClick() {
+  /**
+   * 방문자용 소개문 전문 보기 (2-35차 — 알림창은 링크를 그리지 못해 오버레이로 바꿨다).
+   * 헤더 높이가 네이티브 광고 위치와 묶여 있어 제자리에서 펼칠 수 없다. 떠 있는 동안 광고를 숨긴다
+   */
+  isBioViewerOpen = false;
+  private bioViewerHidAd = false;
+  private bioHtmlSource: string | null = null;
+  private bioHtmlCollapsed: SafeHtml | null = null;
+  private bioHtmlFull: SafeHtml | null = null;
+
+  /** 소개문 HTML — 주소는 파란 링크로. 접힌 1줄에서는 줄바꿈을 공백으로 바꾼다 (2-35차) */
+  getBioHtml(full: boolean): SafeHtml | null {
+    const bio: string = this.starInfo?.PRS_BIO || '';
+    if (bio !== this.bioHtmlSource) {
+      this.bioHtmlSource = bio;
+      this.bioHtmlCollapsed = this.sanitizer.bypassSecurityTrustHtml(linkifyText(bio.replace(/\s*\r?\n\s*/g, ' ')));
+      this.bioHtmlFull = this.sanitizer.bypassSecurityTrustHtml(linkifyText(bio));
+    }
+    return full ? this.bioHtmlFull : this.bioHtmlCollapsed;
+  }
+
+  // 소개문 탭: 링크면 그 주소를 연다. 아니면 소유자는 편집, 방문자는 전문 보기 (2-28차 → 2-35차)
+  onBioClick(event: Event) {
+    if (handleLinkClick(event, this.deepLink, this.router)) return;
     if (this.isStar) {
       this.editBio();
     } else {
-      this.showFullBio();
+      this.openBioViewer();
     }
   }
 
-  // 🌟 [신규 2-28차] 방문자용 소개문 전문 보기
-  async showFullBio() {
-    const bio = this.starInfo?.PRS_BIO;
-    if (!bio) return;
+  openBioViewer() {
+    if (!this.starInfo?.PRS_BIO) return;
+    this.bioViewerHidAd = this.platform.is('capacitor') && !this.isAdLocked;
+    if (this.bioViewerHidAd) NativeBridge.setShow({ show: false, page: 'star' });
+    this.isBioViewerOpen = true;
+  }
 
-    const alert = await this.alertCtrl.create({
-      header: this.starInfo?.name || 'About',
-      message: bio,
-      buttons: [{ text: 'Close', role: 'cancel' }]
-    });
-    await alert.present();
+  closeBioViewer() {
+    this.isBioViewerOpen = false;
+    if (this.bioViewerHidAd) NativeBridge.setShow({ show: true, page: 'star' });
+    this.bioViewerHidAd = false;
+  }
+
+  onBioViewerClick(event: Event) {
+    event.stopPropagation();
+    handleLinkClick(event, this.deepLink, this.router);
   }
 
   // 🌟 [신규 2-27차] 소개문 수정 로직 — 어드민 입력(웹 랜딩 About)과 같은 컬럼(PRS_BIO)을 쓴다
@@ -1430,8 +1458,35 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.loadStarDetail();
         }
-      }
+      },
+      this.composeHooks()
     );
+  }
+
+  /** 게시물 수정 (2-35차) — 휴지통 옆 연필 아이콘. 같은 작성판을 수정 모드로 연다 */
+  async editFeed(item: any, event: Event) {
+    event.stopPropagation();
+    await this.haptic.tap();
+    this.writeModalService.openEditModal(this.starId, item.CON_ID, () => this.loadStarDetail(), this.composeHooks());
+  }
+
+  /**
+   * 작성판이 떠 있는 동안 피드 영상을 멈추고 네이티브 광고를 숨긴다 (2-35차 — 작성 중 오클릭 버그).
+   * 광고 클릭 잠금(isAdLocked) 중이면 이미 숨겨져 있으므로 건드리지 않는다
+   */
+  private composeHooks() {
+    const hideAd = this.platform.is('capacitor') && !this.isAdLocked;
+    return {
+      onPresent: () => {
+        this.pauseAllVideos();
+        if (this.observer) this.observer.disconnect();
+        if (hideAd) NativeBridge.setShow({ show: false, page: 'star' });
+      },
+      onDismiss: () => {
+        if (hideAd) NativeBridge.setShow({ show: true, page: 'star' });
+        this.initIntersectionObserver();
+      }
+    };
   }
 
   goBack() {

@@ -212,8 +212,45 @@ public class SuperAppService {
 			return null;
 		}
 
+		return findPendingOrPublicFile(fileName, (String) row.get("IMAGE_URL"));
+	}
+
+	/**
+	 * 대기 보관소를 먼저 보고, 없으면 URL 에 맞는 공개 디렉터리를 본다.
+	 * 승인된 글을 수정해 사진을 더하면(2-35차) 기존 사진·영상은 이미 공개 디렉터리에 있다
+	 */
+	private java.io.File findPendingOrPublicFile(String fileName, String url) {
 		java.io.File file = new java.io.File(Constants._PENDING_SAVE_PATH, fileName);
-		return (file.exists() && file.isFile()) ? file : null;
+		if (file.exists() && file.isFile()) {
+			return file;
+		}
+		java.io.File published = new java.io.File(ImageModerationUtil.publicDirForUrl(url), fileName);
+		return (published.exists() && published.isFile()) ? published : null;
+	}
+
+	/**
+	 * 검수 대기 영상 파일 (2-35차 — 작성자 본인 미리보기 재생).
+	 * 2-32차에는 썸네일만 보여 줬는데, 올린 사람이 자기 영상이 재생되지 않아 오류로 여겼다.
+	 * 이미지와 같은 토큰을 쓰고 같은 상태 확인을 거친다.
+	 */
+	public java.io.File resolvePendingVideo(String targetType, String targetId) {
+		if (!"STAR_FEED".equals(targetType)) {
+			return null;
+		}
+		Map<String, Object> param = new HashMap<>();
+		param.put("targetId", targetId);
+		Map<String, Object> row;
+		try {
+			row = dao.selectOne("superapp.selectPendingVideoTarget", param);
+		} catch (Exception e) {
+			return null;
+		}
+		if (row == null || !"PENDING".equals(String.valueOf(row.get("MDR_STATUS")))) {
+			return null;
+		}
+		String url = (String) row.get("VIDEO_URL");
+		String fileName = ImageModerationUtil.fileNameFromUrl(url);
+		return fileName == null ? null : findPendingOrPublicFile(fileName, url);
 	}
 
 	/**
@@ -538,6 +575,180 @@ public class SuperAppService {
 		return resultMap;
 	}
 
+	// ===== 스타 게시물 수정 (2-35차) =====
+	//
+	// 작성판(Creator Post)을 수정 모드로 재사용한다. 고칠 수 있는 것: 본문, 유튜브 주소, 기존 미디어 삭제, 사진 1장 추가.
+	// 영상은 삭제만 된다 — 새 영상은 변환 작업 경로(add-media)를 타야 하므로 새 게시물로 올린다.
+	// 사진을 추가하면 게시물 전체가 다시 검수 대기(PENDING)가 된다. 본문만 고치면 검수 상태는 그대로다.
+
+	/** 게시물 본문 상한 (2-35차, 사용자 확정 20,000자). 이모지 한 개를 한 글자로 센다 */
+	public static final int FEED_BODY_MAX_CHARS = 20000;
+
+	/** 본문 길이 검사 (순수 함수 — 단위 테스트 대상). 서로게이트 쌍(이모지)을 한 글자로 센다 */
+	public static boolean isFeedBodyTooLong(String body) {
+		return body != null && body.codePointCount(0, body.length()) > FEED_BODY_MAX_CHARS;
+	}
+
+	public static String feedBodyTooLongMessage() {
+		return "Posts can be up to " + String.format(java.util.Locale.US, "%,d", FEED_BODY_MAX_CHARS) + " characters.";
+	}
+
+	/**
+	 * 수정 가능한 검수 상태인지 (순수 함수 — 단위 테스트 대상).
+	 * 거절·블라인드 글은 고치지 못한다 — 사진을 더해 재검수에 올리면 격리된 파일까지 다시 공개될 수 있다
+	 */
+	public static boolean isEditableModerationStatus(Object status) {
+		String value = status == null ? "APPROVED" : String.valueOf(status);
+		return !"REJECTED".equals(value) && !"HIDDEN".equals(value);
+	}
+
+	/** 스타 본인 글이면 행(CON_ID, PRS_ID, MDR_STATUS)을, 아니면 null */
+	private Map<String, Object> findOwnedStarContent(String starId, String conId) throws Exception {
+		if (starId == null || conId == null || conId.trim().isEmpty() || "null".equals(conId)) {
+			return null;
+		}
+		Map<String, Object> param = new HashMap<>();
+		param.put("conId", conId);
+		Map<String, Object> row = dao.selectOne("superapp.selectStarContentOwner", param);
+		if (row == null || !starId.equals(String.valueOf(row.get("PRS_ID")))) {
+			return null;
+		}
+		return row;
+	}
+
+	/**
+	 * 게시물 수정.
+	 * body: { starId, starToken, conId, feedText, youtubeUrl, removeSortOrders: [0, 2], imageBase64 }
+	 */
+	public Map<String, Object> updateStarFeed(Map<String, Object> params) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			String starId = params.get("starId") == null ? "" : String.valueOf(params.get("starId")).trim();
+			Object starToken = params.get("starToken");
+			String conId = params.get("conId") == null ? "" : String.valueOf(params.get("conId")).trim();
+
+			// 1. 토큰 확인 + 본인 글인지 서버에서 확인
+			if (starId.isEmpty() || !isStarOwner(starId, starToken)) {
+				result.put("result", "FAIL");
+				result.put("msg", "Your session has expired. Please log in again.");
+				return result;
+			}
+			Map<String, Object> owned = findOwnedStarContent(starId, conId);
+			if (owned == null) {
+				result.put("result", "FAIL");
+				result.put("msg", "You can only edit your own posts.");
+				return result;
+			}
+			if (!isEditableModerationStatus(owned.get("MDR_STATUS"))) {
+				result.put("result", "FAIL");
+				result.put("msg", "This post can no longer be edited.");
+				return result;
+			}
+
+			String feedText = params.get("feedText") == null ? "" : String.valueOf(params.get("feedText"));
+			if (feedText.trim().isEmpty()) {
+				result.put("result", "FAIL");
+				result.put("msg", "Please enter content.");
+				return result;
+			}
+			if (isFeedBodyTooLong(feedText)) {
+				result.put("result", "FAIL");
+				result.put("msg", feedBodyTooLongMessage());
+				return result;
+			}
+			Object yt = params.get("youtubeUrl");
+			String youtubeUrl = yt == null || "null".equals(String.valueOf(yt)) ? "" : String.valueOf(yt).trim();
+
+			// 2. 새 사진은 먼저 검증·저장한다 (거부되면 아무것도 바꾸지 않고 끝낸다)
+			String newImageName = null;
+			Object imageBase64 = params.get("imageBase64");
+			if (imageBase64 instanceof String && !((String) imageBase64).isEmpty()) {
+				try {
+					newImageName = savePendingFeedImage((String) imageBase64);
+				} catch (Exception rejected) {
+					result.put("result", "FAIL");
+					result.put("msg", rejected.getMessage());
+					return result;
+				}
+			}
+
+			// 3. 본문·유튜브
+			Map<String, Object> bodyParam = new HashMap<>();
+			bodyParam.put("CON_ID", conId);
+			bodyParam.put("PRS_ID", starId);
+			bodyParam.put("CON_BODY", feedText);
+			bodyParam.put("YOUTUBE_URL", youtubeUrl);
+			dao.update("superapp.updateStarContentBody", bodyParam);
+
+			// 4. 지운 미디어 행 제거. 파일은 남긴다 (게시물 삭제와 같은 정책)
+			Map<String, Object> mediaKey = new HashMap<>();
+			mediaKey.put("CON_ID", conId);
+			Object remove = params.get("removeSortOrders");
+			if (remove instanceof List) {
+				for (Object sort : (List<?>) remove) {
+					if (sort == null) {
+						continue;
+					}
+					Map<String, Object> del = new HashMap<>(mediaKey);
+					int sortOrder;
+					try {
+						sortOrder = sort instanceof Number ? ((Number) sort).intValue() : Integer.parseInt(String.valueOf(sort).trim());
+					} catch (NumberFormatException ignore) {
+						continue;
+					}
+					del.put("SORT_ORDER", sortOrder);
+					dao.delete("superapp.deleteContentMediaBySort", del);
+				}
+			}
+
+			// 5. 남은 미디어를 0 부터 다시 매긴다 (목록 대표 이미지 = SORT_ORDER 0).
+			//    오름차순으로 앞당기기만 하므로 중간에 번호가 겹치지 않는다
+			List<Integer> sorts = dao.selectList("superapp.selectContentMediaSortOrders", mediaKey);
+			int next = 0;
+			if (sorts != null) {
+				for (Integer old : sorts) {
+					if (old != null && old.intValue() != next) {
+						Map<String, Object> mv = new HashMap<>(mediaKey);
+						mv.put("OLD_SORT", old);
+						mv.put("NEW_SORT", next);
+						dao.update("superapp.updateContentMediaSort", mv);
+					}
+					next++;
+				}
+			}
+
+			// 6. 새 사진은 맨 뒤에 붙이고 게시물을 재검수에 올린다
+			if (newImageName != null) {
+				Map<String, Object> mediaParam = new HashMap<>(mediaKey);
+				mediaParam.put("MEDIA_TYPE", "PHOTO");
+				mediaParam.put("MEDIA_URL", Constants._FILE_URL + newImageName);
+				mediaParam.put("THUMB_URL", Constants._FILE_URL + newImageName);
+				mediaParam.put("SORT_ORDER", next);
+				dao.insert("superapp.insertContentMedia", mediaParam);
+
+				Map<String, Object> mdrParam = new HashMap<>();
+				mdrParam.put("CON_ID", conId);
+				mdrParam.put("MDR_STATUS", "PENDING");
+				dao.update("superapp.updateStarContentModeration", mdrParam);
+
+				Map<String, Object> logParam = new HashMap<>();
+				logParam.put("TARGET_TYPE", "STAR_FEED");
+				logParam.put("TARGET_ID", conId);
+				logParam.put("ACTION", "PENDING");
+				logParam.put("REASON", "수정 사진 추가 검수 대기");
+				dao.insert("superapp.insertModerationLog", logParam);
+				result.put("pending", true);
+			}
+
+			result.put("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("result", "FAIL");
+			result.put("msg", "Failed to save changes. Please try again.");
+		}
+		return result;
+	}
+
 	public Map<String, Object> deleteStarFeed(Map<String, Object> params) {
 		Map<String, Object> result = new HashMap<>();
 		try {
@@ -556,8 +767,16 @@ public class SuperAppService {
 				return result;
 			}
 
-			// 2. 삭제 실행 (기존 웹 관리자용 쿼리 재활용)
+			// 2. 본인 글인지 확인 (2-35차). 예전에는 토큰만 보고 conId 는 확인하지 않아
+			//    로그인한 스타라면 남의 글도 지울 수 있었다
 			String conId = String.valueOf(params.get("conId"));
+			if (findOwnedStarContent(starId, conId) == null) {
+				result.put("result", "FAIL");
+				result.put("msg", "You can only delete your own posts.");
+				return result;
+			}
+
+			// 3. 삭제 실행 (기존 웹 관리자용 쿼리 재활용)
 			dao.delete("super.deleteFeedMaster", conId);
 
 			result.put("result", "OK");
@@ -1843,6 +2062,11 @@ public class SuperAppService {
 				result.put("msg", "인증 세션이 만료되었습니다. 다시 로그인해 주세요.");
 				return result;
 			}
+			if (isFeedBodyTooLong(feedText)) {
+				result.put("result", "FAIL");
+				result.put("msg", feedBodyTooLongMessage());
+				return result;
+			}
 
 			// 2. 피드 마스터 (본문 & 유튜브 URL) Insert
 			Map<String, Object> masterParam = new HashMap<>();
@@ -2048,6 +2272,11 @@ public class SuperAppService {
 			final StarFeedUpload u = new StarFeedUpload();
 			u.prsId = prsId;
 			u.feedText = params.get("feedText") == null ? "" : String.valueOf(params.get("feedText"));
+			if (isFeedBodyTooLong(u.feedText)) {
+				result.put("result", "FAIL");
+				result.put("msg", feedBodyTooLongMessage());
+				return result;
+			}
 			Object yt = params.get("youtubeUrl");
 			u.youtubeUrl = yt == null || "null".equals(String.valueOf(yt)) ? "" : String.valueOf(yt);
 

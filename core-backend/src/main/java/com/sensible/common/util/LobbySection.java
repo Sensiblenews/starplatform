@@ -35,17 +35,11 @@ public final class LobbySection {
 		return 1;
 	}
 
-	/** Star Shorts 는 영상만 편성한다 (2-33차 규칙 유지). 세로형·가로형은 사진 글도 받는다 */
-	public static boolean videoOnly(String section) {
-		return SHORTS.equals(section);
-	}
-
 	/**
-	 * 게시물 선택 목록 필터 정규화 (순수 함수). Star Shorts 는 항상 VIDEO,
-	 * 세로형·가로형은 VIDEO 를 고른 경우만 VIDEO, 나머지는 ALL.
+	 * 게시물 선택 목록 필터 정규화 (순수 함수). VIDEO 를 고른 경우만 VIDEO, 나머지는 ALL.
+	 * 2-35차: Star Shorts 도 세로형·가로형처럼 사진 글을 받는다 (기존 "영상만" 규칙 폐지)
 	 */
-	public static String normalizeMediaFilter(String section, Object raw) {
-		if (videoOnly(section)) return MEDIA_VIDEO;
+	public static String normalizeMediaFilter(Object raw) {
 		if (raw != null && MEDIA_VIDEO.equalsIgnoreCase(String.valueOf(raw).trim())) return MEDIA_VIDEO;
 		return MEDIA_ALL;
 	}
