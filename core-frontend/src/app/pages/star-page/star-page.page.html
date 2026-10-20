@@ -135,10 +135,11 @@
           </div>
 
           <!-- 🎥 1순위: 동영상 재생. 작성자 본인의 검수 대기 영상은 토큰 주소로 재생한다(2-35차 — 예전엔 썸네일만).
-               소리 아이콘은 클라이언트 요청으로 뺐다(2-35차) — 항상 음소거 자동재생 -->
+               소리 아이콘은 클라이언트 요청으로 뺐다(2-35차) — 화면에 보이는 영상 하나가 처음부터 소리와 함께 재생된다
+               (재생은 initIntersectionObserver → MediaAudioService) -->
           <ng-container *ngIf="item.MEDIA_TYPE === 'VIDEO' && (item.MEDIA_URL || item.pendingVideoUrl)">
             <div class="video-thumbnail-wrapper">
-              <video #feedVideo [muted]="true" autoplay loop playsinline [poster]="item.image || item.pendingImageUrl"
+              <video #feedVideo loop playsinline preload="metadata" [poster]="item.image || item.pendingImageUrl"
                 class="video-thumbnail" (loadeddata)="onMediaLoaded(item)" (error)="onMediaLoaded(item)">
                 <source [src]="item.MEDIA_URL || item.pendingVideoUrl" type="video/mp4">
               </video>
