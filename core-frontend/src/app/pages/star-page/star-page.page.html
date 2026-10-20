@@ -19,6 +19,11 @@
   </ion-refresher>
   <app-skeleton *ngIf="isLoadingStar" variant="page"></app-skeleton>
 
+  <!-- 프로필 사진 변경용 파일 입력. *ngIf 블록 밖에 둬야 한다 — 템플릿 참조(#fileInput)는 *ngIf 안에 있으면
+       바깥(프로필 확대 뷰어의 Change Photo 버튼)에서 보이지 않아 클릭이 아무 일도 하지 않았다
+       (2026-08-20 헤더를 스켈레톤용 *ngIf 로 감싸면서 생긴 회귀, 2-35차 수정) -->
+  <input type="file" #fileInput accept="image/*" style="display: none" (change)="onFileSelected($event)">
+
   <div class="profile-header" *ngIf="!isLoadingStar">
     <div class="profile-info-pill">
       <div class="avatar-container" (click)="openProfileViewer()" [style.cursor]="'pointer'">
@@ -28,7 +33,6 @@
         <div *ngIf="isStar" class="edit-badge">
           <ion-icon name="pencil"></ion-icon>
         </div>
-        <input type="file" #fileInput accept="image/*" style="display: none" (change)="onFileSelected($event)">
       </div>
 
 

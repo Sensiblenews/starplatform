@@ -1301,6 +1301,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   // 🌟 [신규] 2. 프로필 사진 선택 및 확인 로직
   onFileSelected(event: any) {
     const file = event.target.files[0];
+    // 같은 사진을 다시 골라도 change 가 다시 오도록 바로 비운다 (파일 객체는 위에서 잡아 뒀다)
+    event.target.value = '';
     if (!file) return;
 
     // 사진을 Base64로 변환
