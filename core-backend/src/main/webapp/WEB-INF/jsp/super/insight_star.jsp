@@ -4,7 +4,8 @@
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <%-- 어드민 인사이트 — 스타 한 명의 그래프 5종 (2-34차 2-2, 요청서 "해당 유저 어드민 이동 → 인사이트 바로 보기").
      스타 계정으로 대리 로그인하지 않고, 스타 본인 마이페이지와 같은 그래프를 여기서 보여 준다.
-     2-34 3차 5번: 그래프 아래에 이 스타의 게시물 전체(검수 상태 무관)를 붙였다 --%>
+     2-34 3차 5번: 그래프 아래에 이 스타의 게시물 전체(검수 상태 무관)를 붙였다.
+     2026-10-17: 게시물마다 오른쪽에 상단 고정·프로모션 설정과 삭제 버튼 (스타 관리 > 게시물 모달과 같은 API) --%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -82,6 +83,7 @@
                             <th class="text-end">댓글</th>
                             <th class="text-end">저장</th>
                             <th class="text-end">공유</th>
+                            <th class="text-end" style="width:180px;">관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -128,10 +130,22 @@
                                 <td class="text-end"><fmt:formatNumber value="${post.COMMENT_CNT}"/></td>
                                 <td class="text-end"><fmt:formatNumber value="${post.SAVE_CNT}"/></td>
                                 <td class="text-end"><fmt:formatNumber value="${post.SHARE_CNT}"/></td>
+                                <td class="text-end text-nowrap">
+                                    <%-- 프로모션 링크는 data-* 로 넘겨 모달에 미리 채운다 (escapeXml 로 속성 깨짐 방지) --%>
+                                    <button type="button" class="btn btn-sm ${post.IS_PINNED eq 'Y' ? 'btn-warning' : 'btn-outline-warning'} fw-bold btn-pin"
+                                            data-con-id="${post.CON_ID}" data-pinned="${post.IS_PINNED eq 'Y' ? 'Y' : 'N'}"
+                                            data-t1="${fn:escapeXml(post.PIN_LINK_TEXT1)}" data-u1="${fn:escapeXml(post.PIN_LINK_URL1)}"
+                                            data-t2="${fn:escapeXml(post.PIN_LINK_TEXT2)}" data-u2="${fn:escapeXml(post.PIN_LINK_URL2)}">
+                                        <i class="fas fa-thumbtack me-1"></i>${post.IS_PINNED eq 'Y' ? '고정·프로모션' : '상단 고정'}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-con-id="${post.CON_ID}" title="삭제">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
                             </tr>
                         </c:forEach>
                         <c:if test="${empty posts}">
-                            <tr><td colspan="9" class="text-center text-secondary py-4">게시물이 없습니다.</td></tr>
+                            <tr><td colspan="10" class="text-center text-secondary py-4">게시물이 없습니다.</td></tr>
                         </c:if>
                     </tbody>
                 </table>
@@ -157,7 +171,88 @@
         </div>
     </div>
 
+    <!-- 상단 고정 및 프로모션 설정 (스타 관리 > 게시물의 pinPromotionModal 과 같은 항목·같은 API) -->
+    <div class="modal fade" id="pinPromotionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-thumbtack me-2"></i>상단 고정 및 프로모션 설정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <p class="text-muted small mb-3">이 게시물을 해당 스타의 상단에 고정하며, 우측에 노출될 전용 홍보 링크를 설정합니다.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-primary">링크 1 (선택)</label>
+                        <input type="text" id="feedPromoText1" class="form-control mb-2" placeholder="표시 텍스트 (예: 쿠팡)">
+                        <input type="text" id="feedPromoUrl1" class="form-control" placeholder="URL (https://...)">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-primary">링크 2 (선택)</label>
+                        <input type="text" id="feedPromoText2" class="form-control mb-2" placeholder="표시 텍스트 (예: 네이버)">
+                        <input type="text" id="feedPromoUrl2" class="form-control" placeholder="URL (https://...)">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary me-auto" id="btnUnpin" onclick="unpinFeed()">고정 해제</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-warning fw-bold" id="btnPinSubmit" onclick="submitFeedPin()">고정하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // ===== 게시물 상단 고정·프로모션·삭제 (2026-10-17) =====
+        var currentConId = '';
+
+        // 바뀐 뒤에는 게시물 표 위치로 돌아와 새로 그린다 (같은 페이지·기간 유지)
+        function reloadPosts() {
+            location.hash = 'posts';
+            location.reload();
+        }
+
+        // 고정 안 된 글 → 빈 모달로 고정, 고정된 글 → 지금 링크를 채워 수정·해제
+        $(document).on('click', '.btn-pin', function () {
+            var $b = $(this);
+            var pinned = $b.data('pinned') === 'Y';
+            currentConId = String($b.data('con-id'));
+            $('#feedPromoText1').val(pinned ? ($b.attr('data-t1') || '') : '');
+            $('#feedPromoUrl1').val(pinned ? ($b.attr('data-u1') || '') : '');
+            $('#feedPromoText2').val(pinned ? ($b.attr('data-t2') || '') : '');
+            $('#feedPromoUrl2').val(pinned ? ($b.attr('data-u2') || '') : '');
+            $('#btnUnpin').toggle(pinned);
+            $('#btnPinSubmit').text(pinned ? '저장' : '고정하기');
+            $('#pinPromotionModal').modal('show');
+        });
+
+        function submitFeedPin() {
+            executePinUpdate('Y', $('#feedPromoText1').val().trim(), $('#feedPromoUrl1').val().trim(),
+                $('#feedPromoText2').val().trim(), $('#feedPromoUrl2').val().trim());
+        }
+
+        function unpinFeed() {
+            if (!confirm('상단 고정을 해제하시겠습니까?')) return;
+            executePinUpdate('N', '', '', '', '');
+        }
+
+        function executePinUpdate(targetStatus, t1, u1, t2, u2) {
+            $.post('/super/star/togglePin.do', {
+                conId: currentConId, targetStatus: targetStatus,
+                pinLinkText1: t1, pinLinkUrl1: u1, pinLinkText2: t2, pinLinkUrl2: u2
+            }, function (res) {
+                if (res && res.status === 'success') reloadPosts();
+                else alert('실패: ' + ((res && res.msg) || '로그인이 만료되었을 수 있습니다.'));
+            }).fail(function () { alert('서버 오류가 발생했습니다.'); });
+        }
+
+        $(document).on('click', '.btn-delete', function () {
+            if (!confirm('정말 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+            $.post('/super/star/deleteFeed.do', { conId: String($(this).data('con-id')) }, function (res) {
+                if (res && res.status === 'success') reloadPosts();
+                else alert('삭제 실패: ' + ((res && res.msg) || ''));
+            }).fail(function () { alert('서버 오류가 발생했습니다.'); });
+        });
+
         var STAR_ID = '<c:out value="${star.PRS_ID}"/>';
 
         function loadInsight(period) {
