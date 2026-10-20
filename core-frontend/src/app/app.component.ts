@@ -1,10 +1,10 @@
-import { AfterViewChecked, Component, NgZone, OnDestroy } from '@angular/core';
+import { AfterViewChecked, Component, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { AdOptions } from '@capacitor-community/admob';
 import { App, BackButtonListenerEvent, URLOpenListenerEvent } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { ModalController, Platform } from '@ionic/angular';
+import { IonRouterOutlet, ModalController, Platform } from '@ionic/angular';
 import { PopupModalPage } from './modals/popup-modal/popup-modal.page';
 import { AdMobService } from './services/ad-mob.service';
 import { AuthService } from './services/auth.service';
@@ -42,7 +42,14 @@ const adRoutes = ['goblin', 'fairy', 'tinker-bell', 'peter-pan'];
 export class AppComponent implements AfterViewChecked, OnDestroy {
   private entry = 'root';
   private checked = false;
+  /** 약관 팝업이 떠 있는 동안만 쓰는 뒤로가기 구독 (뒤로가기 = 앱 종료) */
   private backButtonSubscription: any;
+  /** 앱 전역 뒤로가기 — Capacitor 리스너 + Ionic 최하위 우선순위 핸들러 (setupBackButtonExit) */
+  private nativeBackListener: any;
+  private exitBackButtonSubscription: any;
+  /** 마지막 뒤로가기 때 네이티브가 알려 준 웹뷰 히스토리 여부 */
+  private nativeCanGoBack = false;
+  @ViewChild(IonRouterOutlet, { static: true }) private routerOutlet: IonRouterOutlet;
   /**
    * 푸시 권한 요청이 끝났음을 알리는 약속. 배지를 지우기 전에 반드시 기다린다.
    *
@@ -191,6 +198,12 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     if (this.backButtonSubscription) {
       this.backButtonSubscription.unsubscribe();
+    }
+    if (this.exitBackButtonSubscription) {
+      this.exitBackButtonSubscription.unsubscribe();
+    }
+    if (this.nativeBackListener) {
+      Promise.resolve(this.nativeBackListener).then((h: any) => h && h.remove && h.remove());
     }
   }
 
@@ -600,11 +613,31 @@ export class AppComponent implements AfterViewChecked, OnDestroy {
     return receivedTerms.map(terms => terms.contents);
   }
 
+  /**
+   * Android 하드웨어 뒤로가기 (2-35차 버그 수정 — 숏폼 플레이어·작성판 등 모달에서 뒤로가기를 누르면 앱이 꺼졌다).
+   *
+   * Capacitor App 플러그인은 backButton 리스너가 있으면 (1) 리스너를 부르고 (2) document 'backbutton' 이벤트를 쏜다.
+   * Ionic 은 (2)를 받아 우선순위 순으로 처리한다 — 모달 닫기(100) → 메뉴(99) → 페이지 핸들러(로비 10 등) → 라우터 뒤로(0).
+   * 예전에는 (1)에서 바로 종료를 판단했다. 모달은 웹뷰 히스토리를 만들지 않아 로비 위 모달에서 canGoBack 이 false 라
+   * Ionic 이 모달을 닫는 것과 동시에 App.exitApp() 이 불려 앱이 꺼졌다.
+   *
+   * 이제 (1)은 canGoBack 만 기록하고, 종료 판단은 Ionic 최하위 우선순위(-1) 핸들러에서 한다.
+   * 모달·페이지·라우터가 처리하지 못한 뒤로가기만 여기까지 내려온다. 동작은 예전과 같다(전체 화면 해제 → 웹뷰 뒤로 → 종료).
+   * (1)의 리스너는 지우면 안 된다 — 리스너가 없으면 Capacitor 가 (2)를 쏘지 않아 Ionic 핸들러가 전부 멈춘다.
+   */
   setupBackButtonExit() {
-    this.backButtonSubscription = App.addListener('backButton', (event: BackButtonListenerEvent) => {
+    this.nativeBackListener = App.addListener('backButton', (event: BackButtonListenerEvent) => {
+      // 네이티브는 리스너 호출 뒤에 document 이벤트를 쏘므로, 아래 핸들러보다 먼저 기록된다
+      this.nativeCanGoBack = !!event.canGoBack;
+    });
+
+    this.exitBackButtonSubscription = this.platform.backButton.subscribeWithPriority(-1, () => {
+      // 이전 페이지가 있으면 Ionic NavController(우선순위 0)가 이미 그쪽으로 보냈다.
+      // NavController 는 처리 뒤에도 다음 핸들러를 부르므로 여기서 또 뒤로 가면 두 번 이동한다
+      if (this.routerOutlet && this.routerOutlet.canGoBack()) return;
       if (document.fullscreenElement) {
         document.exitFullscreen();
-      } else if (event.canGoBack) {
+      } else if (this.nativeCanGoBack) {
         window.history.back();
       } else {
         App.exitApp();
