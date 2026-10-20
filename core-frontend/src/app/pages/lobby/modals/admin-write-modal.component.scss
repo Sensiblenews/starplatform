@@ -1,207 +1,274 @@
+// 작성판 (2-35차 시안) — 넓은 입력칸, 큰 첨부 버튼, 첨부 미리보기, 하단 고정 버튼
 ion-toolbar { --background: white; border-bottom: 1px solid #eee; }
-ion-title { font-size: 16px; font-weight: bold; }
+ion-title { font-size: 17px; font-weight: 700; text-align: center; }
 ion-content { --background: #fff; }
+
+.close-icon { font-size: 28px; color: #333; }
+.toolbar-spacer { width: 48px; }
 
 .write-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    overflow-y: auto;
+    min-height: 100%;
+}
+
+// ✏️ 본문 입력 — 화면 높이의 절반 정도를 쓰고 글자 수를 오른쪽 아래에 둔다
+.compose-box {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e3e6ec;
+    border-radius: 14px;
+    padding: 14px 14px 10px;
+    margin-bottom: 14px;
+    background: #fff;
+    transition: border-color 0.2s;
+
+    &:focus-within { border-color: #b8bfcc; }
+    &.over-limit { border-color: var(--ion-color-danger); }
+    &.over-limit .char-count { color: var(--ion-color-danger); font-weight: 700; }
 }
 
 .content-input {
     width: 100%;
+    min-height: 34vh;
     border: none;
     outline: none;
     font-size: 15px;
-    line-height: 1.5;
-    color: #333;
+    line-height: 1.6;
+    color: #222;
     resize: none;
     padding: 0;
     background: transparent;
-    flex-shrink: 0;
-    height: 60px;
-    overflow-y: auto;
-    margin-bottom: 16px;
+    // 붙여넣은 줄바꿈·연속 공백을 그대로 보여 준다
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 .content-input::placeholder { color: #aaa; }
 
-.image-upload-section {
-    margin-bottom: 16px;
-}
-
-// 📸 이미지 업로드 섹션 (스크롤 가능한 영역)
-.scrollable-section {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 4px;
-    margin-right: -4px;
-}
-
-// 🎥 미디어 업로드 섹션 (이미지 + 동영상 + YouTube)
-.media-upload-section {
-    margin-bottom: 16px;
-
-    .button-group {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 12px;
-
-        ion-button {
-            flex: 1;
-        }
-    }
-
-    .youtube-input-section {
-        margin-top: 12px;
-
-        .youtube-input-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            height: 38px;
-            padding: 0 10px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            background: #fff;
-            transition: border-color 0.2s;
-
-            &:focus-within {
-                border-color: #6c5ce7;
-            }
-        }
-
-        .youtube-icon {
-            font-size: 18px;
-            color: #ff0000;
-            flex-shrink: 0;
-        }
-
-        .youtube-url-input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 14px;
-            background: transparent;
-
-            &::placeholder {
-                color: #bbb;
-            }
-        }
-
-        .youtube-close {
-            --padding-start: 4px;
-            --padding-end: 4px;
-            --color: #666;
-        }
-    }
-}
-
-.upload-btn {
-    --border-radius: 8px;
-    font-weight: bold;
-}
-
-// 📸🎥🎬 미리보기 컨테이너 (최대 3개씩 가로 배치)
-.preview-container {
+.compose-meta {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 6px;
+}
+
+.char-count {
+    font-size: 12px;
+    color: #8a8f99;
+    font-variant-numeric: tabular-nums;
+}
+
+.edit-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 14px;
+}
+
+// 📎 첨부 버튼 3칸
+.attach-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.attach-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 84px;
+    padding: 10px 4px;
+    border: 1px solid #e3e6ec;
+    border-radius: 12px;
+    background: #fff;
+    color: #222;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+    ion-icon { font-size: 30px; color: #333; }
+    .youtube-tile-icon { color: #ff0000; }
+
+    &:active { background: #f5f6f8; }
+    &:disabled { opacity: 0.4; }
+}
+
+// 첨부 상한 안내 (2-33차)
+.upload-hint {
+    font-size: 11px;
+    color: var(--ion-color-medium);
+    margin: 6px 0 0 4px;
+}
+
+// 동영상 전송 실패 사유 (2-34차)
+.upload-error {
+    font-size: 12px;
+    color: var(--ion-color-danger);
+    margin: 6px 0 0 4px;
+}
+
+// 🎬 YouTube URL 입력 바
+.youtube-input-section {
+    margin-top: 12px;
+
+    .youtube-input-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 10px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        background: #fff;
+        transition: border-color 0.2s;
+
+        &:focus-within { border-color: #6c5ce7; }
+    }
+
+    .youtube-icon { font-size: 18px; color: #ff0000; flex-shrink: 0; }
+
+    .youtube-url-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 14px;
+        background: transparent;
+
+        &::placeholder { color: #bbb; }
+    }
+
+    .youtube-close {
+        --padding-start: 4px;
+        --padding-end: 4px;
+        --color: #666;
+    }
+}
+
+// 📸🎥🎬 첨부 미리보기
+.preview-label {
+    margin: 18px 0 8px 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+}
+
+.preview-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 120px;
+    border: 1px dashed #d5d9e0;
+    border-radius: 12px;
+    background: #fafbfc;
+    color: #9aa0aa;
+    font-size: 13px;
+
+    ion-icon { font-size: 30px; }
+}
+
+.preview-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
     margin-bottom: 16px;
 
     .preview-item {
-        flex: 1 1 calc(33.333% - 8px);
-        min-width: 80px;
-        aspect-ratio: 1;
         position: relative;
+        aspect-ratio: 1;
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
+        background: #f1f2f4;
 
-    // 📸 이미지 미리보기
-    .image-preview {
-        img {
+        img, iframe {
             width: 100%;
             height: 100%;
             display: block;
             object-fit: cover;
+            border: 0;
         }
     }
 
-    // 🎥 동영상 미리보기
-    .video-preview {
-        background: #000;
+    .video-preview { background: #000; }
 
-        .video-thumbnail-wrapper {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background: #000;
-
-            .video-thumbnail {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
-            }
-
-            .play-button-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(0, 0, 0, 0.3);
-                transition: background 0.2s;
-
-                .play-icon {
-                    font-size: 48px;
-                    color: white;
-                    opacity: 0.9;
-                }
-            }
-        }
-
-        &:hover .play-button-overlay {
-            background: rgba(0, 0, 0, 0.5);
-        }
+    .preview-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9aa0aa;
+        font-size: 30px;
     }
 
-    // 🎬 YouTube 미리보기
-    .youtube-preview {
-        .youtube-thumbnail-wrapper {
-            width: 100%;
-            height: 100%;
+    .play-button-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.25);
+        pointer-events: none;
 
-            iframe {
-                width: 100%;
-                height: 100%;
-                border-radius: 12px;
-            }
-        }
+        .play-icon { font-size: 40px; color: white; opacity: 0.9; }
+    }
+
+    .add-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border: 1px dashed #d5d9e0;
+        background: #fafbfc;
+        color: #9aa0aa;
+        font-size: 12px;
+
+        ion-icon { font-size: 30px; }
+        &:disabled { opacity: 0.4; }
     }
 
     .remove-btn {
         position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 28px;
-        height: 28px;
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        font-size: 16px;
         z-index: 10;
-        --box-shadow: none;
-        opacity: 0.8;
     }
 }
 
-.submit-btn {
-    margin: 8px 16px 16px;
+// ⬇️ 하단 고정 버튼 — 새 글은 Post 하나, 수정은 Cancel + Save Changes
+.footer-actions {
+    display: flex;
+    gap: 10px;
+    padding: 8px 16px calc(8px + var(--ion-safe-area-bottom, 0px));
+
+    .submit-btn { flex: 1; }
+    .cancel-btn { flex: 0 0 38%; }
+}
+
+.submit-btn, .cancel-btn {
+    margin: 0;
+    height: 52px;
     --border-radius: 12px;
-    font-weight: bold;
-    font-size: 16px;
+    font-weight: 700;
+    font-size: 17px;
 }
 
 // 🔄 로딩 오버레이
@@ -276,17 +343,4 @@ ion-content { --background: #fff; }
 .blur-content {
     opacity: 0.6;
     pointer-events: none;
-}
-// 첨부 상한 안내 (2-33차)
-.upload-hint {
-  font-size: 11px;
-  color: var(--ion-color-medium);
-  margin: 4px 0 0 4px;
-}
-
-// 동영상 전송 실패 사유 (2-34차)
-.upload-error {
-  font-size: 12px;
-  color: var(--ion-color-danger);
-  margin: 6px 0 0 4px;
 }

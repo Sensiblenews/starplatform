@@ -140,6 +140,12 @@
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+
+          // 소개문 링크 — [innerHTML] 이라 캡슐화 밖 (2-35차)
+          ::ng-deep a.body-link {
+            color: #1a73e8;
+            text-decoration: underline;
+          }
         }
 
         .bio-placeholder {
@@ -657,26 +663,6 @@
       }
     }
 
-    // 소리 버튼 (우측 하단)
-    .sound-btn {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      background-color: rgba(0, 0, 0, 0.6); // 반투명 검정
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-
-      ion-icon {
-        color: white;
-        font-size: 14px;
-      }
-    }
-
     .pin-badge {
       position: absolute;
       top: 12px;
@@ -882,6 +868,60 @@ ion-back-button {
 }
 
 // 🌟 [신규] 프로필 사진 확대 뷰어 스타일
+// 소개문 전문 보기 (2-35차)
+.bio-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+
+  .bio-viewer-card {
+    width: 100%;
+    max-width: 360px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px 12px;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .bio-viewer-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 10px;
+  }
+
+  .bio-viewer-body {
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #333;
+    overflow-wrap: anywhere;
+
+    ::ng-deep a.body-link {
+      color: #1a73e8;
+      text-decoration: underline;
+    }
+  }
+
+  .bio-viewer-close {
+    align-self: flex-end;
+    margin-top: 12px;
+    padding: 8px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--ion-color-primary, #3880ff);
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
 .profile-viewer-backdrop {
   position: fixed;
   top: 0;
@@ -981,7 +1021,10 @@ ion-back-button {
   }
 }
 
+// 글쓰기 버튼 — 2-35차 클라이언트 요청으로 기본 56px 의 절반(28px)으로 줄였다 (로비·스타페이지 공통)
 .glass-fab {
+  width: 28px;
+  height: 28px;
   --background: rgba(255, 255, 255, 0.85);
   --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
@@ -992,5 +1035,10 @@ ion-back-button {
 
   &:active {
     --background: rgba(255, 255, 255, 0.95);
+  }
+
+  .glass-fab-icon {
+    font-size: 13px;
+    line-height: 1;
   }
 }

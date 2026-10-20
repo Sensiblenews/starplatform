@@ -10,9 +10,9 @@
       <ng-container *ngIf="isVideo(row.item); else photo">
         <!-- 재생은 VisibleVideoPlayer 가 화면에 가장 많이 보이는 카드 하나만 켠다 -->
         <video class="no-native-controls" muted playsinline loop preload="metadata" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
-          [attr.src]="row.item.mediaUrl" [attr.poster]="row.item.thumbUrl || null"
+          [attr.src]="row.item.mediaUrl" [attr.poster]="videoPoster(row.item)"
           (playing)="onPlaying(row.item)"></video>
-        <img class="lf-poster" *ngIf="row.item.thumbUrl" [class.is-hidden]="playingIndex === row.index"
+        <img class="lf-poster" *ngIf="row.item.thumbUrl && !row.item.thumbFailed" (error)="row.item.thumbFailed = true" [class.is-hidden]="playingIndex === row.index"
           [src]="row.item.thumbUrl" alt="" loading="lazy" />
         <span class="lf-video-badge" *ngIf="playingIndex !== row.index"><ion-icon name="play"></ion-icon></span>
       </ng-container>

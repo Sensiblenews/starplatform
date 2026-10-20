@@ -20,6 +20,7 @@ import {
   isVideoItem,
   nextScrollLeft,
   normalizeIntervalMs,
+  videoPoster,
 } from '../../latest-contents-logic';
 import { VisibleVideoPlayer } from '../visible-video-player';
 import { sendLatestContentEvent } from '../latest-content-events';
@@ -41,6 +42,9 @@ import { sendLatestContentEvent } from '../latest-content-events';
   styleUrls: ['./hot-shorts.component.scss'],
 })
 export class HotShortsComponent implements AfterViewInit, OnDestroy {
+  /** 썸네일 없는 영상의 poster (2-35차 — Android 기본 회색 배너 방지) */
+  readonly videoPoster = videoPoster;
+
   readonly defaultAvatar = 'assets/img/defaultImg/avatar.svg';
 
   @Input() set items(value: LatestContentItem[]) {

@@ -22,6 +22,7 @@ import {
   normalizeIntervalMs,
   prevIndex,
   swipeDirection,
+  videoPoster,
 } from '../../latest-contents-logic';
 
 /**
@@ -42,6 +43,9 @@ import {
   styleUrls: ['./latest-contents-carousel.component.scss'],
 })
 export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy {
+  /** 썸네일 없는 영상의 poster (2-35차 — Android 기본 회색 배너 방지) */
+  readonly videoPoster = videoPoster;
+
   readonly defaultAvatar = 'assets/img/defaultImg/avatar.svg';
 
   @Input() set items(value: LatestContentItem[]) {

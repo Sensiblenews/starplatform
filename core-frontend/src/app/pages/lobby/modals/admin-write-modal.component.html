@@ -1,112 +1,131 @@
+<!-- 작성판 (2-35차 시안): 넓은 입력칸 + 큰 첨부 버튼 3개 + 첨부 미리보기 + 하단 고정 버튼. 수정 모드도 같은 화면을 쓴다 -->
 <ion-header class="ion-no-border">
     <ion-toolbar>
-    <ion-title>
-        {{ isStar ? 'Creator Post' : (adminLevel === 'GLOBAL' ? 'Global Notice (SM)' : 'Local Feed (LC)') }}
-    </ion-title>
-    <ion-buttons slot="end">
-        <ion-button (click)="close()" [disabled]="isSubmitting">
-        <ion-icon name="close-outline" style="font-size: 26px; color: #333;"></ion-icon>
+    <ion-buttons slot="start">
+        <ion-button (click)="close()" [disabled]="isSubmitting" aria-label="Close">
+        <ion-icon name="close-outline" class="close-icon"></ion-icon>
         </ion-button>
     </ion-buttons>
+    <ion-title>
+        {{ isEdit ? 'Edit Post' : (isStar ? 'Creator Post' : (adminLevel === 'GLOBAL' ? 'Global Notice (SM)' : 'Local Feed (LC)')) }}
+    </ion-title>
+    <!-- 제목을 가운데 두기 위한 빈 자리 -->
+    <ion-buttons slot="end"><div class="toolbar-spacer"></div></ion-buttons>
     </ion-toolbar>
 </ion-header>
 
 <ion-content class="ion-padding">
     <div class="write-container" [class.blur-content]="isSubmitting">
-    
-    <textarea 
-        class="content-input" 
-        [(ngModel)]="content" 
-        placeholder="Write your post here...&#13;&#10;(Line breaks applied)" 
-        rows="8"
-        [disabled]="isSubmitting">
-    </textarea>
 
-    <!-- 📸 이미지 업로드 섹션 -->
-    <div class="scrollable-section">
-        <div class="media-upload-section" *ngIf="!isSubmitting">
-            <input type="file" id="fileInput" accept="image/*" (change)="onFileSelected($event)" hidden />
-            <input type="file" id="videoInput" accept="video/*" (change)="onVideoFileSelected($event)" hidden />
-            
-            <div class="button-group">
-                <ion-button fill="outline" color="medium" class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    <ion-icon name="camera-outline" slot="start"></ion-icon>
-                    Attach Photo
-                </ion-button>
-                
-                <!-- 🎥 동영상 버튼 -->
-                <ion-button fill="outline" color="medium" class="upload-btn" onclick="document.getElementById('videoInput').click()">
-                    <ion-icon name="film-outline" slot="start"></ion-icon>
-                    Attach Video
-                </ion-button>
+    <!-- ✏️ 본문 — 붙여넣은 이모지·줄바꿈은 그대로 저장된다 -->
+    <div class="compose-box" [class.over-limit]="isOverLimit">
+        <textarea
+            class="content-input"
+            [(ngModel)]="content"
+            placeholder="Write something here, or add photos, videos or a YouTube URL..."
+            [disabled]="isSubmitting || isLoadingEdit">
+        </textarea>
+        <div class="compose-meta">
+            <span class="char-count">{{ bodyLength | number }}/{{ maxBodyChars | number }}</span>
+        </div>
+        <div class="edit-loading" *ngIf="isLoadingEdit"><ion-spinner name="crescent"></ion-spinner></div>
+    </div>
 
-                <ion-button fill="outline" color="medium" class="upload-btn" (click)="toggleYoutubeInput()">
-                    <ion-icon name="logo-youtube" slot="start"></ion-icon>
-                    YouTube URL
-                </ion-button>
+    <!-- 📎 첨부 버튼 -->
+    <input #fileInput type="file" accept="image/*" (change)="onFileSelected($event)" hidden />
+    <input #videoInput type="file" accept="video/*" (change)="onVideoFileSelected($event)" hidden />
+    <div class="attach-grid">
+        <button type="button" class="attach-tile" (click)="pickFile(fileInput)" [disabled]="isSubmitting || isLoadingEdit">
+            <ion-icon name="image-outline"></ion-icon>
+            <span>Add Photo</span>
+        </button>
+        <!-- 수정 모드에서 영상은 지우기만 된다 (새 영상은 새 게시물로) -->
+        <button type="button" class="attach-tile" (click)="pickFile(videoInput)" [disabled]="isSubmitting || isLoadingEdit || isEdit">
+            <ion-icon name="film-outline"></ion-icon>
+            <span>Add Video</span>
+        </button>
+        <button type="button" class="attach-tile" (click)="toggleYoutubeInput()" [disabled]="isSubmitting || isLoadingEdit">
+            <ion-icon name="logo-youtube" class="youtube-tile-icon"></ion-icon>
+            <span>YouTube URL</span>
+        </button>
+    </div>
+    <!-- 첨부 상한 안내 (2-33차) -->
+    <div class="upload-hint" *ngIf="!isEdit">Video up to {{ maxVideoSizeMb }}MB</div>
+    <div class="upload-hint" *ngIf="isEdit">Videos can be removed but not added while editing.</div>
+    <!-- 동영상 전송 실패 사유 — Post 를 다시 누르면 재시도 (2-34차) -->
+    <div class="upload-error" *ngIf="uploadError">{{ uploadError }}</div>
+
+    <!-- 🎬 YouTube URL 입력 (버튼을 누르면 슬림 바 노출) -->
+    <div class="youtube-input-section" *ngIf="showYoutubeInput">
+        <div class="youtube-input-bar">
+            <ion-icon name="logo-youtube" class="youtube-icon"></ion-icon>
+            <input
+                type="text"
+                class="youtube-url-input"
+                placeholder="https://youtu.be/"
+                [(ngModel)]="youtubeUrl"
+                (change)="onYoutubeUrlChange(youtubeUrl)"
+            />
+            <ion-button fill="clear" size="small" class="youtube-close" (click)="toggleYoutubeInput()">
+                <ion-icon name="close"></ion-icon>
+            </ion-button>
+        </div>
+    </div>
+
+    <!-- 📸🎥🎬 첨부 미리보기 -->
+    <div class="preview-label">Attachment preview</div>
+    <div class="preview-empty" *ngIf="!hasAttachments && !isLoadingEdit" (click)="pickFile(fileInput)">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Add a photo, video or link.</span>
+    </div>
+
+    <div class="preview-container" *ngIf="hasAttachments">
+        <!-- 수정 모드: 기존 미디어 -->
+        <div class="preview-item existing-preview" *ngFor="let media of visibleExistingMedias">
+            <img *ngIf="media.previewUrl; else noPreview" [src]="media.previewUrl" />
+            <ng-template #noPreview>
+                <div class="preview-placeholder"><ion-icon [name]="media.type === 'VIDEO' ? 'film-outline' : 'image-outline'"></ion-icon></div>
+            </ng-template>
+            <div class="play-button-overlay" *ngIf="media.type === 'VIDEO'">
+                <ion-icon name="play-circle" class="play-icon"></ion-icon>
             </div>
-            <!-- 첨부 상한 안내 (2-33차) -->
-            <div class="upload-hint">Video up to {{ maxVideoSizeMb }}MB</div>
-            <!-- 동영상 전송 실패 사유 — Post 를 다시 누르면 재시도 (2-34차) -->
-            <div class="upload-error" *ngIf="uploadError">{{ uploadError }}</div>
-
-            <!-- 🎬 YouTube URL 입력 (클릭 시 슬림 바 노출) -->
-            <div class="youtube-input-section" *ngIf="showYoutubeInput">
-                <div class="youtube-input-bar">
-                    <ion-icon name="logo-youtube" class="youtube-icon"></ion-icon>
-                    <input 
-                        type="text"
-                        class="youtube-url-input"
-                        placeholder="https://youtu.be/"
-                        [(ngModel)]="youtubeUrl"
-                        (change)="onYoutubeUrlChange(youtubeUrl)"
-                    />
-                    <ion-button fill="clear" size="small" class="youtube-close" (click)="toggleYoutubeInput()">
-                        <ion-icon name="close"></ion-icon>
-                    </ion-button>
-                </div>
-            </div>
+            <button type="button" class="remove-btn" (click)="removeExistingMedia(media)" [disabled]="isSubmitting" aria-label="Remove">
+                <ion-icon name="close"></ion-icon>
+            </button>
         </div>
 
-        <!-- 📸🎥🎬 미리보기 컨테이너 -->
-        <div class="preview-container">
-            <!-- 📸 이미지 미리보기 -->
-            <div class="preview-item image-preview" *ngIf="imagePreview">
-                <img [src]="imagePreview" />
-                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeImage()" [disabled]="isSubmitting">
-                    <ion-icon name="close"></ion-icon>
-                </ion-fab-button>
-            </div>
-
-            <!-- 🎥 동영상 파일 미리보기 -->
-            <div class="preview-item video-preview" *ngIf="videoPreview">
-                <div class="video-thumbnail-wrapper">
-                    <!-- 썸네일 이미지 표시 -->
-                    <img *ngIf="videoThumbnail" [src]="videoThumbnail" class="video-thumbnail" />
-                    <!-- 재생 버튼 오버레이 -->
-                    <div class="play-button-overlay">
-                        <ion-icon name="play-circle" class="play-icon"></ion-icon>
-                    </div>
-                </div>
-                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeVideo()" [disabled]="isSubmitting">
-                    <ion-icon name="close"></ion-icon>
-                </ion-fab-button>
-            </div>
-
-            <!-- 🎬 YouTube 임베드 미리보기 -->
-            <div class="preview-item youtube-preview" *ngIf="youtubeEmbedUrl">
-                <div class="youtube-thumbnail-wrapper">
-                    <iframe 
-                        [src]="youtubeEmbedUrl" 
-                        frameborder="0" 
-                        allowfullscreen
-                    ></iframe>
-                </div>
-                <ion-fab-button size="small" color="dark" class="remove-btn" (click)="removeYoutube()" [disabled]="isSubmitting">
-                    <ion-icon name="close"></ion-icon>
-                </ion-fab-button>
-            </div>
+        <!-- 📸 새 사진 -->
+        <div class="preview-item image-preview" *ngIf="imagePreview">
+            <img [src]="imagePreview" />
+            <button type="button" class="remove-btn" (click)="removeImage()" [disabled]="isSubmitting" aria-label="Remove">
+                <ion-icon name="close"></ion-icon>
+            </button>
         </div>
+
+        <!-- 🎥 새 동영상 -->
+        <div class="preview-item video-preview" *ngIf="videoPreview">
+            <img *ngIf="videoThumbnail" [src]="videoThumbnail" class="video-thumbnail" />
+            <div class="play-button-overlay">
+                <ion-icon name="play-circle" class="play-icon"></ion-icon>
+            </div>
+            <button type="button" class="remove-btn" (click)="removeVideo()" [disabled]="isSubmitting" aria-label="Remove">
+                <ion-icon name="close"></ion-icon>
+            </button>
+        </div>
+
+        <!-- 🎬 YouTube 임베드 -->
+        <div class="preview-item youtube-preview" *ngIf="youtubeEmbedUrl">
+            <iframe [src]="youtubeEmbedUrl" frameborder="0" allowfullscreen></iframe>
+            <button type="button" class="remove-btn" (click)="removeYoutube()" [disabled]="isSubmitting" aria-label="Remove">
+                <ion-icon name="close"></ion-icon>
+            </button>
+        </div>
+
+        <!-- ＋ 추가 — 사진은 한 번에 한 장 -->
+        <button type="button" class="preview-item add-tile" *ngIf="!imagePreview" (click)="pickFile(fileInput)" [disabled]="isSubmitting">
+            <ion-icon name="add-outline"></ion-icon>
+            <span>Add</span>
+        </button>
     </div>
 
     </div>
@@ -121,14 +140,24 @@
             <div class="upload-progress"><div class="upload-progress-bar" [style.width.%]="uploadProgress"></div></div>
             <p class="loading-subtext">Please keep the app open until the upload finishes.</p>
         </ng-container>
-        <ng-template #savingText><p class="loading-text">Saving your post...</p></ng-template>
+        <ng-template #savingText><p class="loading-text">{{ isEdit ? 'Saving changes...' : 'Saving your post...' }}</p></ng-template>
     </div>
 </div>
 
 <ion-footer class="ion-no-border">
     <ion-toolbar>
-    <ion-button expand="block" color="danger" class="submit-btn" (click)="submitPost()" [disabled]="isSubmitting">
-        {{ isSubmitting ? 'Posting...' : (uploadError ? 'Retry' : 'Post') }}
-    </ion-button>
+    <div class="footer-actions" *ngIf="isEdit; else postAction">
+        <ion-button fill="outline" color="medium" class="cancel-btn" (click)="close()" [disabled]="isSubmitting">Cancel</ion-button>
+        <ion-button color="danger" class="submit-btn" (click)="submitPost()" [disabled]="isSubmitting || isLoadingEdit || isOverLimit">
+            {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+        </ion-button>
+    </div>
+    <ng-template #postAction>
+        <div class="footer-actions">
+            <ion-button expand="block" color="danger" class="submit-btn" (click)="submitPost()" [disabled]="isSubmitting || isOverLimit">
+                {{ isSubmitting ? 'Posting...' : (uploadError ? 'Retry' : 'Post') }}
+            </ion-button>
+        </div>
+    </ng-template>
     </ion-toolbar>
 </ion-footer>

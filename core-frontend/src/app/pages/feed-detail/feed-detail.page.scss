@@ -140,6 +140,13 @@
     line-height: 1.6;
     color: #333;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    // 본문 링크 — [innerHTML] 로 그려져 캡슐화 밖이라 ::ng-deep (2-35차)
+    ::ng-deep a.body-link {
+      color: #1a73e8;
+      text-decoration: underline;
+    }
   }
 }
 

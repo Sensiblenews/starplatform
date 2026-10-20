@@ -19,6 +19,8 @@ import {
   prevIndex,
   swipeDirection,
   toContentStats,
+  BLANK_VIDEO_POSTER,
+  videoPoster,
 } from './latest-contents-logic';
 
 describe('latest-contents-logic (2-33차 로비 숏폼)', () => {
@@ -215,5 +217,17 @@ describe('previewText (2-34 후속 세로형 카드 글)', () => {
   it('비었으면 빈 문자열', () => {
     expect(previewText(null)).toBe('');
     expect(previewText('\n \n')).toBe('');
+  });
+});
+
+describe('videoPoster (2-35차 썸네일 없는 영상)', () => {
+  it('썸네일이 있으면 썸네일을 쓴다', () => {
+    expect(videoPoster({ thumbUrl: 'https://x/t.jpg' })).toBe('https://x/t.jpg');
+  });
+
+  it('썸네일이 없거나 깨졌으면 투명 poster — Android 기본 회색 배너 방지', () => {
+    expect(videoPoster({ thumbUrl: null })).toBe(BLANK_VIDEO_POSTER);
+    expect(videoPoster({ thumbUrl: 'https://x/t.jpg', thumbFailed: true })).toBe(BLANK_VIDEO_POSTER);
+    expect(videoPoster(null)).toBe(BLANK_VIDEO_POSTER);
   });
 });

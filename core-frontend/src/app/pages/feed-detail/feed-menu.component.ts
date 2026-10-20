@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { PopoverController } from '@ionic/angular';
 
 // 콘텐츠 상세(feed-detail) 헤더 점점점 메뉴 (2-33차 — 아이콘만 있고 메뉴가 없던 버그 수정).
@@ -7,6 +7,18 @@ import { PopoverController } from '@ionic/angular';
   selector: 'app-feed-menu',
   template: `
     <ion-list lines="none" class="menu-list">
+      <!-- 본인 글이면 수정·삭제 (2-35차) -->
+      <ng-container *ngIf="canEdit">
+        <ion-item button (click)="close('edit')">
+          <ion-icon name="create-outline" slot="start"></ion-icon>
+          <ion-label>Edit Post</ion-label>
+        </ion-item>
+        <ion-item button (click)="close('delete')">
+          <ion-icon name="trash-outline" slot="start"></ion-icon>
+          <ion-label>Delete Post</ion-label>
+        </ion-item>
+      </ng-container>
+
       <ion-item button (click)="close('search')">
         <ion-icon name="search-outline" slot="start"></ion-icon>
         <ion-label>Go to Search</ion-label>
@@ -35,6 +47,8 @@ import { PopoverController } from '@ionic/angular';
   `]
 })
 export class FeedMenuComponent {
+  @Input() canEdit = false;
+
   constructor(private popoverCtrl: PopoverController) {}
 
   close(action: string) {

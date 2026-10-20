@@ -15,6 +15,20 @@ export interface LatestContentItem {
   isFeatured: string;
   /** VIDEO | PHOTO (2-34차 세로형·가로형만 사진 글이 있다. 없으면 영상) */
   mediaType?: string | null;
+  /** 썸네일 이미지를 못 불러왔는지 (화면 상태, 2-35차) */
+  thumbFailed?: boolean;
+}
+
+/**
+ * 투명 1×1 GIF. 썸네일이 없거나 깨진 영상의 poster 로 쓴다 (2-35차).
+ * Android WebView 는 poster 가 없으면 재생 전까지 회색 바탕 + 검은 재생 버튼(기본 배너)을 그린다 — 클라이언트 보고.
+ * 투명 poster 를 주면 그 배너 대신 카드 바탕(검정)이 보이다가 재생이 시작되면 영상이 나온다
+ */
+export const BLANK_VIDEO_POSTER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/** 영상 poster — 썸네일이 있으면 썸네일, 없거나 깨졌으면 투명 이미지 */
+export function videoPoster(item: Pick<LatestContentItem, 'thumbUrl' | 'thumbFailed'> | null | undefined): string {
+  return item && item.thumbUrl && !item.thumbFailed ? item.thumbUrl : BLANK_VIDEO_POSTER;
 }
 
 /** 서버에 기록하는 이벤트 종류 */

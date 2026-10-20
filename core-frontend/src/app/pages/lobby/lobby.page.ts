@@ -1756,6 +1756,17 @@ export class LobbyPage implements OnInit, OnDestroy {
         } else {
           this.loadLobbyData();
         }
+      },
+      // 작성판이 떠 있는 동안 숏폼을 멈추고 네이티브 광고를 숨긴다 (2-35차 — 작성 중 오클릭 버그)
+      {
+        onPresent: () => {
+          this.stopSectionMedia();
+          this.setOverlayOpen(true);
+        },
+        onDismiss: () => {
+          this.setOverlayOpen(false);
+          if (this.isViewActive) this.startSectionMedia();
+        }
       }
     );
   }

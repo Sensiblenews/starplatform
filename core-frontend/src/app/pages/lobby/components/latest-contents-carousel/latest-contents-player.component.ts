@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { MediaAudioService } from 'src/app/services/media-audio.service';
-import { LatestContentItem } from '../../latest-contents-logic';
+import { LatestContentItem, videoPoster } from '../../latest-contents-logic';
 import { ContentActionsComponent } from '../content-actions/content-actions.component';
 
 /**
@@ -20,7 +20,7 @@ import { ContentActionsComponent } from '../content-actions/content-actions.comp
   template: `
     <div class="player" *ngIf="item">
       <video #video class="player-video no-native-controls" playsinline loop webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
-        [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
+        [attr.src]="item.mediaUrl" [attr.poster]="videoPoster(item)"
         (click)="togglePause()" (playing)="onPlaying()" (pause)="isPaused = true"></video>
 
       <!-- 사용자가 직접 멈췄을 때만 가운데 재생 표시 (자동 재생 중에는 아무것도 덮지 않는다) -->
@@ -91,6 +91,9 @@ import { ContentActionsComponent } from '../content-actions/content-actions.comp
   `],
 })
 export class LatestContentsPlayerComponent implements AfterViewInit, OnDestroy {
+  /** 썸네일 없는 영상의 poster (2-35차 — Android 기본 회색 배너 방지) */
+  readonly videoPoster = videoPoster;
+
   @Input() item: LatestContentItem;
   @ViewChild('video') video: ElementRef<HTMLVideoElement>;
   @ViewChild(ContentActionsComponent) actions: ContentActionsComponent;

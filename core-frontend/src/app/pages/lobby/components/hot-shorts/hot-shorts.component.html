@@ -4,9 +4,9 @@
   <div *ngFor="let item of items; let i = index; trackBy: trackByItem" #card class="hs-card" (click)="onCardTap(item)">
     <ng-container *ngIf="isVideo(item); else photo">
       <video class="no-native-controls" muted playsinline loop preload="metadata" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
-        [attr.src]="item.mediaUrl" [attr.poster]="item.thumbUrl || null"
+        [attr.src]="item.mediaUrl" [attr.poster]="videoPoster(item)"
         (playing)="onPlaying(item)"></video>
-      <img class="hs-poster" *ngIf="item.thumbUrl" [class.is-hidden]="isPlayingAt(i)"
+      <img class="hs-poster" *ngIf="item.thumbUrl && !item.thumbFailed" (error)="item.thumbFailed = true" [class.is-hidden]="isPlayingAt(i)"
         [src]="item.thumbUrl" alt="" loading="lazy" />
       <span class="hs-video-badge" *ngIf="!isPlayingAt(i)"><ion-icon name="play"></ion-icon></span>
     </ng-container>

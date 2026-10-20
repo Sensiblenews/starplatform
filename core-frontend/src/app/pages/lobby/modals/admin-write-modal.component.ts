@@ -3,6 +3,19 @@ import { ModalController, AlertController, ToastController } from '@ionic/angula
 import { HttpService } from 'src/app/services/http.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FeedUploadService } from 'src/app/services/feed-upload.service';
+import { environment } from 'src/environments/environment';
+
+/** 작성판을 닫을 때 확인 창을 띄울지 판단하는 연결 고리 (WriteModalService 의 canDismiss 가 읽는다) */
+export interface ComposeGuard {
+  isDirty: () => boolean;
+}
+
+/** 수정 모드에서 불러온 기존 미디어 1건. 서버에 고유 키가 없어 SORT_ORDER 로 식별한다 */
+interface ExistingMedia {
+  sortOrder: number;
+  type: 'PHOTO' | 'VIDEO';
+  previewUrl: string | null;
+}
 
 @Component({
   selector: 'app-admin-write-modal',
@@ -15,6 +28,21 @@ export class AdminWriteModalComponent implements OnInit {
   // 🌟 신규: 스타 여부 및 스타 ID 파라미터 추가
   @Input() isStar: boolean = false; 
   @Input() starId: string = '';
+  /** 수정 모드 (2-35차) — 기존 게시물 번호. 없으면 새 글 작성 */
+  @Input() editConId: string | number | null = null;
+  @Input() guard: ComposeGuard | null = null;
+
+  /** 본문 상한 (2-35차, 서버 SuperAppService.FEED_BODY_MAX_CHARS 와 같은 값). 이모지는 한 글자로 센다 */
+  static readonly MAX_BODY_CHARS = 20000;
+  readonly maxBodyChars = AdminWriteModalComponent.MAX_BODY_CHARS;
+
+  /** 수정 모드: 불러온 기존 미디어와 사용자가 지운 항목 */
+  existingMedias: ExistingMedia[] = [];
+  removedSortOrders: number[] = [];
+  isLoadingEdit = false;
+  /** 불러온 원본 — 바뀐 게 없으면 닫을 때 확인 창을 띄우지 않는다 */
+  private originalContent = '';
+  private originalYoutubeUrl = '';
 
   content: string = '';
   selectedFile: File | null = null;
@@ -59,13 +87,99 @@ export class AdminWriteModalComponent implements OnInit {
   }
 
   ngOnInit() {
-    console.log(`[Write Modal] isStar: ${this.isStar} / Admin Level: ${this.adminLevel}`);
+    if (this.guard) this.guard.isDirty = () => this.isDirty();
+    if (this.isEdit) this.loadForEdit();
   }
 
+  get isEdit(): boolean {
+    return this.editConId !== null && this.editConId !== undefined && String(this.editConId) !== '';
+  }
 
+  /** 코드 포인트 기준 글자 수 — 이모지(서로게이트 쌍)를 한 글자로 센다 */
+  get bodyLength(): number {
+    return Array.from(this.content || '').length;
+  }
 
+  get isOverLimit(): boolean {
+    return this.bodyLength > this.maxBodyChars;
+  }
+
+  get hasAttachments(): boolean {
+    return !!(this.imagePreview || this.videoPreview || this.youtubeEmbedUrl || this.visibleExistingMedias.length);
+  }
+
+  get visibleExistingMedias(): ExistingMedia[] {
+    return this.existingMedias.filter(m => this.removedSortOrders.indexOf(m.sortOrder) < 0);
+  }
+
+  private isDirty(): boolean {
+    if (this.isSubmitting) return false;
+    if (this.isEdit) {
+      return this.content !== this.originalContent || this.youtubeUrl !== this.originalYoutubeUrl
+        || this.removedSortOrders.length > 0 || !!this.selectedFile;
+    }
+    return !!(this.content.trim() || this.selectedFile || this.selectedVideo || this.youtubeUrl);
+  }
+
+  /** 닫기 — 작성 중인 내용이 있으면 WriteModalService 의 canDismiss 가 확인 창을 띄운다 */
   close() {
     this.modalCtrl.dismiss();
+  }
+
+  /** 수정 모드: 상세 API 로 기존 본문·미디어를 불러온다. 끝나기 전에는 저장 버튼을 막는다 */
+  private loadForEdit() {
+    this.isLoadingEdit = true;
+    this.http.post(`/api/super/feed/${this.editConId}`, {
+      starToken: localStorage.getItem('starToken') || ''
+    }).subscribe({
+      next: (res: any) => {
+        this.isLoadingEdit = false;
+        if (!res || res.result !== 'OK' || !res.content) {
+          this.showError((res && res.msg) || 'Could not load this post.');
+          this.modalCtrl.dismiss(null, 'confirmed');
+          return;
+        }
+        this.content = res.content.CON_BODY || '';
+        this.originalContent = this.content;
+        const yt = (res.content.YOUTUBE_URL || '').trim();
+        if (yt) {
+          this.youtubeUrl = yt;
+          this.youtubeEmbedUrl = this.extractYoutubeEmbedUrl(yt);
+        }
+        this.originalYoutubeUrl = this.youtubeUrl;
+
+        // 검수 대기 글은 미디어 주소가 가려진다. 토큰 주소는 글당 하나(첫 사진, 없으면 영상 썸네일)라 첫 항목에만 쓴다
+        const tokenUrl = res.pendingImageToken
+          ? `${environment.apiBaseURL}/api/super/media/pending?t=${encodeURIComponent(res.pendingImageToken)}`
+          : null;
+        const medias: any[] = res.medias || [];
+        const firstPhoto = medias.find(m => m.MEDIA_TYPE === 'PHOTO');
+        const tokenTarget = firstPhoto || medias.find(m => m.MEDIA_TYPE === 'VIDEO');
+        this.existingMedias = medias.map(m => ({
+          sortOrder: Number(m.SORT_ORDER),
+          type: m.MEDIA_TYPE === 'VIDEO' ? 'VIDEO' : 'PHOTO',
+          previewUrl: m.MEDIA_TYPE === 'VIDEO'
+            ? (m.THUMB_URL || (m === tokenTarget ? tokenUrl : null))
+            : (m.MEDIA_URL || (m === tokenTarget ? tokenUrl : null)),
+        }));
+      },
+      error: () => {
+        this.isLoadingEdit = false;
+        this.showError('Could not load this post. Please check your connection.');
+        this.modalCtrl.dismiss(null, 'confirmed');
+      }
+    });
+  }
+
+  removeExistingMedia(media: ExistingMedia) {
+    if (this.removedSortOrders.indexOf(media.sortOrder) < 0) this.removedSortOrders.push(media.sortOrder);
+  }
+
+  /** 첨부 버튼 — 숨긴 file input 을 연다 */
+  pickFile(input: HTMLInputElement) {
+    if (this.isSubmitting) return;
+    input.value = '';
+    input.click();
   }
 
   toggleYoutubeInput() {
@@ -196,9 +310,17 @@ export class AdminWriteModalComponent implements OnInit {
   }
 
   async submitPost() {
+    if (this.isLoadingEdit) return;
     if (!this.content.trim()) {
       const alert = await this.alertCtrl.create({ header: 'Notice', message: 'Please enter content.', buttons: ['OK'] });
       return alert.present();
+    }
+    if (this.isOverLimit) {
+      return this.showError(`Posts can be up to ${this.maxBodyChars.toLocaleString('en-US')} characters.`);
+    }
+
+    if (this.isEdit) {
+      return this.submitEdit();
     }
 
     // 🎥 스타 글 + 동영상은 파일 업로드 경로 (2-34차)
@@ -252,8 +374,38 @@ export class AdminWriteModalComponent implements OnInit {
     // 2. 사용자에게는 0.5초(500ms) 동안만 로딩 오버레이를 보여준 뒤 즉시 모달 닫기
     setTimeout(() => {
       this.isSubmitting = false;
-      this.modalCtrl.dismiss({ success: true });
+      this.modalCtrl.dismiss({ success: true }, 'confirmed');
     }, 500);
+  }
+
+  /**
+   * 수정 저장 (2-35차). 새 글과 달리 결과를 기다린다 — 실패하면 작성판을 닫지 않고 내용을 그대로 둔다
+   */
+  private submitEdit() {
+    this.isSubmitting = true;
+    const payload = {
+      starId: this.starId,
+      starToken: localStorage.getItem('starToken') || '',
+      conId: this.editConId,
+      feedText: this.content.trim(),
+      youtubeUrl: this.youtubeUrl || '',
+      removeSortOrders: this.removedSortOrders,
+      imageBase64: this.imagePreview || null,
+    };
+    this.http.post('/api/super/star/feed/update', payload).subscribe({
+      next: (res: any) => {
+        this.isSubmitting = false;
+        if (res && res.result === 'OK') {
+          this.modalCtrl.dismiss({ success: true, edited: true, pending: !!res.pending }, 'confirmed');
+        } else {
+          this.showError((res && res.msg) || 'Failed to save changes. Please try again.');
+        }
+      },
+      error: () => {
+        this.isSubmitting = false;
+        this.showError('Failed to save changes. Please check your connection.');
+      }
+    });
   }
 
   /**
@@ -285,7 +437,7 @@ export class AdminWriteModalComponent implements OnInit {
           this.feedUpload.watchJob(res.jobId);
           this.isSubmitting = false;
           this.uploadProgress = null;
-          this.modalCtrl.dismiss({ success: true, processing: true });
+          this.modalCtrl.dismiss({ success: true, processing: true }, 'confirmed');
         } else {
           this.failVideoUpload((res && res.msg) || 'Upload failed. Please try again.');
         }

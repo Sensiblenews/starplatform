@@ -162,6 +162,21 @@ ion-modal.latest-player-modal {
   --ion-background-color: #000;
 }
 
+// 작성판 (2-35차) — 태블릿에서도 카드가 아니라 전체 화면 독립 화면으로 띄운다
+ion-modal.compose-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+}
+
+// 사진 전체 화면 뷰어 (2-35차 — 확대·축소)
+ion-modal.photo-viewer-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --background: #000;
+}
+
 // 이미지가 내려오기 전 빈 흰 박스가 보이지 않도록 회색 바탕을 깔아둔다.
 // 텍스트는 먼저 렌더되고 이미지가 1~2초 늦게 도착하는 구간을 덮는 용도.
 img,

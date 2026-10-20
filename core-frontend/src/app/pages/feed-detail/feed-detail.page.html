@@ -22,10 +22,11 @@
 
   <div class="media-stack" *ngIf="!notFound">
     <!-- 🖼️ 1순위: 이미지들 -->
-    <div class="media-item" *ngFor="let media of getPhotoList()">
+    <div class="media-item" *ngFor="let media of getPhotoList(); let i = index">
       <!-- 승인 전에는 주소가 없다. 작성자 본인은 토큰 주소로 보고, 타인은 안내를 본다(2-26차) -->
       <ng-container *ngIf="media.displayUrl; else underReview">
-        <img [src]="media.displayUrl" (error)="handleImgError($event)" />
+        <!-- 탭하면 전체 화면 뷰어 — 두 손가락으로 확대·축소 (2-35차) -->
+        <img [src]="media.displayUrl" (error)="handleImgError($event)" (click)="openPhotoViewer(i)" />
       </ng-container>
       <ng-template #underReview>
         <div class="review-box">
@@ -91,6 +92,7 @@
       </div>
     </div>
 
-    <div class="content-text" [innerHTML]="safeContentHtml"></div>
+    <!-- 본문 주소는 파란 링크로 그리고, 누르면 앱 안/인앱 브라우저로 연다 (2-35차) -->
+    <div class="content-text" [innerHTML]="safeContentHtml" (click)="onBodyClick($event)"></div>
   </div>
 </ion-content>
