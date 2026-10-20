@@ -31,7 +31,8 @@ ion-content { --background: #fff; }
 
 .content-input {
     width: 100%;
-    min-height: 34vh;
+    // 2-35차 실측 피드백: 34vh → 2/3 (첨부 미리보기까지 한 화면에 보이게)
+    min-height: 23vh;
     border: none;
     outline: none;
     font-size: 15px;

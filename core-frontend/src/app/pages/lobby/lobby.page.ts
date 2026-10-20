@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpService } from '../../services/http.service';
 import { Platform, ModalController, PopoverController, AlertController, IonContent, IonSearchbar, ScrollDetail } from '@ionic/angular';
@@ -391,6 +391,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   ionViewDidEnter() {
     this.isViewActive = true;
 
+    // 🎬 Star Shorts 높이를 첫 화면에 맞춘다 (2-35차)
+    this.fitShortsToViewport();
+
     // 🌟 1:1 메신저 미읽음 점 (로그인 상태에서만 요청)
     this.dm.refreshUnread();
 
@@ -633,6 +636,8 @@ export class LobbyPage implements OnInit, OnDestroy {
         // 캐러셀 최초 등장(0 → 30vh)은 슬롯을 카드 높이만큼 밀어내므로 렌더 후 위치 재전송
         if (!hadCards && this.vsCards.length > 0) {
           setTimeout(() => this.sendAdSlotPosition());
+          // 티커가 그려졌으니 실제 티커 높이로 숏폼 높이를 다시 잰다 (2-35차)
+          setTimeout(() => this.fitShortsToViewport());
         }
       }
     });
@@ -653,6 +658,7 @@ export class LobbyPage implements OnInit, OnDestroy {
           // 섹션 최초 등장(스켈레톤 → 카드)은 높이가 바뀌므로 렌더 후 광고 슬롯 위치 재전송 + 재생 시작
           if (!had && this.latestContents.length > 0) {
             setTimeout(() => {
+              this.fitShortsToViewport();
               this.sendAdSlotPosition();
               if (this.isViewActive && this.latestCarousel) this.latestCarousel.start();
             });
@@ -684,6 +690,54 @@ export class LobbyPage implements OnInit, OnDestroy {
       this.hotItems = items;
       this.hotIntervalSec = intervalSec; // 가로형 자동 넘김 간격 (2-34 후속)
     });
+  }
+
+  // ==========================================
+  // 🎬 Star Shorts 첫 화면 높이 (2-35차)
+  // 클라이언트 요청: 스크롤 전 첫 화면에는 숏폼과 바로 밑 LIVE 티커만 보이고 VS 카드는 아래로 밀린다.
+  // 고정 비율(가로의 145%) 대신 "로비 화면 높이 − 숏폼 위 여백 − 티커 묶음 높이"를 재서 CSS 변수로 내려준다.
+  // 스켈레톤도 같은 변수를 써서 로딩 전후 높이가 같다.
+  // ==========================================
+
+  /** 티커가 아직 없을 때 쓰는 티커 묶음 높이 — .ticker-bar margin-top 15 + height 36 (live-news-ticker.component.scss) */
+  private static readonly SHORTS_TICKER_FALLBACK_PX = 51;
+  /** 아주 낮은 화면(가로 모드 등)에서도 이 밑으로는 줄이지 않는다 */
+  private static readonly SHORTS_MIN_HEIGHT_PX = 320;
+  private shortsFillHeight = 0;
+
+  @HostListener('window:resize')
+  onWindowResize() {
+    this.fitShortsToViewport();
+  }
+
+  private async fitShortsToViewport() {
+    if (!this.lobbyContent) return;
+    const scroll = await this.lobbyContent.getScrollElement();
+    const viewH = scroll ? scroll.clientHeight : 0;
+    if (!viewH) return;
+
+    const host = this.hostEl.nativeElement;
+    const shorts = host.querySelector('app-latest-contents-carousel .latest-main, app-skeleton .sk-latest-main') as HTMLElement | null;
+    if (!shorts) return;
+    const shortsRect = shorts.getBoundingClientRect();
+    // 숏폼 위쪽 여백 (스크롤 위치와 무관하게 콘텐츠 기준)
+    const topOffset = Math.max(0, shortsRect.top - scroll.getBoundingClientRect().top + scroll.scrollTop);
+
+    // 티커 묶음 = 숏폼 아래 끝 → 티커 아래 끝 (티커 위 여백 포함)
+    let tickerBlock = LobbyPage.SHORTS_TICKER_FALLBACK_PX;
+    const ticker = host.querySelector('app-live-news-ticker .ticker-bar') as HTMLElement | null;
+    if (ticker) {
+      const gap = ticker.getBoundingClientRect().bottom - shortsRect.bottom;
+      if (gap > 0 && gap < 200) tickerBlock = gap;
+    }
+
+    const height = Math.max(Math.round(viewH - topOffset - tickerBlock), LobbyPage.SHORTS_MIN_HEIGHT_PX);
+    if (height === this.shortsFillHeight) return;
+    this.shortsFillHeight = height;
+    host.style.setProperty('--shorts-fill-height', `${height}px`);
+    host.style.setProperty('--shorts-fill-pad', '0');
+    // 숏폼 높이가 바뀌면 아래 네이티브 광고 슬롯 위치도 바뀐다
+    setTimeout(() => this.sendAdSlotPosition());
   }
 
   /** 로비 영상 섹션(Star Shorts·세로형·가로형) 재생 시작 — 로비 진입·앱 복귀·플레이어 닫힘 */

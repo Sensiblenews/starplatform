@@ -50,7 +50,8 @@
         </button>
     </div>
     <!-- 첨부 상한 안내 (2-33차) -->
-    <div class="upload-hint" *ngIf="!isEdit">Video up to {{ maxVideoSizeMb }}MB</div>
+    <!-- 안내는 클라이언트 요청으로 100MB 로 표기한다. 실제 상한은 95MB (Cloudflare 본문 한도 100MB 에서 여유를 뺀 값) -->
+    <div class="upload-hint" *ngIf="!isEdit">Video up to 100MB</div>
     <div class="upload-hint" *ngIf="isEdit">Videos can be removed but not added while editing.</div>
     <!-- 동영상 전송 실패 사유 — Post 를 다시 누르면 재시도 (2-34차) -->
     <div class="upload-error" *ngIf="uploadError">{{ uploadError }}</div>

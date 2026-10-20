@@ -155,9 +155,11 @@
 }
 
 // 실제 카드와 같은 폭 전체 · 가로의 145% 높이 (latest-contents-carousel.component.scss .latest-main)
+// 2-35차: 로비가 잰 첫 화면 높이(--shorts-fill-height)가 있으면 그 높이 — 실제 카드와 같은 규칙
 .sk-latest-main {
   width: 100%;
   max-width: 420px;
+  height: var(--shorts-fill-height, auto);
   margin: 0 auto;
   border-radius: 0;
 
@@ -165,7 +167,7 @@
   &::before {
     content: '';
     display: block;
-    padding-top: 145%;
+    padding-top: var(--shorts-fill-pad, 145%);
   }
 }
 
