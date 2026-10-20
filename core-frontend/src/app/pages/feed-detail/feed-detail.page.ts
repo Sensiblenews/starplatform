@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, QueryList, ViewChildren } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertController, ModalController, NavController, PopoverController } from '@ionic/angular';
 import { Share } from '@capacitor/share';
@@ -11,6 +11,7 @@ import { DeepLinkService } from '../../services/deep-link.service';
 import { WriteModalService } from '../../services/write-modal.service';
 import { handleLinkClick, linkifyText } from '../../pipes/linkify';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
+import { MediaAudioService } from '../../services/media-audio.service';
 
 @Component({
   selector: 'app-feed-detail',
@@ -47,8 +48,46 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     private router: Router,
     private deepLink: DeepLinkService,
     private writeModalService: WriteModalService,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private audio: MediaAudioService
   ) {}
+
+  // ===== 동영상 재생 (2-35차) =====
+  // 클라이언트 요청: 오른쪽 아래 소리 아이콘 없이 처음부터 소리와 함께 재생.
+  // 로비 숏폼과 같은 MediaAudioService 로 화면에 보이는 영상 하나만 소리 켜고 재생하고, 벗어나면 멈춘다
+  @ViewChildren('detailVideo') videoEls: QueryList<ElementRef<HTMLVideoElement>>;
+  private videoObserver: IntersectionObserver | null = null;
+  private videoSub: any;
+  private viewActive = false;
+
+  ngAfterViewInit() {
+    this.videoSub = this.videoEls.changes.subscribe(() => this.observeVideos());
+  }
+
+  ionViewDidEnter() {
+    this.viewActive = true;
+    this.observeVideos();
+  }
+
+  private observeVideos() {
+    if (this.videoObserver) this.videoObserver.disconnect();
+    this.videoObserver = null;
+    if (!this.viewActive || !this.videoEls || this.videoEls.length === 0) return;
+    this.videoObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const video = entry.target as HTMLVideoElement;
+        if (entry.isIntersecting) this.audio.play(video);
+        else this.audio.pause(video);
+      });
+    }, { threshold: 0.6 });
+    this.videoEls.forEach(el => this.videoObserver!.observe(el.nativeElement));
+  }
+
+  private stopVideos() {
+    if (this.videoObserver) this.videoObserver.disconnect();
+    this.videoObserver = null;
+    if (this.videoEls) this.videoEls.forEach(el => this.audio.pause(el.nativeElement));
+  }
 
   /** 로그인한 스타 본인 글인지 (2-35차 — 수정·삭제 메뉴 노출). 실제 권한은 서버가 다시 확인한다 */
   get isOwnPost(): boolean {
@@ -122,7 +161,10 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   editPost() {
     const starId = localStorage.getItem('starId') || '';
     this.pauseVideos();
-    this.writeModalService.openEditModal(starId, this.conId, () => this.loadFeedDetail());
+    this.writeModalService.openEditModal(starId, this.conId, () => this.loadFeedDetail(), {
+      // 저장 없이 닫아도 보이는 영상을 다시 튼다 (저장하면 다시 그려지며 자동으로 걸린다)
+      onDismiss: () => this.observeVideos()
+    });
   }
 
   // 삭제 (2-35차) — 스타 페이지 휴지통과 같은 API. 지우면 이전 화면으로 돌아간다
@@ -161,7 +203,7 @@ export class FeedDetailPage implements OnInit, OnDestroy {
   }
 
   private pauseVideos() {
-    document.querySelectorAll('app-feed-detail video').forEach((v: any) => { try { v.pause(); } catch (e) { } });
+    this.stopVideos();
   }
 
   // 공유 — 스타 페이지의 글 공유와 같은 공개 주소(/post/{id})와 집계 API 를 쓴다
@@ -218,6 +260,8 @@ export class FeedDetailPage implements OnInit, OnDestroy {
    * 웹·봇은 showInterstitial() 첫 줄의 isNativePlatform() 검사에서 걸러진다.
    */
   ionViewWillLeave() {
+    this.viewActive = false;
+    this.stopVideos();
     this.admob.showInterstitial('피드 상세 뒤로가기');
   }
 
@@ -232,6 +276,8 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     if (this.paramSub) {
       this.paramSub.unsubscribe();
     }
+    if (this.videoSub) this.videoSub.unsubscribe();
+    this.stopVideos();
   }
 
   loadFeedDetail() {
@@ -295,11 +341,6 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  toggleSound(media: any, event: Event) {
-    event.stopPropagation(); // 버블링 방지
-    media.isMuted = !media.isMuted;
-  }
-  
   handleImgError(ev: any) {
     ev.target.src = 'assets/img/defaultImg/avatar.svg';
   }

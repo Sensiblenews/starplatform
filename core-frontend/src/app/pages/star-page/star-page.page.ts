@@ -19,6 +19,7 @@ import { DeviceIdService } from 'src/app/services/device-id.service';
 import { environment } from 'src/environments/environment';
 import { PerfTraceService } from 'src/app/services/perf-trace.service';
 import { DmService } from 'src/app/services/dm.service';
+import { MediaAudioService } from 'src/app/services/media-audio.service';
 import { openDmChat } from 'src/app/modals/dm-chat/dm-chat.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { handleLinkClick, linkifyText } from 'src/app/pipes/linkify';
@@ -130,6 +131,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     private haptic: HapticService,
     private tickSound: TickSoundService,
     private sanitizer: DomSanitizer,
+    private audio: MediaAudioService,
   ) { }
 
   // 로그인한 스타가 다른 스타 페이지를 볼 때만 채팅 아이콘 (2-29차 메신저, 스타 소유자끼리 1:1)
@@ -232,10 +234,8 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     }
     this.hasEnteredBefore = true;
 
-    // 🎬 돌아왔을 때 동영상 재개
-    if (!this.isGoingToDetail) {
-      this.resumeAllVideos();
-    }
+    // 🎬 돌아왔을 때 동영상 재개 — 떠날 때 관찰자를 끊었으므로 항상 다시 건다 (2-35차)
+    this.resumeAllVideos();
 
     // 🌟 [봇 필터 1] 검색 엔진 봇이면 여기서 함수 실행 종료 (광고 요청 안 함)
     const isBot = /bot|crawler|spider|google|bing|yandex|duckduck/i.test(navigator.userAgent || '');
@@ -276,6 +276,10 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ionViewWillLeave() {
+    // 🎬 다른 화면으로 가면 영상·소리를 끈다 (2-35차: 소리 켜고 재생하므로 남으면 안 된다)
+    this.pauseAllVideos();
+    if (this.observer) this.observer.disconnect();
+
     // 🌟 [봇 필터 2] 봇인지 확인
     const isBot = /bot|crawler|spider|google|bing|yandex|duckduck/i.test(navigator.userAgent || '');
 
@@ -855,26 +859,15 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/feed-detail', conId]);
   }
 
-  // 🎬 동영상 일시 정지
+  // 🎬 동영상 일시 정지 — 재생 담당에서도 뺀다 (2-35차: 소리 켜고 재생하므로 확실히 끈다)
   pauseAllVideos() {
-    this.videoElements.forEach(el => {
-      const video = el.nativeElement as HTMLVideoElement;
-      if (video && !video.paused) {
-        video.pause();
-      }
-    });
+    if (!this.videoElements) return;
+    this.videoElements.forEach(el => this.audio.pause(el.nativeElement as HTMLVideoElement));
   }
 
-  // 🎬 동영상 재생 (돌아왔을 때)
+  // 🎬 돌아왔을 때 — 전부 틀지 않고 관찰자를 다시 걸어 화면에 보이는 영상 하나만 소리와 함께 재생한다 (2-35차)
   resumeAllVideos() {
-    this.videoElements.forEach(el => {
-      const video = el.nativeElement as HTMLVideoElement;
-      if (video) {
-        video.play().catch(err => {
-          console.log('Autoplay blocked:', err);
-        });
-      }
-    });
+    this.initIntersectionObserver();
   }
 
   initIntersectionObserver() {
@@ -882,22 +875,22 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.observer.disconnect();
     }
 
+    // 2-35차: autoplay 속성을 뺐으므로 재생은 전부 여기서 한다. 세로로 긴 영상도 잡히도록 60%
     const options = {
       root: null,
       rootMargin: '0px',
-      threshold: 0.8
+      threshold: 0.6
     };
 
+    // 소리는 로비 숏폼과 같은 MediaAudioService 로 켠다 — 앱 전체에서 소리 나는 영상은 하나뿐이다.
+    // 화면에서 벗어나면 멈춘다 (클라이언트 요청: 소리 아이콘 없이 처음부터 소리)
     this.observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const video = entry.target as HTMLVideoElement;
-
         if (entry.isIntersecting) {
-          video.play().catch(err => {
-            console.log('Autoplay blocked:', err);
-          });
+          this.audio.play(video);
         } else {
-          video.pause();
+          this.audio.pause(video);
         }
       });
     }, options);

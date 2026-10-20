@@ -1,5 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * 로비 영상 재생·소리 관리 (2-34차 1-3 "숏폼·세로형·가로형 자동재생 시 자동 사운드").
@@ -12,6 +14,8 @@ import { BehaviorSubject } from 'rxjs';
  *   iOS mediaTypesRequiringUserActionForPlayback = []). 그래도 거부되면(NotAllowedError — 개발용 브라우저 등)
  *   음소거로 재생하고 첫 터치에 소리를 켠다
  * - 소리를 막을 때는 volume 이 아니라 muted 를 쓴다 (iOS 웹뷰는 volume 을 무시한다 — 2-31차 틱 소리 사례)
+ * - 2-35차: 스타페이지·콘텐츠 상세도 이 서비스로 소리 켜고 재생한다. 앱이 백그라운드로 가면 재생 담당 영상을 멈추고
+ *   돌아오면 다시 튼다 (로비는 자체 생명주기로도 멈추고 켠다 — 중복 호출은 무해)
  */
 @Injectable({ providedIn: 'root' })
 export class MediaAudioService {
@@ -23,7 +27,31 @@ export class MediaAudioService {
   private waitingForGesture = false;
   private readonly unlockEvents = ['pointerdown', 'touchend', 'click'];
 
-  constructor(private ngZone: NgZone) { }
+  /** 백그라운드로 가며 이 서비스가 멈춘 영상 — 돌아오면 다시 튼다 */
+  private pausedForBackground: HTMLVideoElement | null = null;
+
+  constructor(private ngZone: NgZone) {
+    if (Capacitor.isNativePlatform()) {
+      App.addListener('appStateChange', ({ isActive }) => this.ngZone.run(() => this.onAppState(isActive)));
+    }
+  }
+
+  private onAppState(isActive: boolean): void {
+    if (!isActive) {
+      const video = this.current;
+      if (video && !video.paused) {
+        video.pause();
+        this.pausedForBackground = video;
+      }
+      return;
+    }
+    const video = this.pausedForBackground;
+    this.pausedForBackground = null;
+    // 그 사이 다른 영상이 재생을 맡았거나 화면에서 사라졌으면 건드리지 않는다
+    if (video && video.isConnected && this.current === video && video.paused) {
+      this.play(video);
+    }
+  }
 
   get soundOn(): boolean {
     return this.soundOn$.value;

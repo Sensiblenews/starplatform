@@ -45,31 +45,6 @@
         display: block;
       }
 
-      // [신규] 소리 버튼 스타일 (인스타 느낌)
-      .sound-btn {
-        position: absolute;
-        bottom: 15px;
-        right: 15px;
-        width: 30px;
-        height: 30px;
-        background-color: rgba(0, 0, 0, 0.6); // 반투명 검정 배경
-        border-radius: 50%; // 원형
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        cursor: pointer;
-        transition: transform 0.1s ease;
-
-        ion-icon {
-          color: #fff;
-          font-size: 16px;
-        }
-
-        &:active {
-          transform: scale(0.9); // 클릭 시 살짝 작아짐
-        }
-      }
     }
   }
 
