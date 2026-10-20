@@ -2402,7 +2402,6 @@ public class SuperAdminController {
         String section = com.sensible.common.util.LobbySection.normalize(request.getParameter("section"));
         model.addAttribute("section", section);
         model.addAttribute("sectionTitle", com.sensible.common.util.LobbySection.adminTitle(section));
-        model.addAttribute("videoOnly", com.sensible.common.util.LobbySection.videoOnly(section));
         model.addAttribute("itemList", superAdminService.getLatestContentAdminList(section));
         model.addAttribute("setting", superAdminService.getLatestContentSetting(section));
         model.addAttribute("countMin", SuperAdminService.LC_COUNT_MIN);

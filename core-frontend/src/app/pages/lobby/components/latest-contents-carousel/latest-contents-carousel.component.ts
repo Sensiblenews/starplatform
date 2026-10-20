@@ -18,6 +18,7 @@ import {
   LatestContentItem,
   canAutoAdvance,
   eventKey,
+  isVideoItem,
   nextIndex,
   normalizeIntervalMs,
   prevIndex,
@@ -35,6 +36,7 @@ import {
  *   재생이 시작되기 전까지는 썸네일을 덮어 둔다(가로 영상도 잘림 없이 cover)
  * - 자동재생이 거부되면(iOS 저전력 등) 썸네일 위에 재생 버튼
  * - 타이머는 로비가 start()/stop() 으로 켜고 끈다 (화면 이탈·백그라운드)
+ * - 2-35차: 사진 글도 편성된다. 사진 항목은 이미지만 그리고(영상 요소 없음) 자동 이동은 그대로
  */
 @Component({
   selector: 'app-latest-contents-carousel',
@@ -98,6 +100,11 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
 
   get active(): LatestContentItem | undefined {
     return this.itemList[this.activeIndex];
+  }
+
+  /** 영상 항목인지 — 사진 글은 <video> 대신 이미지로 그린다 (2-35차) */
+  isVideo(item: LatestContentItem): boolean {
+    return isVideoItem(item);
   }
 
   /** 오른쪽 미리보기. 항목이 하나면 없다 */
@@ -164,6 +171,8 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
 
   private goTo(index: number): void {
     if (index === this.activeIndex) return;
+    // 다음 항목이 사진이면 영상 요소가 사라지므로 미리 멈춘다 (소리가 남지 않게)
+    this.audio.pause(this.videoEl());
     this.activeIndex = index;
     this.isPlaying = false;
     this.showPlayButton = false;
@@ -203,13 +212,14 @@ export class LatestContentsCarouselComponent implements AfterViewInit, OnDestroy
   private syncPlayback(): void {
     const video = this.videoEl();
     const item = this.active;
-    if (!video || !item) return;
+    if (!item) return;
     if (!this.running || !this.visible) {
       this.audio.pause(video);
       return;
     }
     this.trackEvent(item, 'IMPRESSION');
-    this.playVideo(video);
+    // 사진 항목은 재생할 영상이 없다 (노출만 기록)
+    if (video && this.isVideo(item)) this.playVideo(video);
   }
 
   private playVideo(video: HTMLVideoElement): void {

@@ -76,8 +76,8 @@
                             한 화면에 1.5~2개씩 보입니다. 검수 승인된 <b>사진·영상 게시물</b>을 고를 수 있습니다.
                         </c:when>
                         <c:otherwise>
-                            로비 맨 위 <b>Star Shorts</b> 숏폼 캐러셀에 나갈 영상을 편성합니다.
-                            검수 승인된 <b>영상 게시물</b>만 고를 수 있습니다.
+                            로비 맨 위 <b>Star Shorts</b> 숏폼 캐러셀에 나갈 게시물을 편성합니다.
+                            검수 승인된 <b>사진·영상 게시물</b>을 고를 수 있습니다.
                         </c:otherwise>
                     </c:choose>
                     게시 중 + 기간 안인 항목이 노출 순서대로 앱에 나갑니다.
@@ -126,7 +126,7 @@
                         <tr>
                             <th style="width:40px;"></th>
                             <th style="width:90px;" class="text-center">노출순서</th>
-                            <th style="width:90px;">영상</th>
+                            <th style="width:90px;">미디어</th>
                             <th>게시자 / 내용</th>
                             <th style="width:110px;" class="text-center">상태</th>
                             <th style="width:210px;">게시 기간 (KST)</th>
@@ -230,7 +230,7 @@
                             </tr>
                         </c:forEach>
                         <c:if test="${empty itemList}">
-                            <tr><td colspan="8" class="text-center text-secondary py-4">편성된 영상이 없습니다. 앱 로비에는 숏폼 영역이 나타나지 않습니다.</td></tr>
+                            <tr><td colspan="8" class="text-center text-secondary py-4">편성된 게시물이 없습니다. 앱 로비에는 숏폼 영역이 나타나지 않습니다.</td></tr>
                         </c:if>
                     </tbody>
                 </table>
@@ -258,17 +258,15 @@
                                 <div class="col-md-3"><input type="date" id="pickEnd" class="form-control" title="게시일 끝"></div>
                                 <div class="col-md-1 d-grid"><button class="btn btn-primary" onclick="searchPosts()"><i class="fas fa-search"></i></button></div>
                             </div>
-                            <c:if test="${not videoOnly}">
-                                <%-- 2-34차 요청: 세로형·가로형은 전체 게시물 / 동영상 게시물 구분 --%>
-                                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="게시물 종류">
-                                    <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaAll" value="ALL" checked onchange="searchPosts()">
-                                    <label class="btn btn-outline-secondary" for="pickMediaAll">전체 게시물</label>
-                                    <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaVideo" value="VIDEO" onchange="searchPosts()">
-                                    <label class="btn btn-outline-secondary" for="pickMediaVideo">동영상 게시물</label>
-                                </div>
-                            </c:if>
+                            <%-- 2-34차 요청: 전체 게시물 / 동영상 게시물 구분 (2-35차: Star Shorts 도 같은 토글) --%>
+                            <div class="btn-group btn-group-sm mb-2" role="group" aria-label="게시물 종류">
+                                <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaAll" value="ALL" checked onchange="searchPosts()">
+                                <label class="btn btn-outline-secondary" for="pickMediaAll">전체 게시물</label>
+                                <input type="radio" class="btn-check" name="pickMediaFilter" id="pickMediaVideo" value="VIDEO" onchange="searchPosts()">
+                                <label class="btn btn-outline-secondary" for="pickMediaVideo">동영상 게시물</label>
+                            </div>
                             <div class="form-text mb-2">
-                                검수 승인된 ${videoOnly ? '영상' : '사진·영상'} 게시물, 최신순 최대 50건. 썸네일을 누르면 오른쪽에서 미리 봅니다.
+                                검수 승인된 사진·영상 게시물, 최신순 최대 50건. 썸네일을 누르면 오른쪽에서 미리 봅니다.
                             </div>
                             <div id="candList" style="max-height: 480px; overflow-y: auto;">
                                 <div class="text-secondary text-center py-4">검색어를 입력하거나 그대로 검색을 눌러주세요.</div>
@@ -599,7 +597,7 @@
             $('#candList').html('<div class="text-secondary text-center py-4">검색 중…</div>');
             $.get('/super/latest-contents/search.do', {
                 section: SECTION,
-                mediaFilter: $('input[name=pickMediaFilter]:checked').val() || 'VIDEO',
+                mediaFilter: $('input[name=pickMediaFilter]:checked').val() || 'ALL',
                 keyword: $('#pickKeyword').val().trim(),
                 startDate: $('#pickStart').val(),
                 endDate: $('#pickEnd').val()
