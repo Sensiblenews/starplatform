@@ -3,18 +3,24 @@
        2-34 3차 피드백: 카드 테두리(어두운 여백)·위 제목 줄을 없애고 영상만 꽉 채운다. 제목은 영상 왼쪽 위에 얹는다 -->
   <div class="latest-main" (click)="onVideoTap()" (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
     <div class="latest-main-inner">
-      <!-- 한 번에 영상 하나만 그린다. src 가 바뀌면 브라우저가 새로 불러온다 -->
-      <!-- poster 도 함께 준다: Android WebView 는 poster 가 없으면 첫 프레임 전까지 회색 바탕 + 검은 재생 버튼을 그린다.
-           썸네일이 없거나 깨졌으면 투명 poster 로 그 기본 배너를 막는다 (2-35차) -->
-      <video class="no-native-controls" #video muted playsinline loop preload="auto" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
-        [attr.src]="item.mediaUrl" [attr.poster]="videoPoster(item)"
-        (playing)="onPlaying()" (pause)="onPaused()" (error)="onVideoError()"></video>
-      <!-- 재생이 시작되기 전까지 썸네일로 덮는다. 가로 영상·포스터도 같은 비율로 잘린다 -->
-      <img class="latest-poster" [class.is-hidden]="isPlaying" [src]="item.thumbUrl || ''" alt="" *ngIf="item.thumbUrl && !item.thumbFailed"
-        (error)="item.thumbFailed = true" />
-      <div class="play-overlay" *ngIf="showPlayButton" (click)="onPlayButton($event)">
-        <ion-icon name="play"></ion-icon>
-      </div>
+      <!-- 2-35차: 숏폼에도 사진 글을 편성할 수 있다. 영상 글만 <video> 로 그리고 사진 글은 이미지로 -->
+      <ng-container *ngIf="isVideo(item); else photo">
+        <!-- 한 번에 영상 하나만 그린다. src 가 바뀌면 브라우저가 새로 불러온다 -->
+        <!-- poster 도 함께 준다: Android WebView 는 poster 가 없으면 첫 프레임 전까지 회색 바탕 + 검은 재생 버튼을 그린다.
+             썸네일이 없거나 깨졌으면 투명 poster 로 그 기본 배너를 막는다 (2-35차) -->
+        <video class="no-native-controls" #video muted playsinline loop preload="auto" webkit-playsinline disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"
+          [attr.src]="item.mediaUrl" [attr.poster]="videoPoster(item)"
+          (playing)="onPlaying()" (pause)="onPaused()" (error)="onVideoError()"></video>
+        <!-- 재생이 시작되기 전까지 썸네일로 덮는다. 가로 영상·포스터도 같은 비율로 잘린다 -->
+        <img class="latest-poster" [class.is-hidden]="isPlaying" [src]="item.thumbUrl || ''" alt="" *ngIf="item.thumbUrl && !item.thumbFailed"
+          (error)="item.thumbFailed = true" />
+        <div class="play-overlay" *ngIf="showPlayButton" (click)="onPlayButton($event)">
+          <ion-icon name="play"></ion-icon>
+        </div>
+      </ng-container>
+      <ng-template #photo>
+        <img class="latest-poster" [src]="item.mediaUrl || item.thumbUrl || ''" alt="" />
+      </ng-template>
       <span class="latest-title">Star Shorts</span>
       <span class="featured-badge" *ngIf="item.isFeatured === 'Y'">Featured</span>
 

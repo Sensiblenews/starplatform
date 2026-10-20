@@ -28,10 +28,6 @@
 <style>
   .sp-vid-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .2s; background: transparent; pointer-events: none; }
   .sp-vid-overlay.is-playing { opacity: 1; }
-  .sp-vid-badge { position: absolute; left: 8px; bottom: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(15, 23, 42, 0.65); color: #ffffff; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
-  .sp-vid-badge svg { width: 12px; height: 12px; margin-left: 2px; }
-  .sp-vid-badge-sm { left: 4px; bottom: 4px; width: 20px; height: 20px; }
-  .sp-vid-badge-sm svg { width: 9px; height: 9px; }
   .sp-vid-open { cursor: pointer; }
   .sp-vid-expand { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(15, 23, 42, 0.65); color: #ffffff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; z-index: 2; padding: 0; }
   .sp-vid-expand svg { width: 18px; height: 18px; }

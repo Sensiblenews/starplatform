@@ -2196,7 +2196,7 @@
 	<!-- 로비 노출 목록. 게시 중 + 기간 안 + 검수 승인 + 스타 활성 + 미디어 있음 까지 전부 여기서 거른다.
 	     INNER JOIN 이므로 원본이 지워지거나 차단되면 자동으로 빠진다 -->
 	<!-- 로비 편성 구역 목록 (2-33차 Star Shorts, 2-34차 세로형·가로형). 구역 조건은 항상 붙는다.
-	     Star Shorts(SHORTS)는 영상 글만, 세로형·가로형은 정렬 순서상 첫 미디어(사진이면 이미지 카드) -->
+	     세 구역 모두 정렬 순서상 첫 미디어(사진이면 이미지 카드). 2-35차 전까지 Star Shorts 는 영상 글만 걸렀다 -->
 	<select id="selectLatestContentActiveList" parameterType="map" resultType="map">
 		SELECT
 			L.LC_ID AS lcId,
@@ -2212,17 +2212,8 @@
 		FROM WH_LATEST_CONTENT L
 		JOIN WH_STAR_CONTENT S ON S.CON_ID = L.CON_ID AND S.MDR_STATUS = 'APPROVED'
 		JOIN WH_PRESS P ON P.PRS_ID = S.PRS_ID AND P.PRS_USE_YN = 'Y'
-		<choose>
-			<when test='section == "SHORTS"'>
-		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
-			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X
-								 WHERE X.CON_ID = S.CON_ID AND X.MEDIA_TYPE = 'VIDEO')
-			</when>
-			<otherwise>
 		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID
 			AND D.SORT_ORDER = (SELECT MIN(X.SORT_ORDER) FROM STAR_CONTENT_MEDIA X WHERE X.CON_ID = S.CON_ID)
-			</otherwise>
-		</choose>
 		WHERE L.SECTION = #{section}
 		  AND L.DEL_YN = 'N'
 		  AND L.USE_YN = 'Y'

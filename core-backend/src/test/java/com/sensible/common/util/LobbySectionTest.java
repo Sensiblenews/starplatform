@@ -32,17 +32,13 @@ public class LobbySectionTest {
 	}
 
 	@Test
-	public void StarShorts는_항상_영상만() {
-		assertEquals("VIDEO", LobbySection.normalizeMediaFilter("SHORTS", "ALL"));
-		assertEquals("VIDEO", LobbySection.normalizeMediaFilter("SHORTS", null));
-	}
-
-	@Test
-	public void 세로형_가로형은_VIDEO_를_고를_때만_영상() {
-		assertEquals("VIDEO", LobbySection.normalizeMediaFilter("LATEST", "video"));
-		assertEquals("ALL", LobbySection.normalizeMediaFilter("LATEST", "ALL"));
-		assertEquals("ALL", LobbySection.normalizeMediaFilter("HOT", null));
-		assertEquals("ALL", LobbySection.normalizeMediaFilter("HOT", "photo"));
+	public void 게시물_필터는_VIDEO_를_고를_때만_영상() {
+		// 2-35차: Star Shorts 도 같은 규칙 (구역과 무관)
+		assertEquals("VIDEO", LobbySection.normalizeMediaFilter("video"));
+		assertEquals("VIDEO", LobbySection.normalizeMediaFilter(" VIDEO "));
+		assertEquals("ALL", LobbySection.normalizeMediaFilter("ALL"));
+		assertEquals("ALL", LobbySection.normalizeMediaFilter(null));
+		assertEquals("ALL", LobbySection.normalizeMediaFilter("photo"));
 	}
 
 	@Test

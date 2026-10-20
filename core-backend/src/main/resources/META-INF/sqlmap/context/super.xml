@@ -972,7 +972,7 @@
 	</select>
 
 	<!-- "기존 게시물 선택" 검색: 검수 승인된 글 중 미디어가 붙은 글. mediaFilter=VIDEO 면 영상 글만
-	     (Star Shorts 는 항상 VIDEO, 세로형·가로형은 어드민이 전체/동영상을 고른다).
+	     (세 구역 모두 어드민이 전체/동영상을 고른다 — 2-35차에 Star Shorts 도 사진 글 허용).
 	     같은 구역에 이미 편성된 글은 ALREADY_YN 으로 표시 — 다른 구역 편성은 막지 않는다 -->
 	<select id="selectLatestContentCandidates" parameterType="map" resultType="map">
 		SELECT
@@ -1019,16 +1019,7 @@
 		SELECT COUNT(*) FROM WH_LATEST_CONTENT WHERE CON_ID = #{conId} AND SECTION = #{section} AND DEL_YN = 'N'
 	</select>
 
-	<!-- 편성 가능 여부: 승인된 글이고 영상이 붙어 있는지 -->
-	<select id="selectLatestContentApprovedVideo" parameterType="map" resultType="int">
-		SELECT COUNT(*)
-		FROM WH_STAR_CONTENT S
-		JOIN STAR_CONTENT_MEDIA D ON D.CON_ID = S.CON_ID AND D.MEDIA_TYPE = 'VIDEO'
-		WHERE S.CON_ID = #{conId}
-		  AND S.MDR_STATUS = 'APPROVED'
-	</select>
-
-	<!-- 편성 가능 여부 (세로형·가로형, 2-34차): 승인된 글이고 사진이든 영상이든 미디어가 붙어 있는지 -->
+	<!-- 편성 가능 여부 (2-34차 세로형·가로형, 2-35차부터 Star Shorts 도): 승인된 글이고 사진이든 영상이든 미디어가 붙어 있는지 -->
 	<select id="selectLatestContentApprovedMedia" parameterType="map" resultType="int">
 		SELECT COUNT(*)
 		FROM WH_STAR_CONTENT S
