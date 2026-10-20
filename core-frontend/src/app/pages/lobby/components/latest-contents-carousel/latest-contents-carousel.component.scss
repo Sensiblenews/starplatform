@@ -12,10 +12,13 @@
 
 // 메인 영상: 화면 폭 전체, 높이는 가로의 145%.
 // padding-top 트릭 — 구형 WebView 의 aspect-ratio 미지원 대비. 태블릿·PC 폭에서는 상한을 둔다
+// 2-35차: 로비가 첫 화면에 숏폼 + LIVE 티커까지만 보이도록 높이를 재서 --shorts-fill-height 로 내려준다.
+// 값이 오면 그 높이를 쓰고 비율(padding-top)은 끈다. 재기 전에는 기존 145% 그대로
 .latest-main {
   position: relative;
   width: 100%;
   max-width: 420px;
+  height: var(--shorts-fill-height, auto);
   margin: 0 auto;
   overflow: hidden;
   background: #000;
@@ -23,7 +26,7 @@
   &::before {
     content: '';
     display: block;
-    padding-top: 145%;
+    padding-top: var(--shorts-fill-pad, 145%);
   }
 }
 
