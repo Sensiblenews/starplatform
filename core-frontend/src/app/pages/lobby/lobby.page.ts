@@ -699,8 +699,9 @@ export class LobbyPage implements OnInit, OnDestroy {
   // 스켈레톤도 같은 변수를 써서 로딩 전후 높이가 같다.
   // ==========================================
 
-  /** 티커가 아직 없을 때 쓰는 티커 묶음 높이 — .ticker-bar margin-top 15 + height 36 (live-news-ticker.component.scss) */
-  private static readonly SHORTS_TICKER_FALLBACK_PX = 51;
+  /** 티커가 아직 없을 때 쓰는 티커 위 여백·높이 — .ticker-bar margin-top 15, height 36 (live-news-ticker.component.scss) */
+  private static readonly SHORTS_TICKER_GAP_FALLBACK_PX = 15;
+  private static readonly SHORTS_TICKER_HEIGHT_FALLBACK_PX = 36;
   /** 아주 낮은 화면(가로 모드 등)에서도 이 밑으로는 줄이지 않는다 */
   private static readonly SHORTS_MIN_HEIGHT_PX = 320;
   private shortsFillHeight = 0;
@@ -723,13 +724,20 @@ export class LobbyPage implements OnInit, OnDestroy {
     // 숏폼 위쪽 여백 (스크롤 위치와 무관하게 콘텐츠 기준)
     const topOffset = Math.max(0, shortsRect.top - scroll.getBoundingClientRect().top + scroll.scrollTop);
 
-    // 티커 묶음 = 숏폼 아래 끝 → 티커 아래 끝 (티커 위 여백 포함)
-    let tickerBlock = LobbyPage.SHORTS_TICKER_FALLBACK_PX;
+    // 티커 묶음 = 위 여백 + 티커 높이 + 아래 여백. 아래 여백은 위 여백과 같게 둔다
+    // (2-35차 실측: 티커가 화면 바닥에 딱 붙어 답답하다는 피드백)
+    let gapAbove = LobbyPage.SHORTS_TICKER_GAP_FALLBACK_PX;
+    let tickerHeight = LobbyPage.SHORTS_TICKER_HEIGHT_FALLBACK_PX;
     const ticker = host.querySelector('app-live-news-ticker .ticker-bar') as HTMLElement | null;
     if (ticker) {
-      const gap = ticker.getBoundingClientRect().bottom - shortsRect.bottom;
-      if (gap > 0 && gap < 200) tickerBlock = gap;
+      const tickerRect = ticker.getBoundingClientRect();
+      const gap = tickerRect.top - shortsRect.bottom;
+      if (gap >= 0 && gap < 100 && tickerRect.height > 0) {
+        gapAbove = gap;
+        tickerHeight = tickerRect.height;
+      }
     }
+    const tickerBlock = gapAbove + tickerHeight + gapAbove;
 
     const height = Math.max(Math.round(viewH - topOffset - tickerBlock), LobbyPage.SHORTS_MIN_HEIGHT_PX);
     if (height === this.shortsFillHeight) return;
