@@ -316,7 +316,6 @@
 <c:set var="starIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z'/></svg>"/>
 <c:set var="heartIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M12 20.5s-7.5-4.6-9.2-9.3C1.6 8 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.4 3.5 4.2 6.7-1.7 4.7-9.2 9.3-9.2 9.3z'/></svg>"/>
 <c:set var="commentIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round' d='M4 5h16v11H9l-5 4z'/></svg>"/>
-<c:set var="playIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='currentColor' d='M7 4.5v15l13-7.5z'/></svg>"/>
 <%-- [2-31차 후속] 상세 영상 위 전체화면 펼침 버튼 아이콘 (include/web-video-autoplay.jsp 가 [data-sp-expand] 를 묶는다) --%>
 <c:set var="expandIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><path fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'/></svg>"/>
 <c:set var="photoIcon" value="<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='3' y='5' width='18' height='14' rx='2' fill='none' stroke='currentColor' stroke-width='2'/><path fill='none' stroke='currentColor' stroke-width='2' d='M3 16l5-5 4 4 3-3 6 5'/></svg>"/>
@@ -389,7 +388,7 @@
                                         <span class="st-post-img">
                                             <c:if test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:if>
                                             <%-- [2-31차] 영상 글은 화면에 보일 때 재생 (include/web-video-autoplay.jsp) --%>
-                                            <c:if test="${not empty rp.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${rp.video}" poster="${rp.image}" muted playsinline loop preload="none" aria-hidden="true"></video><span class="sp-vid-badge">${playIcon}</span></c:if>
+                                            <c:if test="${not empty rp.video}"><video class="sp-vid-overlay" data-sp-video data-sp-overlay data-src="${rp.video}" poster="${rp.image}" muted playsinline loop preload="none" aria-hidden="true"></video></c:if>
                                             <c:if test="${rp.mediaCnt gt 1}"><span class="lp-media-cnt">${photoIcon}<c:out value="${rp.mediaCnt}"/></span></c:if>
                                         </span>
                                         <span class="st-post-body">
@@ -463,7 +462,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span></span></span>
                             </a></li>
@@ -546,7 +545,7 @@
                         <div class="po-thumbs" id="poThumbs">
                             <c:forEach var="t" items="${mediaThumbs}" varStatus="s">
                                 <c:set var="isVid" value="${mediaTypes[s.index] eq 'VIDEO'}"/>
-                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="${isVid ? 'Video' : 'Photo'} ${s.index + 1}"><img src="${t}" alt="" loading="lazy"><c:if test="${isVid}"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></c:if></button>
+                                <button type="button" class="po-thumb" data-index="${s.index}" ${s.index eq 0 ? 'aria-current="true"' : ''} aria-label="${isVid ? 'Video' : 'Photo'} ${s.index + 1}"><img src="${t}" alt="" loading="lazy"></button>
                             </c:forEach>
                         </div>
                         <script>window.__poMedia = [<c:forEach var="u" items="${mediaUrls}" varStatus="s">'<c:out value="${u}"/>'<c:if test="${not s.last}">,</c:if></c:forEach>];
@@ -603,7 +602,7 @@
                     <ul class="sb-list">
                         <c:forEach var="rp" items="${relatedPosts}" end="4">
                             <li><a class="sb-item" href="${pageContext.request.contextPath}/post/${rp.conId}">
-                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="sp-vid-badge sp-vid-badge-sm">${playIcon}</span></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
+                                <c:choose><c:when test="${not empty rp.video}"><span class="sb-thumb"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span></c:when><c:when test="${not empty rp.image}"><img src="${rp.image}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></c:when><c:otherwise><span class="sb-item-empty"></span></c:otherwise></c:choose>
                                 <span class="sb-item-text"><span class="sb-item-title">${rp.snippet}</span>
                                 <span class="sb-item-meta"><c:if test="${not empty rp.date}"><span>${rp.date}</span></c:if><span class="lp-stat-ico">${heartIcon}<c:out value="${empty rp.likeCnt ? 0 : rp.likeCnt}"/></span><span class="lp-stat-ico">${commentIcon}<c:out value="${empty rp.commentCnt ? 0 : rp.commentCnt}"/></span></span></span>
                             </a></li>
