@@ -10,6 +10,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="/resources/css/insight-charts.css" rel="stylesheet">
+    <script src="/resources/js/insight-charts.js"></script>
     <style>
         body { background-color: #f0f2f5; font-family: 'Pretendard', sans-serif; }
         .sidebar { width: 260px; height: 100vh; background: #212529; position: fixed; color: #fff; overflow-y: auto; overflow-x: hidden; }
@@ -160,6 +163,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- 🌟 전체 유저 합산 통계 (2-35차) — 앱 인사이트(I 탭)와 같은 지표·기간을 전체 스타 합으로.
+             LC 는 자기 국가 스타만 합산된다. 순위는 합산할 수 없어 뺐다 -->
+        <div class="chart-box mt-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+                <h5 class="fw-bold mb-0">📊 전체 유저 통계<c:if test="${sessionScope.SUPER_USER_SESSION.PRS_AUTH eq 'LC'}"> (<c:out value="${sessionScope.SUPER_USER_SESSION.PRS_COUNTRY}"/>)</c:if></h5>
+                <div class="insight-period mb-0" id="dashPeriodButtons">
+                    <button type="button" data-period="DAY">매일</button>
+                    <button type="button" data-period="WEEK" class="active">매주</button>
+                    <button type="button" data-period="MONTH">매달</button>
+                    <button type="button" data-period="M3">3개월</button>
+                    <button type="button" data-period="M6">6개월</button>
+                    <button type="button" data-period="Y1">1년</button>
+                </div>
+            </div>
+            <div class="text-secondary small mb-3">
+                전체 스타 합계입니다. Visitors = 스타 페이지 방문 수, Favorites = 새 즐겨찾기, Likes = 받은 좋아요, Posts = 작성 게시물.
+                오늘 수치는 실시간, 지난 날짜는 하루 한 번 집계한 값입니다.
+                (매일 14일 · 매주 12주 · 매달 12개월 · 3개월은 일별 · 6개월·1년은 주별)
+            </div>
+            <div class="insight-charts" id="dashInsightCharts"></div>
+        </div>
     </div>
 
 
@@ -231,6 +256,28 @@
             }
         }
     });
+</script>
+
+<script>
+    // 3. 전체 유저 합산 통계 (2-35차) — /super/dashboard/insight.json, 그래프 코드는 앱·스타 인사이트와 공용
+    (function () {
+        var box = document.getElementById('dashInsightCharts');
+        function load(period) {
+            $('#dashPeriodButtons button').removeClass('active').filter('[data-period="' + period + '"]').addClass('active');
+            box.innerHTML = '<div class="text-secondary py-4 text-center">불러오는 중...</div>';
+            $.getJSON('/super/dashboard/insight.json', { period: period }, function (res) {
+                if (!res || res.result !== 'OK') {
+                    box.innerHTML = '<div class="text-danger py-4 text-center">' + $('<div>').text((res && res.msg) || '불러오지 못했습니다.').html() + '</div>';
+                    return;
+                }
+                InsightCharts.render(box, res, { metrics: ['visits', 'follows', 'likes', 'posts'] });
+            }).fail(function () {
+                box.innerHTML = '<div class="text-danger py-4 text-center">불러오지 못했습니다.</div>';
+            });
+        }
+        $('#dashPeriodButtons').on('click', 'button', function () { load($(this).data('period')); });
+        load('WEEK');
+    })();
 </script>
 
 </body>

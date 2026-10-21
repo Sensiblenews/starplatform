@@ -106,6 +106,24 @@ public class SuperAdminController {
     }
 
     /**
+     * [API] 대시보드 전체 합산 그래프 (2-35차) — 전체 스타의 방문자·즐겨찾기·좋아요·게시물 합.
+     * period = DAY | WEEK | MONTH | M3 | M6 | Y1 (앱 인사이트와 같은 기간). LC 는 자기 국가 스타만
+     */
+    @RequestMapping(value = "/super/dashboard/insight.json", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> dashboardInsight(HttpServletRequest request,
+            @RequestParam(value = "period", required = false, defaultValue = "WEEK") String period) throws Exception {
+        UserVO user = getLoginUser(request);
+        if (user == null) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("result", "FAIL");
+            denied.put("msg", "로그인이 필요합니다.");
+            return denied;
+        }
+        return starInsightService.getDashboardSeries(getFilterCountry(user), period);
+    }
+
+    /**
      * [목록] 권한에 따라 필터링
      */
     @RequestMapping(value = "/super/star/list.do")
