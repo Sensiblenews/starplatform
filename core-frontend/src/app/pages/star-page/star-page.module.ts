@@ -11,6 +11,7 @@ import { CommentModalComponent } from './modals/comment-modal.component';
 import { MyInsightModalComponent } from './modals/my-insight-modal.component';
 import { AdminWriteModalModule } from '../lobby/modals/admin-write-modal.module';
 import { SkeletonComponent } from 'src/app/components/skeleton/skeleton.component';
+import { PinchZoomDirective } from 'src/app/components/pinch-zoom/pinch-zoom.directive';
 
 @NgModule({
   imports: [
@@ -19,7 +20,8 @@ import { SkeletonComponent } from 'src/app/components/skeleton/skeleton.componen
     IonicModule,
     StarPagePageRoutingModule,
     AdminWriteModalModule,
-    SkeletonComponent
+    SkeletonComponent,
+    PinchZoomDirective
   ],
   declarations: [StarPagePage, IsPlayingPipe, TruncatePipe, StarMenuComponent, CommentModalComponent, MyInsightModalComponent]
 })
