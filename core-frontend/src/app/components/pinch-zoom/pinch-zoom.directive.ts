@@ -15,6 +15,11 @@ const RETURN_MS = 220;
  * 그래서 확대하는 동안에는 같은 위치·크기의 사본을 화면 맨 위(position:fixed)에 띄워 키우고,
  * 원본은 잠시 숨긴다. 끝나면 사본을 원래 자리로 되돌린 뒤 지운다.
  *
+ * 확대하는 동안 뒤 화면은 스크롤되지 않게 묶는다 (2-35차 실측 — 손가락을 벌리면 피드가 같이 움직였다).
+ * 두 손가락이 동시에 닿지 않고 한 손가락이 먼저 닿으면 브라우저가 이미 스크롤을 시작해 touchmove 의
+ * preventDefault 만으로는 멈추지 않는다. 그래서 ion-content 의 실제 스크롤 요소(.inner-scroll)를
+ * overflow:hidden 으로 묶고, 핀치 시작 위치로 되돌려 둔다.
+ *
  * 사용: <img appPinchZoom ...>
  */
 @Directive({
@@ -29,6 +34,10 @@ export class PinchZoomDirective implements OnInit, OnDestroy {
   private clone: HTMLImageElement | null = null;
   /** 핀치 직후 따라오는 click(카드 → 상세 이동)을 한 번 막는다 */
   private suppressClickUntil = 0;
+  /** 확대 동안 묶어 둔 스크롤 요소와 그 위치 */
+  private lockedScroll: HTMLElement | null = null;
+  private lockedTop = 0;
+  private lockedOverflow = '';
 
   constructor(private el: ElementRef<HTMLImageElement>, private ngZone: NgZone) { }
 
@@ -60,6 +69,7 @@ export class PinchZoomDirective implements OnInit, OnDestroy {
     if (!img.complete || !img.naturalWidth) return; // 아직 안 불러온 사진은 건너뛴다
     ev.preventDefault();
 
+    this.lockScroll(img);
     this.startDist = distance(ev.touches[0], ev.touches[1]);
     this.startMid = midpoint(ev.touches[0], ev.touches[1]);
     this.rect = img.getBoundingClientRect();
@@ -69,6 +79,8 @@ export class PinchZoomDirective implements OnInit, OnDestroy {
   private onMove = (ev: TouchEvent) => {
     if (!this.overlay || !this.clone || !this.rect) return;
     ev.preventDefault();
+    // 이미 시작된 스크롤 관성이 남아 있으면 핀치 시작 위치로 되돌린다
+    if (this.lockedScroll && this.lockedScroll.scrollTop !== this.lockedTop) this.lockedScroll.scrollTop = this.lockedTop;
     if (ev.touches.length < 2) return;
 
     const dist = distance(ev.touches[0], ev.touches[1]);
@@ -133,12 +145,31 @@ export class PinchZoomDirective implements OnInit, OnDestroy {
     this.clone = clone;
   }
 
+  private lockScroll(img: HTMLElement): void {
+    const content = img.closest('ion-content') as HTMLElement | null;
+    const scrollEl = content && content.shadowRoot
+      ? (content.shadowRoot.querySelector('.inner-scroll') as HTMLElement | null)
+      : null;
+    if (!scrollEl) return;
+    this.lockedScroll = scrollEl;
+    this.lockedTop = scrollEl.scrollTop;
+    this.lockedOverflow = scrollEl.style.overflowY;
+    scrollEl.style.overflowY = 'hidden';
+  }
+
+  private unlockScroll(): void {
+    if (!this.lockedScroll) return;
+    this.lockedScroll.style.overflowY = this.lockedOverflow;
+    this.lockedScroll = null;
+  }
+
   private removeOverlay(): void {
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
     this.overlay = null;
     this.clone = null;
     this.rect = null;
     this.el.nativeElement.style.visibility = '';
+    this.unlockScroll();
   }
 }
 
