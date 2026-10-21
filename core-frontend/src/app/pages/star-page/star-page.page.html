@@ -153,8 +153,9 @@
           <!-- 🖼️ 2순위: 이미지 표시 -->
           <!-- 승인된 글은 공개 주소, 작성자 본인의 대기 글은 토큰 주소로 불러온다(2-26차).
                작성자 본인의 대기 영상도 여기로 — 토큰 주소가 영상 썸네일이다(2-32차).
-               사진과 똑같이 아무 표시 없이 보여준다 (클라이언트: 본인 화면의 Under review 칩 제거 요청) -->
-          <img *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !(item.MEDIA_URL || item.pendingVideoUrl)) && (item.image || item.pendingImageUrl)"
+               사진과 똑같이 아무 표시 없이 보여준다 (클라이언트: 본인 화면의 Under review 칩 제거 요청).
+               appPinchZoom: 두 손가락으로 벌리면 제자리 확대, 떼면 원래대로 (2-35차). 한 번 탭은 그대로 상세 이동 -->
+          <img appPinchZoom *ngIf="(item.MEDIA_TYPE !== 'VIDEO' || !(item.MEDIA_URL || item.pendingVideoUrl)) && (item.image || item.pendingImageUrl)"
             [src]="item.image || item.pendingImageUrl" loading="lazy"
             (load)="onMediaLoaded(item)" (error)="handleImageError($event); onMediaLoaded(item)"
             [class.media-loaded]="item.isLoaded" />
@@ -186,7 +187,8 @@
             <div
               *ngIf="item.IS_PINNED === 'Y' && ((item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()) || (item.PIN_LINK_TEXT2 && item.PIN_LINK_TEXT2.trim()))"
               class="pin-hyperlinks-wrapper"
-              [class.has-trash]="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')">
+              [class.has-trash]="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')"
+              [class.has-edit]="isStar && item.FEED_TYPE === 'STAR'">
               <span *ngIf="item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()" class="pin-hyperlink"
                 (click)="openPinLink(item.PIN_LINK_URL1 || 'https://google.com', $event)">
                 {{ item.PIN_LINK_TEXT1 }}

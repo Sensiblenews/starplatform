@@ -373,6 +373,7 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.isLobbyAdActive) this.hideLobbyAd(false);
     if (this.slotReconcileTimer) clearTimeout(this.slotReconcileTimer);
     if (this.searchSub) this.searchSub.unsubscribe();
+    this.unwatchLayoutForAds();
     if (this.observer) this.observer.disconnect();
   }
 
@@ -390,6 +391,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   ionViewDidEnter() {
     this.isViewActive = true;
+
+    // 🌟 로비 레이아웃이 바뀔 때마다 네이티브 광고 위치를 다시 보낸다 (2-35차 — 랭킹 칩 클릭 시 광고 겹침)
+    this.watchLayoutForAds();
 
     // 🎬 Star Shorts 높이를 첫 화면에 맞춘다 (2-35차)
     this.fitShortsToViewport();
@@ -1511,6 +1515,56 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.cdr.detectChanges(); // 바뀐 높이를 지금 그려야 차이를 잴 수 있다
     const delta = scrollEl.scrollHeight - before;
     if (delta !== 0) scrollEl.scrollTop += delta;
+  }
+
+  // ==========================================
+  // 🌟 레이아웃 변화 → 광고 위치 재전송 (2-35차)
+  // 네이티브 광고는 웹뷰 위에 따로 얹힌 뷰라, 웹의 자리(.lobby-ad-slot)가 움직이면 좌표를 다시 보내야 따라온다.
+  // 지금까지는 "데이터 응답 후 setTimeout" 같은 지점마다 직접 불렀는데, 랭킹 칩을 누르면
+  //   ① 응답 전 스켈레톤(10줄)으로 바뀌며 TOP 100 아래 슬롯이 크게 위로 당겨지고
+  //   ② 응답 뒤 ion-item 이 비동기로 그려지며 높이가 한 번 더 바뀌는데
+  // 그 사이에는 좌표를 보내지 않아 광고가 옛 자리에 남아 목록 위에 겹쳤다(클라이언트 보고).
+  // 이제 ion-content 의 직속 섹션 크기가 바뀌거나 섹션이 생기고 사라질 때마다 다음 프레임에 한 번 보낸다.
+  // ==========================================
+
+  private layoutResizeObserver: ResizeObserver | null = null;
+  private layoutMutationObserver: MutationObserver | null = null;
+  private layoutResendFrame: number | null = null;
+
+  private watchLayoutForAds() {
+    if (this.layoutResizeObserver || typeof ResizeObserver === 'undefined') return;
+    const content = this.hostEl.nativeElement.querySelector('ion-content');
+    if (!content) return;
+
+    this.ngZone.runOutsideAngular(() => {
+      const schedule = () => {
+        if (this.layoutResendFrame !== null) return;
+        this.layoutResendFrame = requestAnimationFrame(() => {
+          this.layoutResendFrame = null;
+          this.sendAdSlotPosition();
+        });
+      };
+      this.layoutResizeObserver = new ResizeObserver(schedule);
+      Array.from(content.children).forEach(el => this.layoutResizeObserver!.observe(el));
+
+      // *ngIf 로 섹션이 새로 생기면 그것도 지켜본다 (사라진 요소는 브라우저가 알아서 놓는다)
+      this.layoutMutationObserver = new MutationObserver(mutations => {
+        mutations.forEach(m => m.addedNodes.forEach(node => {
+          if (node instanceof Element) this.layoutResizeObserver!.observe(node);
+        }));
+        schedule();
+      });
+      this.layoutMutationObserver.observe(content, { childList: true });
+    });
+  }
+
+  private unwatchLayoutForAds() {
+    if (this.layoutResizeObserver) this.layoutResizeObserver.disconnect();
+    if (this.layoutMutationObserver) this.layoutMutationObserver.disconnect();
+    if (this.layoutResendFrame !== null) cancelAnimationFrame(this.layoutResendFrame);
+    this.layoutResizeObserver = null;
+    this.layoutMutationObserver = null;
+    this.layoutResendFrame = null;
   }
 
   /** ion-content 의 실제 스크롤 요소 (onLobbyScroll 이 처음 받을 때 저장) */

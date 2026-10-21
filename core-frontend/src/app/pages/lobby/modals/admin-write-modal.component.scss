@@ -31,8 +31,8 @@ ion-content { --background: #fff; }
 
 .content-input {
     width: 100%;
-    // 2-35차 실측 피드백: 34vh → 2/3 (첨부 미리보기까지 한 화면에 보이게)
-    min-height: 23vh;
+    // 2-35차: 한때 2/3(23vh)로 줄였다가 클라이언트 요청으로 원래 높이로 되돌림
+    min-height: 34vh;
     border: none;
     outline: none;
     font-size: 15px;
