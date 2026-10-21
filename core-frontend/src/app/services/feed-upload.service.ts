@@ -116,7 +116,8 @@ export class FeedUploadService {
           next: res => {
             const state = res ? res.state : 'UNKNOWN';
             if (state === 'DONE') {
-              this.toast('Your video is ready and waiting for review.', 'success');
+              // 완료 사실 한 문장만 (2-35차 클라이언트 요청 — 예전 문구는 검수 대기 설명까지 붙어 있었다)
+              this.toast('Your video upload is complete.', 'success');
               if (onDone) onDone();
               return;
             }
