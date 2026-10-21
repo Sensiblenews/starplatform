@@ -111,4 +111,17 @@ public class StarInsightServiceTest {
 		assertEquals("RANK", StarInsightService.normalizeMetric("VISIT_CNT); DROP"));
 		assertEquals("RANK", StarInsightService.normalizeMetric(null));
 	}
+
+	@Test
+	public void 대시보드_합산_기간합계는_구간을_모두_더한다() {
+		List<StarInsightService.Bucket> b = StarInsightService.buildBuckets(Period.WEEK, TODAY);
+		List<Map<String, Object>> rows = new ArrayList<>();
+		rows.add(row("2026-10-13", 10, 2, 0));
+		rows.add(row("2026-10-05", 7, 1, 0));
+		Map<String, List<Object>> s = StarInsightService.bucketize(rows, b);
+		Map<String, Object> totals = StarInsightService.sumTotals(s);
+		assertEquals(17L, totals.get("visits"));
+		assertEquals(3L, totals.get("likes"));
+		assertFalse(totals.containsKey("rank"));
+	}
 }

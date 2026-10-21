@@ -3,6 +3,7 @@
  * Chart.js 를 먼저 불러와야 한다. 데이터는 StarInsightService.getSeries 응답 그대로:
  *   { labels[], series{rank, visits, follows, likes, posts}, totals{...}, rankNow }
  * 사용: InsightCharts.render(document.getElementById('insightCharts'), data)
+ *       InsightCharts.render(el, data, { metrics: ['visits', 'likes'] }) — 일부 지표만 (2-35차 대시보드 합산은 순위 제외)
  * 화면 글자는 스타에게도 보이므로 영어로 쓴다.
  */
 (function (global) {
@@ -26,7 +27,8 @@
     return Number(total || 0).toLocaleString() + ' in this period';
   }
 
-  function render(container, data) {
+  function render(container, data, opts) {
+    var only = opts && opts.metrics ? opts.metrics : null;
     charts.forEach(function (c) { c.destroy(); });
     charts = [];
     container.innerHTML = '';
@@ -36,6 +38,8 @@
     }
 
     METRICS.forEach(function (metric) {
+      if (only && only.indexOf(metric.key) < 0) return;
+      if (!data.series[metric.key]) return;
       var card = document.createElement('div');
       card.className = 'insight-chart-card';
       var head = document.createElement('div');

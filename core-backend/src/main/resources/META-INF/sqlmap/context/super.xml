@@ -1261,6 +1261,45 @@
 		                    WHERE GLOBAL_RANK IS NOT NULL AND STAT_DATE &gt;= #{fromDate})
 	</select>
 
+	<!-- ==========================================
+	     🌟 [신규] 대시보드 전체 합산 그래프 (2-35차). 스타별 일별 집계를 날짜별로 더한다.
+	     SM 은 전체, LC 는 자기 국가 스타만 (기존 대시보드와 같은 기준 — 스타의 PRS_COUNTRY).
+	     탈퇴·비활성 스타의 지난 기록도 그날 실제로 있었던 수치이므로 빼지 않는다
+	     ========================================== -->
+
+	<sql id="dashboardCountryStars">
+		<if test="country != null and country != ''">
+		  AND PRS_ID IN (SELECT PRS_ID FROM WH_PRESS WHERE PRS_COUNTRY = #{country})
+		</if>
+	</sql>
+
+	<select id="selectDashboardDailyStats" parameterType="map" resultType="map">
+		SELECT
+			DATE_FORMAT(STAT_DATE, '%Y-%m-%d') AS statDate,
+			SUM(VISIT_CNT)  AS visits,
+			SUM(FOLLOW_CNT) AS follows,
+			SUM(LIKE_CNT)   AS likes,
+			SUM(POST_CNT)   AS posts
+		FROM WH_STAR_DAILY_STAT
+		WHERE STAT_DATE &gt;= #{fromDate} AND STAT_DATE &lt; #{toDate}
+		<include refid="dashboardCountryStars"/>
+		GROUP BY STAT_DATE
+		ORDER BY STAT_DATE
+	</select>
+
+	<!-- 오늘 몫은 아직 집계 전이라 원본 로그에서 센다 (superapp.upsertDaily* 와 같은 조건) -->
+	<select id="selectDashboardTodayStats" parameterType="map" resultType="map">
+		SELECT
+			(SELECT COUNT(*) FROM WH_AD_LOG WHERE ACTION = 'IMPRESSION' AND PRS_ID IS NOT NULL
+			   AND CREATED_DATE &gt;= CURDATE() <include refid="dashboardCountryStars"/>) AS visits,
+			(SELECT COUNT(*) FROM WH_FOLLOWER_LOG WHERE ACTION = 'FOLLOW' AND PRS_ID IS NOT NULL
+			   AND CREATED_DATE &gt;= CURDATE() <include refid="dashboardCountryStars"/>) AS follows,
+			(SELECT COUNT(*) FROM WH_LIKE_LOG WHERE ACTION = 'LIKE' AND PRS_ID IS NOT NULL
+			   AND CREATED_DATE &gt;= CURDATE() <include refid="dashboardCountryStars"/>) AS likes,
+			(SELECT COUNT(*) FROM WH_STAR_CONTENT WHERE PRS_ID IS NOT NULL
+			   AND CREATED_DATE &gt;= CURDATE() <include refid="dashboardCountryStars"/>) AS posts
+	</select>
+
 	<!-- 스타 한 명의 국가 (LC 어드민 권한 확인) -->
 	<select id="selectInsightStarCountry" parameterType="string" resultType="string">
 		SELECT PRS_COUNTRY FROM WH_PRESS WHERE PRS_ID = #{prsId} AND IS_STAR = 'Y'

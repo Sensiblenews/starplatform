@@ -192,23 +192,68 @@ public class StarInsightService {
 		rows.add(live);
 
 		Map<String, List<Object>> series = bucketize(rows, buckets);
+
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("result", "OK");
+		result.put("period", period.name());
+		result.put("labels", labelsOf(buckets));
+		result.put("series", series);
+		result.put("totals", sumTotals(series));
+		result.put("rankNow", rankNow);
+		return result;
+	}
+
+	/** 지표별 기간 합 (순수 함수) */
+	public static Map<String, Object> sumTotals(Map<String, List<Object>> series) {
 		Map<String, Object> totals = new LinkedHashMap<>();
 		for (String m : COUNT_METRICS) {
 			long sum = 0;
 			for (Object v : series.get(m)) sum += ((Number) v).longValue();
 			totals.put(m, sum);
 		}
+		return totals;
+	}
 
+	private static List<String> labelsOf(List<Bucket> buckets) {
 		List<String> labels = new ArrayList<>();
 		for (Bucket b : buckets) labels.add(b.label);
+		return labels;
+	}
+
+	// ===== 대시보드 전체 합산 (2-35차) =====
+
+	/**
+	 * 글로벌·국가 어드민 대시보드 — 전체 스타의 방문자·즐겨찾기·좋아요·게시물을 더한 그래프.
+	 * 앱 인사이트와 같은 기간·구간을 쓴다. country 가 있으면 그 국가 스타만(LC).
+	 * 순위는 합산할 수 없어 series 에서 뺀다.
+	 * 응답: { period, labels[], series{visits,follows,likes,posts}, totals{...} }
+	 */
+	public Map<String, Object> getDashboardSeries(String country, Object periodRaw) throws Exception {
+		Period period = Period.parse(periodRaw);
+		LocalDate today = LocalDate.now();
+		List<Bucket> buckets = buildBuckets(period, today);
+
+		Map<String, Object> param = new HashMap<>();
+		param.put("country", country);
+		param.put("fromDate", buckets.get(0).start.toString());
+		param.put("toDate", today.toString()); // 오늘 몫은 아래에서 원본으로
+		List<Map<String, Object>> rows = new ArrayList<>(dao.<Map<String, Object>>selectList("super.selectDashboardDailyStats", param));
+
+		Map<String, Object> todayRow = dao.selectOne("super.selectDashboardTodayStats", param);
+		Map<String, Object> live = new HashMap<>();
+		if (todayRow != null) live.putAll(todayRow);
+		live.put("statDate", today.toString());
+		rows.add(live);
+
+		Map<String, List<Object>> series = bucketize(rows, buckets);
+		series.remove("rank");
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("result", "OK");
 		result.put("period", period.name());
-		result.put("labels", labels);
+		result.put("labels", labelsOf(buckets));
 		result.put("series", series);
-		result.put("totals", totals);
-		result.put("rankNow", rankNow);
+		result.put("totals", sumTotals(series));
 		return result;
 	}
 
