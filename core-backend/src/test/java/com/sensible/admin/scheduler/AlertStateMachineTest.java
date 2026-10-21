@@ -172,4 +172,39 @@ public class AlertStateMachineTest {
 		assertEquals(Kind.OPEN, t.get(0).kind);
 		assertEquals(Kind.RESOLVE, m.apply("db", Severity.NORMAL, 1, "up", 5 * MIN, 1, 1, REMIND, 3).get(0).kind);
 	}
+
+	// ===== 2-35차: 열린 등급보다 낮아지면 복구 =====
+
+	@Test
+	public void 위험_경보가_주의로_두_번_내려오면_복구되고_주의_경보가_이어서_열린다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.DANGER, 0);
+		step(m, Severity.DANGER, 5);
+		m.bindAlertId("disk", 9L);
+		m.markMailSent("disk", 5 * MIN);
+		assertTrue(step(m, Severity.WARNING, 10).isEmpty());
+		List<Transition> t = step(m, Severity.WARNING, 15);
+		assertEquals(1, t.size());
+		assertEquals(Kind.RESOLVE, t.get(0).kind);
+		assertEquals(Severity.DANGER, t.get(0).previousSeverity); // 닫힌 경보의 최고 등급
+		assertEquals(Severity.WARNING, t.get(0).severity);        // 복구 시점 현재 등급
+		assertEquals(9L, t.get(0).alertId);
+		assertTrue(t.get(0).mailSent);
+		// 주의가 계속되면 다음 관측에서 주의 경보가 새로 열린다 (복구 시점에 1회 센 것으로 본다)
+		List<Transition> next = step(m, Severity.WARNING, 20);
+		assertEquals(Kind.OPEN, next.get(0).kind);
+		assertEquals(Severity.WARNING, next.get(0).severity);
+	}
+
+	@Test
+	public void 낮아졌다가_다시_원래_등급이면_복구_카운트가_리셋된다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.CRITICAL, 0);
+		step(m, Severity.CRITICAL, 5);
+		step(m, Severity.DANGER, 10);
+		step(m, Severity.CRITICAL, 15);
+		assertTrue(step(m, Severity.DANGER, 20).isEmpty());
+		assertEquals(Severity.CRITICAL, m.state("disk").open);
+	}
 }
+

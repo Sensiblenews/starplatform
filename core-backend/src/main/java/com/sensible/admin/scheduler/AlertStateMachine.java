@@ -13,7 +13,10 @@ import com.sensible.admin.scheduler.AlertRules.Severity;
  * 핵심 규칙 (알림 피로도·플래핑 방지):
  *  - 같은 등급이 confirmCount 번 연속 관측돼야 경보를 연다 (기본 2회 = 5분 주기 × 2 = 10분 지속).
  *  - 열린 뒤 더 높은 등급이 confirmCount 번 연속이면 ESCALATE 한 번만 알린다. 낮아지는 건 그냥 유지.
- *  - 정상이 recoverCount 번 연속이면 RESOLVE.
+ *  - 열린 등급보다 낮은 관측(정상 포함)이 recoverCount 번 연속이면 RESOLVE.
+ *    (2-35차: 예전에는 "정상" 만 셌다. 위험으로 열린 경보가 주의 구간에 머무는 동안 닫히지 않아
+ *     복구 메일이 한참 늦거나 오지 않았다. 이제 위험 → 주의로 내려오면 위험 경보는 복구되고,
+ *     주의가 계속되면 주의 경보가 새로 열린다 — 주의는 기본 설정상 메일이 없으므로 화면에만 남는다)
  *  - 긴급(CRITICAL) 이고 확인(ack) 안 된 경보는 remindMinutes 마다 최대 remindMax 회 REMIND.
  *  - 항목당 열린 경보는 하나. 같은 장애로 메일이 반복되지 않는다.
  */
@@ -27,7 +30,7 @@ public class AlertStateMachine {
 		public final String key;
 		public final Kind kind;
 		public final Severity severity;
-		/** RESOLVE 때는 "닫힌 경보의 최고 등급" */
+		/** RESOLVE 때는 "닫힌 경보의 최고 등급". RESOLVE 의 severity 는 복구 시점의 현재 등급(정상 또는 더 낮은 등급) */
 		public final Severity previousSeverity;
 		public final double value;
 		public final String message;
@@ -139,13 +142,15 @@ public class AlertStateMachine {
 		int confirm = Math.max(1, confirmCount);
 		int recover = Math.max(1, recoverCount);
 
-		if (observed == Severity.NORMAL) {
+		// 열린 경보보다 낮은 관측(정상 포함) — 복구 쪽으로 센다
+		boolean lowerThanOpen = s.open != Severity.NORMAL && observed != s.open && !observed.atLeast(s.open);
+		if (observed == Severity.NORMAL || lowerThanOpen) {
 			s.candidate = Severity.NORMAL;
 			s.candidateCount = 0;
 			if (s.open != Severity.NORMAL) {
 				s.normalCount++;
 				if (s.normalCount >= recover) {
-					out.add(new Transition(key, Kind.RESOLVE, Severity.NORMAL, s.peak, value, s.lastMessage, s.openedAt, s.alertId, s.mailSent));
+					out.add(new Transition(key, Kind.RESOLVE, observed, s.peak, value, s.lastMessage, s.openedAt, s.alertId, s.mailSent));
 					s.open = Severity.NORMAL;
 					s.peak = Severity.NORMAL;
 					s.openedAt = 0;
@@ -155,12 +160,17 @@ public class AlertStateMachine {
 					s.lastNotifiedAt = 0;
 					s.remindCount = 0;
 					s.normalCount = 0;
+					if (observed != Severity.NORMAL) {
+						// 낮은 등급이 이어지고 있으면 그 등급의 새 경보 후보로 이미 1회 센 것으로 본다
+						s.candidate = observed;
+						s.candidateCount = 1;
+					}
 				}
 			}
 			return out;
 		}
 
-		// 비정상 관측
+		// 열린 등급 이상의 비정상 관측
 		s.normalCount = 0;
 		if (observed.atLeast(s.open) && observed != s.open) {
 			// 열린 등급보다 높다 → 후보로 연속 집계
@@ -189,7 +199,7 @@ public class AlertStateMachine {
 				return out;
 			}
 		} else {
-			// 열린 등급 이하의 비정상: 유지. 격상 후보는 리셋
+			// 열린 등급과 같은 관측: 유지. 격상 후보는 리셋
 			s.candidate = Severity.NORMAL;
 			s.candidateCount = 0;
 		}

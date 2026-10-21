@@ -52,12 +52,16 @@ public class SuperAlertController {
 	@Resource(name = "systemAlertMonitor")
 	private SystemAlertMonitor monitor;
 
-	/** [화면] 경보 센터 */
+	/** [화면] 경보 센터. alertId 가 붙어 오면(메일 링크 설정이 다른 주소일 때) 그 경보의 상세로 보낸다 */
 	@RequestMapping(value = "/super/alert/center.do")
-	public String center(HttpServletRequest request, Model model) {
+	public String center(HttpServletRequest request, Model model,
+			@RequestParam(value = "alertId", required = false) Long alertId) {
 		UserVO user = sm(request);
 		if (user == null) {
 			return "redirect:/super/dashboard.do";
+		}
+		if (alertId != null && alertId > 0) {
+			return "redirect:/super/alert/detail.do?id=" + alertId;
 		}
 		Map<String, String> settings = store.settings();
 		model.addAttribute("activeMenu", "alert_center");
@@ -105,6 +109,185 @@ public class SuperAlertController {
 			rows.add(row);
 		}
 		return rows;
+	}
+
+	// ==========================================
+	// 경보 상세 + 원클릭 조치 (2-35차)
+	// 메일 링크 → 로그인·OTP → 이 화면. 현재 상태·24시간 그래프·권장 조치·경과를 한 화면에 두고,
+	// 서버 상태를 망가뜨릴 수 없는 조치만 버튼으로 둔다 (재시작·차단·백업 실행은 의도적으로 없음).
+	// ==========================================
+
+	/** 원클릭 조치 화이트리스트. 브라우저가 보낸 다른 값은 거부한다 */
+	static final List<String> ACTIONS = java.util.Arrays.asList("RECHECK", "GC", "NOTE");
+
+	/** 조치 메모 최대 길이 (이력 MESSAGE 컬럼 1000자 안) */
+	static final int NOTE_MAX = 500;
+
+	/** [화면] 경보 상세 */
+	@RequestMapping(value = "/super/alert/detail.do")
+	public String detail(HttpServletRequest request, Model model, @RequestParam("id") long alertId) {
+		UserVO user = sm(request);
+		if (user == null) {
+			return "redirect:/super/dashboard.do";
+		}
+		Map<String, Object> alert;
+		try {
+			alert = store.alert(alertId);
+		} catch (Exception e) {
+			logger.error("[Alert] detail error: {}", e.toString());
+			alert = null;
+		}
+		if (alert == null) {
+			return "redirect:/super/alert/center.do";
+		}
+		String key = String.valueOf(alert.get("ALERT_KEY"));
+		Reading reading = monitor.lastReading(key);
+		Map<String, String> settings = store.settings();
+
+		model.addAttribute("activeMenu", "alert_center");
+		model.addAttribute("alert", alert);
+		model.addAttribute("alertKey", key);
+		model.addAttribute("reading", reading);
+		model.addAttribute("steps", recommendationSteps(reading != null ? reading.recommendation : null));
+		model.addAttribute("thresholds", thresholds(key, settings));
+		model.addAttribute("historyJson", historyJson(monitor.history(key)));
+		model.addAttribute("mailAvailable", mailer.isAvailable());
+		model.addAttribute("recipients", AlertMailService.parseRecipients(AlertRules.strOf(settings, AlertRules.S_MAIL_TO)));
+		try {
+			model.addAttribute("events", store.eventsOf(alertId));
+		} catch (Exception e) {
+			logger.error("[Alert] detail events error: {}", e.toString());
+			model.addAttribute("events", new ArrayList<Map<String, Object>>());
+		}
+		return "super/alert_detail";
+	}
+
+	/**
+	 * [API] 원클릭 조치. action = RECHECK(이 항목 다시 측정) | GC(메모리 정리) | NOTE(조치 메모)
+	 * 확인 처리·시험 메일은 기존 ack.do·testMail.do 를 그대로 쓴다.
+	 * 모든 조치는 경보 이력(ACTION)과 감사 로그(ALERT_ACTION)에 실행자·시각·결과가 남는다.
+	 */
+	@RequestMapping(value = "/super/alert/action.do", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> action(HttpServletRequest request, @RequestParam("alertId") long alertId,
+			@RequestParam("action") String action, @RequestParam(value = "note", required = false) String note) {
+		Map<String, Object> result = new HashMap<String, Object>();
+		UserVO user = sm(request);
+		if (user == null) {
+			return denied(result);
+		}
+		if (!ACTIONS.contains(action)) {
+			result.put("status", "fail");
+			result.put("msg", "허용되지 않은 조치입니다.");
+			return result;
+		}
+		Map<String, Object> alert;
+		try {
+			alert = store.alert(alertId);
+		} catch (Exception e) {
+			alert = null;
+		}
+		if (alert == null) {
+			result.put("status", "fail");
+			result.put("msg", "경보를 찾을 수 없습니다.");
+			return result;
+		}
+		String key = String.valueOf(alert.get("ALERT_KEY"));
+		String severity = String.valueOf(alert.get("SEVERITY"));
+		String message;
+		try {
+			if ("RECHECK".equals(action)) {
+				Reading r = monitor.peek(key);
+				if (r == null) {
+					result.put("status", "fail");
+					result.put("msg", "이 항목은 다시 측정할 수 없습니다.");
+					return result;
+				}
+				message = "다시 측정: " + r.valueText() + " (" + (r.severity != null ? r.severity.label() : "정상") + ") " + r.message;
+				result.put("valueText", r.valueText());
+				result.put("severity", r.severity != null ? r.severity.name() : "NORMAL");
+				result.put("severityLabel", r.severity != null ? r.severity.label() : "정상");
+				result.put("detail", r.message);
+			} else if ("GC".equals(action)) {
+				java.lang.management.MemoryMXBean mx = java.lang.management.ManagementFactory.getMemoryMXBean();
+				long before = mx.getHeapMemoryUsage().getUsed();
+				System.gc();
+				Thread.sleep(150);
+				long after = mx.getHeapMemoryUsage().getUsed();
+				long freedMb = Math.max(0, (before - after) / (1024 * 1024));
+				message = "메모리 정리(GC): 약 " + freedMb + "MB 해제 (힙 " + (after / (1024 * 1024)) + "MB 사용 중)";
+			} else {
+				String text = note == null ? "" : note.trim();
+				if (text.isEmpty()) {
+					result.put("status", "fail");
+					result.put("msg", "조치 내용을 입력하세요.");
+					return result;
+				}
+				if (text.length() > NOTE_MAX) {
+					text = text.substring(0, NOTE_MAX);
+				}
+				message = "조치 메모: " + text;
+			}
+		} catch (Exception e) {
+			logger.error("[Alert] action {} error: {}", action, e.toString());
+			store.event(alertId, key, "ACTION", severity, action + " 실패: " + e.getClass().getSimpleName(), user.getPRS_ID());
+			audit.log(user.getPRS_ID(), AdminAuditService.ALERT_ACTION, false, action, null, request, "경보 #" + alertId + " " + action + " 실패");
+			result.put("status", "error");
+			result.put("msg", "조치 실행 중 오류가 발생했습니다.");
+			return result;
+		}
+		store.event(alertId, key, "ACTION", severity, message, user.getPRS_ID());
+		audit.log(user.getPRS_ID(), AdminAuditService.ALERT_ACTION, true, null, null, request, "경보 #" + alertId + " (" + key + ") " + message);
+		result.put("status", "success");
+		result.put("msg", message);
+		return result;
+	}
+
+	/** "1) …  2) …" 권장 조치 문구를 단계 목록으로 (순수 함수) */
+	static List<String> recommendationSteps(String recommendation) {
+		List<String> steps = new ArrayList<String>();
+		if (recommendation == null || recommendation.trim().isEmpty()) {
+			return steps;
+		}
+		for (String part : recommendation.trim().split("\\s+(?=\\d+\\)\\s)")) {
+			String step = part.replaceFirst("^\\d+\\)\\s*", "").trim();
+			if (!step.isEmpty()) {
+				steps.add(step);
+			}
+		}
+		return steps;
+	}
+
+	/** 그래프에 그을 기준선 (주의·위험·긴급 %). 비율 항목이 아니면 빈 맵 */
+	private static Map<String, Integer> thresholds(String key, Map<String, String> settings) {
+		Map<String, Integer> t = new LinkedHashMap<String, Integer>();
+		String prefix = null;
+		if (AlertRules.KEY_DISK.equals(key)) prefix = "alert.disk";
+		else if (AlertRules.KEY_RAM.equals(key)) prefix = "alert.ram";
+		else if (AlertRules.KEY_CPU.equals(key)) prefix = "alert.cpu";
+		else if (AlertRules.KEY_HEAP.equals(key)) prefix = "alert.heap";
+		if (prefix == null) {
+			return t;
+		}
+		for (String level : new String[] { "warn", "danger", "critical" }) {
+			String k = prefix + "." + level;
+			if (AlertRules.defaults().containsKey(k)) {
+				t.put(level, AlertRules.intOf(settings, k));
+			}
+		}
+		return t;
+	}
+
+	/** [[시각ms, 값], …] JSON (숫자만이라 손으로 만든다) */
+	static String historyJson(List<double[]> points) {
+		StringBuilder sb = new StringBuilder("[");
+		for (int i = 0; i < points.size(); i++) {
+			if (i > 0) {
+				sb.append(',');
+			}
+			sb.append('[').append((long) points.get(i)[0]).append(',').append(Math.round(points.get(i)[1] * 10) / 10.0).append(']');
+		}
+		return sb.append(']').toString();
 	}
 
 	/** [API] 사이드바 배지용 열린 경보 요약. SM 외에는 0 */

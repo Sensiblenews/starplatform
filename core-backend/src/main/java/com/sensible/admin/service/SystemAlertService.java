@@ -184,4 +184,11 @@ public class SystemAlertService {
 		p.put("limit", limit);
 		return dao.selectList("sysalert.selectRecentEvents", p);
 	}
+
+	/** 경보 한 건의 경과 (발생·격상·메일·확인·조치·복구) — 오래된 순 (2-35차 경보 상세) */
+	public List<Map<String, Object>> eventsOf(long alertId) throws Exception {
+		Map<String, Object> p = new HashMap<String, Object>();
+		p.put("ALERT_ID", alertId);
+		return dao.selectList("sysalert.selectEventsOfAlert", p);
+	}
 }

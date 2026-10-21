@@ -4,8 +4,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +81,10 @@ public class SystemAlertMonitor {
 	private volatile long lastEvaluatedAt;
 	private volatile boolean lastEnabled = true;
 
+	/** 항목별 최근 24시간 측정값 (경보 상세 그래프용, 2-35차). 5분 주기 × 288 = 24시간. 재기동하면 비어서 다시 쌓인다 */
+	static final int HISTORY_SIZE = 288;
+	private final Map<String, Deque<double[]>> history = new HashMap<String, Deque<double[]>>();
+
 	/** 측정 1건 */
 	public static class Reading {
 		public String key;
@@ -109,7 +116,7 @@ public class SystemAlertMonitor {
 	// 스케줄
 	// ==========================================
 
-	/** 지표 수집기(0/5분)와 2분 어긋나게 두어 단일 스레드 스케줄러에서 겹치지 않게 한다 */
+	/** 지표 수집기(0/5분)와 2분 어긋나게 둔다 (2-35차부터 스케줄러는 스레드 풀이라 다른 작업에 밀리지 않는다) */
 	@Scheduled(cron = "0 2/5 * * * *")
 	public void evaluate() {
 		try {
@@ -133,6 +140,7 @@ public class SystemAlertMonitor {
 		List<Reading> readings = readAll(settings);
 		lastReadings = readings;
 		lastEvaluatedAt = now;
+		recordHistory(readings, now);
 		boolean enabled = "Y".equalsIgnoreCase(AlertRules.strOf(settings, AlertRules.S_ENABLED));
 		lastEnabled = enabled;
 		if (!enabled) {
@@ -211,10 +219,15 @@ public class SystemAlertMonitor {
 				store.resolveAlert(t.alertId, t.value);
 				store.event(t.alertId, t.key, "RESOLVE", t.previousSeverity.name(), "복구: " + t.message, "SYSTEM");
 				logger.info("[Alert] RESOLVE {} {}", t.key, t.message);
-				if (t.mailSent) {
+				// 경보 메일이 나갔거나, 메일 대상 등급이었는데 발송이 실패했던 경보도 복구 메일을 보낸다 (2-35차 —
+				// 예전에는 경보 메일이 3회 모두 실패하면 복구 메일도 영영 나가지 않았다)
+				if (t.mailSent || t.previousSeverity.atLeast(mailMin)) {
+					boolean stillAbnormal = t.severity != null && t.severity != Severity.NORMAL;
+					String valueText = r.valueText() + (stillAbnormal ? " (현재 " + t.severity.label() + " 수준 — 화면에서 계속 관찰)" : "");
 					String body = AlertMailService.recoveryBody(platform, r.label, t.previousSeverity.label(),
-							AlertMailService.format(t.openedAt), AlertMailService.format(now), now - t.openedAt, r.valueText(), t.alertId);
-					String subject = AlertMailService.alertSubject("복구", platform, r.label, "정상화");
+							AlertMailService.format(t.openedAt), AlertMailService.format(now), now - t.openedAt, valueText, t.alertId,
+							AlertMailService.detailUrl(adminUrl(), t.alertId));
+					String subject = AlertMailService.alertSubject("복구", platform, r.label, stillAbnormal ? "완화 (" + t.severity.label() + " 수준)" : "정상화");
 					final long id = t.alertId;
 					final String key = t.key;
 					mailer.sendAsync(to, subject, body, new AlertMailService.Callback() {
@@ -236,7 +249,8 @@ public class SystemAlertMonitor {
 			long openedAt, final long now, List<String> to, String platform) {
 		String subject = AlertMailService.alertSubject(severity.label(), platform, r.label, kindLabel);
 		String body = AlertMailService.alertBody(kindLabel, severity.label(), platform, r.label, r.valueText() + " — " + r.message,
-				AlertMailService.format(openedAt), AlertMailService.format(now), alertId, r.recommendation, adminUrl());
+				AlertMailService.format(openedAt), AlertMailService.format(now), alertId, r.recommendation,
+				AlertMailService.detailUrl(adminUrl(), alertId));
 		mailer.sendAsync(to, subject, body, new AlertMailService.Callback() {
 			@Override
 			public void done(boolean success, String error, int attempts) {
@@ -264,14 +278,29 @@ public class SystemAlertMonitor {
 	// ==========================================
 
 	List<Reading> readAll(Map<String, String> s) {
+		return readAll(s, null);
+	}
+
+	/** only 가 있으면 그 항목만 읽는다 (HTTP 5xx 는 peek 에서 따로 처리) */
+	private List<Reading> readAll(Map<String, String> s, String only) {
 		List<Reading> out = new ArrayList<Reading>();
+		if (only != null) {
+			if (AlertRules.KEY_DISK.equals(only)) out.add(readDisk(s));
+			else if (AlertRules.KEY_RAM.equals(only)) out.add(readRam(s));
+			else if (AlertRules.KEY_CPU.equals(only)) out.add(readCpu(s));
+			else if (AlertRules.KEY_HEAP.equals(only)) out.add(readHeap(s));
+			else if (AlertRules.KEY_DB.equals(only)) out.add(readDb());
+			else if (AlertRules.KEY_REDIS.equals(only)) out.add(readRedis());
+			else if (AlertRules.KEY_LOGIN_FAIL.equals(only)) out.add(readLoginFail(s));
+			return out;
+		}
 		out.add(readDisk(s));
 		out.add(readRam(s));
 		out.add(readCpu(s));
 		out.add(readHeap(s));
 		out.add(readDb());
 		out.add(readRedis());
-		out.add(readHttp5xx(s));
+		out.add(readHttp5xx(s, true));
 		out.add(readLoginFail(s));
 		return out;
 	}
@@ -506,15 +535,20 @@ public class SystemAlertMonitor {
 		return r;
 	}
 
-	/** 직전 평가 이후 구간의 5xx 건수·비율 */
-	private Reading readHttp5xx(Map<String, String> s) {
+	/**
+	 * 직전 평가 이후 구간의 5xx 건수·비율.
+	 * commit=false 면 구간 기준점(prevSnapshot)을 옮기지 않는다 — 경보 상세의 "다시 측정"이 다음 정기 평가의 구간을 깎지 않게
+	 */
+	private Reading readHttp5xx(Map<String, String> s, boolean commit) {
 		Reading r = new Reading(AlertRules.KEY_HTTP5XX, "HTTP 5xx 오류");
 		r.unit = "건";
 		r.recommendation = "1) catalina.out 최근 예외 확인  2) DB·Redis 경보가 함께 떠 있는지 확인  3) 최근 배포가 있었으면 롤백 검토  4) 특정 경로 집중이면 시스템 패널 상위 경로로 범위 좁히기";
 		try {
 			RequestMetrics.Snapshot cur = RequestMetrics.snapshot();
 			RequestMetrics.Snapshot prev = prevSnapshot;
-			prevSnapshot = cur;
+			if (commit) {
+				prevSnapshot = cur;
+			}
 			if (prev == null) {
 				r.value = 0;
 				r.severity = Severity.NORMAL;
@@ -594,6 +628,62 @@ public class SystemAlertMonitor {
 
 	public void ack(String key) {
 		machine.ack(key);
+	}
+
+	// ==========================================
+	// 경보 상세 (2-35차)
+	// ==========================================
+
+	/** 마지막 정기 평가의 해당 항목 측정값 (권장 조치 문구 포함). 없으면 null */
+	public Reading lastReading(String key) {
+		for (Reading r : lastReadings) {
+			if (r.key.equals(key)) {
+				return r;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 한 항목만 지금 다시 측정한다. 상태기계·DB·메일은 건드리지 않는다(조회 전용) —
+	 * 운영자가 버튼을 여러 번 눌러도 경보가 열리거나 닫히지 않고, 정기 평가 리듬이 흔들리지 않는다
+	 */
+	public Reading peek(String key) {
+		Map<String, String> settings = store.settings();
+		if (AlertRules.KEY_HTTP5XX.equals(key)) {
+			return readHttp5xx(settings, false);
+		}
+		for (Reading r : readAll(settings, key)) {
+			return r;
+		}
+		return null;
+	}
+
+	/** 항목의 최근 24시간 [시각(ms), 값] 목록 (오래된 순) */
+	public List<double[]> history(String key) {
+		synchronized (history) {
+			Deque<double[]> q = history.get(key);
+			return q == null ? new ArrayList<double[]>() : new ArrayList<double[]>(q);
+		}
+	}
+
+	private void recordHistory(List<Reading> readings, long now) {
+		synchronized (history) {
+			for (Reading r : readings) {
+				if (!r.available) {
+					continue;
+				}
+				Deque<double[]> q = history.get(r.key);
+				if (q == null) {
+					q = new ArrayDeque<double[]>();
+					history.put(r.key, q);
+				}
+				q.addLast(new double[] { now, r.value });
+				while (q.size() > HISTORY_SIZE) {
+					q.removeFirst();
+				}
+			}
+		}
 	}
 
 	// ==========================================

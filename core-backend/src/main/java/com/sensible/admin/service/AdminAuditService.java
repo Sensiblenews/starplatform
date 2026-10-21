@@ -43,6 +43,8 @@ public class AdminAuditService {
 	public static final String ALERT_SETTING_CHANGED = "ALERT_SETTING_CHANGED";
 	public static final String ALERT_ACK = "ALERT_ACK";
 	public static final String ALERT_TEST_MAIL = "ALERT_TEST_MAIL";
+	/** 경보 상세의 원클릭 조치 (다시 측정·메모리 정리·조치 메모, 2-35차) */
+	public static final String ALERT_ACTION = "ALERT_ACTION";
 
 	private static final int MAX_DETAIL = 500;
 	private static final int MAX_UA = 300;

@@ -78,7 +78,8 @@ public class SuperJwtInterceptor extends HandlerInterceptorAdapter {
             return true; // 통과
         }
 
-        // 3. 실패 시 로그인으로 리다이렉트
+        // 3. 실패 시 로그인으로 리다이렉트. 경보 메일 링크였다면 로그인·OTP 뒤 그 경보로 돌아가게 기억한다 (2-35차)
+        com.sensible.common.util.AdminSessionUtil.rememberReturnUrl(request);
         response.sendRedirect("/witch/super/login.do"); 
         return false; 
     }

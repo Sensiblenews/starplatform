@@ -16,6 +16,8 @@ public final class AdminSessionUtil {
 
 	public static final String SESSION_USER = "SUPER_USER_SESSION";
 	public static final String TOKEN_COOKIE = "SUPER_TOKEN";
+	/** 로그인 뒤 돌아갈 주소 (2-35차 — 경보 메일 링크가 로그인·OTP 를 거친 뒤에도 그 경보로 열리게) */
+	public static final String SESSION_RETURN_URL = "SUPER_RETURN_URL";
 
 	/** JwtUtil.EXPIRATION_TIME(2시간)과 맞춘 쿠키 수명(초) */
 	private static final int TOKEN_MAX_AGE_SEC = 7200;
@@ -57,7 +59,41 @@ public final class AdminSessionUtil {
 		// SameSite=Lax: 외부 사이트에서 시작된 POST 에 쿠키가 실리지 않게 한다 (CSRF 완화)
 		response.addHeader("Set-Cookie", TOKEN_COOKIE + "=" + token
 				+ "; Path=/; Max-Age=" + TOKEN_MAX_AGE_SEC + "; HttpOnly; SameSite=Lax");
-		return "ST".equals(user.getPRS_AUTH()) ? "/star/mypage.do" : "/super/dashboard.do";
+		if ("ST".equals(user.getPRS_AUTH())) {
+			return "/star/mypage.do";
+		}
+		Object saved = request.getSession().getAttribute(SESSION_RETURN_URL);
+		request.getSession().removeAttribute(SESSION_RETURN_URL);
+		String returnUrl = saved instanceof String ? (String) saved : null;
+		return isSafeReturnUrl(returnUrl) ? returnUrl : "/super/dashboard.do";
+	}
+
+	/**
+	 * 로그인 전에 열려던 경보 화면 주소를 기억한다 (GET 만).
+	 * 대상은 경보 화면뿐 — 아무 주소나 받으면 로그인 뒤 엉뚱한 곳으로 보내는 통로가 될 수 있다
+	 */
+	public static void rememberReturnUrl(HttpServletRequest request) {
+		if (!"GET".equalsIgnoreCase(request.getMethod())) {
+			return;
+		}
+		String path = request.getServletPath();
+		String query = request.getQueryString();
+		String url = (path == null ? "" : path) + (query == null || query.isEmpty() ? "" : "?" + query);
+		if (isSafeReturnUrl(url)) {
+			request.getSession().setAttribute(SESSION_RETURN_URL, url);
+		}
+	}
+
+	/** 같은 서버의 경보 화면 경로만 허용 (순수 함수 — 테스트 대상) */
+	public static boolean isSafeReturnUrl(String url) {
+		if (url == null || url.length() > 200) {
+			return false;
+		}
+		if (!url.startsWith("/super/alert/detail.do") && !url.startsWith("/super/alert/center.do")) {
+			return false;
+		}
+		// 다른 호스트로 새는 형태(//, \, 스킴)와 줄바꿈을 막는다
+		return !url.contains("//") && !url.contains("\\") && !url.contains(":") && !url.contains("\n") && !url.contains("\r");
 	}
 
 	/** 세션 무효화 + 쿠키 제거 */

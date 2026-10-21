@@ -38,10 +38,14 @@
         <property name="url" value="${Globals.Url}" />
         <property name="username" value="${Globals.UserName}"/>
         <property name="password" value="${Globals.Password}"/>
-<!-- 		<property name="initialSize" value="5" />
+		<!-- 2-35차 (사용자 승인): 주석 처리돼 있던 풀 설정을 되살렸다. 그동안은 commons-dbcp 1.4 기본값
+		     (최대 8개, 대기 무제한 -1)이라 연결이 바닥나면 요청이 끝없이 기다리며 서버가 멈출 수 있었다.
+		     운영 DB max_connections=151, 실측 최대 사용 21 (2026-10-21) — 30개면 여유가 있다.
+		     maxWait 10초: 바닥나면 10초 뒤 오류를 내고 DB 연결 경보로 잡힌다 -->
+		<property name="initialSize" value="5" />
 		<property name="maxActive" value="30" />
 		<property name="maxIdle" value="30" />
-		<property name="maxWait" value="10000" /> -->
+		<property name="maxWait" value="10000" />
 		<property name="validationQuery" value="SELECT 1 " />
 		<property name="testOnBorrow" value="false" />
 		<property name="testOnReturn" value="false" />

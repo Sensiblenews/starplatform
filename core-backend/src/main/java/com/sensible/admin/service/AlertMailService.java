@@ -221,7 +221,8 @@ public class AlertMailService {
 		sb.append("경보 ID   : ").append(alertId > 0 ? String.valueOf(alertId) : "(DB 미기록)").append("\n\n");
 		sb.append("권장 조치\n").append(recommendation).append("\n\n");
 		if (adminUrl != null && !adminUrl.isEmpty()) {
-			sb.append("어드민 경보 센터: ").append(adminUrl).append("\n");
+			// 2-35차: 경보 센터 목록이 아니라 이 경보의 상세(현황·그래프·권장 조치·원클릭 조치)로 바로 간다
+			sb.append("▶ 이 경보 확인·조치 (로그인·OTP 후 바로 열림)\n").append(adminUrl).append("\n");
 		}
 		sb.append("\n이 메일은 자동 발송입니다. 같은 장애는 하나의 경보로 관리되며, 등급이 높아지거나\n");
 		sb.append("긴급 경보가 확인되지 않은 경우에만 다시 발송됩니다.\n");
@@ -231,6 +232,12 @@ public class AlertMailService {
 	/** 복구 본문. 최초 경보와 같은 ID, 지속 시간, 복구 후 측정값 */
 	public static String recoveryBody(String platformId, String itemLabel, String peakLabel, String openedAt,
 			String resolvedAt, long durationMs, String valueText, long alertId) {
+		return recoveryBody(platformId, itemLabel, peakLabel, openedAt, resolvedAt, durationMs, valueText, alertId, null);
+	}
+
+	/** 복구 본문 + 경보 상세 링크 (2-35차) */
+	public static String recoveryBody(String platformId, String itemLabel, String peakLabel, String openedAt,
+			String resolvedAt, long durationMs, String valueText, long alertId, String adminUrl) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("StarPlatform 서버 경보 — 복구\n\n");
 		sb.append("플랫폼      : ").append(platformId).append("\n");
@@ -241,7 +248,26 @@ public class AlertMailService {
 		sb.append("지속 시간   : ").append(durationText(durationMs)).append("\n");
 		sb.append("복구 후 수치: ").append(valueText).append("\n");
 		sb.append("경보 ID     : ").append(alertId > 0 ? String.valueOf(alertId) : "(DB 미기록)").append("\n");
+		if (adminUrl != null && !adminUrl.isEmpty()) {
+			sb.append("\n▶ 경과·조치 기록 보기\n").append(adminUrl).append("\n");
+		}
 		return sb.toString();
+	}
+
+	/**
+	 * 메일에 넣을 경보 상세 주소 (순수 함수, 2-35차).
+	 * 설정(alert.admin.url)이 경보 센터 주소(…/center.do)면 상세(…/detail.do?id=N)로 바꾸고,
+	 * 다른 주소면 alertId 파라미터를 붙인다 (경보 센터가 그 파라미터를 받으면 상세로 보낸다).
+	 */
+	public static String detailUrl(String centerUrl, long alertId) {
+		if (centerUrl == null || centerUrl.trim().isEmpty() || alertId <= 0) {
+			return centerUrl;
+		}
+		String base = centerUrl.trim();
+		if (base.endsWith("/center.do")) {
+			return base.substring(0, base.length() - "/center.do".length()) + "/detail.do?id=" + alertId;
+		}
+		return base + (base.contains("?") ? "&" : "?") + "alertId=" + alertId;
 	}
 
 	public static String durationText(long ms) {
