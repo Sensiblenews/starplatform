@@ -734,6 +734,11 @@
           right: 32px;
         }
 
+        // 본인 글이면 휴지통(0~28px) 왼쪽에 연필(30~58px)이 있으므로 그보다 더 왼쪽에 둔다 (2-35차 — 연필과 겹침)
+        &.has-edit {
+          right: 64px;
+        }
+
         .pin-hyperlink {
           color: #ff4b5c;
           text-decoration: none;

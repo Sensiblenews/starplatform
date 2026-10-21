@@ -187,7 +187,8 @@
             <div
               *ngIf="item.IS_PINNED === 'Y' && ((item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()) || (item.PIN_LINK_TEXT2 && item.PIN_LINK_TEXT2.trim()))"
               class="pin-hyperlinks-wrapper"
-              [class.has-trash]="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')">
+              [class.has-trash]="(isAdmin && item.FEED_TYPE === 'ADMIN' && item.PRS_ID === currentAdminId) || (isStar && item.FEED_TYPE === 'STAR')"
+              [class.has-edit]="isStar && item.FEED_TYPE === 'STAR'">
               <span *ngIf="item.PIN_LINK_TEXT1 && item.PIN_LINK_TEXT1.trim()" class="pin-hyperlink"
                 (click)="openPinLink(item.PIN_LINK_URL1 || 'https://google.com', $event)">
                 {{ item.PIN_LINK_TEXT1 }}
