@@ -40,6 +40,12 @@ public class AlertMailService {
 
 	private static final Logger logger = LoggerFactory.getLogger(AlertMailService.class);
 
+	/**
+	 * 본문의 "발송 시각" 자리표시자. 본문은 평가 시점에 만들어지고 실제 전송은 발송 스레드에서 재시도까지 거치므로,
+	 * 전송 시도 직전에 이 토큰을 그때의 시각으로 바꾼다 (2026-10-23, 클라이언트 요청 9번 — 발령·발송 시간차 표기)
+	 */
+	public static final String SENT_AT_TOKEN = "{{SENT_AT}}";
+
 	private static final int MAX_ATTEMPTS = 3;
 	private static final long[] RETRY_DELAY_MS = { 5000L, 15000L };
 	private static final String DEFAULT_TIMEOUT_MS = "10000";
@@ -192,8 +198,16 @@ public class AlertMailService {
 			mail.setFrom(from.trim());
 		}
 		mail.setSubject(subject);
-		mail.setText(body);
+		mail.setText(stampSentAt(body, new Date()));
 		mailSender.send(mail);
+	}
+
+	/** 본문의 발송 시각 토큰을 실제 전송 시도 시각으로 바꾼다 (토큰이 없으면 그대로) */
+	public static String stampSentAt(String body, Date sentAt) {
+		if (body == null || body.indexOf(SENT_AT_TOKEN) < 0) {
+			return body;
+		}
+		return body.replace(SENT_AT_TOKEN, format(sentAt.getTime()));
 	}
 
 	// ==========================================
@@ -207,9 +221,14 @@ public class AlertMailService {
 
 	/**
 	 * 경보 본문. 요건의 항목: 등급·플랫폼·항목과 현재 수치·발생 시각·권장 조치·경보 ID.
+	 *
+	 * 시각 세 줄의 뜻 (2026-10-23):
+	 *  - 발생 시각: 그 등급이 처음 관측된 평가 시각 (상세 화면 그래프의 첫 초과 지점과 같다)
+	 *  - 확인 시각: 같은 등급이 확인 횟수만큼 이어져 경보로 확정된 평가 시각 (기본 2회면 발생 + 5분)
+	 *  - 발송 시각: 메일이 실제로 전송된 시각 — 전송 직전에 채운다 (SENT_AT_TOKEN)
 	 */
 	public static String alertBody(String kindLabel, String severityLabel, String platformId, String itemLabel,
-			String valueText, String openedAt, String nowText, long alertId, String recommendation, String adminUrl) {
+			String valueText, String openedAt, String confirmedAt, long alertId, String recommendation, String adminUrl) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("StarPlatform 서버 경보 — ").append(kindLabel).append("\n\n");
 		sb.append("경보 등급 : ").append(severityLabel).append("\n");
@@ -217,7 +236,8 @@ public class AlertMailService {
 		sb.append("항목      : ").append(itemLabel).append("\n");
 		sb.append("현재 수치 : ").append(valueText).append("\n");
 		sb.append("발생 시각 : ").append(openedAt).append("\n");
-		sb.append("알림 시각 : ").append(nowText).append("\n");
+		sb.append("확인 시각 : ").append(confirmedAt).append("\n");
+		sb.append("발송 시각 : ").append(SENT_AT_TOKEN).append("\n");
 		sb.append("경보 ID   : ").append(alertId > 0 ? String.valueOf(alertId) : "(DB 미기록)").append("\n\n");
 		sb.append("권장 조치\n").append(recommendation).append("\n\n");
 		if (adminUrl != null && !adminUrl.isEmpty()) {
@@ -245,6 +265,7 @@ public class AlertMailService {
 		sb.append("최고 등급   : ").append(peakLabel).append("\n");
 		sb.append("발생 시각   : ").append(openedAt).append("\n");
 		sb.append("복구 시각   : ").append(resolvedAt).append("\n");
+		sb.append("발송 시각   : ").append(SENT_AT_TOKEN).append("\n");
 		sb.append("지속 시간   : ").append(durationText(durationMs)).append("\n");
 		sb.append("복구 후 수치: ").append(valueText).append("\n");
 		sb.append("경보 ID     : ").append(alertId > 0 ? String.valueOf(alertId) : "(DB 미기록)").append("\n");

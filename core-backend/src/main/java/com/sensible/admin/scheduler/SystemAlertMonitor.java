@@ -191,7 +191,8 @@ public class SystemAlertMonitor {
 
 		switch (t.kind) {
 			case OPEN: {
-				long id = store.openAlert(t.key, t.severity.name(), r.label, t.message, t.value, platform);
+				// 발생 시각은 상태 머신이 준 첫 초과 관측 시각 — DB·메일·상세 화면이 같은 값을 쓴다 (2026-10-23)
+				long id = store.openAlert(t.key, t.severity.name(), r.label, t.message, t.value, platform, t.openedAt);
 				machine.bindAlertId(t.key, id);
 				store.event(id, t.key, "OPEN", t.severity.name(), t.message, "SYSTEM");
 				logger.warn("[Alert] OPEN {} {} {}", new Object[] { t.severity, t.key, t.message });
@@ -203,7 +204,8 @@ public class SystemAlertMonitor {
 			case ESCALATE: {
 				long id = machine.state(t.key).alertId;
 				store.updateAlert(id, t.severity.name(), t.message, t.value);
-				store.event(id, t.key, "ESCALATE", t.severity.name(), t.previousSeverity.label() + " → " + t.severity.label() + " : " + t.message, "SYSTEM");
+				store.event(id, t.key, "ESCALATE", t.severity.name(), t.previousSeverity.label() + " → " + t.severity.label()
+						+ " (첫 관측 " + AlertMailService.format(t.sinceAt) + ") : " + t.message, "SYSTEM");
 				logger.warn("[Alert] ESCALATE {} {} {}", new Object[] { t.severity, t.key, t.message });
 				if (t.severity.atLeast(mailMin)) {
 					sendAlertMail(t.key, id, "등급 상승", t.severity, r, t.openedAt, now, to, platform);

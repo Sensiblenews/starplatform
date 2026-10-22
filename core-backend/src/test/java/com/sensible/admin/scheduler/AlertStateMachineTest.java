@@ -26,13 +26,75 @@ public class AlertStateMachineTest {
 	@Test
 	public void 한_번_관측으로는_열지_않고_두_번_연속이면_OPEN() {
 		AlertStateMachine m = new AlertStateMachine();
-		assertTrue(step(m, Severity.DANGER, 0).isEmpty());
-		List<Transition> t = step(m, Severity.DANGER, 5);
+		assertTrue(step(m, Severity.DANGER, 5).isEmpty());
+		List<Transition> t = step(m, Severity.DANGER, 10);
 		assertEquals(1, t.size());
 		assertEquals(Kind.OPEN, t.get(0).kind);
 		assertEquals(Severity.DANGER, t.get(0).severity);
+		// 발생 시각은 확인 관측(10분)이 아니라 첫 초과 관측(5분) (2026-10-23)
 		assertEquals(5 * MIN, t.get(0).openedAt);
+		assertEquals(5 * MIN, t.get(0).sinceAt);
+		assertEquals(5 * MIN, m.state("disk").openedAt);
 		assertEquals(Severity.DANGER, m.state("disk").open);
+	}
+
+	// ===== 2026-10-23: 발생 시각 = 첫 초과 관측 시각 (클라이언트 요청 9번 — 발령·발송 시간차) =====
+
+	@Test
+	public void 같은_등급_두_번_연속이면_발생_시각은_첫_관측_시각이다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.CRITICAL, 100);
+		List<Transition> t = step(m, Severity.CRITICAL, 105);
+		assertEquals(Kind.OPEN, t.get(0).kind);
+		assertEquals(100 * MIN, t.get(0).openedAt);
+		// 복구 전이의 발생 시각·지속 시간 계산도 같은 값을 쓴다
+		step(m, Severity.NORMAL, 110);
+		List<Transition> r = step(m, Severity.NORMAL, 115);
+		assertEquals(Kind.RESOLVE, r.get(0).kind);
+		assertEquals(100 * MIN, r.get(0).openedAt);
+	}
+
+	@Test
+	public void 중간에_다른_등급이_끼면_후보_시각이_갱신된다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.DANGER, 0);     // 위험 후보 시작
+		step(m, Severity.CRITICAL, 5);   // 후보가 긴급으로 바뀜 → 후보 시각 5분
+		List<Transition> t = step(m, Severity.CRITICAL, 10);
+		assertEquals(Kind.OPEN, t.get(0).kind);
+		assertEquals(Severity.CRITICAL, t.get(0).severity);
+		assertEquals(5 * MIN, t.get(0).openedAt); // 0분(위험)이 아니라 5분(긴급 첫 관측)
+	}
+
+	@Test
+	public void 정상이_끼어_끊겼다가_다시_시작하면_발생_시각도_다시_시작한_관측이다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.DANGER, 0);
+		step(m, Severity.NORMAL, 5);     // 연속 끊김
+		step(m, Severity.DANGER, 10);    // 새 후보 시작
+		List<Transition> t = step(m, Severity.DANGER, 15);
+		assertEquals(Kind.OPEN, t.get(0).kind);
+		assertEquals(10 * MIN, t.get(0).openedAt);
+	}
+
+	@Test
+	public void 격상은_경보_발생_시각을_바꾸지_않고_전이에_상승_등급_첫_관측_시각을_담는다() {
+		AlertStateMachine m = new AlertStateMachine();
+		step(m, Severity.WARNING, 0);
+		step(m, Severity.WARNING, 5);    // 주의 OPEN, 발생 0분
+		step(m, Severity.CRITICAL, 10);  // 긴급 첫 관측
+		List<Transition> t = step(m, Severity.CRITICAL, 15);
+		assertEquals(Kind.ESCALATE, t.get(0).kind);
+		assertEquals(0L, t.get(0).openedAt);       // 같은 경보 — 발생 시각 유지 (DB OPENED_DATE 와 일치)
+		assertEquals(10 * MIN, t.get(0).sinceAt);  // 긴급이 처음 잡힌 시각
+		assertEquals(0L, m.state("disk").openedAt);
+	}
+
+	@Test
+	public void confirmCount_1이면_발생_시각은_지금과_같다() {
+		AlertStateMachine m = new AlertStateMachine();
+		List<Transition> t = m.apply("db", Severity.CRITICAL, 0, "down", 7 * MIN, 1, 1, REMIND, 3);
+		assertEquals(Kind.OPEN, t.get(0).kind);
+		assertEquals(7 * MIN, t.get(0).openedAt);
 	}
 
 	@Test
@@ -194,6 +256,7 @@ public class AlertStateMachineTest {
 		List<Transition> next = step(m, Severity.WARNING, 20);
 		assertEquals(Kind.OPEN, next.get(0).kind);
 		assertEquals(Severity.WARNING, next.get(0).severity);
+		assertEquals(15 * MIN, next.get(0).openedAt); // 복구 시점에 1회 센 관측이 새 경보의 첫 관측
 	}
 
 	@Test

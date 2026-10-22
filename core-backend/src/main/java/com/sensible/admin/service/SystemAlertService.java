@@ -1,5 +1,6 @@
 package com.sensible.admin.service;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,8 +70,13 @@ public class SystemAlertService {
 	// 경보
 	// ==========================================
 
-	/** 열린 경보 생성. 생성된 ID 반환, 실패 시 0 */
-	public long openAlert(String key, String severity, String title, String message, double value, String platformId) {
+	/**
+	 * 열린 경보 생성. 생성된 ID 반환, 실패 시 0
+	 *
+	 * @param openedAt 발생 시각(ms) — 상태 머신이 계산한 첫 초과 관측 시각. 0 이하면 지금 (2026-10-23)
+	 */
+	public long openAlert(String key, String severity, String title, String message, double value, String platformId,
+			long openedAt) {
 		try {
 			Map<String, Object> p = new HashMap<String, Object>();
 			p.put("ALERT_KEY", key);
@@ -79,6 +85,7 @@ public class SystemAlertService {
 			p.put("MESSAGE", message);
 			p.put("METRIC_VALUE", value);
 			p.put("PLATFORM_ID", platformId);
+			p.put("OPENED_DATE", new Date(openedAt > 0 ? openedAt : System.currentTimeMillis()));
 			dao.insert("sysalert.insertAlert", p);
 			Object id = p.get("ALERT_ID");
 			return (id instanceof Number) ? ((Number) id).longValue() : 0L;

@@ -21,11 +21,13 @@
 
     <!-- ============ 경보 ============ -->
 
+    <!-- OPENED_DATE 는 상태 머신이 계산한 발생 시각(그 등급의 첫 초과 관측 시각)을 그대로 저장한다 (2026-10-23).
+         NOW() 를 쓰면 확인 관측 시각이 들어가 메일·상세 화면의 "발생"이 그래프 첫 초과 지점보다 한 주기 늦게 보였다 -->
     <insert id="insertAlert" parameterType="map" useGeneratedKeys="true" keyProperty="ALERT_ID">
         INSERT INTO WH_SYS_ALERT
             (ALERT_KEY, SEVERITY, STATUS, TITLE, MESSAGE, METRIC_VALUE, PLATFORM_ID, OPENED_DATE, UPDATED_DATE)
         VALUES
-            (#{ALERT_KEY}, #{SEVERITY}, 'OPEN', #{TITLE}, #{MESSAGE}, #{METRIC_VALUE}, #{PLATFORM_ID}, NOW(), NOW())
+            (#{ALERT_KEY}, #{SEVERITY}, 'OPEN', #{TITLE}, #{MESSAGE}, #{METRIC_VALUE}, #{PLATFORM_ID}, #{OPENED_DATE}, NOW())
     </insert>
 
     <update id="updateAlert" parameterType="map">

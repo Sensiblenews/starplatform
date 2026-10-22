@@ -19,6 +19,8 @@ import com.sensible.admin.scheduler.AlertRules.Severity;
  *     주의가 계속되면 주의 경보가 새로 열린다 — 주의는 기본 설정상 메일이 없으므로 화면에만 남는다)
  *  - 긴급(CRITICAL) 이고 확인(ack) 안 된 경보는 remindMinutes 마다 최대 remindMax 회 REMIND.
  *  - 항목당 열린 경보는 하나. 같은 장애로 메일이 반복되지 않는다.
+ *  - 발생 시각(openedAt)은 "확인된" 관측이 아니라 그 등급이 처음 관측된 평가 시각이다 (2026-10-23).
+ *    확인 2회 기준이면 메일·상세 화면의 발생 시각이 그래프의 첫 초과 지점과 같고, 확인 관측은 5분 뒤다.
  */
 public class AlertStateMachine {
 
@@ -34,14 +36,20 @@ public class AlertStateMachine {
 		public final Severity previousSeverity;
 		public final double value;
 		public final String message;
+		/** 경보 발생 시각 = 열린 등급이 처음 관측된 평가 시각. 확인 관측 시각이 아니다 (2026-10-23) */
 		public final long openedAt;
+		/**
+		 * 이 전이의 등급이 처음 관측된 평가 시각. OPEN 은 openedAt 과 같고,
+		 * ESCALATE 는 더 높은 등급이 처음 잡힌 시각이다 (경보 자체의 openedAt 은 바뀌지 않는다)
+		 */
+		public final long sinceAt;
 		/** 전이 시점의 DB 경보 ID (RESOLVE 는 상태가 지워지기 전 값) */
 		public final long alertId;
 		/** 이 경보로 메일이 나간 적이 있는지 (RESOLVE 때 복구 메일 발송 판단) */
 		public final boolean mailSent;
 
 		Transition(String key, Kind kind, Severity severity, Severity previousSeverity, double value, String message,
-				long openedAt, long alertId, boolean mailSent) {
+				long openedAt, long sinceAt, long alertId, boolean mailSent) {
 			this.key = key;
 			this.kind = kind;
 			this.severity = severity;
@@ -49,6 +57,7 @@ public class AlertStateMachine {
 			this.value = value;
 			this.message = message;
 			this.openedAt = openedAt;
+			this.sinceAt = sinceAt;
 			this.alertId = alertId;
 			this.mailSent = mailSent;
 		}
@@ -66,6 +75,7 @@ public class AlertStateMachine {
 		public Severity open = Severity.NORMAL;
 		/** 열린 경보가 겪은 최고 등급 (복구 메일 본문용) */
 		public Severity peak = Severity.NORMAL;
+		/** 발생 시각 — 열린 등급이 처음 관측된 평가 시각 (확인 2회면 첫 번째 관측, 1회면 그 관측) */
 		public long openedAt;
 		/** 영속화된 경보 ID (DB). 없으면 0 */
 		public long alertId;
@@ -83,6 +93,12 @@ public class AlertStateMachine {
 		/** 후보 등급과 연속 관측 횟수 (열기·격상용) */
 		Severity candidate = Severity.NORMAL;
 		int candidateCount;
+		/**
+		 * 후보 등급이 처음 잡힌 평가 시각. 후보가 바뀌거나 리셋되면 갱신된다.
+		 * 확인 횟수(confirmCount)만큼 연속 관측돼 경보가 열릴 때 이 값이 발생 시각(openedAt)이 된다 —
+		 * 메일·상세 화면의 "발생 시각"이 그래프의 첫 초과 지점과 같아진다 (2026-10-23, 클라이언트 요청 9번)
+		 */
+		long candidateSince;
 		/** 정상 연속 관측 횟수 (복구용) */
 		int normalCount;
 	}
@@ -150,7 +166,7 @@ public class AlertStateMachine {
 			if (s.open != Severity.NORMAL) {
 				s.normalCount++;
 				if (s.normalCount >= recover) {
-					out.add(new Transition(key, Kind.RESOLVE, observed, s.peak, value, s.lastMessage, s.openedAt, s.alertId, s.mailSent));
+					out.add(new Transition(key, Kind.RESOLVE, observed, s.peak, value, s.lastMessage, s.openedAt, s.openedAt, s.alertId, s.mailSent));
 					s.open = Severity.NORMAL;
 					s.peak = Severity.NORMAL;
 					s.openedAt = 0;
@@ -164,6 +180,7 @@ public class AlertStateMachine {
 						// 낮은 등급이 이어지고 있으면 그 등급의 새 경보 후보로 이미 1회 센 것으로 본다
 						s.candidate = observed;
 						s.candidateCount = 1;
+						s.candidateSince = now;
 					}
 				}
 			}
@@ -179,12 +196,16 @@ public class AlertStateMachine {
 			} else {
 				s.candidate = observed;
 				s.candidateCount = 1;
+				s.candidateSince = now;
 			}
 			if (s.candidateCount >= confirm) {
 				Kind kind = (s.open == Severity.NORMAL) ? Kind.OPEN : Kind.ESCALATE;
 				Severity before = s.open;
+				// 발생 시각 = 후보가 처음 잡힌 관측 시각. 확인 2회면 지금보다 한 주기 앞, 1회면 지금과 같다.
+				// 격상은 같은 경보가 이어지는 것이므로 경보의 발생 시각은 그대로 두고 전이에만 첫 관측 시각을 담는다
+				long since = s.candidateSince;
 				if (kind == Kind.OPEN) {
-					s.openedAt = now;
+					s.openedAt = since;
 					s.acked = false;
 					s.remindCount = 0;
 				}
@@ -195,7 +216,7 @@ public class AlertStateMachine {
 				s.lastNotifiedAt = now;
 				s.candidate = Severity.NORMAL;
 				s.candidateCount = 0;
-				out.add(new Transition(key, kind, observed, before, value, s.lastMessage, s.openedAt, s.alertId, s.mailSent));
+				out.add(new Transition(key, kind, observed, before, value, s.lastMessage, s.openedAt, since, s.alertId, s.mailSent));
 				return out;
 			}
 		} else {
@@ -209,7 +230,7 @@ public class AlertStateMachine {
 				&& s.remindCount < remindMax && now - s.lastNotifiedAt >= remindMs) {
 			s.remindCount++;
 			s.lastNotifiedAt = now;
-			out.add(new Transition(key, Kind.REMIND, s.open, s.open, value, s.lastMessage, s.openedAt, s.alertId, s.mailSent));
+			out.add(new Transition(key, Kind.REMIND, s.open, s.open, value, s.lastMessage, s.openedAt, s.openedAt, s.alertId, s.mailSent));
 		}
 		return out;
 	}
