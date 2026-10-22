@@ -79,18 +79,27 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.getcapacitor.community.admob.AdMob.class);
 
     webView = this.bridge.getWebView();
+    // 웹뷰 여백 = 시스템 바 + 소프트 키보드(IME) 인셋.
+    // EdgeToEdge 를 켜면(아래) 매니페스트의 adjustResize 가 더 이상 창을 줄이지 않으므로 IME 인셋을 여기서 직접 반영한다.
+    // 예전에는 Keyboard 플러그인의 resizeOnFullScreen 이 getWindowVisibleDisplayFrame 으로 콘텐츠 높이를 바꿨는데,
+    // 그 값은 키보드 애니메이션 시작 시점 한 번만 읽혀 기기에 따라 키보드가 웹뷰를 덮은 채 남았고,
+    // 글 입력 뒤 첫 스크롤이 튀는 원인이 됐다 (2026-10-23 클라이언트 보고). 이제 capacitor.config 의
+    // resizeOnFullScreen 은 false 고, 인셋이 바뀔 때마다 네이티브가 동기적으로 웹뷰 크기를 맞춘다.
+    // IME 인셋은 화면 맨 아래부터 재므로 내비게이션 바 높이를 포함한다 → max 로 합친다
     webView.setOnApplyWindowInsetsListener((v, insets) -> {
       int sbHeight = 0;
       int nbHeight = 0;
+      int imeHeight = 0;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         sbHeight = insets.getInsets(WindowInsets.Type.statusBars()).top;
         nbHeight = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+        imeHeight = insets.getInsets(WindowInsets.Type.ime()).bottom;
       }
 
       ViewGroup.LayoutParams lp = v.getLayoutParams();
       if (lp instanceof ViewGroup.MarginLayoutParams mlp) {
         mlp.topMargin = sbHeight;
-        mlp.bottomMargin = nbHeight;
+        mlp.bottomMargin = Math.max(nbHeight, imeHeight);
         v.setLayoutParams(mlp);
       }
 
