@@ -24,11 +24,12 @@ export class WriteModalService {
   async openWriteModal(isStar: boolean, starId: string, adminLevel: string, onSuccess: () => void, hooks?: ComposeHooks) {
     const data = await this.present({ isStar, starId, adminLevel }, hooks);
     if (data && data.success) {
-      // 동영상 글은 서버 압축이 끝난 뒤 게시물이 만들어진다 (2-34차) — 끝나면 FeedUploadService 가 따로 알린다
+      // 동영상 글은 서버 압축이 끝난 뒤 게시물이 만들어진다 (2-34차) — 끝나면 FeedUploadService 가 따로 알린다.
+      // 안내는 완료 사실 한 문장만 (2-35차 클라이언트 요청)
       const alert = await this.alertCtrl.create({
         header: 'Notice',
         message: data.processing
-          ? 'Your video has been uploaded. We are preparing it now and will let you know when it is ready.'
+          ? 'Your video has been uploaded.'
           : 'Your post has been successfully created!',
         buttons: ['OK']
       });
