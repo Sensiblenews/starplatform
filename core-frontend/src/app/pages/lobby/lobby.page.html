@@ -65,7 +65,7 @@
     </div>
 
     <ion-list lines="none" *ngIf="searchResults.length > 0">
-      <ion-item *ngFor="let star of searchResults" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+      <ion-item *ngFor="let star of searchResults" (click)="goToStarPage(star.id, star)" class="star-list-item motion-card">
         <ion-avatar slot="start"><img [src]="getStarImage(star.image)"
             (error)="handleImageError($event)" /></ion-avatar>
 
@@ -156,7 +156,7 @@
     <!-- M (My Favorites) Content -->
     <ng-container *ngIf="activeFavoriteTab === 'M'">
       <ion-list lines="none" *ngIf="favoriteStars.length > 0">
-        <ion-item *ngFor="let star of favoriteStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-item *ngFor="let star of favoriteStars" (click)="goToStarPage(star.id, star)" class="star-list-item motion-card">
           <ion-avatar slot="start">
             <img [src]="getStarImage(star.image)" (error)="handleImageError($event)" />
           </ion-avatar>
@@ -278,7 +278,7 @@
       <app-skeleton *ngIf="isLoadingRanking" variant="ranking" [count]="10"></app-skeleton>
 
       <ion-list lines="none" *ngIf="!isLoadingRanking && rankingStars && rankingStars.length > 0">
-        <ion-item *ngFor="let star of rankingStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card compact-item">
+        <ion-item *ngFor="let star of rankingStars" (click)="goToStarPage(star.id, star)" class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
           </div>
@@ -305,7 +305,7 @@
     <!-- R (Revenue Ranking) Inline View -->
     <ng-container *ngIf="activeRankingTab === 'R'">
       <ion-list lines="none" *ngIf="revenueRankingStars && revenueRankingStars.length > 0">
-        <ion-item *ngFor="let star of revenueRankingStars" (click)="goToStarPage(star.id)"
+        <ion-item *ngFor="let star of revenueRankingStars" (click)="goToStarPage(star.id, star)"
           class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
@@ -337,7 +337,7 @@
       </div>
 
       <ion-list lines="none" *ngIf="dailyRankingStars && dailyRankingStars.length > 0">
-        <ion-item *ngFor="let star of dailyRankingStars" (click)="goToStarPage(star.id)"
+        <ion-item *ngFor="let star of dailyRankingStars" (click)="goToStarPage(star.id, star)"
           class="star-list-item motion-card compact-item">
           <div slot="start" class="rank-badge" [ngClass]="['rank-' + star.globalRank]">
             {{ star.globalRank }}
@@ -421,7 +421,7 @@
 
       <div class="horizontal-scroll-wrapper" #topScroll *ngIf="!isLoadingTodayTop">
         <div class="star-card-mini horizontal-motion motion-card" *ngFor="let star of popularStars"
-          (click)="goToStarPage(star.id)">
+          (click)="goToStarPage(star.id, star)">
           <div class="avatar-box"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)" /></div>
 
           <div class="star-info" style="margin-top: 4px;">
@@ -447,7 +447,7 @@
       </div>
 
       <ion-list lines="none">
-        <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-item *ngFor="let star of allStars" (click)="goToStarPage(star.id, star)" class="star-list-item motion-card">
           <ion-avatar slot="start"><img [src]="getStarImage(star.image)"
               (error)="handleImageError($event)" /></ion-avatar>
 
@@ -531,7 +531,7 @@
       <app-skeleton *ngIf="isLoadingTop100" variant="ranking" [count]="10"></app-skeleton>
 
       <ion-list lines="none" *ngIf="!isLoadingTop100">
-        <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id)"
+        <ion-item *ngFor="let star of categoryTop100; let i = index" (click)="goToStarPage(star.id, star)"
           class="star-list-item motion-card">
           <div slot="start" class="vs-rank-no" [class.top3]="i < 3">{{ i + 1 }}</div>
           <ion-avatar slot="start"><img [src]="getStarImage(star.image)" (error)="handleImageError($event)"
@@ -563,7 +563,7 @@
       </div>
 
       <ion-list lines="none">
-        <ion-item *ngFor="let star of newCreators" (click)="goToStarPage(star.id)" class="star-list-item motion-card">
+        <ion-item *ngFor="let star of newCreators" (click)="goToStarPage(star.id, star)" class="star-list-item motion-card">
           <ion-avatar slot="start"><img [src]="getStarImage(star.image)"
               (error)="handleImageError($event)" /></ion-avatar>
 
