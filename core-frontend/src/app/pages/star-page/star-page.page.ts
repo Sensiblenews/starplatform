@@ -110,6 +110,12 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   // 첫 진입 시에만 스켈레톤을 노출한다 (새로고침·재조회에는 관여하지 않음)
   isLoadingStar = true;
 
+  /**
+   * 로비가 라우터 상태로 넘긴 이름·사진이 있으면 상세 응답 전에 헤더부터 그린다 (2026-10-23 6번).
+   * 이때 수치(조회수·팔로워·좋아요)는 응답 뒤에 나타나고, 피드는 그대로 스켈레톤이다
+   */
+  hasStarPreview = false;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -165,6 +171,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
 
     this.paramSub = this.route.paramMap.subscribe(params => {
       this.starId = params.get('starId');
+      this.applyStarPreview();
       this.myIsStar = localStorage.getItem('isStar') === 'true';
       this.myStarId = localStorage.getItem('starId') || '';
       this.isStar = this.myIsStar && this.myStarId === this.starId;
@@ -173,6 +180,18 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
       this.loadStarDetail();
       this.checkFavoriteState();
     });
+  }
+
+  /** 라우터 상태의 starPreview 가 이 스타의 것이면 헤더용 최소 정보로 먼저 채운다 */
+  private applyStarPreview() {
+    const state = window.history.state;
+    const preview = state && state.starPreview;
+    if (preview && String(preview.id) === String(this.starId) && preview.name) {
+      this.starInfo = { name: preview.name, image: preview.image || this.defaultAvatar };
+      this.hasStarPreview = true;
+    } else {
+      this.hasStarPreview = false;
+    }
   }
 
   checkFavoriteState() {
@@ -1485,6 +1504,7 @@ export class StarPagePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   goBack() {
-    this.navCtrl.navigateBack('/lobby');
+    // 상단 로고 = 로비 첫 화면으로 (2026-10-23 8번). 로비가 ionViewWillEnter 에서 이 상태값을 읽어 맨 위로 올린다
+    this.navCtrl.navigateBack('/lobby', { state: { lobbyScrollTop: true } });
   }
 }
