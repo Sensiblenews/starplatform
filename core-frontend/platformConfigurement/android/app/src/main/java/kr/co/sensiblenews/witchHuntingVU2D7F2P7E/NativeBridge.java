@@ -44,6 +44,14 @@ public class NativeBridge extends Plugin {
   // 슬롯 6개(Today's TOP 위 / Discover 위 / New Creators 위 / 세로형 Latest Content 안 3개)가 컨테이너 1~6 에 1:1 로 대응한다
   private boolean lobbyMode = false;
 
+  /**
+   * 빠른 스크롤 중 페이드 상태 (2026-10-23 클라이언트 10번). 좌표가 브리지를 건너 늦게 적용되는 동안
+   * 광고가 주변과 어긋나 떨려 보이므로 웹이 faded=true 를 보내면 투명하게 두고, 멈추면 제자리에서 되살린다.
+   * 뷰는 그대로 붙어 있어 광고 로드·측정에는 영향이 없다
+   */
+  private boolean lobbyFaded = false;
+  private static final long FADE_DURATION_MS = 120L;
+
   /** 웹이 보내는 로비 슬롯 한 개의 좌표 (css px) */
   private static final class SlotPosition {
     final int index;
@@ -133,6 +141,7 @@ public class NativeBridge extends Plugin {
           // 로비 모드: 슬롯 6개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기.
           // 카드는 315dp 고정이라 가로 크리에이티브만 요청한다
           lobbyMode = true;
+          resetLobbyFade(lobbyContainers());
           int lobbyHeight = activity.lobbyCardHeightPx();
           for (FrameLayout c : lobbyContainers()) {
             activity.setContainerHeight(c, lobbyHeight);
@@ -150,6 +159,7 @@ public class NativeBridge extends Plugin {
         } else {
           // 스타 페이지: 기존 3슬롯 하드코딩 좌표 경로 그대로. 카드는 iOS 와 같이 화면 폭+85
           lobbyMode = false;
+          resetLobbyFade(lobbyContainers());
           int starHeight = activity.starCardHeightPx();
           for (FrameLayout c : starContainers()) {
             activity.setContainerHeight(c, starHeight);
@@ -165,6 +175,7 @@ public class NativeBridge extends Plugin {
         }
       } else {
         lobbyMode = false;
+        resetLobbyFade(lobbyContainers());
         for (FrameLayout c : lobbyContainers()) {
           c.setClipBounds(null);
           c.setVisibility(View.GONE);
@@ -180,6 +191,7 @@ public class NativeBridge extends Plugin {
   @PluginMethod()
   public void setSlotPositions(@NonNull PluginCall call) {
     call.setKeepAlive(false);
+    final boolean faded = Boolean.TRUE.equals(call.getBoolean("faded", false));
     JSArray raw = call.getArray("slots");
     final List<SlotPosition> slots = new ArrayList<>();
     if (raw != null) {
@@ -217,6 +229,7 @@ public class NativeBridge extends Plugin {
       FrameLayout adWrapper = getActivity().findViewById(R.id.ad_wrapper);
       int targetTop = (int) (wrapperHideCss * density) + getStatusBarHeight(getContext());
       FrameLayout.LayoutParams wp = (FrameLayout.LayoutParams) adWrapper.getLayoutParams();
+      // 스크롤마다 호출되므로 값이 바뀔 때만 레이아웃을 건드린다 (requestLayout 은 프레임 비용이 크다)
       if (Math.abs(wp.topMargin - targetTop) > 1) {
         wp.topMargin = targetTop;
         adWrapper.setLayoutParams(wp);
@@ -228,17 +241,22 @@ public class NativeBridge extends Plugin {
           continue;
         }
         FrameLayout c = containers[s.index];
-        c.setVisibility(View.VISIBLE);
+        if (c.getVisibility() != View.VISIBLE) {
+          c.setVisibility(View.VISIBLE);
+        }
         c.setTranslationY((s.y - wrapperHideCss) * density);
 
         // 이 슬롯만의 추가 경계(탭 바 하단)가 wrapper 경계보다 아래이고 카드 상단이 그 경계 위로 올라갔으면 그만큼 자른다.
-        // clipBounds 는 뷰 자신의 좌표계라 translationY 와 무관하다
+        // clipBounds 는 뷰 자신의 좌표계라 translationY 와 무관하다. 같은 값이면 다시 설정하지 않는다(invalidate 절약)
         float extraClipPx = (s.hideAbove - s.y) * density;
         if (s.hideAbove > wrapperHideCss + 0.5f && extraClipPx > 0f) {
           int h = c.getLayoutParams() != null ? c.getLayoutParams().height : c.getHeight();
           int w = c.getWidth() > 0 ? c.getWidth() : adWrapper.getWidth();
-          c.setClipBounds(new Rect(0, (int) Math.min(extraClipPx, h), w, h));
-        } else {
+          Rect clip = new Rect(0, (int) Math.min(extraClipPx, h), w, h);
+          if (!clip.equals(c.getClipBounds())) {
+            c.setClipBounds(clip);
+          }
+        } else if (c.getClipBounds() != null) {
           c.setClipBounds(null);
         }
         placed[s.index] = true;
@@ -248,6 +266,7 @@ public class NativeBridge extends Plugin {
           parkOffscreen(containers[i]);
         }
       }
+      applyLobbyFade(containers, faded);
     });
     call.resolve();
   }
@@ -269,9 +288,40 @@ public class NativeBridge extends Plugin {
 
   /** 로비 모드에서 좌표를 아직 못 받은(또는 광고가 없는) 컨테이너를 화면 밖에 둔다 */
   private void parkOffscreen(FrameLayout c) {
-    c.setClipBounds(null);
-    c.setVisibility(View.INVISIBLE);
+    if (c.getClipBounds() != null) {
+      c.setClipBounds(null);
+    }
+    if (c.getVisibility() != View.INVISIBLE) {
+      c.setVisibility(View.INVISIBLE);
+    }
     c.setTranslationY(100000f);
+  }
+
+  /** 페이드 상태가 바뀔 때만 모든 로비 컨테이너의 알파를 짧게 애니메이션한다. 위치는 이미 맞춰진 뒤라 제자리에서 나타난다 */
+  private void applyLobbyFade(FrameLayout[] containers, boolean faded) {
+    if (faded == lobbyFaded) {
+      return;
+    }
+    lobbyFaded = faded;
+    float target = faded ? 0f : 1f;
+    for (FrameLayout c : containers) {
+      if (c == null) {
+        continue;
+      }
+      c.animate().cancel();
+      c.animate().alpha(target).setDuration(FADE_DURATION_MS).start();
+    }
+  }
+
+  /** 로비 모드를 벗어나거나 광고를 숨길 때 페이드 상태를 원래대로 (스타 페이지는 페이드를 쓰지 않는다) */
+  private void resetLobbyFade(FrameLayout[] containers) {
+    lobbyFaded = false;
+    for (FrameLayout c : containers) {
+      if (c != null) {
+        c.animate().cancel();
+        c.setAlpha(1f);
+      }
+    }
   }
 
   // 웹 랜딩 → 스토어 설치 경로로 전달된 리퍼러 문자열 조회 (디퍼드 딥링크용)

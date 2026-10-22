@@ -2,6 +2,9 @@ import {
   LOBBY_AD_SLOT_COUNT,
   LOBBY_AD_SLOT_DEFAULT_HEIGHT,
   buildAdSlotPositions,
+  LOBBY_AD_FADE_OFF_VELOCITY,
+  LOBBY_AD_FADE_ON_VELOCITY,
+  nextAdFadeState,
   defaultAdSlotHeights,
   emptyAdSlotFilled,
   slotHeightFromAdLoaded,
@@ -90,6 +93,35 @@ describe('lobby-ad-slots', () => {
 
     it('슬롯 수를 넘는 항목은 무시한다', () => {
       expect(buildAdSlotPositions([10, 20, 30, 40, 50, 60, 70], header, 0).length).toBe(6);
+    });
+
+    it('억제된 슬롯은 펼쳐져 있어도 보내지 않는다 (TOP 100 교체 중 슬롯 3)', () => {
+      const tabBar = 300;
+      expect(buildAdSlotPositions([300, 900, 1500], header, tabBar, new Set([2]))).toEqual([
+        { index: 0, y: 300, hideAbove: header },
+        { index: 1, y: 900, hideAbove: header },
+      ]);
+      expect(buildAdSlotPositions([null, null, 1500], header, tabBar, new Set([2]))).toEqual([]);
+    });
+  });
+  describe('nextAdFadeState', () => {
+    it('임계치를 넘는 빠른 스크롤에서만 페이드 아웃한다', () => {
+      expect(nextAdFadeState(0.4, false)).toBeFalse();
+      expect(nextAdFadeState(LOBBY_AD_FADE_ON_VELOCITY, false)).toBeFalse();
+      expect(nextAdFadeState(2.0, false)).toBeTrue();
+      expect(nextAdFadeState(-2.0, false)).toBeTrue();
+    });
+
+    it('페이드 중에는 더 낮은 속도까지 유지한다 (히스테리시스)', () => {
+      expect(nextAdFadeState(1.0, true)).toBeTrue();
+      expect(nextAdFadeState(LOBBY_AD_FADE_OFF_VELOCITY, true)).toBeTrue();
+      expect(nextAdFadeState(0.2, true)).toBeFalse();
+      expect(nextAdFadeState(0, true)).toBeFalse();
+    });
+
+    it('속도를 모르면 상태를 유지한다', () => {
+      expect(nextAdFadeState(undefined, true)).toBeTrue();
+      expect(nextAdFadeState(NaN, false)).toBeFalse();
     });
   });
 });
