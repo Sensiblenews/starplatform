@@ -229,6 +229,9 @@
         .po-actions { display: flex; gap: 10px; margin: 0; padding-top: 4px; flex-wrap: wrap; }
         .po-body-top { margin-top: 18px; }
         .po-body { font-size: 15px; color: #1e293b; white-space: pre-line; word-break: break-word; }
+        /* 본문·소개문 자동 링크 (서버 WebCardUtil.linkify) — 긴 주소가 카드 폭을 밀지 않게 아무 데서나 줄바꿈 */
+        .po-body a, .st-about p a, .sb-author-about p a { color: #2f7cf6; text-decoration: underline; word-break: break-all; }
+        .st-tagline a { color: #fff; text-decoration: underline; word-break: break-all; }
         .po-admin { display: inline-block; font-size: 11px; font-weight: 700; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 3px 10px; margin-bottom: 12px; }
 
         /* ── 광고 자리 (클라이언트 참고 메일 2026-09-27 규격). 빈 상자로 크기만 확보, 승인 후 ins 삽입.
