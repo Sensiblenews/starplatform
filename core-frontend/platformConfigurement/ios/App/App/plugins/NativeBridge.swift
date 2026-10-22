@@ -21,6 +21,12 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   // 슬롯 6개(Today's TOP 위 / Discover 위 / New Creators 위 / 세로형 Latest Content 안 3개)가 컨테이너 1~6(tag 201~206)에 1:1 로 대응
   private var lobbyMode = false
 
+  /// 빠른 스크롤 중 페이드 상태 (2026-10-23 클라이언트 10번). 좌표가 브리지를 건너 늦게 적용되는 동안
+  /// 광고가 주변과 어긋나 떨려 보이므로 웹이 faded=true 를 보내면 투명하게 두고, 멈추면 제자리에서 되살린다.
+  /// 뷰는 그대로 붙어 있어 광고 로드·측정에는 영향이 없다
+  private var lobbyFaded = false
+  private let fadeDuration: TimeInterval = 0.12
+
   /// 웹이 보내는 로비 슬롯 한 개의 좌표 (css px = pt)
   private struct SlotPosition {
     let index: Int
@@ -78,11 +84,12 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   }
   
   @objc func updateAdPosition(_ call: CAPPluginCall) {
-    DispatchQueue.main.sync {
-      guard let scrollOffset = call.getDouble("value") else {
-        call.reject("Missing scrollOffset")
-        return
-      }
+    // 스크롤마다 호출된다. main.sync 는 브리지 스레드를 메인 스레드가 비길 때까지 세워 지연을 키우므로 async 로 넘긴다
+    guard let scrollOffset = call.getDouble("value") else {
+      call.reject("Missing scrollOffset")
+      return
+    }
+    DispatchQueue.main.async {
       self.updateAd(scrollOffset: scrollOffset)
       call.resolve([:])
     }
@@ -107,6 +114,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         if page == "lobby" {
             // 로비 모드: 슬롯 6개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기
             self.lobbyMode = true
+            self.resetLobbyFade()
             for c in self.lobbyContainers() {
               self.parkOffscreen(c)
             }
@@ -119,6 +127,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         } else if page.contains("star") {
             // 스타 페이지: 미리 계산해둔 3개의 피드 슬롯 위치 복구
             self.lobbyMode = false
+            self.resetLobbyFade()
             self.clearLobbyClipping()
             (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = self.starPosY1
@@ -147,6 +156,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
 
       } else {
         self.lobbyMode = false
+        self.resetLobbyFade()
         self.clearLobbyClipping()
         c1?.isHidden = true
         c2?.isHidden = true
@@ -163,6 +173,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   // 경계가 더 아래인 슬롯(sticky 탭 바 아래의 슬롯 3)은 컨테이너 레이어 마스크로 그 차이만큼 상단을 더 잘라낸다.
   // 목록에 없는 슬롯(아직 no-fill 또는 로드 중)은 화면 밖에 둔다 — 전체 숨김으로 인한 빈 구멍 방지
   @objc func setSlotPositions(_ call: CAPPluginCall) {
+    let faded = call.getBool("faded") ?? false
     var slots: [SlotPosition] = []
     for item in call.getArray("slots") ?? [] {
       guard let dict = item as? [String: Any],
@@ -203,6 +214,27 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
       for (i, c) in containers.enumerated() where !placed[i] {
         self.parkOffscreen(c)
       }
+      self.applyLobbyFade(containers, faded: faded)
+    }
+  }
+
+  /// 페이드 상태가 바뀔 때만 모든 로비 컨테이너의 알파를 짧게 애니메이션한다. 위치는 이미 맞춰진 뒤라 제자리에서 나타난다
+  private func applyLobbyFade(_ containers: [UIView?], faded: Bool) {
+    if faded == lobbyFaded { return }
+    lobbyFaded = faded
+    let target: CGFloat = faded ? 0 : 1
+    let views = containers.compactMap { $0 }
+    UIView.animate(withDuration: fadeDuration, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+      views.forEach { $0.alpha = target }
+    }
+  }
+
+  /// 로비 모드를 벗어나거나 광고를 숨길 때 페이드 상태를 원래대로 (스타 페이지는 페이드를 쓰지 않는다)
+  private func resetLobbyFade() {
+    lobbyFaded = false
+    for c in lobbyContainers() {
+      c?.layer.removeAllAnimations()
+      c?.alpha = 1
     }
   }
 

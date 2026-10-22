@@ -19,8 +19,11 @@ import { HallOfFameModalComponent } from './modals/rankings/hall-of-fame-modal.c
 import { VsCard, VsCarouselComponent } from './components/vs-carousel/vs-carousel.component';
 import { LiveNewsItem, LiveNewsTickerComponent, TickerTarget } from './components/live-news-ticker/live-news-ticker.component';
 import { shouldRevealTopMeta } from './lobby-reveal';
-import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
+import { buildAdSlotPositions, defaultAdSlotHeights, emptyAdSlotFilled, nextAdFadeState, slotHeightFromAdLoaded, slotIndexFromAdLoaded } from './lobby-ad-slots';
 import { LatestContentItem, isVideoItem } from './latest-contents-logic';
+
+/** TOP 100 목록 바로 아래 광고 슬롯 번호(data-slot="2") — 목록 교체 중 잠시 숨기는 대상 */
+const TOP100_AD_SLOT = 2;
 import { LatestContentsCarouselComponent } from './components/latest-contents-carousel/latest-contents-carousel.component';
 import { LatestFeedComponent } from './components/latest-feed/latest-feed.component';
 import { HotShortsComponent } from './components/hot-shorts/hot-shorts.component';
@@ -942,6 +945,10 @@ export class LobbyPage implements OnInit, OnDestroy {
 
   // TOP100은 탭 변경 시에만 요청 (성능 최적화 — 폴링 대상 아님)
   loadCategoryTop100() {
+    // 100행 목록이 스켈레톤(10행)으로 바뀌면 아래 광고 슬롯(3번째)이 수천 px 위로 당겨지는데,
+    // 좌표는 레이아웃 뒤 다음 프레임에 가므로 한 프레임은 광고가 옛 자리에 남아 목록 위에 겹쳐 보였다(iOS 0.1초 보고).
+    // 목록을 바꾸기 전에 그 슬롯을 먼저 화면 밖으로 보내고, 새 목록이 그려진 뒤에 되돌린다
+    this.suppressAdSlot(TOP100_AD_SLOT);
     this.isLoadingTop100 = true;
     this.http.get(`/api/super/leaderboard/category?rankType=${this.vsRankMode}&category=${this.vsCategory}`)
       .subscribe({
@@ -952,11 +959,43 @@ export class LobbyPage implements OnInit, OnDestroy {
             // 탭을 바꾸면 행 DOM이 통째로 교체되므로 아바타 모션 옵저버를 다시 붙인다
             this.setupMotionObserver();
           }
-          // 리스트 길이 변화로 슬롯이 밀리므로 렌더 후 위치 재전송
-          setTimeout(() => this.sendAdSlotPosition());
+          this.releaseAdSlotAfterRender(TOP100_AD_SLOT);
         },
-        error: () => { this.isLoadingTop100 = false; }
+        error: () => {
+          this.isLoadingTop100 = false;
+          this.releaseAdSlotAfterRender(TOP100_AD_SLOT);
+        }
       });
+  }
+
+  /** 레이아웃이 크게 바뀌는 동안 잠시 숨겨 둔 슬롯 번호 */
+  private suppressedAdSlots = new Set<number>();
+  private adSlotReleaseFrame: number | null = null;
+
+  /** 슬롯을 숨김 목록에 넣고 지금 바로 좌표를 보낸다 — DOM 이 바뀌어 그려지기 전에 네이티브가 치우게 */
+  private suppressAdSlot(index: number) {
+    if (this.adSlotReleaseFrame !== null) {
+      cancelAnimationFrame(this.adSlotReleaseFrame);
+      this.adSlotReleaseFrame = null;
+    }
+    if (this.suppressedAdSlots.has(index)) return;
+    this.suppressedAdSlots.add(index);
+    this.sendAdSlotPosition();
+  }
+
+  /**
+   * 새 목록이 그려진 뒤(두 프레임 뒤 — 첫 프레임에 Angular 가 DOM 을 바꾸고 다음 프레임에 레이아웃이 안정된다)
+   * 숨김을 풀고 새 자리로 좌표를 보낸다. ion-item 하이드레이션으로 조금 더 바뀌는 높이는 ResizeObserver 가 이어서 맞춘다
+   */
+  private releaseAdSlotAfterRender(index: number) {
+    if (this.adSlotReleaseFrame !== null) cancelAnimationFrame(this.adSlotReleaseFrame);
+    this.adSlotReleaseFrame = requestAnimationFrame(() => {
+      this.adSlotReleaseFrame = requestAnimationFrame(() => {
+        this.adSlotReleaseFrame = null;
+        this.suppressedAdSlots.delete(index);
+        this.sendAdSlotPosition();
+      });
+    });
   }
 
   // 뉴스 티커 터치 → 현재 진행 중인 VS 카드로 시선 이동 (2-27차)
@@ -1562,6 +1601,10 @@ export class LobbyPage implements OnInit, OnDestroy {
     if (this.layoutResizeObserver) this.layoutResizeObserver.disconnect();
     if (this.layoutMutationObserver) this.layoutMutationObserver.disconnect();
     if (this.layoutResendFrame !== null) cancelAnimationFrame(this.layoutResendFrame);
+    if (this.adSlotReleaseFrame !== null) cancelAnimationFrame(this.adSlotReleaseFrame);
+    this.adSlotReleaseFrame = null;
+    this.suppressedAdSlots.clear();
+    this.isAdFaded = false;
     this.layoutResizeObserver = null;
     this.layoutMutationObserver = null;
     this.layoutResendFrame = null;
@@ -1585,9 +1628,34 @@ export class LobbyPage implements OnInit, OnDestroy {
     const tabBar = document.querySelector('.vs-tab-bar');
     const tabBarBottom = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
 
-    const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom);
-    if (slots.length === 0) return;
-    NativeBridge.setSlotPositions({ slots }).catch(() => { });
+    const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom, this.suppressedAdSlots);
+    // 보낼 슬롯이 하나도 없으면 생략 — 단, 숨김 중인 슬롯이 있으면 빈 목록을 보내 네이티브가 치우게 한다
+    if (slots.length === 0 && this.suppressedAdSlots.size === 0) return;
+    NativeBridge.setSlotPositions({ slots, faded: this.isAdFaded }).catch(() => { });
+  }
+
+  // ==========================================
+  // 빠른 스크롤 중 광고 페이드 (2026-10-23 클라이언트 10번)
+  // 좌표는 브리지를 건너 1~3프레임 늦게 적용되므로 빠르게 넘길 때 광고가 주변과 어긋나 떨려 보인다.
+  // 속도가 임계치를 넘으면 투명하게 숨기고(위치 전송은 계속), 느려지거나 멈추면 제자리에서 다시 나타낸다
+  // ==========================================
+
+  /** 현재 광고가 페이드 아웃돼 있는지 (setSlotPositions 의 faded 로 함께 나간다) */
+  private isAdFaded = false;
+
+  /** ion-content 의 velocityY 로 페이드 상태를 갱신. 바뀌면 바로 한 번 보낸다 */
+  private updateAdFade(velocityY: number | undefined) {
+    const next = nextAdFadeState(velocityY, this.isAdFaded);
+    if (next === this.isAdFaded) return;
+    this.isAdFaded = next;
+    this.sendAdSlotPosition();
+  }
+
+  /** 스크롤이 완전히 멈추면 반드시 되돌린다 (관성 끝 velocityY 가 임계치 아래로 내려오지 않는 경우 대비) */
+  onLobbyScrollEnd() {
+    if (!this.isAdFaded) return;
+    this.isAdFaded = false;
+    this.sendAdSlotPosition();
   }
 
   /**
@@ -1618,7 +1686,10 @@ export class LobbyPage implements OnInit, OnDestroy {
       // 펼침 트랜지션(0.35초)이 끝난 뒤 광고 슬롯 위치를 다시 보낸다
       setTimeout(() => this.sendAdSlotPosition(), 400);
     }
-    this.sendAdSlotPosition();
+    // 페이드 상태가 바뀌면 그 안에서 한 번 보내므로 중복 전송하지 않는다
+    const fadedBefore = this.isAdFaded;
+    this.updateAdFade(ev && ev.detail ? ev.detail.velocityY : undefined);
+    if (fadedBefore === this.isAdFaded) this.sendAdSlotPosition();
   }
 
   // ==========================================

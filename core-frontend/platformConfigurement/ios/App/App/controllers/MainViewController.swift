@@ -208,7 +208,11 @@ class MainViewController: CAPBridgeViewController, NativeAdLoaderDelegate, Nativ
   // 로비 모드: wrapper 상단을 화면 기준 y(pt)로 이동 — 광고가 sticky 탭 바 밑에서 클리핑되는 경계
   func setWrapperTopOffset(fromScreenTop y: CGFloat) {
     let safeTop = self.view.safeAreaInsets.top
-    adWrapperTopConstraint.constant = max(0, y - safeTop)
+    let constant = max(0, y - safeTop)
+    // 스크롤마다 호출되므로 값이 바뀔 때만 제약을 건드린다 (같은 값이어도 setNeedsLayout 이 걸린다)
+    if abs(adWrapperTopConstraint.constant - constant) > 0.5 {
+      adWrapperTopConstraint.constant = constant
+    }
   }
 
   // 스타 페이지 등 기존 모드 복귀 시 원래 경계(헤더 아래 43pt)로 복원
