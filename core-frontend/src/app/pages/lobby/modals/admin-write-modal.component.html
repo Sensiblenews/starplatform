@@ -145,7 +145,8 @@
     </div>
 </div>
 
-<ion-footer class="ion-no-border">
+<!-- 키보드가 열려 있으면 숨긴다 (kb-hidden) — 입력 중에는 Post 바 대신 입력칸을 더 보여 준다 -->
+<ion-footer class="ion-no-border" [class.kb-hidden]="isKeyboardOpen">
     <ion-toolbar>
     <div class="footer-actions" *ngIf="isEdit; else postAction">
         <ion-button fill="outline" color="medium" class="cancel-btn" (click)="close()" [disabled]="isSubmitting">Cancel</ion-button>

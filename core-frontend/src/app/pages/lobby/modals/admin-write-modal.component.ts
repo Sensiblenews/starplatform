@@ -1,5 +1,7 @@
-import { Component, Input, OnInit } from '@angular/core';
-import { ModalController, AlertController, ToastController } from '@ionic/angular';
+import { Component, Input, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { ModalController, AlertController, ToastController, Platform } from '@ionic/angular';
+import { PluginListenerHandle } from '@capacitor/core';
+import { Keyboard } from '@capacitor/keyboard';
 import { HttpService } from 'src/app/services/http.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FeedUploadService } from 'src/app/services/feed-upload.service';
@@ -22,7 +24,7 @@ interface ExistingMedia {
   templateUrl: './admin-write-modal.component.html',
   styleUrls: [`./admin-write-modal.component.scss`]
 })
-export class AdminWriteModalComponent implements OnInit {
+export class AdminWriteModalComponent implements OnInit, OnDestroy {
   @Input() adminLevel: string; 
   
   // 🌟 신규: 스타 여부 및 스타 ID 파라미터 추가
@@ -66,13 +68,20 @@ export class AdminWriteModalComponent implements OnInit {
   /** 동영상 전송 실패 사유 — 모달을 닫지 않고 보여 주고 Post 로 다시 시도한다 */
   uploadError: string | null = null;
 
+  /** 소프트 키보드가 열려 있는 동안 true — 하단 Post 바를 숨긴다 (앱에서만, 2026-10-23 클라이언트 요청) */
+  isKeyboardOpen = false;
+  private keyboardListeners: PluginListenerHandle[] = [];
+  private destroyed = false;
+
   constructor(
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
     private http: HttpService,
     private sanitizer: DomSanitizer,
     private toastCtrl: ToastController,
-    private feedUpload: FeedUploadService
+    private feedUpload: FeedUploadService,
+    private platform: Platform,
+    private zone: NgZone
   ) {}
 
   /** 모달이 닫힌 뒤에도 결과를 알리기 위한 토스트 */
@@ -89,6 +98,28 @@ export class AdminWriteModalComponent implements OnInit {
   ngOnInit() {
     if (this.guard) this.guard.isDirty = () => this.isDirty();
     if (this.isEdit) this.loadForEdit();
+    this.listenKeyboard();
+  }
+
+  ngOnDestroy() {
+    this.destroyed = true;
+    this.keyboardListeners.forEach(h => h.remove());
+    this.keyboardListeners = [];
+  }
+
+  /**
+   * 키보드 열림·닫힘을 받아 Post 바를 숨기고 되살린다. 네이티브 앱에서만 이벤트가 오므로 웹에서는 등록하지 않는다.
+   * 플러그인 콜백은 Angular 영역 밖에서 올 수 있어 zone 안에서 상태를 바꾼다
+   */
+  private listenKeyboard() {
+    if (!this.platform.is('capacitor')) return;
+    const setOpen = (open: boolean) => this.zone.run(() => { this.isKeyboardOpen = open; });
+    // 등록이 비동기라 그 사이 모달이 닫혔으면 바로 해제한다
+    const keep = (h: PluginListenerHandle) => {
+      if (this.destroyed) h.remove(); else this.keyboardListeners.push(h);
+    };
+    Keyboard.addListener('keyboardWillShow', () => setOpen(true)).then(keep);
+    Keyboard.addListener('keyboardWillHide', () => setOpen(false)).then(keep);
   }
 
   get isEdit(): boolean {

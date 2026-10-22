@@ -266,6 +266,21 @@ ion-content { --background: #fff; }
 }
 
 // ⬇️ 하단 고정 버튼 — 새 글은 Post 하나, 수정은 Cancel + Save Changes
+// 키보드가 열려 있는 동안은 버튼 바를 화면 아래로 내려 숨긴다 (2026-10-23 클라이언트 요청).
+// 흐름에서 빼서(absolute) 입력칸이 그 자리까지 늘어나게 하고, 키보드가 닫히면 원래 자리로 올라온다
+ion-footer {
+    transition: transform 150ms ease-out;
+
+    &.kb-hidden {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: translateY(100%);
+        pointer-events: none;
+    }
+}
+
 .footer-actions {
     display: flex;
     gap: 10px;
