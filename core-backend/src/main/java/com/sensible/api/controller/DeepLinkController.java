@@ -42,6 +42,11 @@ public class DeepLinkController {
 		return WebCardUtil.escapeHtml(s);
 	}
 
+	/** escape 된 본문·소개문의 주소를 새 탭 링크로 (2026-10-23 — 앱과 같은 자동 링크를 웹에도) */
+	private String linkify(String escapedText) {
+		return WebCardUtil.linkify(escapedText);
+	}
+
 	private String snippet(String body, int maxCodePoints) {
 		return WebCardUtil.snippet(body, maxCodePoints);
 	}
@@ -361,7 +366,7 @@ public class DeepLinkController {
 					Object bioObj = starInfo.get("PRS_BIO");
 					String bio = bioObj != null ? String.valueOf(bioObj).trim() : "";
 					if (!bio.isEmpty()) {
-						model.addAttribute("starBio", escapeHtml(bio));
+						model.addAttribute("starBio", linkify(escapeHtml(bio)));
 					}
 
 					// 🌟 [2-27차] Related Stars: 승인 게시물 보유 스타로만 내부 링크 (같은 카테고리 우선)
@@ -499,7 +504,7 @@ public class DeepLinkController {
 					// 기존 50% 컷 + 프리뷰 잠금을 제거하고 전문을 내려준다 — 클라이언트 확정)
 					model.addAttribute("landingType", "post");
 					model.addAttribute("previewTitle", escapeHtml(displayPostTitle));
-					model.addAttribute("previewBody", escapeHtml(fullBody != null ? fullBody.trim() : ""));
+					model.addAttribute("previewBody", linkify(escapeHtml(fullBody != null ? fullBody.trim() : "")));
 					// 첨부 미디어가 없으면 히어로 이미지를 렌더링하지 않도록 빈 값 전달 (기본 아이콘은 OG 전용)
 					model.addAttribute("previewImage", (medias != null && !medias.isEmpty()) ? imageUrl : "");
 
@@ -533,7 +538,7 @@ public class DeepLinkController {
 					// 2) 제목 = 본문 첫 줄, 나머지는 본문. 첫 줄이 너무 길면 제목이 아니라 본문으로 본다
 					String[] split = splitHeadline(fullBody);
 					model.addAttribute("postHeadline", escapeHtml(split[0]));
-					model.addAttribute("postBodyRest", escapeHtml(split[1]));
+					model.addAttribute("postBodyRest", linkify(escapeHtml(split[1])));
 					// 3) 반응 수 + 작성자 직군
 					model.addAttribute("postLikes", content.get("LIKE_CNT"));
 					model.addAttribute("postComments", content.get("COMMENT_CNT"));
@@ -597,7 +602,7 @@ public class DeepLinkController {
 						model.addAttribute("authorViews", authorSummary.get("viewCount"));
 						Object authorBio = authorSummary.get("bio");
 						if (authorBio != null && !String.valueOf(authorBio).trim().isEmpty()) {
-							model.addAttribute("authorBio", escapeHtml(String.valueOf(authorBio).trim()));
+							model.addAttribute("authorBio", linkify(escapeHtml(String.valueOf(authorBio).trim())));
 						}
 					}
 					// 🌟 [2-27차] 관리자 공지는 작성자 카드 대신 배지로 표기 (스타 페이지 링크가 없으므로)
