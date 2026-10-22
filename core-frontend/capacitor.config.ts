@@ -54,9 +54,12 @@ const config: CapacitorConfig = {
       enabled: true,
     },
     Keyboard: {
+      // resize 는 iOS 전용 설정 (Android 는 매니페스트 windowSoftInputMode 를 따른다)
       resize: KeyboardResize.Body,
       style: KeyboardStyle.Dark,
-      resizeOnFullScreen: true,
+      // Android 전용. EdgeToEdge 환경에서 플러그인이 getWindowVisibleDisplayFrame 으로 콘텐츠 높이를 바꾸던 우회를 끈다.
+      // 키보드 인셋은 MainActivity 의 인셋 리스너가 웹뷰 여백으로 직접 반영한다 (2026-10-23 첫 스크롤 튐 수정)
+      resizeOnFullScreen: false,
     },
     FirebaseAuthentication: {
       skipNativeAuth: false,

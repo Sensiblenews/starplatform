@@ -12,11 +12,14 @@ ion-content { --background: #fff; }
     min-height: 100%;
 }
 
-// ✏️ 본문 입력 — 화면 높이의 절반 정도를 쓰고 글자 수를 오른쪽 아래에 둔다
+// ✏️ 본문 입력 — 첫 화면에서 첨부 버튼·미리보기까지 보이도록 '화면에서 나머지를 뺀 남는 높이'를 채운다.
+//    (2026-10-23 클라이언트 요청) vh 고정값 대신 flex 로 계산한다. 아래 첨부·미리보기 블록은 flex: none 으로 높이를 고정하고
+//    이 상자만 flex: 1 로 늘어난다. 첨부가 많아 화면을 넘으면 입력칸은 최소 높이로 줄고 ion-content 가 스크롤된다
 .compose-box {
     position: relative;
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     border: 1px solid #e3e6ec;
     border-radius: 14px;
     padding: 14px 14px 10px;
@@ -31,8 +34,9 @@ ion-content { --background: #fff; }
 
 .content-input {
     width: 100%;
-    // 2-35차: 34vh → 23vh(2/3) → 34vh 원복 → 클라이언트 요청으로 1.2배(41vh)
-    min-height: 41vh;
+    // 남는 높이를 모두 쓴다. 최소 140px 은 작은 화면·첨부가 많을 때의 하한
+    flex: 1 1 auto;
+    min-height: 140px;
     border: none;
     outline: none;
     font-size: 15px;
@@ -71,6 +75,7 @@ ion-content { --background: #fff; }
 
 // 📎 첨부 버튼 3칸
 .attach-grid {
+    flex: none;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
@@ -101,6 +106,7 @@ ion-content { --background: #fff; }
 
 // 첨부 상한 안내 (2-33차)
 .upload-hint {
+    flex: none;
     font-size: 11px;
     color: var(--ion-color-medium);
     margin: 6px 0 0 4px;
@@ -108,6 +114,7 @@ ion-content { --background: #fff; }
 
 // 동영상 전송 실패 사유 (2-34차)
 .upload-error {
+    flex: none;
     font-size: 12px;
     color: var(--ion-color-danger);
     margin: 6px 0 0 4px;
@@ -115,6 +122,7 @@ ion-content { --background: #fff; }
 
 // 🎬 YouTube URL 입력 바
 .youtube-input-section {
+    flex: none;
     margin-top: 12px;
 
     .youtube-input-bar {
@@ -152,6 +160,7 @@ ion-content { --background: #fff; }
 
 // 📸🎥🎬 첨부 미리보기
 .preview-label {
+    flex: none;
     margin: 18px 0 8px 2px;
     font-size: 14px;
     font-weight: 700;
@@ -159,6 +168,7 @@ ion-content { --background: #fff; }
 }
 
 .preview-empty {
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -175,6 +185,7 @@ ion-content { --background: #fff; }
 }
 
 .preview-container {
+    flex: none;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
@@ -255,6 +266,21 @@ ion-content { --background: #fff; }
 }
 
 // ⬇️ 하단 고정 버튼 — 새 글은 Post 하나, 수정은 Cancel + Save Changes
+// 키보드가 열려 있는 동안은 버튼 바를 화면 아래로 내려 숨긴다 (2026-10-23 클라이언트 요청).
+// 흐름에서 빼서(absolute) 입력칸이 그 자리까지 늘어나게 하고, 키보드가 닫히면 원래 자리로 올라온다
+ion-footer {
+    transition: transform 150ms ease-out;
+
+    &.kb-hidden {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: translateY(100%);
+        pointer-events: none;
+    }
+}
+
 .footer-actions {
     display: flex;
     gap: 10px;
