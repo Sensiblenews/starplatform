@@ -36,6 +36,9 @@ public class AlertMailServiceTest {
 		assertTrue(body.contains("플랫폼    : 7001"));
 		assertTrue(body.contains("현재 수치 : 87%"));
 		assertTrue(body.contains("발생 시각 : 2026-10-12 10:00:00"));
+		assertTrue(body.contains("확인 시각 : 2026-10-12 10:05:00"));
+		assertFalse(body.contains("알림 시각"));
+		assertTrue(body.contains("발송 시각 : " + AlertMailService.SENT_AT_TOKEN));
 		assertTrue(body.contains("경보 ID   : 42"));
 		assertTrue(body.contains("정리하세요"));
 		assertTrue(body.contains("https://x/super/alert/center.do"));
@@ -55,6 +58,29 @@ public class AlertMailServiceTest {
 		assertTrue(body.contains("경보 ID     : 7"));
 		assertEquals("0분", AlertMailService.durationText(-5));
 		assertEquals("12분", AlertMailService.durationText(12 * 60000L));
+	}
+
+	// ===== 2026-10-23: 발송 시각은 전송 직전에 채운다 =====
+
+	@Test
+	public void 발송_시각_토큰은_전송_시도_시각으로_바뀐다() {
+		String body = AlertMailService.alertBody("발생", "위험", "W", "x", "v", "2026-10-23 09:00:00", "2026-10-23 09:05:00", 1L, "r", null);
+		java.util.Calendar c = java.util.Calendar.getInstance();
+		c.set(2026, java.util.Calendar.OCTOBER, 23, 9, 5, 12);
+		String stamped = AlertMailService.stampSentAt(body, c.getTime());
+		assertTrue(stamped.contains("발송 시각 : 2026-10-23 09:05:12"));
+		assertFalse(stamped.contains(AlertMailService.SENT_AT_TOKEN));
+		// 발생·확인 시각은 그대로
+		assertTrue(stamped.contains("발생 시각 : 2026-10-23 09:00:00"));
+		assertTrue(stamped.contains("확인 시각 : 2026-10-23 09:05:00"));
+	}
+
+	@Test
+	public void 복구_본문에도_발송_시각_토큰이_있고_토큰_없는_본문은_그대로다() {
+		String body = AlertMailService.recoveryBody("W", "x", "긴급", "a", "b", 0L, "v", 7L);
+		assertTrue(body.contains("발송 시각   : " + AlertMailService.SENT_AT_TOKEN));
+		assertEquals("plain", AlertMailService.stampSentAt("plain", new java.util.Date()));
+		assertNull(AlertMailService.stampSentAt(null, new java.util.Date()));
 	}
 
 	// ===== 2-35차: 메일 → 경보 상세 바로가기 =====
