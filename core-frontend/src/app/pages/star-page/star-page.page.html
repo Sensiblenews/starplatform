@@ -17,14 +17,15 @@
     <ion-refresher-content pullingText="Pull to check authentication..."
       refreshingText="Verifying..."></ion-refresher-content>
   </ion-refresher>
-  <app-skeleton *ngIf="isLoadingStar" variant="page"></app-skeleton>
+  <!-- 로비가 이름·사진을 넘겨준 진입이면 헤더 스켈레톤 대신 헤더를 바로 그린다 (2026-10-23 6번) -->
+  <app-skeleton *ngIf="isLoadingStar && !hasStarPreview" variant="page"></app-skeleton>
 
   <!-- 프로필 사진 변경용 파일 입력. *ngIf 블록 밖에 둬야 한다 — 템플릿 참조(#fileInput)는 *ngIf 안에 있으면
        바깥(프로필 확대 뷰어의 Change Photo 버튼)에서 보이지 않아 클릭이 아무 일도 하지 않았다
        (2026-08-20 헤더를 스켈레톤용 *ngIf 로 감싸면서 생긴 회귀, 2-35차 수정) -->
   <input type="file" #fileInput accept="image/*" style="display: none" (change)="onFileSelected($event)">
 
-  <div class="profile-header" *ngIf="!isLoadingStar">
+  <div class="profile-header" *ngIf="!isLoadingStar || hasStarPreview">
     <div class="profile-info-pill">
       <div class="avatar-container" (click)="openProfileViewer()" [style.cursor]="'pointer'">
         <ion-avatar>
@@ -43,7 +44,7 @@
         </div>
 
         <!-- 스타 소개문 — 이름 바로 아래 1줄 말줄임. 탭하면 소유자는 편집, 방문자는 전문 보기(2-28차) -->
-        <div class="star-bio-line" *ngIf="starInfo?.PRS_BIO || isStar">
+        <div class="star-bio-line" *ngIf="(starInfo?.PRS_BIO || isStar) && !isLoadingStar">
           <!-- 주소는 파란 링크로 (2-35차). 방문자가 탭하면 전문 보기 오버레이 -->
           <span class="bio-text" *ngIf="starInfo?.PRS_BIO"
             [innerHTML]="getBioHtml(false)" (click)="onBioClick($event)"></span>
@@ -63,7 +64,8 @@
           </button>
         </div>
 
-        <div class="info-stats-line">
+        <!-- 수치는 응답이 와야 맞는 값이라 미리 그린 헤더에서는 비워 둔다 -->
+        <div class="info-stats-line" *ngIf="!isLoadingStar">
           <div class="stat-item stat-item-views">
             👁️ <span class="num">{{ formatNumber(displayViewCount) }}</span>
             <div *ngIf="showPlus" class="floating-plus">+1</div>
@@ -84,7 +86,7 @@
 
     </div>
 
-    <div class="action-bar-container">
+    <div class="action-bar-container" *ngIf="!isLoadingStar">
       <div class="action-bar">
         <ion-button fill="clear" color="dark" (click)="toggleLike(null, 'star')">
           <ion-icon slot="start" [name]="starAction.hasLiked ? 'heart' : 'heart-outline'"

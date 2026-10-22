@@ -381,6 +381,10 @@ export class LobbyPage implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
+    // 스타 페이지·콘텐츠 상세의 상단 로고로 돌아온 경우 로비 맨 위로 (2026-10-23 8번).
+    // 로비는 라우터 스택에 살아 있어 이전 스크롤 위치가 남아 있으므로 명시적으로 올린다
+    this.consumeLobbyScrollTopRequest();
+
     // 딥링크 로그인 후 로비로 돌아왔을 때, 최신 스토리지를 다시 읽어옵니다.
     this.isAdmin = localStorage.getItem('isAdmin') === 'true';
     this.adminLevel = localStorage.getItem('adminLevel') || '';
@@ -1303,7 +1307,11 @@ export class LobbyPage implements OnInit, OnDestroy {
     event.target.src = this.defaultAvatar;
   }
 
-  async goToStarPage(starId: string) {
+  /**
+   * 스타 페이지로 이동. star 가 함께 오면 이름·사진을 라우터 상태로 넘겨 스타 페이지가 응답을 기다리지 않고
+   * 헤더부터 그린다 (2026-10-23 6번 — 앱 실행 직후 진입이 느리게 느껴지는 문제). 목록 데이터가 없는 호출은 예전과 같다
+   */
+  async goToStarPage(starId: string, star?: { id?: any; name?: string; image?: string | null }) {
     this.haptic.tap();
 
     this.perf.start('스타페이지 진입');
@@ -1318,7 +1326,27 @@ export class LobbyPage implements OnInit, OnDestroy {
     }
 
     this.perf.mark('lobby:navigate');
-    this.router.navigate(['/star', starId]);
+    const preview = star && star.name
+      ? { id: String(starId), name: star.name, image: this.getStarImage(star.image || null) }
+      : null;
+    this.router.navigate(['/star', starId], preview ? { state: { starPreview: preview } } : undefined);
+  }
+
+  /** 로비 콘텐츠를 맨 위로. 로고 탭(애니메이션)과 다른 페이지에서의 복귀(즉시)가 함께 쓴다 */
+  private scrollLobbyToTop(duration: number) {
+    if (this.lobbyContent) this.lobbyContent.scrollToTop(duration).catch(() => { });
+  }
+
+  /** navigateBack('/lobby', { state: { lobbyScrollTop: true } }) 로 돌아왔으면 한 번만 맨 위로 올리고 상태를 지운다 */
+  private consumeLobbyScrollTopRequest() {
+    const state = window.history.state;
+    if (!state || !state.lobbyScrollTop) return;
+    this.scrollLobbyToTop(0);
+    try {
+      window.history.replaceState({ ...state, lobbyScrollTop: false }, '');
+    } catch (e) {
+      // 상태를 못 지워도 다음 복귀 때 한 번 더 올라갈 뿐이다
+    }
   }
 
   async goToContentPage(contentId: string) {
@@ -1792,6 +1820,8 @@ export class LobbyPage implements OnInit, OnDestroy {
     this.searchResults = [];
     this.contentResults = [];
     this.shuffleStars();
+    // 로고 탭 = 로비 첫 화면으로 (2026-10-23 8번). 다른 페이지의 로고는 navigateBack 상태값으로 같은 동작을 요청한다
+    this.scrollLobbyToTop(300);
 
     this.titleTapCount++;
     clearTimeout(this.tapTimeout);

@@ -113,9 +113,9 @@ export class FeedDetailPage implements OnInit, OnDestroy {
     await modal.present();
   }
 
-  // 헤더 로고 탭 → 로비 (스타 페이지 goBack 과 동일한 동작)
+  // 헤더 로고 탭 → 로비 첫 화면 (스타 페이지 goBack 과 동일한 동작, 2026-10-23 8번)
   goLobby() {
-    this.navCtrl.navigateBack('/lobby');
+    this.navCtrl.navigateBack('/lobby', { state: { lobbyScrollTop: true } });
   }
 
   // 헤더 점점점 메뉴 (2-33차 — 아이콘만 있고 동작이 없던 버그 수정)

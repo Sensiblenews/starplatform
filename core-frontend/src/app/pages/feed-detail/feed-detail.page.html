@@ -25,8 +25,8 @@
     <div class="media-item" *ngFor="let media of getPhotoList(); let i = index">
       <!-- 승인 전에는 주소가 없다. 작성자 본인은 토큰 주소로 보고, 타인은 안내를 본다(2-26차) -->
       <ng-container *ngIf="media.displayUrl; else underReview">
-        <!-- 탭하면 전체 화면 뷰어 — 두 손가락으로 확대·축소 (2-35차) -->
-        <img [src]="media.displayUrl" (error)="handleImgError($event)" (click)="openPhotoViewer(i)" />
+        <!-- 탭하면 전체 화면 뷰어(2-35차). 탭하기 전에도 두 손가락으로 제자리 확대 — 핀치 직후 탭은 디렉티브가 막는다 (2026-10-23 4번) -->
+        <img appPinchZoom [src]="media.displayUrl" (error)="handleImgError($event)" (click)="openPhotoViewer(i)" />
       </ng-container>
       <ng-template #underReview>
         <div class="review-box">
