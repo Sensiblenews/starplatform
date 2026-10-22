@@ -56,4 +56,24 @@ public class AlertMailServiceTest {
 		assertEquals("0분", AlertMailService.durationText(-5));
 		assertEquals("12분", AlertMailService.durationText(12 * 60000L));
 	}
+
+	// ===== 2-35차: 메일 → 경보 상세 바로가기 =====
+
+	@Test
+	public void 경보_센터_주소는_상세_주소로_바뀐다() {
+		assertEquals("https://x/super/alert/detail.do?id=42", AlertMailService.detailUrl("https://x/super/alert/center.do", 42L));
+		assertEquals("https://x/ops?alertId=42", AlertMailService.detailUrl("https://x/ops", 42L));
+		assertEquals("https://x/ops?a=1&alertId=42", AlertMailService.detailUrl("https://x/ops?a=1", 42L));
+		// DB 미기록 경보는 목록 그대로
+		assertEquals("https://x/super/alert/center.do", AlertMailService.detailUrl("https://x/super/alert/center.do", 0L));
+	}
+
+	@Test
+	public void 복구_본문에_상세_링크가_들어간다() {
+		String body = AlertMailService.recoveryBody("WITCH", "DB 연결", "긴급", "10:00", "11:35", 95 * 60000L, "정상", 7L,
+				"https://x/super/alert/detail.do?id=7");
+		assertTrue(body.contains("https://x/super/alert/detail.do?id=7"));
+		assertFalse(AlertMailService.recoveryBody("W", "x", "긴급", "a", "b", 0L, "v", 7L).contains("▶"));
+	}
 }
+

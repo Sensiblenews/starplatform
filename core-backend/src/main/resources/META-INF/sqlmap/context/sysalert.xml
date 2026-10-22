@@ -94,4 +94,13 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 경보 한 건의 경과 (2-35차 경보 상세). 조치 메모(ACTION)도 같은 테이블에 남는다 -->
+    <select id="selectEventsOfAlert" parameterType="map" resultType="hashmap">
+        SELECT EVENT_ID, ALERT_ID, ALERT_KEY, EVENT_TYPE, SEVERITY, MESSAGE, ACTOR, CREATED_DATE
+        FROM WH_SYS_ALERT_EVENT
+        WHERE ALERT_ID = #{ALERT_ID}
+        ORDER BY EVENT_ID ASC
+        LIMIT 500
+    </select>
+
 </mapper>

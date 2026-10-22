@@ -64,7 +64,7 @@
                             <div class="val"><c:out value="${r.valueText}"/></div>
                             <div class="desc"><c:out value="${r.message}"/></div>
                             <c:if test="${r.open != null}">
-                                <div class="desc mt-1">경보 #<c:out value="${r.alertId}"/> 열림
+                                <div class="desc mt-1"><a href="/super/alert/detail.do?id=${r.alertId}">경보 #<c:out value="${r.alertId}"/></a> 열림
                                     <c:if test="${r.acked}">· 확인됨</c:if>
                                     <c:if test="${!r.acked && r.alertId gt 0}"><a href="#" class="ms-1" onclick="ack(${r.alertId}); return false;">확인 처리</a></c:if>
                                 </div>
@@ -85,15 +85,16 @@
                     <tbody>
                         <c:forEach var="a" items="${openAlerts}">
                             <tr>
-                                <td class="small"><c:out value="${a.ALERT_ID}"/></td>
+                                <td class="small"><a href="/super/alert/detail.do?id=${a.ALERT_ID}"><c:out value="${a.ALERT_ID}"/></a></td>
                                 <td><span class="badge badge-${a.SEVERITY}"><c:out value="${a.SEVERITY}"/></span></td>
-                                <td class="fw-semibold"><c:out value="${a.TITLE}"/></td>
+                                <td class="fw-semibold"><a href="/super/alert/detail.do?id=${a.ALERT_ID}" class="text-reset"><c:out value="${a.TITLE}"/></a></td>
                                 <td class="small"><c:out value="${a.MESSAGE}"/></td>
                                 <td class="small text-secondary text-nowrap"><c:out value="${a.OPENED_DATE}"/></td>
                                 <td class="small"><c:out value="${a.DURATION_MIN}"/>분</td>
                                 <td class="small"><c:choose><c:when test="${a.MAIL_SENT_YN eq 'Y'}">발송 <c:out value="${a.NOTIFY_COUNT}"/>회</c:when><c:otherwise><span class="text-secondary">미발송</span></c:otherwise></c:choose></td>
                                 <td class="small"><c:choose><c:when test="${a.ACK_YN eq 'Y'}"><c:out value="${a.ACK_BY}"/><br><span class="text-secondary"><c:out value="${a.ACK_DATE}"/></span></c:when><c:otherwise><span class="text-danger">미확인</span></c:otherwise></c:choose></td>
-                                <td><c:if test="${a.ACK_YN ne 'Y'}"><button class="btn btn-sm btn-outline-primary" onclick="ack(${a.ALERT_ID})">확인</button></c:if></td>
+                                <td class="text-nowrap"><a class="btn btn-sm btn-primary" href="/super/alert/detail.do?id=${a.ALERT_ID}">상세·조치</a>
+                                    <c:if test="${a.ACK_YN ne 'Y'}"><button class="btn btn-sm btn-outline-primary" onclick="ack(${a.ALERT_ID})">확인</button></c:if></td>
                             </tr>
                         </c:forEach>
                         <c:if test="${empty openAlerts}"><tr><td colspan="9" class="text-center text-secondary py-4">열린 경보가 없습니다.</td></tr></c:if>
@@ -194,7 +195,7 @@
                     <tbody>
                         <c:forEach var="a" items="${recentAlerts}">
                             <tr>
-                                <td class="small"><c:out value="${a.ALERT_ID}"/></td>
+                                <td class="small"><a href="/super/alert/detail.do?id=${a.ALERT_ID}"><c:out value="${a.ALERT_ID}"/></a></td>
                                 <td><c:choose><c:when test="${a.STATUS eq 'OPEN'}"><span class="badge bg-danger">열림</span></c:when><c:otherwise><span class="badge bg-secondary">복구</span></c:otherwise></c:choose></td>
                                 <td><span class="badge badge-${a.SEVERITY}"><c:out value="${a.SEVERITY}"/></span></td>
                                 <td class="small fw-semibold"><c:out value="${a.TITLE}"/></td>
