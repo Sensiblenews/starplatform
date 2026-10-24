@@ -33,6 +33,35 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
     let y: CGFloat
     let hideAbove: CGFloat
   }
+
+  // 로비 스크롤 직결 (2026-10-25 iOS 미세떨림).
+  // 웹 좌표는 브리지를 건너 메인 스레드에 1~3프레임 늦게, 그것도 고르지 않은 간격으로 도착한다. 그 사이 콘텐츠는
+  // UI 프로세스의 스크롤 뷰(ion-content 의 overflow 스크롤 = WKChildScrollView)가 이미 움직여 광고만 뒤처졌다 따라붙는다.
+  // 웹은 좌표를 잰 순간의 scrollTop 을 함께 보내고, 네이티브는 그 스크롤 뷰의 contentOffset 변화를 KVO 로 받아
+  // "웹 좌표 − (현재 offset − 잰 순간 scrollTop)" 으로 같은 프레임에 옮긴다. 스크롤 뷰를 못 찾으면 예전처럼 웹 좌표만 쓴다
+  private var lobbySlots: [SlotPosition] = []
+  private var lobbyAnchorScrollTop: CGFloat?
+  private weak var lobbyScrollView: UIScrollView?
+  private var lobbyScrollObservation: NSKeyValueObservation?
+
+  #if DEBUG
+  /// 진단 로그 (Xcode 콘솔, 1초 단위): 받은 좌표 수·실제 transform/표시/제약 변경 수·브리지 지연(pt)
+  private var stat = (calls: 0, kvo: 0, transforms: 0, hiddenToggles: 0, wrapperMoves: 0, maxLag: CGFloat(0), since: Date())
+  private func statFlush() {
+    let elapsed = Date().timeIntervalSince(stat.since)
+    guard elapsed >= 1 else { return }
+    if stat.calls + stat.kvo > 0 {
+      NSLog("[lobbyAd] %.1fs calls=%d kvo=%d transforms=%d hiddenToggles=%d wrapperMoves=%d maxLag=%.1fpt linked=%@",
+            elapsed, stat.calls, stat.kvo, stat.transforms, stat.hiddenToggles, stat.wrapperMoves, stat.maxLag,
+            lobbyScrollView == nil ? "no" : "yes")
+    }
+    stat = (0, 0, 0, 0, 0, 0, Date())
+  }
+  /// 비교용: UserDefaults lobbyAdLegacySync=YES 면 스크롤 직결을 끄고 웹 좌표만 쓴다 (디버그 빌드 전용)
+  private var legacySync: Bool { UserDefaults.standard.bool(forKey: "lobbyAdLegacySync") }
+  #else
+  private var legacySync: Bool { false }
+  #endif
   
   // [신규] load()에서 계산한 스타 페이지 전용 위치 백업
   private var starPosY1: CGFloat = 0
@@ -115,6 +144,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
             // 로비 모드: 슬롯 6개 모두 사용. 웹 좌표(setSlotPositions) 수신 전까지 화면 밖에 대기
             self.lobbyMode = true
             self.resetLobbyFade()
+            self.resetLobbyLayout()
             for c in self.lobbyContainers() {
               self.parkOffscreen(c)
             }
@@ -128,6 +158,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
             // 스타 페이지: 미리 계산해둔 3개의 피드 슬롯 위치 복구
             self.lobbyMode = false
             self.resetLobbyFade()
+            self.resetLobbyLayout()
             self.clearLobbyClipping()
             (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = self.starPosY1
@@ -141,6 +172,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
         } else {
             // 일반 탭/로비 페이지: 상단에 고정 (예: 128pt)
             self.lobbyMode = false
+            self.resetLobbyLayout()
             self.clearLobbyClipping()
             (self.bridge?.viewController as? MainViewController)?.resetWrapperTopOffset()
             self.fixedPositionY1 = 128.0
@@ -157,6 +189,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
       } else {
         self.lobbyMode = false
         self.resetLobbyFade()
+        self.resetLobbyLayout()
         self.clearLobbyClipping()
         c1?.isHidden = true
         c2?.isHidden = true
@@ -174,6 +207,7 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
   // 목록에 없는 슬롯(아직 no-fill 또는 로드 중)은 화면 밖에 둔다 — 전체 숨김으로 인한 빈 구멍 방지
   @objc func setSlotPositions(_ call: CAPPluginCall) {
     let faded = call.getBool("faded") ?? false
+    let scrollTop = call.getDouble("scrollTop").map { CGFloat($0) }
     var slots: [SlotPosition] = []
     for item in call.getArray("slots") ?? [] {
       guard let dict = item as? [String: Any],
@@ -186,36 +220,143 @@ public class NativeBridge: CAPPlugin, CAPBridgedPlugin {
     DispatchQueue.main.async {
       defer { call.resolve([:]) }
       guard self.lobbyMode else { return }
-      let containers = self.lobbyContainers()
-
-      // wrapper 경계 = 받은 경계 중 가장 위 (슬롯 1·2 의 헤더 하단).
-      // 웹뷰는 화면 최상단(풀스크린)에서 시작하므로 y·hideAbove는 화면 기준 pt와 동일
-      let wrapperHide = slots.map { $0.hideAbove }.min() ?? 0
-      if let mainVC = self.bridge?.viewController as? MainViewController {
-        mainVC.setWrapperTopOffset(fromScreenTop: wrapperHide)
+      self.lobbySlots = slots
+      self.lobbyAnchorScrollTop = scrollTop
+      if let scrollTop = scrollTop, !self.legacySync {
+        self.linkLobbyScrollView(webScrollTop: scrollTop)
+      } else {
+        self.unlinkLobbyScrollView()
       }
-
-      var placed = [Bool](repeating: false, count: containers.count)
-      for s in slots where s.index >= 0 && s.index < containers.count {
-        guard let c = containers[s.index] else { continue }
-        c.isHidden = false
-        c.transform = CGAffineTransform(translationX: 0, y: s.y - wrapperHide)
-
-        // 이 슬롯만의 추가 경계(탭 바 하단)가 wrapper 경계보다 아래이고 카드 상단이 그 경계 위로 올라갔으면 그만큼 자른다.
-        // 마스크는 뷰 자신의 bounds 좌표계라 transform 과 무관하다
-        let extraClip = s.hideAbove - s.y
-        if s.hideAbove > wrapperHide + 0.5 && extraClip > 0 {
-          self.applyTopClip(c, top: min(extraClip, c.bounds.height))
-        } else {
-          c.layer.mask = nil
-        }
-        placed[s.index] = true
+      #if DEBUG
+      self.stat.calls += 1
+      if let sv = self.lobbyScrollView, let scrollTop = scrollTop {
+        self.stat.maxLag = max(self.stat.maxLag, abs(sv.contentOffset.y - scrollTop))
       }
-      for (i, c) in containers.enumerated() where !placed[i] {
-        self.parkOffscreen(c)
-      }
-      self.applyLobbyFade(containers, faded: faded)
+      #endif
+      self.layoutLobbySlots()
+      self.applyLobbyFade(self.lobbyContainers(), faded: faded)
     }
+  }
+
+  /// 마지막으로 받은 웹 좌표를 현재 스크롤 위치로 보정해 컨테이너에 적용한다. 좌표 수신과 스크롤(KVO) 양쪽에서 불린다.
+  /// 값이 실제로 바뀐 속성만 건드리고(같은 값 재설정도 레이어를 더럽혀 커밋 비용이 든다), 좌표는 기기 픽셀 단위로 맞춘다
+  private func layoutLobbySlots() {
+    guard lobbyMode else { return }
+    let containers = lobbyContainers()
+    let shift = currentScrollShift()
+
+    // wrapper 경계 = 받은 경계 중 가장 위 (슬롯 1·2 의 헤더 하단). 헤더·sticky 탭 바는 화면에 고정이라 보정하지 않는다.
+    // 웹뷰는 화면 최상단(풀스크린)에서 시작하므로 y·hideAbove는 화면 기준 pt와 동일
+    let wrapperHide = pixelRound(lobbySlots.map { $0.hideAbove }.min() ?? 0)
+    if let mainVC = bridge?.viewController as? MainViewController,
+       mainVC.setWrapperTopOffset(fromScreenTop: wrapperHide) {
+      #if DEBUG
+      stat.wrapperMoves += 1
+      #endif
+    }
+
+    // UIView 속성 변경이 다른 애니메이션 블록에 휩쓸려 보간되지 않게 한다
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    var placed = [Bool](repeating: false, count: containers.count)
+    for s in lobbySlots where s.index >= 0 && s.index < containers.count {
+      guard let c = containers[s.index] else { continue }
+      let y = pixelRound(s.y - shift)
+      if c.isHidden {
+        c.isHidden = false
+        #if DEBUG
+        stat.hiddenToggles += 1
+        #endif
+      }
+      let ty = y - wrapperHide
+      if c.transform.tx != 0 || abs(c.transform.ty - ty) > 0.01 {
+        c.transform = CGAffineTransform(translationX: 0, y: ty)
+        #if DEBUG
+        stat.transforms += 1
+        #endif
+      }
+
+      // 이 슬롯만의 추가 경계(탭 바 하단)가 wrapper 경계보다 아래이고 카드 상단이 그 경계 위로 올라갔으면 그만큼 자른다.
+      // 마스크는 뷰 자신의 bounds 좌표계라 transform 과 무관하다
+      let extraClip = s.hideAbove - y
+      if s.hideAbove > wrapperHide + 0.5 && extraClip > 0 {
+        applyTopClip(c, top: min(extraClip, c.bounds.height))
+      } else if c.layer.mask != nil {
+        c.layer.mask = nil
+      }
+      placed[s.index] = true
+    }
+    for (i, c) in containers.enumerated() where !placed[i] {
+      if let c = c, !c.isHidden {
+        parkOffscreen(c)
+        #if DEBUG
+        stat.hiddenToggles += 1
+        #endif
+      }
+    }
+    CATransaction.commit()
+    #if DEBUG
+    statFlush()
+    #endif
+  }
+
+  /// 웹이 좌표를 잰 뒤 실제로 더 스크롤된 양(pt). 스크롤 뷰가 연결되지 않았으면 0 (웹 좌표 그대로)
+  private func currentScrollShift() -> CGFloat {
+    guard let anchor = lobbyAnchorScrollTop, let sv = lobbyScrollView, sv.window != nil else { return 0 }
+    return sv.contentOffset.y - anchor
+  }
+
+  /// 화면 배율(2x/3x) 픽셀 경계로 반올림 — 소수점 좌표는 광고 글자·이미지를 매 프레임 다시 보간해 흔들려 보이게 한다
+  private func pixelRound(_ v: CGFloat) -> CGFloat {
+    let scale = bridge?.viewController?.view.window?.screen.scale ?? UIScreen.main.scale
+    return (v * scale).rounded() / scale
+  }
+
+  /// ion-content 의 스크롤 뷰를 찾아 contentOffset 을 구독한다. 이미 연결돼 있으면 그대로 둔다.
+  /// 후보는 웹뷰 안의 세로 스크롤 뷰 중 contentOffset 이 웹 scrollTop 과 맞는 것. 맨 위(scrollTop≈0)에서는
+  /// 다른 스크롤 영역과 구분이 안 되므로 확실히 하나로 좁혀질 때만 연결한다
+  private func linkLobbyScrollView(webScrollTop: CGFloat) {
+    if let sv = lobbyScrollView, sv.window != nil {
+      // 브리지 지연만큼의 차이는 정상이다. 터무니없이 어긋나면(페이지 교체 등) 다시 찾는다
+      if abs(sv.contentOffset.y - webScrollTop) < max(800, sv.bounds.height) { return }
+      unlinkLobbyScrollView()
+    }
+    guard webScrollTop > 20, let webView = bridge?.webView else { return }
+    var candidates: [UIScrollView] = []
+    func walk(_ v: UIView) {
+      for sub in v.subviews {
+        if let sv = sub as? UIScrollView, !sv.isHidden,
+           sv.contentSize.height > sv.bounds.height + 1,
+           sv.bounds.height > webView.bounds.height * 0.5,
+           abs(sv.contentOffset.y - webScrollTop) < 2 {
+          candidates.append(sv)
+        }
+        walk(sub)
+      }
+    }
+    walk(webView.scrollView)
+    guard candidates.count == 1, let sv = candidates.first else { return }
+    lobbyScrollView = sv
+    lobbyScrollObservation = sv.observe(\.contentOffset, options: []) { [weak self] _, _ in
+      guard let self = self, self.lobbyMode else { return }
+      #if DEBUG
+      self.stat.kvo += 1
+      #endif
+      self.layoutLobbySlots()
+    }
+  }
+
+  private func unlinkLobbyScrollView() {
+    lobbyScrollObservation?.invalidate()
+    lobbyScrollObservation = nil
+    lobbyScrollView = nil
+  }
+
+  /// 로비 모드 진입·이탈 시 지난 좌표와 스크롤 연결을 버린다
+  private func resetLobbyLayout() {
+    lobbySlots = []
+    lobbyAnchorScrollTop = nil
+    unlinkLobbyScrollView()
   }
 
   /// 페이드 상태가 바뀔 때만 모든 로비 컨테이너의 알파를 짧게 애니메이션한다. 위치는 이미 맞춰진 뒤라 제자리에서 나타난다

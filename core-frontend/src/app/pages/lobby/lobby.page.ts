@@ -1615,7 +1615,9 @@ export class LobbyPage implements OnInit, OnDestroy {
 
     const slots = buildAdSlotPositions(slotTops, headerBottom, tabBarBottom);
     if (slots.length === 0) return;
-    NativeBridge.setSlotPositions({ slots }).catch(() => { });
+    // 좌표를 잰 순간의 scrollTop 을 함께 보낸다. iOS 는 브리지를 건너는 동안 더 스크롤된 만큼을 네이티브 스크롤 위치로 보정한다
+    const scrollTop = this.lobbyScrollElement ? this.lobbyScrollElement.scrollTop : undefined;
+    NativeBridge.setSlotPositions({ slots, scrollTop }).catch(() => { });
   }
 
   /**
